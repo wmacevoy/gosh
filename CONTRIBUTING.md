@@ -17,6 +17,8 @@ record of how it came to be are in `../mosh-dev`; nothing is changed there.
 It prints PASS or says what failed, and CI runs the same command (`.github/workflows/ci.yml`).
 **There is no code yet, so today it checks only that the repository is sound** (`./se --doctor`:
 the working set, versioned citations, the queue). Queue item 3 adds the build and the tests to it.
+The doctor also asks GitHub whether the vendored guide is current: with no network it fails unless
+this machine was able to ask in the last 30 days, so a fresh machine or CI runner needs the network.
 Until then a claim about gosh's behaviour cannot be checked here
 ([SE1/A2](vendor/se1/guide/10-agents.md#a2)); what can be run is the old code:
 `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`, and `../mosh-dev/tools/speed.py` for
@@ -38,7 +40,11 @@ the figure `REQ6/SPEED-1` compares against.
 - **Every file that came from mosh or the fork keeps its copyright notice.** gosh is GPL-3.
 - **Never stop a process by name.** The machine this is developed on is also the owner's live mosh
   host and runs their private meetup. Stop what you started by process id.
-- **Tests ask servers on the Internet nothing.**
+- **Never run a test against the installed programs.** The fork's `nat-lab.py` ends by stopping
+  every process on the machine whose program file is under the directory it was given; given
+  `~/.local/bin`, that is the owner's live sessions. Tests get a build directory of their own.
+- **Tests ask servers on the Internet nothing.** (The doctor's release check, above, is not a test
+  of gosh and is the one thing in the check that does.)
 - **The owner signs each commit and tags each release.** The agent's review of a part is accepted
   (requirements, *Review*); the documentation says "not independently reviewed" until the third
   party's review, which comes before a class uses gosh.
