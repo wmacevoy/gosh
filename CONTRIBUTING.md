@@ -37,8 +37,10 @@ To reset: `rm -rf .build`. Nothing else holds state.
 
 The doctor also asks GitHub whether the vendored guide is current: with no network it fails unless
 this machine was able to ask in the last 30 days, so a fresh machine or CI runner needs the network.
-The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`,
-and `../mosh-dev/tools/speed.py` for the figure `REQ6/SPEED-1` compares against.
+`tools/speed.py SERVER CLIENT` measures how fast a forward carries bytes and what it costs the
+processor (`REQ6/SPEED-1`); pf.7's figures on this machine are in `docs/FINDINGS.md`. It is not
+part of the check: it takes a minute and a half, and nothing of gosh's can carry a forward yet.
+The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`.
 
 `./se --doctor` says what this repository lacks. The start hook that runs `./se --post` is in
 `.claude/settings.json`.

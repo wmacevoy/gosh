@@ -7,6 +7,34 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-13 — The baseline for speed: pf.7 on this machine, and a steadier figure than Mbit/s
+
+- **What happened:** `tools/speed.py`, brought here and given a second figure, measured the fork's
+  programs at `mosh-1.4.0-pf.7` (built in `.build/pf7`) twice, 20 MB a run, 5 runs each way, on
+  loopback, on the development machine (2 cores, AMD EPYC-Milan, load about 1):
+
+  | way | Mbit/s, median (lowest to highest) | CPU s/MB, median (lowest to highest) |
+  | --- | --- | --- |
+  | udp, first | 21.5 (18.4 to 28.5) | 0.1380 (0.1255 to 0.1425) |
+  | udp, second | 20.8 (17.4 to 26.3) | 0.1355 (0.1310 to 0.1410) |
+  | relay, first | 13.7 (13.2 to 14.9) | 0.2415 (0.2280 to 0.2495) |
+  | relay, second | 13.4 (12.8 to 14.7) | 0.2425 (0.2285 to 0.2530) |
+
+  By UDP the rate's runs spread by half again (17 to 28) while the processor time per megabyte
+  stays within about 7% of its median, and the two medians of each figure agree to 3%. And by UDP
+  the programs used about 2.7 processor seconds over about 7.5 seconds of sending 20 MB: the
+  processor is not what limits the rate. That fits design v2's inference that the unsteadiness is
+  recovery from loss on loopback and not the cost of the code; it does not show it.
+- **Kind:** K1 answered in part: the requirement's own note said the UDP figure was "too unsteady
+  yet to hold anything to".
+- **Cost:** three minutes of measuring.
+- **Findable by:** measuring what the programs spend as well as what the clock saw.
+- **Changed:** `REQ6/SPEED-1`'s kept measurement now reports both figures. Proposed, for the owner:
+  hold a part to 10% on **CPU s/MB** by UDP, where the rate cannot hold anything to 10%, and to
+  10% on both figures by the relay. Not yet done: a profile of pf.7 (no `perf` on this machine;
+  `gprof` would need a build of its own), and nothing compares gosh with these figures until a part
+  can carry a forward (queue item 5).
+
 ## 2026-11-13 — A meetup's proof of its key can be replayed by anyone who sees one
 
 - **What happened:** Reading `punch.cc` at pf.7 for the domain refactor proposal, a second agent
