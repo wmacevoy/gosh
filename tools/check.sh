@@ -61,4 +61,17 @@ reference headless-smoke.py 127.0.0.1 punched
 if python3 -c 'import socket; socket.socket(socket.AF_INET6, socket.SOCK_DGRAM).bind(("::1", 0))' 2>/dev/null; then
     reference headless-smoke.py ::1 blocked
 fi
+# The two shell tests take the client first, and absolute paths: they change directory.
+here=$(pwd)
+make -C .build/core/src/tests inpty >/dev/null 2>&1 || fail "building upstream's test helper, inpty"
+shell_reference() { # NAME ARGS...
+    name=$1; shift
+    if "tests/$name" "$here/$pf7/mosh-client" "$here/$pf7/mosh-server" "$@" >.build/reference.log 2>&1; then
+        echo "pf.7 passes $name"
+    else
+        cat .build/reference.log; stop_ours; fail "pf.7 with tests/$name"
+    fi
+}
+shell_reference mocp.test
+shell_reference wrapper.test "$here/.build/core/src/tests/inpty"
 echo "PASS"
