@@ -1,5 +1,7 @@
 # Requirements — v6
 
+**Superseded by `REQUIREMENTS_v7.md`** (2026-11-13), which adds the part names to the glossary and corrects an exception of SHAPE-1. Kept as it was written.
+
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v7.md`); a spelling or lint fix is not. See
 [SE1/R1–R11](../vendor/se1/guide/04-requirements.md).

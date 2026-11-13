@@ -27,7 +27,7 @@ run is the old code: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`,
 - **A part lands only pinned**: its tests were first green against pf.7's programs, each was seen
   to fail, and `tools/speed.py`'s figure for it is not more than 10% under pf.7's (`REQ6/SPEED-1`).
 - **The core is not edited.** Upstream's code is carried at a named commit, untouched; what gosh
-  needs changed there is the seam, and the seam is listed in the design (`REQ6/SHAPE-1`,
+  needs changed there is the seam, and the seam is listed in the design (`REQ7/SHAPE-1`,
   `REQ6/UP-2`).
 - **Code and tests name the requirements they serve**, by versioned ID (`REQ1/CP-2`).
 - **Every file that came from mosh or the fork keeps its copyright notice.** gosh is GPL-3.
@@ -41,8 +41,8 @@ run is the old code: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`,
 
 ## Where things are
 
-- **Working set:** `docs/`: `REQUIREMENTS_v6.md` (this copy is the one in force; versions 1 to 5 are
-  in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`. There is no design yet (queue item 1).
+- **Working set:** `docs/`: `REQUIREMENTS_v7.md` (the one in force; v6 is beside it, and versions 1 to 5 are
+  in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v1.md`.
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
 - **Agents:** read `AGENTS.md` and this file before acting.
 
@@ -55,4 +55,4 @@ run is the old code: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`,
 | findings | `docs/FINDINGS.md` |
 | the check command | none yet (queue item 3) |
 | the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
-| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v6.md` |
+| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v7.md` |
