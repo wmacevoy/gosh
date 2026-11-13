@@ -1,6 +1,6 @@
 # Design — v1
 
-The parts of gosh, how they meet, and the seam. Queue item 1 (`REQ6/SHAPE-5`, `REQ7/SHAPE-1`).
+The parts of gosh, how they meet, and the seam. Queue item 1 (`REQ6/SHAPE-5`, `REQ9/SHAPE-1`).
 
 **Status: accepted by the owner on 2026-11-13, then corrected the same day after a review**
 (`FINDINGS.md`, 2026-11-13). The seven decisions he accepted stand, two of them reworded where the
@@ -85,8 +85,8 @@ matters for what "landed" can mean (*Questions*, 7).
 
 | Part | What it is for | Comes from | Serves | Its tests come from |
 | ---- | -------------- | ---------- | ------ | ------------------- |
-| session (the core) | mosh's protocol and terminal: upstream's code at a pinned commit, untouched | upstream at `decd9b7` | `REQ7/SHAPE-1`, `REQ6/UP-2` | upstream's own suite |
-| the seam | the listed changes the core needs: the side channel, capabilities and loss in the transport; options, headless, and hooks in the two programs | the 27 changed files and one added header, `network/sidechannel.h`, below | `REQ7/SHAPE-1`, `REQ8/CMD-3`, `REQ1/FWD-5` | (b) `forward-e2e` (`-N`); (b) `headless-smoke.py` with no relay mode, which at pf.7 only the Windows CI jobs run; (u) `udp-forward` (`test_loss_measurement`); a stock mosh at each end in turn (new: queue items 3 and 5). `REQ8/CMD-3`'s message: no test in the fork |
+| session (the core) | mosh's protocol and terminal: upstream's code at a pinned commit, untouched | upstream at `decd9b7` | `REQ9/SHAPE-1`, `REQ6/UP-2` | upstream's own suite |
+| the seam | the listed changes the core needs: the side channel, capabilities and loss in the transport; options, headless, and hooks in the two programs | the 27 changed files and one added header, `network/sidechannel.h`, below | `REQ9/SHAPE-1`, `REQ8/CMD-3`, `REQ1/FWD-5` | (b) `forward-e2e` (`-N`); (b) `headless-smoke.py` with no relay mode, which at pf.7 only the Windows CI jobs run; (u) `udp-forward` (`test_loss_measurement`); a stock mosh at each end in turn (new: queue items 3 and 5). `REQ8/CMD-3`'s message: no test in the fork |
 | forwarding | forwards and the stream: TCP and UDP ports, and one byte channel, carried over the side channel | `network/forwarding.h`, `udpforward.*`, `tcpforward.*`, `tcpadapter.*`, `tcpinudp.*`; `SideChannelMux` from `sidechannel.h` | `REQ1/FWD-1`, `REQ1/FWD-2`, `REQ1/FWD-3`, `REQ1/FWD-4` | (u) `tcp-forward`, `tcp-in-udp`, `udp-forward` (`test_spec`, `test_wire`, `test_replay`, `test_fragments`, `test_relay`, `test_remote`), four fuzzers; (b) `forward-e2e`. `REQ1/FWD-3` has only (u) tests. `REQ1/FWD-4`: the specification's default only; nothing checks what a listener binds |
 | relay | carries a session's datagrams inside ssh when UDP does not answer; decides, per datagram, which path is used; starts path-finding and carries its words | `network/relay.*`; and `consider_relay` and `engage_relay` in `frontend/stmclient.cc` | `REQ1/PATH-1`, `REQ1/PATH-2`, `REQ1/SHAPE-2`; and of `REQ1/PATH-7`, whether anyone is asked and who (`MOSH_PUNCH`, `MOSH_STUN`, `MOSH_MEETUP`, the default public servers) | (b) `relay.test`, which runs `headless-smoke.py` (`always`, `blocked`, `translated`, `punched`) with the remote relay started directly; (b) the `--relay=always` case of `wrapper.test`, through `fake-ssh.py`, the only test that starts it as ssh does; (u) `udp-forward` (`test_relay_frames`). `REQ1/PATH-2` has no test at pf.7: its test is commit `6c0cc61` on the fork's branch `refactor/relay`, which changes tests only |
 | path-finding | finds a punched path, or one across a local network: STUN, candidates, probes; and the ends' side of a path through a meetup | `network/punch.*` (class `Punch`, the STUN functions) | `REQ1/PATH-3`, `REQ1/PATH-6`; the ends' side of `REQ1/PATH-4`; of `REQ1/PATH-7`, only that it asks nobody when given an empty list | (u) `udp-forward` (`test_punch`: two ends and a stranger on loopback, with the clock passed in); (b) `relay.test` (`punched`); (b) `nat-lab.py` (`easy`, `moved`, `room`), which needs root and is not in `make check`; `punch_fuzzer` (the STUN and address parsers only). `REQ1/PATH-7`: no test, since every test sets `MOSH_STUN` |
@@ -121,11 +121,11 @@ capability bits; it goes into the copy of the core with the side-channel patch.
 
 | File (`src/`) | + / − | What changes | For |
 | ------------- | ----- | ------------ | --- |
-| `protobufs/transportinstruction.proto` | 8 / 0 | two optional fields in mosh's `Instruction`: `capabilities` (8), `recv_loss` (9) | `REQ8/CMD-3`, `REQ7/SHAPE-1` |
+| `protobufs/transportinstruction.proto` | 8 / 0 | two optional fields in mosh's `Instruction`: `capabilities` (8), `recv_loss` (9) | `REQ8/CMD-3`, `REQ9/SHAPE-1` |
 | `network/transportsender.h`, `-impl.h` | 9 / 2 | holds the capabilities; puts them, and the loss it measures, in each instruction (loss only when there are capabilities) | `REQ8/CMD-3` |
 | `network/transportfragment.cc` | 2 / 0 | a changed capability or loss counts as a new instruction | `REQ8/CMD-3` |
 | `network/networktransport.h`, `-impl.h` | 78 / 3 | the transport is a `SideChannelLink`; a payload beginning `0xFF` goes to a sink and not to state synchronisation; sending one, only once the peer has advertised; what the peer can do; how much the peer is losing; "in contact", from "last heard"; "send to this address"; copying the transport made private | forwarding (`REQ1/FWD-1`, `REQ1/FWD-2`, `REQ1/FWD-3`); relay (`REQ1/PATH-1`) |
-| `network/network.h`, `network.cc` | 78 / 3 | measuring loss of what is received (`REQ1/FWD-2`); "last heard", which keeps a forwarded connection through an outage (`REQ1/FWD-3`) and which the relay decision reads (`REQ1/PATH-1`); the client sending somewhere else (`REQ1/PATH-1`); and the IPv6 socket fix, a named exception to `REQ7/SHAPE-1` until upstream has it (pull request 1442, open on 2026-11-13) | as said |
+| `network/network.h`, `network.cc` | 78 / 3 | measuring loss of what is received (`REQ1/FWD-2`); "last heard", which keeps a forwarded connection through an outage (`REQ1/FWD-3`) and which the relay decision reads (`REQ1/PATH-1`); the client sending somewhere else (`REQ1/PATH-1`); and the IPv6 socket fix, a named exception to `REQ9/SHAPE-1` until upstream has it (pull request 1442, open on 2026-11-13) | as said |
 
 **In the two programs: 4 files, 584 lines added.** Most of the seam, and the part to shrink.
 
@@ -153,7 +153,7 @@ Two things the carried code does not do, found by reading it:
   carries nothing, silently. Read, not run. With a stock mosh at the other end now required, this
   is the ordinary case and not a rare one (*Questions*, 6).
 - **Requirements v1 to v6 named a seam entry that is not there**: a "client need not time out while
-  headless" change. No change to a timeout is in the client's diff; `REQ7/SHAPE-1` says "headless".
+  headless" change. No change to a timeout is in the client's diff; the requirement has said "headless" since v7.
 
 ## Edges
 
@@ -208,13 +208,17 @@ the review, in substance unchanged. "Rejected" is what else was weighed.
   fetched, which was not repeated today. Rejected: a copy of upstream's tree with a list of hashes
   (a second thing to keep true, and 226 files in a diff nobody reads).
 - **The seam is patch files in `seam/`, applied at build time, in order, to a copy of the core.**
-  `REQ7/SHAPE-1`. One patch per concern, as a series, each cut against the result of the one
+  `REQ9/SHAPE-1`. One patch per concern, as a series, each cut against the result of the one
   before: the IPv6 fix first, alone, so that it can be dropped the day upstream has it; then
   capabilities; the side channel, with `sidechannel.h` and "last heard"; loss; "send elsewhere";
   one per program; and one for the build and upstream's tests. They are not independent: at pf.7
   the concerns share hunks and single lines (loss is sent only inside the capabilities test; one
   initialiser line serves three). A patch that no longer applies stops the build, so moving the pin
-  says at once what the seam costs. Rejected: gosh's own copies of the changed files (the changed
+  says at once what the seam costs. Each patch begins with what `REQ9/SHAPE-1` asks for: the
+  pinned commit it is cut against, the requirement or part it is for, and, where it reshapes the
+  core's code and does not only add to it, the file and function at the pin the code came from and
+  why a small change would not do. The first such are the programs' loops, where a hook has to be
+  made for a part to be called from. Rejected: gosh's own copies of the changed files (the changed
   files are about 4,800 lines at pf.7, and would stop receiving upstream's fixes); subclassing the
   transport from outside (what the seam needs is private there).
 - **The programs' patches shrink to call sites.** `REQ6/SHAPE-5`. Today the bodies are in the
@@ -253,7 +257,7 @@ Asked and answered on 2026-11-13: "fine with the rest", of all but the fourth.
 
 1. **Submodule and patches**, which add a top-level `core/` and `seam/` and a build step. — **Yes.**
 2. **Fields 8 and 9 of mosh's `Instruction` are gosh's by squatting.** If upstream ever gives either
-   number another meaning, a gosh and a stock mosh misread each other, which is `REQ7/SHAPE-1`'s
+   number another meaning, a gosh and a stock mosh misread each other, which is `REQ9/SHAPE-1`'s
    veto. Since gosh need not work with the fork's releases, the numbers can still move, and cannot
    once gosh has a release. — **Yes:** both move to a high number when the seam lands (queue
    item 5), and the number is written here then as a one-way door.
@@ -269,7 +273,8 @@ Asked and answered on 2026-11-13: "fine with the rest", of all but the fourth.
 5. **Which server `gosh` asks a host for.** — **Yes:** `gosh-server`, then `mosh-server` if the
    host has none, saying once which it got. *The review found this needs more than a yes: see 6.*
 
-Raised by the review, and answered on 2026-11-13: "yes to all", to what each recommends.
+Questions 6 to 10 were raised by the review, and answered on 2026-11-13: "yes to all", to what
+each recommends.
 
 6. **A stock server at the other end, with forwards asked for.** pf.7 asks a host for one server
    and learns nothing about which it got; it passes the forward and stream options regardless. A
@@ -299,3 +304,7 @@ Raised by the review, and answered on 2026-11-13: "yes to all", to what each rec
    — **Yes:** queue item 4.
 10. **No queue item covers gosh's own documentation**: a README for users, man pages, the student
    guide `REQ5/CLS-1` names. Recommended: a clause in queue item 10's *done*. — **Yes:** done.
+11. **How far the core may be changed.** Not asked; the owner said it, as holder of the shape,
+    on 2026-11-13: "shape-1 ---> changes tracked to the pin. if a refactor is warranted, say where
+    it came from and why." Requirements v9, `REQ9/SHAPE-1`. It fits the patches decision and adds
+    to it what each patch must say.

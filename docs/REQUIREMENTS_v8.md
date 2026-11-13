@@ -1,5 +1,7 @@
 # Requirements — v8
 
+**Superseded by `REQUIREMENTS_v9.md`** (2026-11-13), in which SHAPE-1 has every change to the core tracked to the pin. Kept as it was written.
+
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v9.md`); a spelling or lint fix is not. See
 [SE1/R1–R11](../vendor/se1/guide/04-requirements.md).
