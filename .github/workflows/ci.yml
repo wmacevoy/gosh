@@ -1,0 +1,14 @@
+# CI runs the command the guide names, and nothing else, so that there is one
+# recipe and it cannot drift (SE1/O3). What is checked is in tools/check.sh.
+name: check
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the doctor reads recent commits
+      - run: tools/check.sh

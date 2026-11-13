@@ -12,13 +12,18 @@ record of how it came to be are in `../mosh-dev`; nothing is changed there.
 
 ## Run it, check it
 
-**There is nothing to run and no check command yet** (queue item 3). Until there is, a claim about
-gosh's behaviour cannot be checked here ([SE1/A2](vendor/se1/guide/10-agents.md#a2)); what can be
-run is the old code: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`, and
-`../mosh-dev/tools/speed.py` for the figure SPEED-1 compares against.
+**The full check:** `tools/check.sh`
 
-`./se --doctor` says what this repository lacks. The start hook is not installed: the owner runs
-`./se --hook --write` (an agent may not write hooks).
+It prints PASS or says what failed, and CI runs the same command (`.github/workflows/ci.yml`).
+**There is no code yet, so today it checks only that the repository is sound** (`./se --doctor`:
+the working set, versioned citations, the queue). Queue item 3 adds the build and the tests to it.
+Until then a claim about gosh's behaviour cannot be checked here
+([SE1/A2](vendor/se1/guide/10-agents.md#a2)); what can be run is the old code:
+`../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`, and `../mosh-dev/tools/speed.py` for
+the figure `REQ6/SPEED-1` compares against.
+
+`./se --doctor` says what this repository lacks. The start hook that runs `./se --post` is in
+`.claude/settings.json`.
 
 ## Rules for this repository
 
@@ -53,6 +58,6 @@ run is the old code: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`,
 | the repository guide | `CONTRIBUTING.md` (this file) |
 | the queue | `docs/QUEUE.md` |
 | findings | `docs/FINDINGS.md` |
-| the check command | none yet (queue item 3) |
+| the check command | `tools/check.sh` |
 | the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
 | `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v7.md` |
