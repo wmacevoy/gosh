@@ -5,8 +5,10 @@
 # Prints PASS and exits 0, or says what failed and exits 1.
 cd "$(dirname "$0")/.." || exit 1
 
-# --offline: the check must not depend on reaching the guide's release page.
-if ! python3 se.py --doctor --offline; then
+# The doctor asks the network whether its guide is current. On a machine that has
+# never been able to ask (a fresh CI runner, with --offline) it fails rather than
+# say "current" unasked, so it is left to ask.
+if ! python3 se.py --doctor; then
   echo "FAIL: se --doctor"
   exit 1
 fi
