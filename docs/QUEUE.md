@@ -1,0 +1,30 @@
+# Queue
+
+What is being worked, in what order, by whom, and what would make it done. The shared cursor
+([SE1/W10](../vendor/se1/guide/08-work.md#w10)). Nothing enters without a *done* sentence that can
+be checked from outside. An item that contradicts the requirements is a question for the client,
+not a task; mark it blocked, and say on what. Only the owner sets *done*.
+
+**Features are frozen** (requirements, *Scope decisions*). **A part is landed** when: its tests were
+first green against pf.7's programs and each was seen to fail; `tools/speed.py`'s figure is not
+more than 10% under pf.7's; its logic is apart from sockets, clocks and the environment; its name
+is the glossary's word and the design says which requirements it serves; every concept of the old
+code under it points at new code or at "dropped, because"; and the agent's review of it is written
+in its row, by a session that was given the code and not the author's reasoning.
+
+| # | Item | Versioned requirement IDs (or *chore*) | Owner | Done when | Estimate (number / range / time box) | Status | Since |
+| - | ---- | ---------------------------- | ----- | --------- | ------------------------------------ | ------ | ----- |
+| 1 | The design: the parts, how they meet, and the seam | REQ6/SHAPE-5, REQ6/SHAPE-1 | agent; Warren reads the map | `docs/DESIGN_v1.md` has a table of parts in which every name is a glossary word and every part cites its requirements; a one-page map of which part may call which; the seam listed, file by file, from the fork's changes to upstream's files; and the client has read the map | range: 1 to 2 days | ready | 2026-11-13 |
+| 2 | The model of the old code, kept with viki | *chore* | agent | every file the fork changed or added at `mosh-1.4.0-pf.7` (110 of them) belongs to a concept, and every concept names a part of item 1 and the requirements it serves; ten questions written beforehand ("where is the stream let go?") are each answered with the right file | time box: 2 days, then report; the agent has not yet read viki-agent's guide | blocked: on item 1's part names being in the design | 2026-11-13 |
+| 3 | A skeleton that runs: the core carried at a named commit; `gosh` opens a terminal session to a stock `mosh-server`; one check command; CI | REQ6/SHAPE-1, REQ6/UP-2, REQ6/NAME-1 | agent | from a clean checkout one command builds it and prints PASS; that check fails when a byte of the core is changed; a stock mosh 1.4.0 server and a gosh client hold a terminal session in a test | range: 2 to 4 days | blocked: on item 1 | 2026-11-13 |
+| 4 | The fork's black-box tests, brought here and run against pf.7's programs | *chore* | agent | every test of `../mosh-dev/docs/TRACE.md` that drives the programs from outside runs here against pf.7 and passes, each naming its requirement, each with a *seen red* date | range: 3 to 5 days | blocked: on item 3 | 2026-11-13 |
+| 5 | Part: the seam, and forwarding with one TCP forward through it | REQ6/SHAPE-1, REQ1/FWD-1, REQ1/FWD-5, REQ1/CMD-3, REQ6/SPEED-1 | agent | landed, as above: `-L` and `-N` | range: 1 to 2 weeks | blocked: on item 4 | 2026-11-13 |
+| 6 | Part: forwarding, the rest | REQ1/FWD-1, REQ1/FWD-2, REQ1/FWD-3, REQ1/FWD-4, REQ6/SPEED-1 | agent | landed, as above | range: 1 to 2 weeks, to be revised after 5 | blocked: on item 5 | 2026-11-13 |
+| 7 | Part: relay | REQ1/PATH-1, REQ1/PATH-2, REQ6/SPEED-1 | agent | landed, as above; and a unit test drives every path change with numbers and no sockets or sleeps | range: 3 to 5 days | blocked: on item 5 | 2026-11-13 |
+| 8 | Part: path-finding, and meetup | REQ1/PATH-3, REQ1/PATH-4, REQ1/PATH-5, REQ1/PATH-6, REQ1/PATH-7 | agent | landed, as above; and a change from one path to a better one is logged, and the two-machines-in-one-room test waits for the better one and passes 20 times in a row (`../mosh-dev/docs/FINDINGS.md`, 2026-11-13) | range: 3 to 6 days | blocked: on item 7 | 2026-11-13 |
+| 9 | Part: copy | REQ1/CP-1, REQ1/CP-2, REQ1/CP-3, REQ1/CP-4, REQ1/CP-5, REQ1/CP-6, REQ1/CP-7 | agent | landed, as above | range: 3 to 6 days | blocked: on item 5 | 2026-11-13 |
+| 10 | Parts: the command, and install | REQ1/CMD-1, REQ1/CMD-2, REQ6/CMD-4, REQ6/NAME-1 | agent | landed, as above; and on a machine with no mosh the installer leaves `mosh-client` and `mosh-server` as links to gosh's, and on one with a mosh already on the `PATH` it leaves none | range: 3 to 5 days | blocked: on items 7 and 9 | 2026-11-13 |
+| 11 | Part: the extension, in `../remote-gosh` | REQ1/EXT-1, REQ4/EXT-2, REQ1/EXT-3, REQ1/EXT-4 | agent | `remote-mosh`'s tests pass there against gosh | range: 3 to 5 days | blocked: on item 10 | 2026-11-13 |
+| 12 | The third party's review of all of it | REQ6/SHAPE-4 | Warren | a named reviewer has read all of gosh and what they found is in FINDINGS; until then the documentation says "not independently reviewed" | not estimable: no reviewer yet | blocked: on who the third party is, and on items 5 to 11 | 2026-11-13 |
+| 13 | The two repositories on GitHub | *chore* | Warren | `gosh` and `remote-gosh` exist there, each public or private by the owner's choice, and this repository's first commit is signed by the owner. *2026-11-13: both made private and pushed by the agent, on the owner's word ("i think you can make the private repos and push").* | number: 15 minutes | review | 2026-11-13 |
+| 14 | The doctor passes this repository's guide for naming a check command when it names none | *chore* | Warren (the tool is the guide's, `wmacevoy/software-engineering`) | `./se --doctor` here says there is no check command until item 3 makes one; or the guide's issue for it is linked here. *Seen 2026-11-13: "CONTRIBUTING.md names the check: `mosh-1.4.0-pf.7`", a release tag it took for a command.* | number: 15 minutes to report | ready | 2026-11-13 |

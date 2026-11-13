@@ -1,0 +1,58 @@
+# Contributing
+
+How to work in gosh, for a new teammate and for an agent, who both arrive knowing nothing
+([SE1/A3](vendor/se1/guide/10-agents.md#a3)). Keep it short and true: a change that makes a line
+here untrue updates it in the same change ([SE1/W11](vendor/se1/guide/08-work.md#w11)).
+
+## What this is
+
+gosh, a project of its own from 2026-11-13 (requirements v6): the code of `wmacevoy/mosh` at
+`mosh-1.4.0-pf.7` migrated into named, tested parts. The old code, its build, its tests and the
+record of how it came to be are in `../mosh-dev`; nothing is changed there.
+
+## Run it, check it
+
+**There is nothing to run and no check command yet** (queue item 3). Until there is, a claim about
+gosh's behaviour cannot be checked here ([SE1/A2](vendor/se1/guide/10-agents.md#a2)); what can be
+run is the old code: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`, and
+`../mosh-dev/tools/speed.py` for the figure SPEED-1 compares against.
+
+`./se --doctor` says what this repository lacks. The start hook is not installed: the owner runs
+`./se --hook --write` (an agent may not write hooks).
+
+## Rules for this repository
+
+- **No new features; push back on requests for them** (requirements, *Scope decisions*). Migrating,
+  naming, testing and reshaping are not new features.
+- **A part lands only pinned**: its tests were first green against pf.7's programs, each was seen
+  to fail, and `tools/speed.py`'s figure for it is not more than 10% under pf.7's (`REQ6/SPEED-1`).
+- **The core is not edited.** Upstream's code is carried at a named commit, untouched; what gosh
+  needs changed there is the seam, and the seam is listed in the design (`REQ6/SHAPE-1`,
+  `REQ6/UP-2`).
+- **Code and tests name the requirements they serve**, by versioned ID (`REQ1/CP-2`).
+- **Every file that came from mosh or the fork keeps its copyright notice.** gosh is GPL-3.
+- **Never stop a process by name.** The machine this is developed on is also the owner's live mosh
+  host and runs their private meetup. Stop what you started by process id.
+- **Tests ask servers on the Internet nothing.**
+- **The owner signs each commit and tags each release.** The agent's review of a part is accepted
+  (requirements, *Review*); the documentation says "not independently reviewed" until the third
+  party's review, which comes before a class uses gosh.
+- **A change in a requirement's meaning is a new version** of the requirements, not an edit.
+
+## Where things are
+
+- **Working set:** `docs/`: `REQUIREMENTS_v6.md` (this copy is the one in force; versions 1 to 5 are
+  in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`. There is no design yet (queue item 1).
+- **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
+- **Agents:** read `AGENTS.md` and this file before acting.
+
+## What AGENTS.md's nouns mean here
+
+| AGENTS.md says | In this repository |
+| -------------- | ------------------ |
+| the repository guide | `CONTRIBUTING.md` (this file) |
+| the queue | `docs/QUEUE.md` |
+| findings | `docs/FINDINGS.md` |
+| the check command | none yet (queue item 3) |
+| the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
+| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v6.md` |
