@@ -4,7 +4,11 @@
 #   1. the repository is sound (se --doctor);
 #   2. the core is upstream's at the pinned commit, byte for byte (REQ6/UP-2);
 #   3. it builds (tools/build.sh);
-#   4. gosh and a stock mosh hold a terminal session, each way (REQ10/SHAPE-1).
+#   4. gosh and a stock mosh hold a terminal session, each way (REQ10/SHAPE-1);
+#   5. the fork's tests that drive the programs from outside pass against the
+#      fork's own programs at pf.7 (tools/build-pf7.sh). These are the tests each
+#      part of gosh must then pass; until a part lands they say only that the
+#      test and the reference agree (queue item 4).
 # A stock mosh 1.4.0 must be installed for 4 (Debian, Ubuntu: the mosh package);
 # STOCK_CLIENT and STOCK_SERVER say where, if not in /usr/bin.
 cd "$(dirname "$0")/.." || exit 1
@@ -35,4 +39,26 @@ stock_server=${STOCK_SERVER:-/usr/bin/mosh-server}
 . tools/env.sh
 python3 tests/stock-session.py .build/bin/gosh-client "$stock_server" || fail "gosh's client with a stock server"
 python3 tests/stock-session.py "$stock_client" .build/bin/gosh-server || fail "a stock client with gosh's server"
+
+tools/build-pf7.sh || fail "tools/build-pf7.sh"
+pf7=.build/pf7/src/frontend
+# Tests ask servers on the Internet nothing: a session that falls back asks only whom it is told to.
+MOSH_STUN=none; LC_ALL=C.UTF-8; export MOSH_STUN LC_ALL
+reference() { # NAME ARGS...: one of the fork's tests, against pf.7's programs
+    name=$1; shift
+    if python3 "tests/$name" "$pf7/mosh-server" "$pf7/mosh-client" "$@" >.build/reference.log 2>&1; then
+        echo "pf.7 passes $name $*"
+    else
+        cat .build/reference.log; stop_ours; fail "pf.7 with tests/$name $*"
+    fi
+}
+reference forward-e2e.py
+reference headless-smoke.py
+reference headless-smoke.py 127.0.0.1 always
+reference headless-smoke.py 127.0.0.1 blocked
+reference headless-smoke.py 127.0.0.1 translated
+reference headless-smoke.py 127.0.0.1 punched
+if python3 -c 'import socket; socket.socket(socket.AF_INET6, socket.SOCK_DGRAM).bind(("::1", 0))' 2>/dev/null; then
+    reference headless-smoke.py ::1 blocked
+fi
 echo "PASS"

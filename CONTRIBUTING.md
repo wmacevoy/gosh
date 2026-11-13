@@ -15,12 +15,15 @@ record of how it came to be are in `../mosh-dev`; nothing is changed there.
 **The full check:** `tools/check.sh`
 
 It prints PASS or says what failed, and CI runs the same command (`.github/workflows/ci.yml`). It
-takes about half a minute here. In order it checks that:
+takes about two minutes here from nothing. In order it checks that:
 
 1. the repository is sound (`./se --doctor`: the working set, versioned citations, the queue);
 2. the core is upstream's at the pinned commit, byte for byte (`REQ6/UP-2`);
 3. it builds (`tools/build.sh`, into `.build/`);
-4. gosh and a stock mosh hold a terminal session, each way (`REQ10/SHAPE-1`, `tests/stock-session.py`).
+4. gosh and a stock mosh hold a terminal session, each way (`REQ10/SHAPE-1`, `tests/stock-session.py`);
+5. the fork's own programs at pf.7, built in `.build/pf7` (`tools/build-pf7.sh`, which fetches the
+   tag), pass the fork's tests that have been brought here (`tests/forward-e2e.py`,
+   `tests/headless-smoke.py`). These are the tests gosh's parts must pass when they land.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
 `.build/bin`: no seam, no parts, no `gosh` command yet (queue items 5 to 10).

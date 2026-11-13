@@ -18,3 +18,14 @@ if [ -d "$DEPS/include/google/protobuf" ]; then
 else
     CONFIGURE_DEPS=
 fi
+
+# Stops the programs built here and left running: by where the program file is
+# (under .build/), never by name. A test that fails can leave its server behind,
+# and this machine runs other mosh sessions that are not ours to stop.
+stop_ours() {
+    for p in /proc/[0-9]*; do
+        exe=$(readlink "$p/exe" 2>/dev/null) || continue
+        case "$exe" in "$BUILD"/*) kill "${p#/proc/}" 2>/dev/null ;; esac
+    done
+    return 0
+}
