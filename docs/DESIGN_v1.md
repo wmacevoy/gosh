@@ -1,5 +1,7 @@
 # Design — v1
 
+**Superseded by `DESIGN_v2.md`** (2026-11-13). Kept as it was written; its seam table, its tests column and its record of the owner's answers are still cited from v2.
+
 The parts of gosh, how they meet, and the seam. Queue item 1 (`REQ6/SHAPE-5`, `REQ10/SHAPE-1`).
 
 **Status: accepted by the owner on 2026-11-13, then corrected the same day after a review**

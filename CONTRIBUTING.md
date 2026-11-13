@@ -74,8 +74,9 @@ and `../mosh-dev/tools/speed.py` for the figure `REQ6/SPEED-1` compares against.
 - **Code:** `core/` is upstream's mosh, a git submodule at the pinned commit, never edited.
   `tools/` builds and checks; `tests/` holds tests that drive the programs from outside. gosh's
   parts will each have a directory of their own (design, *Decisions*); none exists yet.
-- **Working set:** `docs/`: `REQUIREMENTS_v10.md` (the one in force; v6 to v9 are beside it, and versions 1 to 5 are
-  in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v1.md`.
+- **Working set:** `docs/`: `REQUIREMENTS_v11.md` (the one in force; v6 to v10 are beside it, and versions 1 to 5 are
+  in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
+  and still holds the seam file by file).
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
 - **Agents:** read `AGENTS.md` and this file before acting.
 
@@ -88,4 +89,4 @@ and `../mosh-dev/tools/speed.py` for the figure `REQ6/SPEED-1` compares against.
 | findings | `docs/FINDINGS.md` |
 | the check command | `tools/check.sh` |
 | the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
-| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v10.md` |
+| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v11.md` |

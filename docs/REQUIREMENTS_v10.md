@@ -1,5 +1,7 @@
 # Requirements — v10
 
+**Superseded by `REQUIREMENTS_v11.md`** (2026-11-13), which adds the design's words to the glossary and retires two used for two things. Kept as it was written.
+
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v11.md`); a spelling or lint fix is not. See
 [SE1/R1–R11](../vendor/se1/guide/04-requirements.md).

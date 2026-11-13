@@ -7,7 +7,7 @@ fallback and NAT traversal beside it, as comprehensible, tested parts.
 commit, under gosh's names, with a check that it holds a session with a stock mosh
 (`tools/check.sh`). gosh is being migrated, part by part, from `wmacevoy/mosh` at
 `mosh-1.4.0-pf.7`, which works today and is what gosh is measured against. What gosh must do, and
-what it will not, is `docs/REQUIREMENTS_v10.md`; what is being worked is `docs/QUEUE.md`.
+what it will not, is `docs/REQUIREMENTS_v11.md`; what is being worked is `docs/QUEUE.md`.
 
 gosh is not mosh and is not the mosh project's work. It carries mosh's code under the GNU General
 Public License, version 3 (`COPYING`), and keeps its authors' notices. **It has not been

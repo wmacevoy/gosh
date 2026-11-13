@@ -1,9 +1,19 @@
-# A domain-based refactor of gosh: an independent recommendation
+# Design — v2
 
-**Status: a proposal, not accepted.** Written on 2026-11-13 by a second agent (Claude Fable 5.2) that was
-given the fork's source and the viki diary and asked to form its own model before reading
-`DESIGN_v1.md`. Where it and the design differ, the design is still what is in force until the owner
-decides (section 8). Nothing here was built or run. Each claim
+The domain as the fork's code shows it, the model gosh migrates into, the map, the seam, speed, and
+the order of work.
+
+**Status: accepted by the owner on 2026-11-13** ("all good. continue!", to its questions and
+recommendations in section 8, each of which is therefore answered yes). It supersedes
+`DESIGN_v1.md`, which is kept: its table of the seam file by file, its account of which tests
+drive the programs and which link the fork's classes, and its record of the owner's earlier answers
+are still the reference, and where the two differ this document wins (section 7 lists where). One
+earlier answer is reversed here: the `Instruction` field numbers move last, not when the seam lands
+(question 5). The proposed nouns of 7.2 are in requirements v11.
+
+Written as a recommendation by a second agent (Claude Fable 5.2) that was given the fork's source
+and the viki diary and asked to form its own model before reading design v1; the text below is its
+own, and still speaks as a recommendation. Nothing here was built or run. Each claim
 about the code is marked by how it is known where that matters: **(read)** the text was read at
 `mosh-1.4.0-pf.7`; **(inferred)** reasoned from what was read; **(measured)** a figure someone else
 measured and wrote down. File names are the fork's at pf.7, under `src/`, with line numbers at that
