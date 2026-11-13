@@ -9,9 +9,9 @@ their proxy ([SE1/H5](../vendor/se1/guide/09-people.md#h5)). The students have n
 · Date sent: 2026-11-13 · Drafted by the agent and accepted by the client the same day ("ok to all
 this"), with one addition (CMD-4). v7 was drafted by the agent from the design's questions and
 accepted by the client the same day ("make the changes and accept them"). v8 was drafted by the
-agent from the review of the design, on the client's "yes to all" to its recommendations; he has
-not read its wording. v9 is the client's own change to SHAPE-1, in his words, written out by the
-agent; v10 likewise. *Tell us what is wrong with it.*
+agent from the review of the design, on the client's "yes to all" to its recommendations. v9 is the client's own change to SHAPE-1, in his words, written out by the
+agent; v10 likewise. **Accepted by the client on 2026-11-13, as v10 stands: "ok i like the
+requirements now", "i accept the requirements."** *Tell us what is wrong with it.*
 
 **What changed from v9.** One exception of SHAPE-1 is let go, by its holder: "the shape-1 exception
 can be in the mosh-dev version, let it go and write a handoff to mosh-dev about making that PR."
