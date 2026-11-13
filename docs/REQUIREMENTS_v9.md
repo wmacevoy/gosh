@@ -1,5 +1,7 @@
 # Requirements — v9
 
+**Superseded by `REQUIREMENTS_v10.md`** (2026-11-13), in which the IPv6 socket fix is no longer an exception of SHAPE-1: gosh does not carry it. Kept as it was written.
+
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v10.md`); a spelling or lint fix is not. See
 [SE1/R1–R11](../vendor/se1/guide/04-requirements.md).

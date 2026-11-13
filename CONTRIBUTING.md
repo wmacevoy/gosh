@@ -36,7 +36,7 @@ the figure `REQ6/SPEED-1` compares against.
 - **The core is not edited.** Upstream's code is carried at a named commit, untouched; what gosh
   needs changed there is the seam, and every change in it is tracked to that commit and listed in
   the design. A change that reshapes the core's code says where the code came from and why
-  (`REQ9/SHAPE-1`, `REQ6/UP-2`).
+  (`REQ10/SHAPE-1`, `REQ6/UP-2`).
 - **Code and tests name the requirements they serve**, by versioned ID (`REQ1/CP-2`).
 - **Every file that came from mosh or the fork keeps its copyright notice.** gosh is GPL-3.
 - **Never stop a process by name.** The machine this is developed on is also the owner's live mosh
@@ -53,7 +53,7 @@ the figure `REQ6/SPEED-1` compares against.
 
 ## Where things are
 
-- **Working set:** `docs/`: `REQUIREMENTS_v9.md` (the one in force; v6 to v8 are beside it, and versions 1 to 5 are
+- **Working set:** `docs/`: `REQUIREMENTS_v10.md` (the one in force; v6 to v9 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v1.md`.
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
 - **Agents:** read `AGENTS.md` and this file before acting.
@@ -67,4 +67,4 @@ the figure `REQ6/SPEED-1` compares against.
 | findings | `docs/FINDINGS.md` |
 | the check command | `tools/check.sh` |
 | the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
-| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v9.md` |
+| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v10.md` |
