@@ -1,5 +1,7 @@
 # CI runs the command the guide names, and nothing else, so that there is one
-# recipe and it cannot drift (SE1/O3). What is checked is in tools/check.sh.
+# recipe and it cannot drift (SE1/O3). What is checked is in the script the step runs.
+# (The doctor looks for the command's name anywhere in this file, so it is written
+# once, in the step: a comment naming it would pass a workflow that did not run it.)
 name: check
 on:
   push:

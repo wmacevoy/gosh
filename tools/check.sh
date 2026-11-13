@@ -7,7 +7,9 @@ cd "$(dirname "$0")/.." || exit 1
 
 # The doctor asks the network whether its guide is current. On a machine that has
 # never been able to ask (a fresh CI runner, with --offline) it fails rather than
-# say "current" unasked, so it is left to ask.
+# say "current" unasked, so it is left to ask. So on such a machine this check
+# needs api.github.com to answer; when it does not, the line is
+# "[fail] release check ... not made", and the remedy is to run it again.
 if ! python3 se.py --doctor; then
   echo "FAIL: se --doctor"
   exit 1
