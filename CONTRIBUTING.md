@@ -31,8 +31,8 @@ the figure `REQ6/SPEED-1` compares against.
 
 - **No new features; push back on requests for them** (requirements, *Scope decisions*). Migrating,
   naming, testing and reshaping are not new features.
-- **A part lands only pinned**: its tests were first green against pf.7's programs, each was seen
-  to fail, and `tools/speed.py`'s figure for it is not more than 10% under pf.7's (`REQ6/SPEED-1`).
+- **A part lands only pinned**: its tests that drive the programs from outside were first green
+  against pf.7's programs, each was seen to fail, and `tools/speed.py`'s figure for it is not more than 10% under pf.7's (`REQ6/SPEED-1`).
 - **The core is not edited.** Upstream's code is carried at a named commit, untouched; what gosh
   needs changed there is the seam, and the seam is listed in the design (`REQ7/SHAPE-1`,
   `REQ6/UP-2`).
@@ -52,7 +52,7 @@ the figure `REQ6/SPEED-1` compares against.
 
 ## Where things are
 
-- **Working set:** `docs/`: `REQUIREMENTS_v7.md` (the one in force; v6 is beside it, and versions 1 to 5 are
+- **Working set:** `docs/`: `REQUIREMENTS_v8.md` (the one in force; v6 and v7 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v1.md`.
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
 - **Agents:** read `AGENTS.md` and this file before acting.
@@ -66,4 +66,4 @@ the figure `REQ6/SPEED-1` compares against.
 | findings | `docs/FINDINGS.md` |
 | the check command | `tools/check.sh` |
 | the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
-| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v7.md` |
+| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v8.md` |

@@ -5,8 +5,7 @@ The parts of gosh, how they meet, and the seam. Queue item 1 (`REQ6/SHAPE-5`, `R
 **Status: accepted by the owner on 2026-11-13, then corrected the same day after a review**
 (`FINDINGS.md`, 2026-11-13). The seven decisions he accepted stand, two of them reworded where the
 code showed their wording was wrong (the patches are an ordered series; starting the relay is two
-decisions). What the review added that is his to decide is in *Open questions*, and is not
-accepted. Nothing here is built, so nothing here has been run
+decisions). What the review added that was his to decide he answered the same day (*Questions*, 6 to 10). Nothing here is built, so nothing here has been run
 ([SE1/A2](../vendor/se1/guide/10-agents.md#a2)).
 
 **What it was made from.** The first draft read the fork's changes to upstream's own files and the
@@ -82,12 +81,12 @@ The ten names are the client's (requirements, *Scope decisions*, "The parts are 
 is a word of the glossary since requirements v7. File names are the fork's at `mosh-1.4.0-pf.7`,
 under `src/`, and are where each part's code comes from. Tests are marked **(b)** when they drive
 the programs from outside and **(u)** when they link the fork's classes directly; the difference
-matters for what "landed" can mean (*Open questions*, 2).
+matters for what "landed" can mean (*Questions*, 7).
 
 | Part | What it is for | Comes from | Serves | Its tests come from |
 | ---- | -------------- | ---------- | ------ | ------------------- |
 | session (the core) | mosh's protocol and terminal: upstream's code at a pinned commit, untouched | upstream at `decd9b7` | `REQ7/SHAPE-1`, `REQ6/UP-2` | upstream's own suite |
-| the seam | the listed changes the core needs: the side channel, capabilities and loss in the transport; options, headless, and hooks in the two programs | the 27 changed files and one added header, `network/sidechannel.h`, below | `REQ7/SHAPE-1`, `REQ1/CMD-3`, `REQ1/FWD-5` | (b) `forward-e2e` (`-N`); (b) `headless-smoke.py` with no relay mode, which at pf.7 only the Windows CI jobs run; (u) `udp-forward` (`test_loss_measurement`); a stock mosh at each end in turn (new: queue items 3 and 5). `REQ1/CMD-3`'s message: no test in the fork |
+| the seam | the listed changes the core needs: the side channel, capabilities and loss in the transport; options, headless, and hooks in the two programs | the 27 changed files and one added header, `network/sidechannel.h`, below | `REQ7/SHAPE-1`, `REQ8/CMD-3`, `REQ1/FWD-5` | (b) `forward-e2e` (`-N`); (b) `headless-smoke.py` with no relay mode, which at pf.7 only the Windows CI jobs run; (u) `udp-forward` (`test_loss_measurement`); a stock mosh at each end in turn (new: queue items 3 and 5). `REQ8/CMD-3`'s message: no test in the fork |
 | forwarding | forwards and the stream: TCP and UDP ports, and one byte channel, carried over the side channel | `network/forwarding.h`, `udpforward.*`, `tcpforward.*`, `tcpadapter.*`, `tcpinudp.*`; `SideChannelMux` from `sidechannel.h` | `REQ1/FWD-1`, `REQ1/FWD-2`, `REQ1/FWD-3`, `REQ1/FWD-4` | (u) `tcp-forward`, `tcp-in-udp`, `udp-forward` (`test_spec`, `test_wire`, `test_replay`, `test_fragments`, `test_relay`, `test_remote`), four fuzzers; (b) `forward-e2e`. `REQ1/FWD-3` has only (u) tests. `REQ1/FWD-4`: the specification's default only; nothing checks what a listener binds |
 | relay | carries a session's datagrams inside ssh when UDP does not answer; decides, per datagram, which path is used; starts path-finding and carries its words | `network/relay.*`; and `consider_relay` and `engage_relay` in `frontend/stmclient.cc` | `REQ1/PATH-1`, `REQ1/PATH-2`, `REQ1/SHAPE-2`; and of `REQ1/PATH-7`, whether anyone is asked and who (`MOSH_PUNCH`, `MOSH_STUN`, `MOSH_MEETUP`, the default public servers) | (b) `relay.test`, which runs `headless-smoke.py` (`always`, `blocked`, `translated`, `punched`) with the remote relay started directly; (b) the `--relay=always` case of `wrapper.test`, through `fake-ssh.py`, the only test that starts it as ssh does; (u) `udp-forward` (`test_relay_frames`). `REQ1/PATH-2` has no test at pf.7: its test is commit `6c0cc61` on the fork's branch `refactor/relay`, which changes tests only |
 | path-finding | finds a punched path, or one across a local network: STUN, candidates, probes; and the ends' side of a path through a meetup | `network/punch.*` (class `Punch`, the STUN functions) | `REQ1/PATH-3`, `REQ1/PATH-6`; the ends' side of `REQ1/PATH-4`; of `REQ1/PATH-7`, only that it asks nobody when given an empty list | (u) `udp-forward` (`test_punch`: two ends and a stranger on loopback, with the clock passed in); (b) `relay.test` (`punched`); (b) `nat-lab.py` (`easy`, `moved`, `room`), which needs root and is not in `make check`; `punch_fuzzer` (the STUN and address parsers only). `REQ1/PATH-7`: no test, since every test sets `MOSH_STUN` |
@@ -106,7 +105,7 @@ Not carried, and why:
   `wrapper.test`, the packager's line that ships it, and `scripts/Makefile.am`'s change, which is
   almost all about it. The command's own help still tells the user about Perl; that is left behind.
 - The fork's `docs/`, `README.md` and man pages. gosh writes its own, and no queue item's *done*
-  covers that yet (*Open questions*, 5).
+  covered that until queue item 10 was given a clause for it (*Questions*, 10).
 - The fork's CI workflow (`ci.yml`); gosh has its own. `release.yml` is not seam but is carried, as
   install's source: it alone makes the self-contained builds and the checksums the installer checks.
 
@@ -122,9 +121,9 @@ capability bits; it goes into the copy of the core with the side-channel patch.
 
 | File (`src/`) | + / − | What changes | For |
 | ------------- | ----- | ------------ | --- |
-| `protobufs/transportinstruction.proto` | 8 / 0 | two optional fields in mosh's `Instruction`: `capabilities` (8), `recv_loss` (9) | `REQ1/CMD-3`, `REQ7/SHAPE-1` |
-| `network/transportsender.h`, `-impl.h` | 9 / 2 | holds the capabilities; puts them, and the loss it measures, in each instruction (loss only when there are capabilities) | `REQ1/CMD-3` |
-| `network/transportfragment.cc` | 2 / 0 | a changed capability or loss counts as a new instruction | `REQ1/CMD-3` |
+| `protobufs/transportinstruction.proto` | 8 / 0 | two optional fields in mosh's `Instruction`: `capabilities` (8), `recv_loss` (9) | `REQ8/CMD-3`, `REQ7/SHAPE-1` |
+| `network/transportsender.h`, `-impl.h` | 9 / 2 | holds the capabilities; puts them, and the loss it measures, in each instruction (loss only when there are capabilities) | `REQ8/CMD-3` |
+| `network/transportfragment.cc` | 2 / 0 | a changed capability or loss counts as a new instruction | `REQ8/CMD-3` |
 | `network/networktransport.h`, `-impl.h` | 78 / 3 | the transport is a `SideChannelLink`; a payload beginning `0xFF` goes to a sink and not to state synchronisation; sending one, only once the peer has advertised; what the peer can do; how much the peer is losing; "in contact", from "last heard"; "send to this address"; copying the transport made private | forwarding (`REQ1/FWD-1`, `REQ1/FWD-2`, `REQ1/FWD-3`); relay (`REQ1/PATH-1`) |
 | `network/network.h`, `network.cc` | 78 / 3 | measuring loss of what is received (`REQ1/FWD-2`); "last heard", which keeps a forwarded connection through an outage (`REQ1/FWD-3`) and which the relay decision reads (`REQ1/PATH-1`); the client sending somewhere else (`REQ1/PATH-1`); and the IPv6 socket fix, a named exception to `REQ7/SHAPE-1` until upstream has it (pull request 1442, open on 2026-11-13) | as said |
 
@@ -133,7 +132,7 @@ capability bits; it goes into the copy of the core with the side-channel patch.
 | File (`src/frontend/`) | + / − | What changes | For |
 | ---------------------- | ----- | ------------ | --- |
 | `mosh-client.cc` | 162 / 4 | calls the command when run under its name, and is ssh's ProxyCommand when run as `--mosh-fake-proxy`; says so when a dropped variable is set; options `-L -R -LU -RU -F -N -X`; reads the relay's two variables; exit message and status when headless or for a stream | the command, forwarding, relay, copy |
-| `stmclient.h`, `stmclient.cc` | 265 / 23 | headless: no terminal read or drawn, `connected; forwarding.` said once (`REQ1/FWD-5`); forwarding's descriptors, reads and timers in the loop; starting the relay after 3 s or 10 s of quiet (`REQ1/PATH-1`); starting and waiting on a stream's process; says when the server is too old for a stream (`REQ1/CMD-3`); the privilege drop (OpenBSD `pledge`) not made at all for a stream, and widened to start processes unless the relay is off | forwarding, relay, copy |
+| `stmclient.h`, `stmclient.cc` | 265 / 23 | headless: no terminal read or drawn, `connected; forwarding.` said once (`REQ1/FWD-5`); forwarding's descriptors, reads and timers in the loop; starting the relay after 3 s or 10 s of quiet (`REQ1/PATH-1`); starting and waiting on a stream's process; says when the server is too old for a stream (`REQ8/CMD-3`); the privilege drop (OpenBSD `pledge`) not made at all for a stream, and widened to start processes unless the relay is off | forwarding, relay, copy |
 | `mosh-server.cc` | 157 / 7 | first words `meetup`, `meetup-key`, `relay`, and the dropped `stun` refused; the forwarding options; forwarding in the loop; gives forwarding the function that starts a stream's process; a week's timeout for a stream session; the privilege drop not made for a stream | meetup, relay, forwarding, copy |
 
 **In the build and upstream's tests: 8 files.** `configure.ac` (version, `ln -s`); `Makefile.am` in
@@ -148,11 +147,11 @@ install's, as above.
 
 Two things the carried code does not do, found by reading it:
 
-- **`REQ1/CMD-3` is not met for a plain forward.** The only message for an older peer is for a
+- **`REQ8/CMD-3` is not met for a plain forward** (v8 was written because of it). The only message for an older peer is for a
   stream. With `-L`, `-R`, `-LU` or `-RU` to a peer that never advertises the side channel, the
   client says nothing: with `-N`, `connected; forwarding.` never comes; with a terminal, the forward
   carries nothing, silently. Read, not run. With a stock mosh at the other end now required, this
-  is the ordinary case and not a rare one (*Open questions*, 1).
+  is the ordinary case and not a rare one (*Questions*, 6).
 - **Requirements v1 to v6 named a seam entry that is not there**: a "client need not time out while
   headless" change. No change to a timeout is in the client's diff; `REQ7/SHAPE-1` says "headless".
 
@@ -268,34 +267,35 @@ Asked and answered on 2026-11-13: "fine with the rest", of all but the fourth.
    connection is kept through any loss of contact (`5b65538`). Requirements v7 has the exception
    say "headless (`-N`)", which is there.
 5. **Which server `gosh` asks a host for.** — **Yes:** `gosh-server`, then `mosh-server` if the
-   host has none, saying once which it got. *The review found this needs more than a yes: see the
-   first open question.*
+   host has none, saying once which it got. *The review found this needs more than a yes: see 6.*
 
-## Open questions
+Raised by the review, and answered on 2026-11-13: "yes to all", to what each recommends.
 
-Raised by the review. None is answered, and each says what the agent would do.
-
-1. **A stock server at the other end, with forwards asked for.** pf.7 asks a host for one server
+6. **A stock server at the other end, with forwards asked for.** pf.7 asks a host for one server
    and learns nothing about which it got; it passes the forward and stream options regardless. A
    stock `mosh-server` prints its usage for each option it does not know and starts anyway, and the
-   client then says nothing (above: `REQ1/CMD-3` is not met for a plain forward). So answer 5 needs
+   client then says nothing (above: `REQ8/CMD-3` is not met for a plain forward). So answer 5 needs
    three things no requirement states: the remote line reports which server ran; to a stock server
    the command passes no forward, stream or relay options; and the user is told once, plainly, what
-   will not work. Recommended: a clause of `REQ1/CMD-3` in the next version of the requirements,
-   built with queue item 5. It makes a requirement true; it is not a new feature.
-2. **"First green against pf.7's programs" cannot be said of a unit test.** The (u) tests and the
+   will not work. Recommended: a clause of that requirement in its next version, built
+   with queue item 5. It makes a requirement true; it is not a new feature. — **Yes:** requirements
+   v8, `REQ8/CMD-3`; queue item 5.
+7. **"First green against pf.7's programs" cannot be said of a unit test.** The (u) tests and the
    fuzzers link the fork's classes, whose interfaces `REQ6/SHAPE-5` is there to change; only (b)
    tests run unchanged against both pf.7 and gosh. `REQ1/FWD-3` and most of `REQ1/CP-2` to
    `REQ1/CP-6` have only (u) tests. Recommended: the queue's "landed" says it of (b) tests, and for
    a requirement with none a (b) test is written first, against pf.7, as part of queue item 4.
-3. **`REQ6/CMD-4`'s link may not be where a stock mosh looks.** A stock `mosh` asks a host for the
+   — **Yes:** the queue's "landed" and item 4 say so.
+8. **`REQ6/CMD-4`'s link may not be where a stock mosh looks.** A stock `mosh` asks a host for the
    bare name `mosh-server`. The installer puts everything in `~/.local/bin`, which the fork's own
    command adds to `PATH` itself because a command run by ssh often does not have it. So the link
    helps a stock client only on hosts whose non-login shell already has that directory. Inferred
    from the code, not run. Recommended: try it on one stock client and one bare host before queue
-   item 10, and write what is found into the requirement's next version.
-4. **The speed measurement is not here.** The queue and the guide name `tools/speed.py`; it is in
+   item 10, and write what is found into the requirement's next version. — **Yes:** noted in
+   queue item 10. Not yet tried.
+9. **The speed measurement is not here.** The queue and the guide name `tools/speed.py`; it is in
    `../mosh-dev/tools`, and no item brings it. Recommended: queue item 4 brings it, made to take
    the programs it measures, and records pf.7's figures on this machine as the baseline.
-5. **No queue item covers gosh's own documentation**: a README for users, man pages, the student
-   guide `REQ5/CLS-1` names. Recommended: a clause in queue item 10's *done*.
+   — **Yes:** queue item 4.
+10. **No queue item covers gosh's own documentation**: a README for users, man pages, the student
+   guide `REQ5/CLS-1` names. Recommended: a clause in queue item 10's *done*. — **Yes:** done.

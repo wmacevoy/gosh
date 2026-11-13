@@ -1,5 +1,7 @@
 # Requirements — v7
 
+**Superseded by `REQUIREMENTS_v8.md`** (2026-11-13), which says what CMD-3 means with a stock mosh at the other end. Kept as it was written.
+
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v8.md`); a spelling or lint fix is not. See
 [SE1/R1–R11](../vendor/se1/guide/04-requirements.md).
