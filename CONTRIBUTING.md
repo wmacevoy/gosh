@@ -14,15 +14,28 @@ record of how it came to be are in `../mosh-dev`; nothing is changed there.
 
 **The full check:** `tools/check.sh`
 
-It prints PASS or says what failed, and CI runs the same command (`.github/workflows/ci.yml`).
-**There is no code yet, so today it checks only that the repository is sound** (`./se --doctor`:
-the working set, versioned citations, the queue). Queue item 3 adds the build and the tests to it.
+It prints PASS or says what failed, and CI runs the same command (`.github/workflows/ci.yml`). It
+takes about half a minute here. In order it checks that:
+
+1. the repository is sound (`./se --doctor`: the working set, versioned citations, the queue);
+2. the core is upstream's at the pinned commit, byte for byte (`REQ6/UP-2`);
+3. it builds (`tools/build.sh`, into `.build/`);
+4. gosh and a stock mosh hold a terminal session, each way (`REQ10/SHAPE-1`, `tests/stock-session.py`).
+
+**What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
+`.build/bin`: no seam, no parts, no `gosh` command yet (queue items 5 to 10).
+
+To set up: `git submodule update --init` for `core/`; a stock mosh 1.4.0 installed (Debian and
+Ubuntu: the `mosh` package), since the check meets it; and the core's build needs
+`protobuf-compiler libprotobuf-dev libncurses-dev libssl-dev zlib1g-dev` and autotools. Without
+root, `tools/deps.sh` unpacks the first three under `.deps/` (Debian and Ubuntu only).
+
+To reset: `rm -rf .build`. Nothing else holds state.
+
 The doctor also asks GitHub whether the vendored guide is current: with no network it fails unless
 this machine was able to ask in the last 30 days, so a fresh machine or CI runner needs the network.
-Until then a claim about gosh's behaviour cannot be checked here
-([SE1/A2](vendor/se1/guide/10-agents.md#a2)); what can be run is the old code:
-`../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`, and `../mosh-dev/tools/speed.py` for
-the figure `REQ6/SPEED-1` compares against.
+The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`,
+and `../mosh-dev/tools/speed.py` for the figure `REQ6/SPEED-1` compares against.
 
 `./se --doctor` says what this repository lacks. The start hook that runs `./se --post` is in
 `.claude/settings.json`.
@@ -43,7 +56,9 @@ the figure `REQ6/SPEED-1` compares against.
   host and runs their private meetup. Stop what you started by process id.
 - **Never run a test against the installed programs.** The fork's `nat-lab.py` ends by stopping
   every process on the machine whose program file is under the directory it was given; given
-  `~/.local/bin`, that is the owner's live sessions. Tests get a build directory of their own.
+  `~/.local/bin`, that is the owner's live sessions. Tests get a build directory of their own. The
+  stock mosh the check meets is the one exception: it is started by the test and stopped by its
+  process id, and nothing else of it is touched.
 - **Tests ask servers on the Internet nothing.** (The doctor's release check, above, is not a test
   of gosh and is the one thing in the check that does.)
 - **The owner signs each commit and tags each release.** The agent's review of a part is accepted
@@ -53,6 +68,9 @@ the figure `REQ6/SPEED-1` compares against.
 
 ## Where things are
 
+- **Code:** `core/` is upstream's mosh, a git submodule at the pinned commit, never edited.
+  `tools/` builds and checks; `tests/` holds tests that drive the programs from outside. gosh's
+  parts will each have a directory of their own (design, *Decisions*); none exists yet.
 - **Working set:** `docs/`: `REQUIREMENTS_v10.md` (the one in force; v6 to v9 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v1.md`.
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.

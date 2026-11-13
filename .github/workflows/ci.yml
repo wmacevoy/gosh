@@ -8,9 +8,16 @@ on:
   pull_request:
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # Named, not "latest": its mosh package is the stock mosh 1.4.0 the check meets.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # the doctor reads recent commits
+          submodules: true # core/, upstream at the pinned commit
+      - name: What the core needs to build, and a stock mosh to meet
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q autoconf automake pkg-config protobuf-compiler libprotobuf-dev libncurses-dev libssl-dev zlib1g-dev mosh
+          mosh-server --version | head -1
       - run: tools/check.sh
