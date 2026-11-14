@@ -6,16 +6,17 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshforwarding.a
 
-libgoshforwarding_a_SOURCES = forwarding.h forward.cc forward.h frame.cc frame.h fragments.cc fragments.h udpforward.cc udpforward.h tcpforward.cc tcpforward.h tcpadapter.cc tcpadapter.h tcpinudp.cc tcpinudp.h connection.h stream.h streamchild.cc streamchild.h
+libgoshforwarding_a_SOURCES = forwarding.h forward.cc forward.h frame.cc frame.h fragments.cc fragments.h conversations.h udpforward.cc udpforward.h tcpforward.cc tcpforward.h tcpadapter.cc tcpadapter.h tcpinudp.cc tcpinudp.h connection.h stream.h streamchild.cc streamchild.h
 
 # The first three are the fork's tests of these classes, which call them directly: they hold
 # the carried code to what it did at pf.7, and go as each piece is reshaped. connection-test is
 # the connection logic by itself, with no socket and no clock.
-check_PROGRAMS = udp-forward tcp-in-udp tcp-forward connection-test stream-test
+check_PROGRAMS = udp-forward tcp-in-udp tcp-forward connection-test conversations-test stream-test
 TESTS = $(check_PROGRAMS)
 LDADD = libgoshforwarding.a ../copy/libgoshcopy.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 udp_forward_SOURCES = udp-forward.cc
 tcp_in_udp_SOURCES = tcp-in-udp.cc
 tcp_forward_SOURCES = tcp-forward.cc
 connection_test_SOURCES = connection-test.cc
+conversations_test_SOURCES = conversations-test.cc
 stream_test_SOURCES = stream-test.cc

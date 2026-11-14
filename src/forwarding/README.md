@@ -24,7 +24,8 @@ to test the new against.
 | `forward.*` | one forward's specification, `[bind:]port:host:hostport`: logic (the fork's text, moved out of `udpforward` at item 16) |
 | `frame.*` | the 13-byte header every forwarded payload has, and the replay window: logic (likewise) |
 | `fragments.*` | a datagram cut into pieces with parity, and rebuilt; whether parity is worth it: logic (likewise) |
-| `udpforward.*` | UDP forwards: conversations and their sockets, still together (item 16 takes them apart) |
+| `conversations.h` | UDP forwards as logic: which conversation a datagram is of, its number, fragments on the way out and in, replay, and forgetting (new shape); `conversations-test.cc` |
+| `udpforward.*` | the sockets of UDP forwards: listeners and targets, an edge (new shape; the class keeps the fork's name and public face) |
 | `tcpforward.*` | TCP forwards and the stream, as segments over the side channel |
 | `connection.h` | gosh's TCP: one end of a forwarded connection, as logic (new shape) |
 | `tcpadapter.*` | the sockets of forwarded TCP connections: listeners and targets, an edge (new shape) |
@@ -71,6 +72,21 @@ recovery, and giving up on one-at-a-time repair after many losses. **Before chan
 bring the test back from that commit** and run `./connection-diff 20000 1000`. That was done for
 selective acknowledgment on 2026-11-14, with `connections( listening, false )` in the test: old
 and new agreed over 2,000 scenarios of 600 steps, 418,252 segments.
+
+## conversations (the new shape)
+
+`conversations.h` is what the fork's `UDPForwarder` decided, statement for statement, with its
+sockets and clock taken out: it is told that a datagram came from an application or a target,
+or a payload from the other end, with the time and what the session can do just now, and says
+what to send, open, close and deliver through a type its caller supplies. `udpforward.*` is
+that caller in the programs: it binds, resolves, reads and writes, and decides nothing. Landed
+in queue item 16.
+
+`conversations-test.cc` is the logic alone with numbers for time: there and back, what is
+refused (a replay, another kind, no such forward, no socket, the session not ready), forgetting
+at two minutes and a millisecond, the sixty-fifth conversation, fragments with a chosen one
+lost, and when parity is added. Each was seen red with the logic broken. The fork's
+`udp-forward.cc` still runs against the edge and the logic together, on real sockets.
 
 ## the stream
 

@@ -39,9 +39,8 @@
 #include <string>
 #include <vector>
 
+#include "src/forwarding/conversations.h"
 #include "src/forwarding/forward.h"
-#include "src/forwarding/fragments.h"
-#include "src/forwarding/frame.h"
 #include "src/network/network.h"
 #include "src/network/sidechannel.h"
 
@@ -83,7 +82,13 @@
 
 namespace Network {
 
-class UDPForwarder : public SideChannelSink
+/*
+ * (gosh) Since queue item 16 this class is the edge of UDP forwards: it owns the listeners and
+ * the sockets to targets, reads the clock, and decides nothing. Which conversation a datagram
+ * belongs to, fragments, replay and expiry are Gosh::Conversations (conversations.h), which
+ * this class is the Out of. Its public face is the fork's, so the fork's unit test still drives it.
+ */
+class UDPForwarder : public SideChannelSink, public Gosh::ConversationRules
 {
 public:
   enum Role
@@ -92,21 +97,7 @@ public:
     CONNECT /* relay them to the targets */
   };
 
-  enum ParityMode
-  {
-    PARITY_AUTO,  /* when the measured loss makes it worthwhile */
-    PARITY_ALWAYS,
-    PARITY_NEVER
-  };
-
-  /* Datagrams being put back together: how many at once, and for how long. */
-  static constexpr size_t MAX_PARTIALS = 64;
-  static constexpr uint64_t REASSEMBLY_TIMEOUT = 1000; /* ms */
-  static constexpr size_t MAX_REMEMBERED = 256;
-
   static constexpr size_t MAX_FORWARDS = 16;
-  static constexpr size_t MAX_FLOWS = 64;
-  static constexpr uint64_t FLOW_IDLE_TIMEOUT = 120000; /* ms */
   static constexpr int MAX_READS_PER_WAKEUP = 16;
 
 private:
@@ -120,60 +111,31 @@ private:
     Forward() : listen_fd( -1 ), target(), target_len( 0 ), description() {}
   };
 
-  struct Flow
+  /* CONNECT: our socket to a target, for the conversation the logic names by this handle. */
+  struct Socket
   {
-    uint8_t forward;
-    uint16_t id;
-    int fd;    /* CONNECT: our socket, connected to the target */
-    Addr peer; /* LISTEN: the local application that started this flow */
-    socklen_t peer_len;
-    uint64_t last_used;
-
-    Flow() : forward( 0 ), id( 0 ), fd( -1 ), peer(), peer_len( 0 ), last_used( 0 ) {}
-  };
-
-  struct Partial
-  {
-    Gosh::DatagramAssembly assembly;
-    uint8_t forward;
-    uint16_t flow_id;
-    uint64_t started;
-
-    Partial() : assembly(), forward( 0 ), flow_id( 0 ), started( 0 ) {}
+    uint32_t handle;
+    int fd;
   };
 
   SideChannelLink* link;
   Role role;
-  uint8_t data_type, fragment_type;
   unsigned int verbose;
-  ParityMode parity_mode;
 
   std::vector<Forward> forwards;
-  std::vector<Flow> flows;
-  uint16_t next_flow_id;
+  std::vector<Socket> sockets;
+  Gosh::Conversations<UDPForwarder> conversations;
 
-  uint64_t next_seq;
-  Gosh::ReplayWindow replay;
+  Gosh::DatagramLink link_now( void ) const;
+  void say_if_dropped( uint64_t dropped_before, size_t len );
 
-  /*
-   * Fragments of a datagram are sent with consecutive sequence numbers,
-   * so the first one's number (a fragment's own, less its index) names
-   * the datagram.
-   */
-  std::map<uint64_t, Partial> partials;
-  std::deque<uint64_t> finished; /* recently rebuilt, so stragglers don't start them again */
-
-  uint64_t dropped_oversize;
-  uint64_t fragmented, with_parity, reassembled, recovered, abandoned;
-
-  void expire_partials( uint64_t now );
-  void fragment_recv( uint8_t forward, uint16_t flow_id, uint64_t seq, const std::string& fragment, uint64_t now );
-  void deliver( uint8_t forward, uint16_t flow_id, const std::string& datagram, uint64_t now );
-
-  void expire_flows( uint64_t now );
-  void remove_flow( size_t index );
-  Flow* new_flow( uint8_t forward, uint16_t id, uint64_t now );
-  void to_network( Flow& flow, const char* data, size_t len );
+  /* What the logic asks of its edge (conversations.h). */
+  friend class Gosh::Conversations<UDPForwarder>;
+  void send( const std::string& payload ) { link->sidechannel_send( payload ); }
+  bool open( uint32_t handle, uint8_t forward, uint16_t id );
+  void close( uint32_t handle );
+  void to_target( uint32_t handle, const std::string& datagram );
+  void to_application( uint8_t forward, const std::string& peer, const std::string& datagram );
 
   /* unused */
   UDPForwarder( const UDPForwarder& );
@@ -196,7 +158,7 @@ public:
   void set_verbose( unsigned int s_verbose ) { verbose = s_verbose; }
 
   /* When to add parity to the datagrams we fragment.  (What we receive may have it regardless.) */
-  void set_parity_mode( ParityMode s_mode ) { parity_mode = s_mode; }
+  void set_parity_mode( ParityMode s_mode ) { conversations.set_parity_mode( s_mode ); }
 
   /* Sockets to poll for reading; pass each readable one to read_fd(). */
   std::vector<int> fds( void ) const;
@@ -205,16 +167,16 @@ public:
   /* A forwarded datagram has arrived from the other end of the session. */
   void sidechannel_recv( const std::string& payload );
 
-  size_t flow_count( void ) const { return flows.size(); }
-  uint64_t get_dropped_oversize( void ) const { return dropped_oversize; }
+  size_t flow_count( void ) const { return conversations.flow_count(); }
+  uint64_t get_dropped_oversize( void ) const { return conversations.get_dropped_oversize(); }
 
   /* Datagrams we sent in fragments; and of those received so: rebuilt, rebuilt using parity, given up on. */
-  uint64_t get_fragmented( void ) const { return fragmented; }
-  uint64_t get_with_parity( void ) const { return with_parity; }
-  uint64_t get_reassembled( void ) const { return reassembled; }
-  uint64_t get_recovered( void ) const { return recovered; }
-  uint64_t get_abandoned( void ) const { return abandoned; }
-  size_t partial_count( void ) const { return partials.size(); }
+  uint64_t get_fragmented( void ) const { return conversations.get_fragmented(); }
+  uint64_t get_with_parity( void ) const { return conversations.get_with_parity(); }
+  uint64_t get_reassembled( void ) const { return conversations.get_reassembled(); }
+  uint64_t get_recovered( void ) const { return conversations.get_recovered(); }
+  uint64_t get_abandoned( void ) const { return conversations.get_abandoned(); }
+  size_t partial_count( void ) const { return conversations.partial_count(); }
 };
 
 }

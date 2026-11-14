@@ -92,11 +92,8 @@ UDPForwarder::UDPForwarder( SideChannelLink* s_link,
                             Role s_role,
                             const std::vector<std::string>& specs,
                             bool reverse )
-  : link( s_link ), role( s_role ), data_type( reverse ? TYPE_UDP_REVERSE_DATA : TYPE_UDP_DATA ),
-    fragment_type( reverse ? TYPE_UDP_REVERSE_FRAGMENT : TYPE_UDP_FRAGMENT ), verbose( 0 ),
-    parity_mode( PARITY_AUTO ), forwards(), flows(), next_flow_id( 0 ), next_seq( 0 ), replay(), partials(),
-    finished(), dropped_oversize( 0 ), fragmented( 0 ), with_parity( 0 ), reassembled( 0 ), recovered( 0 ),
-    abandoned( 0 )
+  : link( s_link ), role( s_role ), verbose( 0 ), forwards(), sockets(),
+    conversations( s_role == LISTEN, reverse, specs.size() )
 {
   if ( specs.size() > MAX_FORWARDS ) {
     throw NetworkException( "UDP forwarding: too many forwarding specifications", 0 );
@@ -142,7 +139,7 @@ UDPForwarder::UDPForwarder( SideChannelLink* s_link,
   } catch ( ... ) {
     for ( std::vector<Forward>::iterator i = forwards.begin(); i != forwards.end(); i++ ) {
       if ( i->listen_fd >= 0 ) {
-        close( i->listen_fd );
+        ::close( i->listen_fd );
       }
     }
     throw;
@@ -153,13 +150,11 @@ UDPForwarder::~UDPForwarder()
 {
   for ( std::vector<Forward>::iterator i = forwards.begin(); i != forwards.end(); i++ ) {
     if ( i->listen_fd >= 0 ) {
-      close( i->listen_fd );
+      ::close( i->listen_fd );
     }
   }
-  for ( std::vector<Flow>::iterator i = flows.begin(); i != flows.end(); i++ ) {
-    if ( i->fd >= 0 ) {
-      close( i->fd );
-    }
+  for ( std::vector<Socket>::iterator i = sockets.begin(); i != sockets.end(); i++ ) {
+    ::close( i->fd );
   }
 }
 
@@ -171,111 +166,79 @@ std::vector<int> UDPForwarder::fds( void ) const
       ret.push_back( i->listen_fd );
     }
   }
-  for ( std::vector<Flow>::const_iterator i = flows.begin(); i != flows.end(); i++ ) {
-    if ( i->fd >= 0 ) {
-      ret.push_back( i->fd );
-    }
+  for ( std::vector<Socket>::const_iterator i = sockets.begin(); i != sockets.end(); i++ ) {
+    ret.push_back( i->fd );
   }
   return ret;
 }
 
-void UDPForwarder::remove_flow( size_t index )
+Gosh::DatagramLink UDPForwarder::link_now( void ) const
 {
-  if ( flows[index].fd >= 0 ) {
-    close( flows[index].fd );
-  }
-  flows.erase( flows.begin() + index );
+  Gosh::DatagramLink now;
+  now.ready = link->sidechannel_ready();
+  /* (as the fork did, the size and the loss are asked for only of a session that is ready) */
+  now.max_payload = now.ready ? link->sidechannel_max_payload() : 0;
+  now.loss = now.ready ? link->sidechannel_loss() : 0;
+  return now;
 }
 
-void UDPForwarder::expire_flows( uint64_t now )
+bool UDPForwarder::open( uint32_t handle, uint8_t forward, uint16_t id )
 {
-  for ( size_t i = flows.size(); i-- > 0; ) {
-    if ( now - flows[i].last_used > FLOW_IDLE_TIMEOUT ) {
-      remove_flow( i );
+  const Forward& f = forwards[forward];
+  Socket s;
+  s.handle = handle;
+  s.fd = socket( f.target.sa.sa_family, SOCK_DGRAM, 0 );
+  if ( s.fd < 0 ) {
+    return false;
+  }
+  set_cloexec( s.fd );
+  if ( connect( s.fd, &f.target.sa, f.target_len ) < 0 ) {
+    ::close( s.fd );
+    return false;
+  }
+  if ( verbose ) {
+    fprintf( stderr, "UDP forwarding: new flow %d for %s\n", static_cast<int>( id ), f.description.c_str() );
+  }
+  sockets.push_back( s );
+  return true;
+}
+
+void UDPForwarder::close( uint32_t handle )
+{
+  for ( std::vector<Socket>::iterator i = sockets.begin(); i != sockets.end(); i++ ) {
+    if ( i->handle == handle ) {
+      ::close( i->fd );
+      sockets.erase( i );
+      return;
     }
   }
 }
 
-/* The returned pointer is only good until the next change to the flow table. */
-UDPForwarder::Flow* UDPForwarder::new_flow( uint8_t forward, uint16_t id, uint64_t now )
+void UDPForwarder::to_target( uint32_t handle, const std::string& datagram )
 {
-  expire_flows( now );
-
-  if ( flows.size() >= MAX_FLOWS ) {
-    /* make room by forgetting the conversation that has been quiet longest */
-    size_t oldest = 0;
-    for ( size_t i = 1; i < flows.size(); i++ ) {
-      if ( flows[i].last_used < flows[oldest].last_used ) {
-        oldest = i;
-      }
-    }
-    remove_flow( oldest );
-  }
-
-  Flow flow;
-  flow.forward = forward;
-  flow.id = id;
-  flow.last_used = now;
-
-  if ( role == CONNECT ) {
-    const Forward& f = forwards[forward];
-    flow.fd = socket( f.target.sa.sa_family, SOCK_DGRAM, 0 );
-    if ( flow.fd < 0 ) {
-      return NULL;
-    }
-    set_cloexec( flow.fd );
-    if ( connect( flow.fd, &f.target.sa, f.target_len ) < 0 ) {
-      close( flow.fd );
-      return NULL;
-    }
-    if ( verbose ) {
-      fprintf( stderr, "UDP forwarding: new flow %d for %s\n", static_cast<int>( id ), f.description.c_str() );
+  for ( std::vector<Socket>::iterator i = sockets.begin(); i != sockets.end(); i++ ) {
+    if ( i->handle == handle ) {
+      ::send( i->fd, datagram.data(), datagram.size(), MSG_DONTWAIT );
+      return;
     }
   }
-
-  flows.push_back( flow );
-  return &flows.back();
 }
 
-void UDPForwarder::to_network( Flow& flow, const char* data, size_t len )
+void UDPForwarder::to_application( uint8_t forward, const std::string& peer, const std::string& datagram )
 {
-  if ( !link->sidechannel_ready() ) {
-    return; /* peer doesn't (yet) support forwarding, or we're not connected */
-  }
+  sendto( forwards[forward].listen_fd,
+          datagram.data(),
+          datagram.size(),
+          MSG_DONTWAIT,
+          reinterpret_cast<const struct sockaddr*>( peer.data() ),
+          peer.size() );
+}
 
-  const size_t limit = link->sidechannel_max_payload();
-  const std::string datagram( data, len );
-
-  if ( FRAME_HEADER_LEN + len <= limit ) {
-    link->sidechannel_send( encode_frame( data_type, flow.forward, flow.id, next_seq++, datagram ) );
-    return;
+void UDPForwarder::say_if_dropped( uint64_t dropped_before, size_t len )
+{
+  if ( verbose && !dropped_before && conversations.get_dropped_oversize() ) {
+    fprintf( stderr, "UDP forwarding: dropping %d-byte datagram (too many fragments)\n", static_cast<int>( len ) );
   }
-
-  /* Too big to go in one piece.  Is it worth protecting the pieces? */
-  std::vector<std::string> fragments;
-  bool parity = false;
-  if ( limit > FRAME_HEADER_LEN ) {
-    const unsigned int count = DatagramAssembly::piece_count( len, limit - FRAME_HEADER_LEN );
-    parity = parity_mode == PARITY_ALWAYS
-             || ( parity_mode == PARITY_AUTO && parity_worthwhile( link->sidechannel_loss(), count ) );
-    fragments = DatagramAssembly::split( datagram, limit - FRAME_HEADER_LEN, parity );
-  }
-  if ( fragments.empty() ) {
-    if ( verbose && !dropped_oversize ) {
-      fprintf( stderr,
-               "UDP forwarding: dropping %d-byte datagram (too many fragments)\n",
-               static_cast<int>( len ) );
-    }
-    dropped_oversize++;
-    return;
-  }
-
-  /* The receiver relies on these sequence numbers being consecutive. */
-  for ( std::vector<std::string>::const_iterator i = fragments.begin(); i != fragments.end(); i++ ) {
-    link->sidechannel_send( encode_frame( fragment_type, flow.forward, flow.id, next_seq++, *i ) );
-  }
-  fragmented++;
-  with_parity += parity ? 1 : 0;
 }
 
 void UDPForwarder::read_fd( int fd )
@@ -301,45 +264,21 @@ void UDPForwarder::read_fd( int fd )
         return; /* drained, or a transient error: either way, nothing to forward */
       }
 
-      /* which conversation is this? */
-      Flow* flow = NULL;
-      for ( std::vector<Flow>::iterator i = flows.begin(); i != flows.end(); i++ ) {
-        if ( i->forward == forward && i->peer_len == from_len && memcmp( &i->peer, &from, from_len ) == 0 ) {
-          flow = &*i;
-          break;
-        }
-      }
-      if ( !flow ) {
-        /* choose an id that no live conversation on this forward is using */
-        for ( std::vector<Flow>::iterator i = flows.begin(); i != flows.end(); ) {
-          if ( i->forward == forward && i->id == next_flow_id ) {
-            next_flow_id++;
-            i = flows.begin();
-          } else {
-            i++;
-          }
-        }
-        flow = new_flow( forward, next_flow_id++, now );
-        if ( !flow ) {
-          continue;
-        }
-        flow->peer = from;
-        flow->peer_len = from_len;
-      }
-
-      flow->last_used = now;
-      to_network( *flow, buf, len );
+      const uint64_t dropped = conversations.get_dropped_oversize();
+      conversations.from_application(
+        forward, std::string( reinterpret_cast<const char*>( &from ), from_len ), buf, len, now, link_now(), *this );
+      say_if_dropped( dropped, len );
     }
   } else {
     for ( int n = 0; n < MAX_READS_PER_WAKEUP; n++ ) {
-      Flow* flow = NULL;
-      for ( std::vector<Flow>::iterator i = flows.begin(); i != flows.end(); i++ ) {
+      const Socket* s = NULL;
+      for ( std::vector<Socket>::const_iterator i = sockets.begin(); i != sockets.end(); i++ ) {
         if ( i->fd == fd ) {
-          flow = &*i;
+          s = &*i;
           break;
         }
       }
-      if ( !flow ) {
+      if ( !s ) {
         return;
       }
 
@@ -349,137 +288,14 @@ void UDPForwarder::read_fd( int fd )
         return;
       }
 
-      flow->last_used = now;
-      to_network( *flow, buf, len );
+      const uint64_t dropped = conversations.get_dropped_oversize();
+      conversations.from_target( s->handle, buf, len, now, link_now(), *this );
+      say_if_dropped( dropped, len );
     }
   }
 }
 
 void UDPForwarder::sidechannel_recv( const std::string& payload )
 {
-  uint8_t type, forward;
-  uint16_t flow_id;
-  uint64_t seq;
-  std::string data;
-
-  if ( !decode_frame( payload, type, forward, flow_id, seq, data ) || forward >= forwards.size()
-       || ( type != data_type && type != fragment_type ) ) {
-    return;
-  }
-
-  /* The session authenticates every datagram but does not stop an old
-     one from being replayed, so that is up to us. */
-  if ( !replay.accept( seq ) ) {
-    return;
-  }
-
-  const uint64_t now = timestamp();
-
-  if ( type == fragment_type ) {
-    fragment_recv( forward, flow_id, seq, data, now );
-  } else {
-    deliver( forward, flow_id, data, now );
-  }
-}
-
-void UDPForwarder::expire_partials( uint64_t now )
-{
-  for ( std::map<uint64_t, Partial>::iterator i = partials.begin(); i != partials.end(); ) {
-    if ( now - i->second.started > REASSEMBLY_TIMEOUT ) {
-      partials.erase( i++ ); /* a fragment was lost, and with it the datagram */
-      abandoned++;
-    } else {
-      i++;
-    }
-  }
-}
-
-void UDPForwarder::fragment_recv( uint8_t forward,
-                                  uint16_t flow_id,
-                                  uint64_t seq,
-                                  const std::string& fragment,
-                                  uint64_t now )
-{
-  unsigned int index;
-  if ( !DatagramAssembly::index_of( fragment, index ) ) {
-    return;
-  }
-  const uint64_t first_seq = seq - index;
-
-  if ( std::find( finished.begin(), finished.end(), first_seq ) != finished.end() ) {
-    return; /* already rebuilt without this one (typically, parity that wasn't needed) */
-  }
-
-  expire_partials( now );
-
-  std::map<uint64_t, Partial>::iterator i = partials.find( first_seq );
-  if ( i == partials.end() ) {
-    if ( partials.size() >= MAX_PARTIALS ) {
-      partials.erase( partials.begin() ); /* the oldest */
-      abandoned++;
-    }
-    Partial fresh;
-    fresh.forward = forward;
-    fresh.flow_id = flow_id;
-    fresh.started = now;
-    i = partials.insert( std::make_pair( first_seq, fresh ) ).first;
-  } else if ( i->second.forward != forward || i->second.flow_id != flow_id ) {
-    return;
-  }
-
-  std::string datagram;
-  bool used_parity = false;
-  switch ( i->second.assembly.add( fragment, datagram, used_parity ) ) {
-    case DatagramAssembly::COMPLETE:
-      partials.erase( i );
-      finished.push_back( first_seq );
-      if ( finished.size() > MAX_REMEMBERED ) {
-        finished.pop_front();
-      }
-      reassembled++;
-      recovered += used_parity ? 1 : 0;
-      deliver( forward, flow_id, datagram, now );
-      break;
-    case DatagramAssembly::REJECTED:
-      if ( i->second.assembly.empty() ) {
-        partials.erase( i ); /* don't let junk hold a place */
-      }
-      break;
-    case DatagramAssembly::INCOMPLETE:
-      break;
-  }
-}
-
-/* A whole datagram from the other end: pass it on. */
-void UDPForwarder::deliver( uint8_t forward, uint16_t flow_id, const std::string& datagram, uint64_t now )
-{
-  Flow* flow = NULL;
-  for ( std::vector<Flow>::iterator i = flows.begin(); i != flows.end(); i++ ) {
-    if ( i->forward == forward && i->id == flow_id ) {
-      flow = &*i;
-      break;
-    }
-  }
-
-  if ( role == LISTEN ) {
-    if ( !flow ) {
-      return; /* a reply to a conversation we have forgotten */
-    }
-    flow->last_used = now;
-    sendto( forwards[forward].listen_fd,
-            datagram.data(),
-            datagram.size(),
-            MSG_DONTWAIT,
-            &flow->peer.sa,
-            flow->peer_len );
-  } else {
-    if ( !flow ) {
-      flow = new_flow( forward, flow_id, now );
-      if ( !flow ) {
-        return;
-      }
-    }
-    flow->last_used = now;
-    send( flow->fd, datagram.data(), datagram.size(), MSG_DONTWAIT );
-  }
+  conversations.payload( payload, timestamp(), *this );
 }
