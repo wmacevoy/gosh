@@ -7,6 +7,39 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-14 — A closed end resets a late segment, and the other end throws away bytes not yet taken
+
+- **What happened:** the review of selective acknowledgment (a session given the code) ran
+  connections with segments reordered and duplicated, which nothing in this repository does.
+  It found a fault that is the fork's and older than the change under review.
+- **What it is:** an end whose connection has closed in order forgets it at once. A late or
+  duplicated segment for it is then answered with a reset; the other end believes the reset,
+  ends its connection, and discards what its application had not yet taken.
+- **What was seen** *(by the reviewer, in a harness of its own that is not in the repository;
+  not run again here)*: with 30 in 100 segments reordered and a slow application at one end, 4
+  of 100 connections ended this way with selective acknowledgment off, 11 of 100 with it on;
+  in one, 167,212 of 284,228 bytes had been delivered.
+- **Why no test here found it:** it needs reordering or duplication, and an application still
+  reading when the other end closes. Loopback does neither.
+- **What would have found it:** a unit test that carries segments out of order. `Pair` in
+  `connection-test.cc` can lose segments now, and cannot yet reorder them.
+- **What it changed:** nothing yet. It is a change to how the fork's TCP ends a connection, so
+  it is the owner's to take up or leave: a closed connection remembered for a short time, or a
+  reset not believed while bytes wait to be taken.
+
+## 2026-11-14 — The review of selective acknowledgment: two faults that its author's tests passed
+
+- **What happened:** the change landed with every test green, each seen red. A session given
+  only the code then broke it two ways in ten minutes: a range said to be held that covered a
+  FIN made the sender read past its buffer (an exception), and a sender that did not count held
+  bytes against the receiver's window sent 50 KB past the room it was given.
+- **What would have found them:** asking of each input what happens when it is wrong or lying
+  (SE1/R6) for the range itself, not only for whether a range is true; and a test with a slow
+  application and a loss together, where each had a test alone.
+- **What it changed:** `84ce53e`: both fixed, a test for each, and two tests of what the
+  receiver says and the sender reads. The reviewer's randomized runs (reordering, duplication,
+  sequence numbers wrapping: about 3,700 connections, all whole) are not in the repository.
+
 ## 2026-11-14 — Selective acknowledgment: a third of the datagrams, and the inference held
 
 - **What happened:** queue item 17 gave forwarding's TCP selective acknowledgment (commit
