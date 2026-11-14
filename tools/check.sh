@@ -78,6 +78,7 @@ reference headless-smoke.py 127.0.0.1 returned
 # Written here, for requirements the fork tested only from inside (queue item 4).
 reference outage.py
 reference copy-cut.py
+reference copy-liar.py
 if python3 -c 'import socket; socket.socket(socket.AF_INET6, socket.SOCK_DGRAM).bind(("::1", 0))' 2>/dev/null; then
     reference headless-smoke.py ::1 blocked
 fi
@@ -113,6 +114,7 @@ pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" forward-e2e.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" outage.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" copy-cut.py gocp
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" copy-liar.py
 if tests/mocp.test "$here/$gosh/gosh-client" "$here/$gosh/gosh-server" gocp gosh >.build/gosh-test.log 2>&1; then
     echo "gosh passes mocp.test"
 else

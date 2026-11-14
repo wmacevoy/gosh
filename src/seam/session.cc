@@ -7,6 +7,8 @@
 
 #include "src/seam/hooks.h"
 
+#include <cerrno>
+
 #include <sys/wait.h>
 
 #include "src/forwarding/stream.h"
@@ -29,8 +31,18 @@ void Gosh::tend_stream( void )
   Session& s = session();
   if ( s.stream_pid > 0 ) {
     int status = 0;
-    if ( waitpid( s.stream_pid, &status, WNOHANG ) == s.stream_pid ) {
+    const pid_t waited = waitpid( s.stream_pid, &status, WNOHANG );
+    if ( waited == s.stream_pid ) {
       s.stream_status = WIFEXITED( status ) ? WEXITSTATUS( status ) : 128 + WTERMSIG( status );
+      s.stream_pid = -1;
+      s.stream_ended = Network::timestamp();
+    } else if ( waited < 0 && errno == ECHILD ) {
+      /*
+       * There is no such child to wait for: whoever started us had child signals ignored, so the
+       * system has taken it away already, and with it how it ended. It has ended; without this
+       * we would wait for ever. (The fork does wait for ever.) Its status is not known: 1.
+       */
+      s.stream_status = 1;
       s.stream_pid = -1;
       s.stream_ended = Network::timestamp();
     }

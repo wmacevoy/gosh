@@ -213,6 +213,11 @@ try:
     check("a stock host: the server was asked for no forward (it did not complain)",
           not any(w in said + out for w in (b"Usage:", b"invalid option")), repr((said + out)[-400:]))
     check("a stock host: -N writes nothing on standard output", out == b"", repr(out[-200:]))
+    done = subprocess.run([gosh, "--ssh=" + ssh, "--experimental-remote-ip=local", "--stdio", "localhost", "--", "echo", "hi"],
+                          env=stock_host, stdin=subprocess.DEVNULL, capture_output=True, timeout=PATIENCE * 2)
+    check("a stock host: a stream is refused in words, with status 1, and nothing is run",
+          done.returncode == 1 and b"has no gosh-server, and its mosh-server cannot do this (--stdio)" in done.stderr
+          and done.stdout == b"", repr((done.returncode, done.stdout[-100:], done.stderr[-200:])))
     drawn = session(stock_host)
     check("a stock host: a terminal session works regardless", b"hello" in drawn, repr(drawn[-300:]))
     check("a stock host: and there too it says so once", drawn.count(NOTICE) == 1, repr(drawn[-300:]))

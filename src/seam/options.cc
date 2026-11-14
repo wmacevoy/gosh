@@ -54,6 +54,7 @@ bool take_forward_options( const std::vector<std::string>& args,
           options.parity = value;
         } else if ( letter == 'X' ) {
           options.stream = value;
+          options.stream_given = true;
           if ( allow_headless ) {
             options.headless = true; /* a stream has no terminal at the client */
           }

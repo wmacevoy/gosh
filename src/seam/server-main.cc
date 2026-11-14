@@ -36,7 +36,7 @@ int main( int argc, char* argv[] )
       fprintf( stderr, "%s: %s\n", name.c_str(), error.c_str() );
       return 1;
     }
-    if ( !options.stream.empty() && !Network::stream_words_valid( Network::stream_words( options.stream ) ) ) {
+    if ( options.stream_given && !Network::stream_words_valid( Network::stream_words( options.stream ) ) ) {
       fprintf( stderr, "%s: -X: not something that can be started\n", name.c_str() );
       return 1;
     }

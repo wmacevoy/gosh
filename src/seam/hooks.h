@@ -41,6 +41,7 @@
  *     turn            after it waits: what became readable, and the timers
  *   announce          (the client, headless) in place of drawing the screen
  *   session_ended     before the transport goes, or in a child that must not hold its sockets
+ *   loop_returned     (the client) its loop has come to its end
  *   stream_exit       (the client, for a stream) the status to exit with
  *
  * A stream (REQ1/CP-7): the session exists to join a process at each end. The server's is
@@ -67,10 +68,11 @@ struct Session
   /* the session's own state, as the client's loop cannot be handed it each pass (set by session_started) */
   std::function<bool()> ending;         /* the session is being ended */
   std::function<void()> end_it;         /* begin to end it */
+  bool loop_returned;                   /* the client's loop came to its end, and was not thrown out of */
 
   Session()
     : options(), client( false ), forwarding(), watched(), announced( false ), stream_words(), stream_pid( 0 ),
-      stream_status( 1 ), stream_ended( 0 ), ending(), end_it()
+      stream_status( 1 ), stream_ended( 0 ), ending(), end_it(), loop_returned( false )
   {}
 };
 
@@ -226,15 +228,22 @@ void announce( Transport& network, bool still_connecting )
   fflush( stderr );
 }
 
+/* The client's loop has come to its end (and was not left by an exception). */
+inline void loop_returned( void )
+{
+  session().loop_returned = true;
+}
+
 /*
  * The client, for a stream: the status to exit with. We were only the means; what matters is
- * how the process the stream was for got on: its exit status, or 1 if it never ran.
+ * how the process the stream was for got on: its exit status; or 1 if it never ran, or if the
+ * client's loop was thrown out of before it could be asked.
  * success: whether the session itself ended cleanly.
  */
 inline int stream_exit( bool success )
 {
   Session& s = session();
-  const int status = s.stream_pid == -1 ? s.stream_status : 1;
+  const int status = ( s.loop_returned && s.stream_pid == -1 ) ? s.stream_status : 1;
   if ( status == 1 && !success ) {
     fputs( "mosh: the session ended before its work was done.\n", stderr );
   }

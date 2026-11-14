@@ -3,7 +3,8 @@ gosh seam 09: A session that exists for a stream.
 For:   REQ1/CP-7, REQ1/CP-1. A stream joins a process at each end of a session, and such a
        session has nobody at a terminal: the client is finished when its process is, and exits
        with that process's status; the server must not wait for ever on a client that is gone.
-What:  the client, at the end of main, returns the stream's status in place of its own. The
+What:  the client, at the end of main, returns the stream's status in place of its own, and
+       says when its loop has come to its end, so that a status is taken from it only then. The
        server gives a stream's session a week without its client before it gives up, unless a
        timeout was set. And neither drops its privileges (OpenBSD's pledge) for a stream, because
        its processes are yet to be started and will do whatever they do.
@@ -15,10 +16,18 @@ From:  the fork at mosh-1.4.0-pf.7, where the tests were on a member and a local
 Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
 
 diff --git a/src/frontend/mosh-client.cc b/src/frontend/mosh-client.cc
-index a85507c..e909e80 100644
+index a85507c..580c94d 100644
 --- a/src/frontend/mosh-client.cc
 +++ b/src/frontend/mosh-client.cc
-@@ -213,6 +213,10 @@ int mosh_client_main( int argc, char* argv[] )
+@@ -196,6 +196,7 @@ int mosh_client_main( int argc, char* argv[] )
+ 
+     try {
+       success = client.main();
++      Gosh::loop_returned();
+     } catch ( ... ) {
+       client.shutdown();
+       throw;
+@@ -213,6 +214,10 @@ int mosh_client_main( int argc, char* argv[] )
      success = false;
    }
  

@@ -31,9 +31,11 @@ struct ForwardOptions
   std::string parity;                  /* -F auto|always|never: parity for fragmented UDP */
   std::string stream;                  /* -X WORDS: the session is for a stream; what to start at this end,
                                           as words with the character 0x1F between them. Empty: no stream */
+  bool stream_given;                   /* -X was given, with whatever value (an empty one is not "no stream":
+                                          it is a stream of nothing, which the caller refuses) */
   bool headless;                       /* -N: no terminal (the client only; -X at the client means it too) */
 
-  ForwardOptions() : tcp(), tcp_remote(), udp(), udp_remote(), parity( "auto" ), stream(), headless( false ) {}
+  ForwardOptions() : tcp(), tcp_remote(), udp(), udp_remote(), parity( "auto" ), stream(), stream_given( false ), headless( false ) {}
 
   /* Whether any forward was asked for. */
   bool any( void ) const { return !tcp.empty() || !tcp_remote.empty() || !udp.empty() || !udp_remote.empty(); }

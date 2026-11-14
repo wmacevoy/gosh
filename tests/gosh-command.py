@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1: the gosh command, from its command line to a byte at the target.
+"""REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7: the gosh command, from its command line to a byte at the target.
 
 usage: gosh-command.py GOSH SERVER
 
@@ -14,6 +14,10 @@ here needs an ssh server or asks anything of the network.
   a forward            "gosh -N -L PORT:HOST:PORT host": no terminal; it says
                        when the forward is up, and a byte sent to the local port
                        comes back from the target.
+  a stream             "gosh --stdio host -- cat" (REQ1/CP-7): two megabytes of
+                       every byte value go to the command and come back the
+                       same; and it finishes even when whoever started it had
+                       child signals ignored, which the fork does not.
 
 This is the thin slice of queue item 5 seen from outside: every layer between
 the command line and the target is in it.
@@ -30,6 +34,7 @@ License, version 3 or later (COPYING).
 import fcntl
 import os
 import pty
+import random
 import select
 import signal
 import socket
@@ -173,8 +178,31 @@ def forward_carries_a_byte():
         check("gosh -N: nothing was written on standard output", out == b"", repr(out[-200:]))
 
 
+def stdio(command, data, ignore_children=False):
+    """Runs "gosh --stdio localhost -- command" with data on its standard input. Returns (status, output), or None."""
+    def ignore():
+        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+    try:
+        done = subprocess.run([gosh, "--ssh=" + ssh, "--server=" + server_path, "--experimental-remote-ip=local",
+                               "--stdio", "localhost", "--"] + command,
+                              env=env, input=data, capture_output=True, timeout=PATIENCE * 4,
+                              preexec_fn=ignore if ignore_children else None)
+    except subprocess.TimeoutExpired:
+        return None
+    return done.returncode, done.stdout
+
+
 before = our_servers()
 try:
+    data = random.Random(11).randbytes(2 * 1000 * 1000)  # seeded: the same bytes every run
+    got = stdio(["cat"], data)
+    check("gosh --stdio: two megabytes of every byte value go and come back the same",
+          got is not None and got[0] == 0 and got[1] == data,
+          "timed out" if got is None else "status %d, %d bytes" % (got[0], len(got[1])))
+    got = stdio(["echo", "hello"], b"", ignore_children=True)
+    check("gosh --stdio: it finishes when started with child signals ignored",
+          got is not None and got[1] == b"hello\n", repr(got))
+
     for how in ("proxy", "remote", "local"):
         drawn, tail = session_draws(how)
         check('gosh host -- command: a terminal session, the address by "%s"' % how, drawn, repr(tail))
@@ -187,5 +215,5 @@ finally:
             pass
 
 if failures:
-    sys.exit("FAIL REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1: %s" % "; ".join(failures))
-print("PASS REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1: the gosh command, a session and a forward")
+    sys.exit("FAIL REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7: %s" % "; ".join(failures))
+print("PASS REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7: the gosh command, a session, a forward and a stream")

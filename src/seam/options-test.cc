@@ -72,6 +72,9 @@ int main()
   check( "at the server -X is taken too, and does not mean headless, which is not the server's",
          take( { "-X", "@stdio", "--", "sh" }, "@ipcl", false, o, rest, error ) && o.stream == "@stdio" && !o.headless
            && rest == Words{ "--", "sh" } );
+  check( "an empty -X is still a -X: it is for the caller to refuse, not to be taken for none",
+         take( { "-X", "", "ip", "port" }, "#", true, o, rest, error ) && o.stream_given && o.stream.empty() && o.headless
+           && take( { "ip", "port" }, "#", true, o, rest, error ) && !o.stream_given );
   check( "with nothing of gosh's, the words are untouched and nothing is asked for",
          take( { "-#", "ARGS -L not ours", "-v", "ip", "port" }, "#", true, o, rest, error ) && !o.any() && !o.headless
            && rest == Words{ "-#", "ARGS -L not ours", "-v", "ip", "port" } );
