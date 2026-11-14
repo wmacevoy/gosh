@@ -7,6 +7,31 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-14 — Where pf.7's processor time goes: one erase, in the sender
+
+- **What happened:** With `perf` installed (`tools/setup-root.sh`, run by the owner), pf.7 was
+  profiled carrying 20 MB each way under `tools/speed.py` (`perf record -F 999`, then again with
+  call graphs). Of all processor time in the run, 71% was the client (the sending end here), 25%
+  the server. About 40% of the whole was one place: `memmove` in libc, called from
+  `std::string::erase` in `AdapterPort::process_ack` (`tcpadapter.cc:657`,
+  `c.send_buf.erase( 0, acked )`). The send buffer holds up to 1 MB (`SEND_BUFFER`,
+  `tcpadapter.h:88`), and every acknowledgment moves all that is left of it down to the front.
+  OpenSSL's sealing and opening was about 20%, both ends together. The programs' own code,
+  including every virtual call, was about 12%.
+- **Kind:** K2. Nobody had asked where the time went; design v2 inferred "copies, not virtual
+  calls" from reading and could not name which.
+- **Cost:** ten minutes, once there was a profiler. Under `perf` the rate fell by about half, so
+  these are shares of processor time, not a speed figure.
+- **Findable by:** a profile before choosing what to make fast, which SE1/O10 asks for and queue
+  item 4 now does.
+- **Changed:** nothing in pf.7, which is frozen, and nothing in queue item 5, which carries this
+  code unchanged on purpose. For item 15 (forwarding's TCP reshaped): the send buffer need not be
+  moved on every acknowledgment (an offset, compacted now and then, is the plain way), which would
+  remove the largest single cost of a forward. `REQ6/SPEED-1` asks only for not slower; this says
+  the reshaping has room, and that templates in place of virtual calls would be aimed at 12% while
+  one line holds 40%. The same pattern is at `tcpadapter.cc:855` for the receive buffer, which
+  did not show in this run.
+
 ## 2026-11-13 — The baseline for speed: pf.7 on this machine, and a steadier figure than Mbit/s
 
 - **What happened:** `tools/speed.py`, brought here and given a second figure, measured the fork's
@@ -31,8 +56,7 @@ worth reading before migrating the part it concerns.
 - **Findable by:** measuring what the programs spend as well as what the clock saw.
 - **Changed:** `REQ6/SPEED-1`'s kept measurement now reports both figures. Proposed, for the owner:
   hold a part to 10% on **CPU s/MB** by UDP, where the rate cannot hold anything to 10%, and to
-  10% on both figures by the relay. Not yet done: a profile of pf.7 (no `perf` on this machine;
-  `gprof` would need a build of its own), and nothing compares gosh with these figures until a part
+  10% on both figures by the relay. A profile of pf.7 followed the next day (the entry above). Nothing compares gosh with these figures until a part
   can carry a forward (queue item 5).
 
 ## 2026-11-13 — A meetup's proof of its key can be replayed by anyone who sees one
