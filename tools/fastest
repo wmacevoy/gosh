@@ -14,4 +14,4 @@
 # way    version                                     when, and what was measured
 udp      646558489f8b8a46aae2e3a58084fae00adff5ec    2026-11-14: 171% of 2001e4f by the gate (selective acknowledgment; 47.8 against 27.9 Mbit/s)
 stream   646558489f8b8a46aae2e3a58084fae00adff5ec    2026-11-14: 158% of pf.7 by the gate (selective acknowledgment; 38.7 against 24.6 Mbit/s)
-relay    pf.7                                        gosh has no relay yet (queue item 7)
+relay    2b279d90b6fc686332c6044bb24c807313b08a67    2026-11-14: 323% of pf.7 by the gate (the relay carried; the gain is forwarding's, items 15 and 17; 45.5 against 14.1 Mbit/s)

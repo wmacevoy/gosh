@@ -48,6 +48,7 @@
 #include <unistd.h>
 
 #include "src/pathfinding/punch.h"
+#include "src/relay/paths.h"
 #include "src/relay/relay.h"
 
 #include <cstdarg>
@@ -58,25 +59,9 @@ using namespace Network;
 
 static const size_t MAX_DATAGRAM = 65535;
 
-/* how long without an answer by UDP before the stream is brought in */
-static const uint64_t DIRECT_QUIET_MS = 2500;
-/* how long the stream may go unneeded before it is closed */
-static const uint64_t STREAM_IDLE_MS = 60000;
-/* how long without an answer by UDP before trying from a fresh socket */
-static const uint64_t DIRECT_HOP_MS = 10000;
-/* between attempts to start the remote relay: doubling from, up to */
-static const uint64_t RESPAWN_MIN_MS = 1000;
-static const uint64_t RESPAWN_MAX_MS = 30000;
-/*
- * ...and up to this while it has never yet worked.  Then the likeliest
- * reason is that ssh cannot log in without asking, which will not get
- * better, and a server may take repeated failed logins amiss.
- */
-static const uint64_t RESPAWN_HOPELESS_MAX_MS = 300000;
+/* (gosh) The times that decide a path are in paths.h, with the rules that use them. */
 /* how much may wait to go down a stream that is not taking it */
 static const size_t STREAM_BACKLOG = 256 * 1024;
-/* how long the remote relay stays, its stream gone, for a way through that has gone quiet */
-static const uint64_t PUNCH_LINGER_MS = 60000;
 /* the plain STUN servers asked where we appear to be from outside, unless there is a meetup, or MOSH_STUN says otherwise */
 static const char DEFAULT_STUN[] = "stun.l.google.com:19302,stun.cloudflare.com:3478";
 
@@ -424,7 +409,7 @@ int Network::relay_remote( const char* address, const char* port )
       if ( through_open ) {
         punch->send( answer );
       }
-      if ( stream_open && !stream_ended && ( !through_open || now - stream_heard < DIRECT_QUIET_MS + 500 ) ) {
+      if ( Gosh::remote_answer_by( now, through_open, stream_open && !stream_ended, stream_heard ).stream ) {
         stream_ended = !write_all( STDOUT_FILENO, relay_frame( answer ) );
       }
       if ( sockets.size() > 1 ) {
@@ -465,7 +450,7 @@ int Network::relay_remote( const char* address, const char* port )
         }
       }
     }
-    if ( !stream_open && now - std::max( punch->last_heard(), stream_closed ) > PUNCH_LINGER_MS ) {
+    if ( !stream_open && Gosh::remote_finished( now, punch->last_heard(), stream_closed ) ) {
       say( "nothing heard for a minute: finished" );
       return 0;
     }
@@ -491,18 +476,26 @@ private:
   int to_child, from_child;
   std::string backlog;
   RelayFrameParser parser;
-  uint64_t respawn_after, respawn_delay;
-  bool ever_worked;
-
-  uint64_t direct_heard, direct_hopped, stream_wanted;
+  /* (gosh) which way a datagram goes, and when the stream is started and let go: logic, in paths.h */
+  Gosh::LocalPaths paths;
 
   /* a way straight through to the remote relay, when both ends are behind NATs (punch.h) */
-  uint64_t stream_idle;
   bool punching;
   std::vector<std::string> ask; /* meetups and STUN servers: whom to ask where we appear to be */
   std::string meetup_key; /* for a meetup, which answers only those who have it */
   std::unique_ptr<Punch> punch;
   bool was_open;
+
+  /* (for tests, which cannot wait a minute to see the stream let go) */
+  static uint64_t stream_idle_wanted( void )
+  {
+    if ( const char* idle = getenv( "MOSH_RELAY_STREAM_IDLE_MS" ) ) {
+      if ( atol( idle ) >= 1000 ) {
+        return atol( idle );
+      }
+    }
+    return Gosh::RelayRules::STREAM_IDLE_MS;
+  }
 
   void open_direct( void )
   {
@@ -536,21 +529,18 @@ private:
       to_child = from_child = -1;
       backlog.clear();
       parser = RelayFrameParser();
+      paths.stream_stopped();
     }
   }
 
-  void start_child( uint64_t now )
+  /* (gosh) Whether and when is paths.h's to say; this starts it, and says how that went. */
+  void start_child( void )
   {
-    if ( child > 0 || now < respawn_after || options.command.empty() ) {
-      return;
-    }
+    paths.stream_started( false );
     /* (What we had of a way through is no use, or we would not be here.  The new relay will have a new one.) */
     punch.reset();
     was_open = false;
     say( "starting the stream" );
-    respawn_after = now + respawn_delay;
-    const uint64_t most = ever_worked ? RESPAWN_MAX_MS : RESPAWN_HOPELESS_MAX_MS;
-    respawn_delay = respawn_delay * 2 > most ? most : respawn_delay * 2;
 
     int in[2], out[2];
     if ( pipe( in ) < 0 ) {
@@ -590,6 +580,7 @@ private:
     to_child = in[1];
     from_child = out[0];
     fcntl( to_child, F_SETFL, fcntl( to_child, F_GETFL ) | O_NONBLOCK );
+    paths.stream_started( true );
   }
 
   void flush( void )
@@ -623,19 +614,17 @@ private:
       punch->send( datagram );
     }
 
-    /* Is either route by UDP answering?  If not, by the stream as well. */
-    const uint64_t udp_heard = std::max( direct_heard, punch ? punch->last_heard() : 0 );
-    if ( options.stream_only || now - udp_heard > DIRECT_QUIET_MS ) {
-      stream_wanted = now;
-      start_child( now );
-      if ( to_child >= 0 && backlog.size() + datagram.size() <= STREAM_BACKLOG ) {
-        backlog += relay_frame( datagram );
-        flush();
-      }
-      if ( direct_fd >= 0 && now - direct_heard > DIRECT_HOP_MS && now - direct_hopped > DIRECT_HOP_MS ) {
-        direct_hopped = now;
-        open_direct(); /* a new port sometimes gets through where an old one has stopped */
-      }
+    /* Is either route by UDP answering?  If not, by the stream as well (paths.h). */
+    const Gosh::LocalPaths::Also also = paths.from_client( now, direct_fd >= 0, punch ? punch->last_heard() : 0 );
+    if ( also.start_stream ) {
+      start_child();
+    }
+    if ( also.by_stream && to_child >= 0 && backlog.size() + datagram.size() <= STREAM_BACKLOG ) {
+      backlog += relay_frame( datagram );
+      flush();
+    }
+    if ( also.hop ) {
+      open_direct(); /* a new port sometimes gets through where an old one has stopped */
     }
   }
 
@@ -700,17 +689,11 @@ private:
 public:
   LocalRelay( const RelayOptions& s_options, int s_client_fd, int s_alive_fd )
     : options( s_options ), client_fd( s_client_fd ), direct_fd( -1 ), alive_fd( s_alive_fd ), client(),
-      client_len( 0 ), child( -1 ), to_child( -1 ), from_child( -1 ), backlog(), parser(), respawn_after( 0 ),
-      respawn_delay( RESPAWN_MIN_MS ), ever_worked( false ), direct_heard( 0 ), direct_hopped( 0 ), stream_wanted( 0 ),
-      stream_idle( STREAM_IDLE_MS ), punching( false ), ask(), meetup_key(), punch(), was_open( false )
+      client_len( 0 ), child( -1 ), to_child( -1 ), from_child( -1 ), backlog(), parser(),
+      paths( s_options.stream_only, !s_options.command.empty(), stream_idle_wanted() ), punching( false ), ask(),
+      meetup_key(), punch(), was_open( false )
   {
     open_direct();
-    /* (for tests, which cannot wait a minute to see the stream let go) */
-    if ( const char* idle = getenv( "MOSH_RELAY_STREAM_IDLE_MS" ) ) {
-      if ( atol( idle ) >= 1000 ) {
-        stream_idle = atol( idle );
-      }
-    }
     /* Look for a way through unless told not to; and not when told to use the stream and nothing else. */
     const char* wanted = getenv( "MOSH_PUNCH" );
     punching = !options.stream_only && !( wanted && strcmp( wanted, "never" ) == 0 );
@@ -772,7 +755,7 @@ public:
       if ( direct_fd >= 0 && ( fds[2].revents & POLLIN ) ) {
         ssize_t n = recv( direct_fd, buf, sizeof( buf ), MSG_DONTWAIT );
         if ( n >= 0 ) {
-          direct_heard = now;
+          paths.direct_answered( now );
           to_client( buf, n );
         }
       }
@@ -780,8 +763,7 @@ public:
       if ( from_child >= 0 && fds[3].revents ) {
         ssize_t n = read( from_child, buf, sizeof( buf ) );
         if ( n > 0 ) {
-          respawn_delay = RESPAWN_MIN_MS; /* it works */
-          ever_worked = true;
+          paths.stream_answered(); /* it works */
           parser.append( buf, n );
           std::vector<std::string> words;
           while ( parser.next( datagram ) ) {
@@ -800,10 +782,9 @@ public:
       flush();
 
       /* The direct route has been enough for a while: let the other one go. */
-      if ( child > 0 && !options.stream_only && now - stream_wanted > stream_idle ) {
+      if ( paths.let_stream_go( now ) ) {
         say( "the stream has not been needed for a while: closing it" );
         stop_child();
-        respawn_after = 0;
       }
     }
 

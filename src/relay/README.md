@@ -4,16 +4,19 @@ The session carried over an ssh connection when UDP cannot get there (`REQ1/PATH
 `REQ1/PATH-2`; design v2, 2.2), between a local relay on the user's machine and a remote relay
 (`gosh-server relay ADDRESS PORT`) on the server's.
 
-**Carried, and to be reshaped** (queue item 7). `relay.h` and `relay.cc` are the fork's at
-`mosh-1.4.0-pf.7`, from `src/network/`, with nothing changed but two `#include` lines. So what
-`REQ6/SHAPE-5` asks is not yet true of them: they read the clock and five environment variables
-and make their own system calls. The reshape takes the decisions out as logic (`paths`, the
-frame) with a unit test that drives every path change with numbers.
+**Carried, and being reshaped** (queue item 7). `relay.h` and `relay.cc` are the fork's at
+`mosh-1.4.0-pf.7`, from `src/network/`. Since 2026-11-14 the decisions about paths are out of
+`relay.cc` and in `paths.h`: which way a datagram goes, when the ssh stream is started, started
+again and let go, when a fresh socket is tried, and at the remote relay which way an answer
+goes back and when it leaves. `relay.cc` asks `paths.h` at the places marked `(gosh)` and does
+what it says; the rest of its text is the fork's. It still reads the clock and five
+environment variables and holds the framing; those are what is left of the reshape.
 
 | File | What it holds |
 | --- | --- |
 | `start.h` | when the client starts its relay: logic (new shape); `start-test.cc` |
-| `relay.*` | both relays, their framing and their words to each other: the fork's, carried |
+| `paths.h` | every change of path the two relays make: logic (new shape); `paths-test.cc` |
+| `relay.*` | both relays as processes, their framing and their words to each other: the fork's, an edge of `paths.h` |
 
 Who calls it: the seam. gosh's client `main` reads how the relay is started (`MOSH_RELAY`,
 `MOSH_RELAY_COMMAND`, which the command writes); the seam's hooks ask `start.h` each turn of
@@ -31,6 +34,11 @@ address not what the relay was told (`translated`), and going back to UDP when i
 (`returned`); each against pf.7 and against gosh, and `always` with a gosh end and a pf.7 end
 each way. Seen red: a client that never asks `start.h` fails `blocked`.
 
-**Not tested:** the relay's own timings (2.5 s, 10 s, 60 s, the back-off) are pinned by no test
-yet; that the local relay dying is noticed (`docs/FINDINGS.md`, 2026-11-13: it is not); OpenBSD,
+`paths-test.cc` pins the timings with numbers and no socket: 2.5 s, 10 s, a minute, the
+back-off (1, 2, 4 ... 30 s; up to 5 minutes while the stream has never worked), the remote
+relay's 3 s and its minute. It was written against the fork's rules before `relay.cc` was
+changed to ask `paths.h`; sixteen deliberate breaks of a rule are each noticed.
+
+**Not tested:** that the edge does what `paths.h` says is tested only by the smoke test's four
+cases; that the local relay dying is noticed (`docs/FINDINGS.md`, 2026-11-13: it is not); OpenBSD,
 where the client must keep the right to start a process.

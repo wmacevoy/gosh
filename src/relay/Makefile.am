@@ -4,8 +4,9 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshrelay.a
 
-libgoshrelay_a_SOURCES = relay.cc relay.h start.h
+libgoshrelay_a_SOURCES = relay.cc relay.h start.h paths.h
 
-check_PROGRAMS = start-test
+check_PROGRAMS = start-test paths-test
 TESTS = $(check_PROGRAMS)
 start_test_SOURCES = start-test.cc
+paths_test_SOURCES = paths-test.cc
