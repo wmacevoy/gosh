@@ -49,10 +49,12 @@ To reset: `rm -rf .build`. Nothing else holds state.
 
 The doctor also asks GitHub whether the vendored guide is current: with no network it fails unless
 this machine was able to ask in the last 30 days, so a fresh machine or CI runner needs the network.
-The speed gate (`REQ14/SPEED-1`) is `tools/speed-gate.sh`. For each way (UDP, the relay) it builds
+The speed gate (`REQ14/SPEED-1`) is `tools/speed-gate.sh`. For each way (a TCP forward by UDP, a
+copy over a stream, a TCP forward by the relay) it builds
 the fastest version benchmarked so far, which `tools/fastest` names, and runs it turn and turn
 about with the programs in `.build/bin`; it fails if gosh's rate is more than 10% under that
-version's. It is not part of the check: it takes about 15 minutes. It is run when a part lands,
+version's. It is not part of the check: it takes about 25 minutes. **It fails today for a
+stream** (gosh at about three quarters of pf.7), which is what queue item 17 is for. It is run when a part lands,
 and when it finds the new version the faster, that commit is recorded in `tools/fastest` in the
 next change. Why it takes the runs it does is in `docs/FINDINGS.md` (2026-11-14).
 The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`.

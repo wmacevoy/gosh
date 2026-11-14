@@ -6,13 +6,13 @@ bytes at not more than 10% lower than mosh-1.4.0-pf.7 does on the same machine,
 session by UDP and session by the relay. It measures the whole, not a layer:
 bytes into a TCP forward at the client, out of it at the server.
 
-usage: tools/speed.py [--way udp|relay] SERVER CLIENT [MEGABYTES [RUNS]]
-       tools/speed.py [--way udp|relay] --against REF_SERVER REF_CLIENT SERVER CLIENT [MEGABYTES [RUNS]]
-  --way           only this way (both, if not given)
+usage: tools/speed.py [--way udp|stream|relay] SERVER CLIENT [MEGABYTES [RUNS]]
+       tools/speed.py [--way udp|stream|relay] --against REF_SERVER REF_CLIENT SERVER CLIENT [MEGABYTES [RUNS]]
+  --way           only this way (all of them, if not given)
   SERVER, CLIENT  the two programs to measure (pf.7's, or gosh's)
   MEGABYTES       how much to send each run (20)
   RUNS            how many runs of each way; the median is the figure (5; with --against,
-                  30 by UDP and 15 by the relay)
+                  30 by UDP, for a forward and for a stream, and 15 by the relay)
 
 With --against it is the gate: the reference (the fastest version benchmarked
 so far for that way: tools/speed-gate.sh builds it) and the programs under
@@ -41,10 +41,15 @@ Two figures for each way (design v2, question 7):
 From the fork's workspace (../mosh-dev/tools/speed.py). Changed here: the two
 programs are arguments, and the second figure is added.
 
-Two ways:
-  udp     the session by UDP, as mosh has it
-  relay   the session carried by the relays' stream, as through ssh
-          (the remote relay run directly, where ssh would run it)
+Three ways:
+  udp     bytes through a TCP forward (-L), the session by UDP, as mosh has it
+  stream  a copy of a file over a stream (-X @copy), the session by UDP: what
+          gocp does. It is a second kind of traffic, and not the same as the
+          first: a change that made a forward faster made this slower
+          (docs/FINDINGS.md, 2026-11-14)
+  relay   bytes through a TCP forward, the session carried by the relays'
+          stream, as through ssh (the remote relay run directly, where ssh
+          would run it)
 
 Everything is on loopback, with no delay and no loss, so what it shows is
 what the programs cost and not what a network does.  It asks nothing of any
@@ -52,16 +57,19 @@ server on the Internet, and stops what it started by process id.
 """
 
 import os
+import random
 import re
+import shutil
 import socket
 import statistics
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
 argv = sys.argv[1:]
-ways = ("udp", "relay")
+ways = ("udp", "stream", "relay")
 if argv[:1] == ["--way"]:
     if len(argv) < 2 or argv[1] not in ways:
         sys.exit(__doc__)
@@ -78,7 +86,7 @@ if len(argv) < 2:
 server_path, client_path = os.path.realpath(argv[0]), os.path.realpath(argv[1])
 megabytes = int(argv[2]) if len(argv) > 2 else 20
 runs = int(argv[3]) if len(argv) > 3 else (None if against else 5)  # None: the gate's own number for each way
-GATE_RUNS = {"udp": 30, "relay": 15}
+GATE_RUNS = {"udp": 30, "stream": 30, "relay": 15}
 total = megabytes * 1000 * 1000
 TICKS = os.sysconf("SC_CLK_TCK")
 
@@ -100,8 +108,60 @@ def cpu_seconds(server_path, client_path):
     return ticks / TICKS
 
 
+def stream_run(server_path, client_path):
+    """one_run, for a copy of a file over a stream: the time is from starting the client to its exit."""
+    work = tempfile.mkdtemp(prefix="gosh-speed-")
+    env = dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", MOSH_PUNCH="never", MOSH_RELAY="never")
+    server_pid = None
+    try:
+        source = os.path.join(work, "source")
+        with open(source, "wb") as f:
+            f.write(random.Random(5).randbytes(total))  # seeded: the same bytes every run; not all alike
+        there = os.path.join(work, "there")
+        os.mkdir(there)
+        receive = "\x1f".join(["@copy", "receive", "-q", "--", there + "/"])
+        send = "\x1f".join(["@copy", "send", "-q", "--", source])
+        started = subprocess.run([server_path, "new", "-i", "127.0.0.1", "-X", receive, "--", "/bin/sh", "-c",
+                                  "while :; do sleep 1000; done"],
+                                 env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+        match = re.search(r"MOSH CONNECT (\d+) (\S+)", started.stdout)
+        server_pid = re.search(r"pid = (\d+)", started.stderr)
+        if not match:
+            return None
+        cpu_before = cpu_seconds(server_path, client_path)
+        began = time.monotonic()
+        client = subprocess.Popen([client_path, "-X", send, "127.0.0.1", match.group(1)],
+                                  env=dict(env, MOSH_KEY=match.group(2)), stdin=subprocess.DEVNULL,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # (the processor time is read while the client still runs: once it has exited, what it used cannot be read)
+        cpu_used = 0.0
+        while True:
+            try:
+                status = client.wait(0.2)
+                break
+            except subprocess.TimeoutExpired:
+                cpu_used = cpu_seconds(server_path, client_path) - cpu_before
+                if time.monotonic() - began > 600:
+                    client.kill()
+                    return None
+        elapsed = time.monotonic() - began
+        copied = os.path.join(there, "source")
+        if status != 0 or not os.path.exists(copied) or os.path.getsize(copied) != total:
+            return None
+        return total * 8 / 1e6 / elapsed, cpu_used / megabytes
+    finally:
+        if server_pid:
+            try:
+                os.kill(int(server_pid.group(1)), 15)  # (a stream's server waits a week for its client)
+            except OSError:
+                pass
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def one_run(way, server_path, client_path):
     """(megabits a second, processor seconds per megabyte) for one session carrying `total` bytes, or None."""
+    if way == "stream":
+        return stream_run(server_path, client_path)
     sink = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sink.bind(("127.0.0.1", 0))
     sink.listen(1)

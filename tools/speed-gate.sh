@@ -1,13 +1,14 @@
 #!/bin/sh
 # The speed gate (REQ14/SPEED-1): a forward in gosh carries bytes at not more than 10% under
-# the fastest version benchmarked so far, by UDP and by the relay.
+# the fastest version benchmarked so far: a TCP forward by UDP, a copy over a stream, and a
+# TCP forward by the relay.
 #
 # For each way it builds the version tools/fastest names, in a directory of its own under
 # .build/, and has tools/speed.py run it turn and turn about with the programs in .build/bin
-# (build those first: tools/build.sh). It takes about 15 minutes, so it is not part of the check;
+# (build those first: tools/build.sh). It takes about 25 minutes, so it is not part of the check;
 # it is run when a part lands. Exit 0: both ways pass (a way gosh cannot do yet is not counted).
 #
-# usage: tools/speed-gate.sh [udp|relay]...        (both, if none is named)
+# usage: tools/speed-gate.sh [udp|stream|relay]...        (all three, if none is named)
 set -eu
 cd "$(dirname "$0")/.."
 GOSH=$(pwd); export GOSH
@@ -39,7 +40,7 @@ programs_of() { # VERSION -> sets server, client
 }
 
 status=0
-for way in ${@:-udp relay}; do
+for way in ${@:-udp stream relay}; do
     version=$(awk -v way="$way" '$1 == way { print $2 }' tools/fastest)
     [ -n "$version" ] || { echo "speed-gate: tools/fastest names no version for $way"; exit 1; }
     programs_of "$version"
