@@ -1,0 +1,13 @@
+# The fastest version benchmarked so far, one for each way (REQ12/SPEED-1).
+# tools/speed-gate.sh builds the version named here and runs it turn and turn about with the
+# version being landed, which must carry bytes at not less than 90% of its rate.
+#
+# A version is a commit of this repository, or "pf.7" for the fork at mosh-1.4.0-pf.7, which is
+# where each way begins. When the gate finds the version being landed the faster of the two, it
+# says so, and that version's commit is written here in the change that follows it (a commit
+# cannot name itself). Two builds of the same code come out a few percent apart either way, so
+# the name here may change with nothing gained; it names a version to compare with, not a figure.
+#
+# way    version                                     when, and what was measured
+udp      29e527db11edfe236e8da8b4587d6292eae6315f    2026-11-14: 157% of pf.7 by the gate (35.8 against 22.9 Mbit/s)
+relay    pf.7                                        gosh has no relay yet (queue item 7)

@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """How fast a forward carries bytes, end to end, on this machine.
 
-REQ6/SPEED-1: the figure a part of gosh is held to. A forward in gosh carries
+REQ12/SPEED-1: the figure a part of gosh is held to. A forward in gosh carries
 bytes at not more than 10% lower than mosh-1.4.0-pf.7 does on the same machine,
 session by UDP and session by the relay. It measures the whole, not a layer:
 bytes into a TCP forward at the client, out of it at the server.
 
-usage: tools/speed.py SERVER CLIENT [MEGABYTES [RUNS]]
-       tools/speed.py --against REF_SERVER REF_CLIENT SERVER CLIENT [MEGABYTES [RUNS]]
+usage: tools/speed.py [--way udp|relay] SERVER CLIENT [MEGABYTES [RUNS]]
+       tools/speed.py [--way udp|relay] --against REF_SERVER REF_CLIENT SERVER CLIENT [MEGABYTES [RUNS]]
+  --way           only this way (both, if not given)
   SERVER, CLIENT  the two programs to measure (pf.7's, or gosh's)
   MEGABYTES       how much to send each run (20)
   RUNS            how many runs of each way; the median is the figure (5; with --against,
                   30 by UDP and 15 by the relay)
 
-With --against it is the gate: the reference (pf.7's programs) and the programs
-under test are run turn and turn about, so that both see the same machine in
+With --against it is the gate: the reference (the fastest version benchmarked
+so far for that way: tools/speed-gate.sh builds it) and the programs under
+test are run turn and turn about, so that both see the same machine in
 the same minutes, and it fails (exit 1) if the median rate of the programs
 under test is more than 10% below the reference's, either way. "Overall" is the
 requirement's word: bytes end to end, not any layer. A way the programs under
@@ -59,6 +61,12 @@ import threading
 import time
 
 argv = sys.argv[1:]
+ways = ("udp", "relay")
+if argv[:1] == ["--way"]:
+    if len(argv) < 2 or argv[1] not in ways:
+        sys.exit(__doc__)
+    ways = (argv[1],)
+    argv = argv[2:]
 against = None
 if argv[:1] == ["--against"]:
     if len(argv) < 5:
@@ -185,7 +193,7 @@ def said(way, figures):
 failed = False
 if not against:
     print("speed: %s; %d MB a run, %d runs each way, loopback" % (version(client_path), megabytes, runs))
-    for way in ("udp", "relay"):
+    for way in ways:
         figures = [one_run(way, server_path, client_path) for _ in range(runs)]
         if None in figures:
             print("speed: %-5s FAIL: %d of %d runs did not finish" % (way, figures.count(None), runs))
@@ -194,10 +202,10 @@ if not against:
         print("speed: " + said(way, figures))
     sys.exit(1 if failed else 0)
 
-# The gate (REQ6/SPEED-1): the reference and the programs under test, turn and turn about.
+# The gate (REQ12/SPEED-1): the reference and the programs under test, turn and turn about.
 print("speed: reference %s" % version(against[1]))
 print("speed: under test %s; %d MB a run, alternating, loopback" % (version(client_path), megabytes))
-for way in ("udp", "relay"):
+for way in ways:
     count = runs if runs is not None else GATE_RUNS[way]
     if one_run(way, server_path, client_path) is None:  # (a first run, not counted, that also warms both up)
         print("speed: %-5s NOT COUNTED: the programs under test cannot do this way yet" % way)
@@ -214,7 +222,9 @@ for way in ("udp", "relay"):
     print("speed: under test " + said(way, tested))
     ratio = statistics.median(f[0] for f in tested) / statistics.median(f[0] for f in reference)
     ok = ratio >= 0.9
-    print("speed: %-5s %s REQ6/SPEED-1: over %d runs of each, the rate under test is %.0f%% of the reference's (not less than 90%% passes)"
+    print("speed: %-5s %s REQ12/SPEED-1: over %d runs of each, the rate under test is %.0f%% of the reference's (not less than 90%% passes)"
           % (way, "PASS" if ok else "FAIL", count, ratio * 100))
+    if ratio > 1:
+        print("speed: %-5s the version under test is the faster of the two: once committed, it is the fastest benchmarked this way: record it in tools/fastest" % way)
     failed = failed or not ok
 sys.exit(1 if failed else 0)

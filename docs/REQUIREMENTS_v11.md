@@ -1,5 +1,7 @@
 # Requirements — v11
 
+**Superseded by `REQUIREMENTS_v12.md`** (2026-11-14), in which SPEED-1 compares gosh with the fastest version benchmarked so far. Kept as it was written.
+
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v12.md`); a spelling or lint fix is not. See
 [SE1/R1–R11](../vendor/se1/guide/04-requirements.md).

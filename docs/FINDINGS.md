@@ -7,6 +7,28 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-14 — A differential test that agreed over millions of segments, and compared too little
+
+- **What happened:** `connection-diff` held the reshaped connection logic to the fork's adapter
+  over 20,000 scenarios and 4.8 million segments with no difference, and caught 17 of 21
+  deliberate breaks. A session given the code and not the author's account then broke the logic
+  seven more ways that passed both tests, and showed why: a believed reset arrived about once in
+  200 steps, so most connections were dead by step 170 of 600 and no end ever received more than
+  26 KB; the 1 MB buffers and windows above 64 KB were never compared. The test also ignored
+  when an application is told there is no more, and counted an application's write only if the
+  socket took all of it, so it would fail on a machine with small socket buffers.
+- **Kind:** K3. A large count of agreeing segments was taken for coverage.
+- **Cost:** an hour to fix; nothing had been built on it but the buffer change, which the fixed
+  test still passes.
+- **Findable by:** asking what the scenarios reach, not how many there are: how long a
+  connection lives, and how much it carries.
+- **Changed:** four kinds of scenario by seed (most without resets, with few losses and heavy
+  writing): 6.8 million segments over the same 20,000. It compares the end of delivery, and a
+  short write is what was written. The unit test gained the cases a socket pair cannot make.
+  Of 15 breaks rerun, 14 are caught; the one that is not needs more than a megabyte of
+  out-of-order data held at once. Two are caught only by the deep run (`./connection-diff 20000
+  1000`), which the check does not make: run it when the logic changes.
+
 ## 2026-11-14 — The one erase, taken out: a forward by UDP at about one and a half times pf.7
 
 - **What happened:** The profile of pf.7 (below) put about 40% of a forward's processor time in

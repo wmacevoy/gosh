@@ -655,7 +655,7 @@ default: each was checked against the text. Three candidates, with what would ma
 - *The loops read one datagram per pass* (`STMClient::main`: "we only read one socket each run";
   `serve`, `mosh-server.cc:763`). Draining would be a reshaping of the core's loop, from
   `stmclient.cc:475-489`. Warranted only if a profile shows the pass itself is what limits a
-  forward, and then it makes gosh *faster* than pf.7, which `REQ6/SPEED-1` does not ask.
+  forward, and then it makes gosh *faster* than pf.7, which `REQ12/SPEED-1` does not ask.
 - *`STMClient::shutdown` and `init`* hold terminal set-up and tear-down inline. The fork guards
   `shutdown` by re-indenting twelve lines (`stmclient.cc:215-232`). Extracting them would shrink
   the headless patch. Warranted when a moved pin first conflicts there; until then, a guard that
@@ -677,7 +677,7 @@ lists it holds, with "one per program" becoming much smaller by 4.2.
 
 ## 5. Speed
 
-`REQ6/SPEED-1` is relative: not more than 10% under pf.7, session by UDP and by the relay.
+`REQ12/SPEED-1` is relative: not more than 10% under pf.7, session by UDP and by the relay.
 
 **Measured, by others:** pf.7 on this machine, on loopback: 13.1 and 13.4 Mbit/s by the relay; 16.7
 and 23.1 by UDP, "too unsteady yet to hold anything to" (requirements, 2026-11-13).
@@ -958,7 +958,7 @@ Each is his: vocabulary, a one-way door, or scope. Each has a recommendation.
 
 7. **The speed gate.** By UDP the figure is unsteady, and section 5 infers why. *Recommended:*
    before item 5 lands, a profile of pf.7, and processor seconds per megabyte as a second kept
-   figure. `REQ6/SPEED-1` says "by the kept measurement"; which measurement is kept is yours.
+   figure. `REQ12/SPEED-1` says "by the kept measurement"; which measurement is kept is yours.
 
 8. **The extension and the command.** It repeats the command's steps and the release naming.
    *Recommended:* local copies (`mirror.js`) use `gocp --auto`, whose reason for not being used,

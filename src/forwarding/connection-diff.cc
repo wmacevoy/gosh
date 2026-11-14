@@ -9,7 +9,7 @@
  * REQ1/FWD-1, REQ1/FWD-3, REQ6/SHAPE-5: the reshaped connection logic (connection.h) does what
  * the fork's adapter (AdapterPort, tcpadapter.cc) does, segment for segment.
  *
- * usage: connection-diff [SCENARIOS [STEPS [FIRST_SEED]]]      (500, 600 and 1 by default)
+ * usage: connection-diff [SCENARIOS [STEPS [FIRST_SEED]]]      (2000, 600 and 1 by default)
  *
  * Each scenario is a script made from a seed: an application at each end writing and closing,
  * segments delivered, dropped, repeated or held back, time passing in steps from nothing to
@@ -21,12 +21,15 @@
  *   new   two Connections, with no socket at all.
  *
  * After every step both worlds must have emitted exactly the same segments, delivered exactly
- * the same bytes to their applications, hold the same number of connections, and want waking at
- * the same time. The first difference stops the test and prints the seed and the step.
+ * the same bytes to their applications, told (or not told) their applications that there is no
+ * more, hold the same number of connections, and want waking at the same time. The first
+ * difference stops the test and prints the seed and the step.
  *
- * What it does not reach: an application too slow to take what is delivered (a real socket pair
- * always has room here), a target that refuses or does not answer, more than one connection at
- * once, and running out of connections. connection-test.cc has those, of the new logic alone.
+ * What it does not reach: an application too slow to take what is delivered (the old world's
+ * application reads everything after every step, so its socket has room), a target that refuses
+ * or does not answer, more than one connection at once, running out of connections, and whether
+ * an end was orderly or a reset (a socket pair does not say). connection-test.cc has those, of
+ * the new logic alone.
  *
  * The test reads the old class's private members to learn each connection's first sequence
  * number, which the old class draws at random and the new logic is given: with the same number
@@ -120,8 +123,9 @@ struct OldEnd
   OldSink sink;
   Network::OldAdapterPort port;
   int app, adapter; /* the two ends of the socket pair: the application's, and the adapter's */
+  bool ended;       /* the application has seen the end of what it is given (or a reset) */
 
-  explicit OldEnd( bool listening ) : sink(), port( &sink, listening ), app( -1 ), adapter( -1 ) {}
+  explicit OldEnd( bool listening ) : sink(), port( &sink, listening ), app( -1 ), adapter( -1 ), ended( false ) {}
   ~OldEnd()
   {
     if ( app >= 0 ) {
@@ -135,6 +139,7 @@ struct OldEnd
     if ( app >= 0 ) {
       close( app );
     }
+    ended = false;
     int fds[2];
     if ( socketpair( AF_UNIX, SOCK_STREAM, 0, fds ) < 0 ) {
       perror( "socketpair" );
@@ -154,6 +159,8 @@ struct OldEnd
     while ( app >= 0 ) {
       const ssize_t n = recv( app, buf, sizeof( buf ), MSG_DONTWAIT );
       if ( n <= 0 ) {
+        /* nothing more just now; or the end: an orderly one reads as 0, a reset as an error */
+        ended = ended || n == 0 || ( errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR );
         break;
       }
       all.append( buf, n );
@@ -170,8 +177,9 @@ struct NewOut
   std::deque<uint32_t> sequences; /* learnt from the old world, in the order they will be asked for */
   std::string delivered;
   unsigned int targets_asked; /* how many times a target has been asked for: each is a new application */
+  bool ended; /* the application has been told there is no more: shut_write, or close */
 
-  NewOut() : sent(), sequences(), delivered(), targets_asked( 0 ) {}
+  NewOut() : sent(), sequences(), delivered(), targets_asked( 0 ), ended( false ) {}
 
   void send( uint8_t forward, const TCPInUDP& segment ) { sent.push_back( Sent( forward, segment ) ); }
   uint32_t fresh_sequence( void )
@@ -195,8 +203,8 @@ struct NewOut
     delivered.append( data, length );
     return length;
   }
-  void shut_write( uint32_t ) {}
-  void close( uint32_t, bool ) {}
+  void shut_write( uint32_t ) { ended = true; }
+  void close( uint32_t, bool ) { ended = true; }
 };
 
 struct NewEnd
@@ -241,6 +249,16 @@ static size_t scenario( unsigned int seed, unsigned int steps )
 {
   Random random( seed );
   virtual_now = 1000000;
+  /*
+   * Four kinds, by seed, because one mixture cannot reach everything: a believed reset ends a
+   * connection, and with resets about once in 200 steps few connections lived long enough to
+   * fill a window or a buffer.
+   *   0  everything, resets included          2  no strays; few losses; heavy writing
+   *   1  strays for other connections only     3  as 2, and contact is never lost
+   */
+  const unsigned int kind = seed % 4;
+  const bool resets = kind == 0, strays = kind <= 1, heavy = kind >= 2, outages = kind != 3;
+  const unsigned int lost_in_100 = heavy ? 2 : 8;
 
   OldEnd old_end[2] = { OldEnd( true ), OldEnd( false ) }; /* 0 listens, 1 connects to the target */
   NewEnd new_end[2] = { NewEnd( true ), NewEnd( false ) };
@@ -274,17 +292,21 @@ static size_t scenario( unsigned int seed, unsigned int steps )
 
     if ( choice < 22 ) {
       /* an application writes */
-      const size_t length = random.below( 10 ) == 0 ? 20000 + random.below( 30000 ) : 1 + random.below( 3000 );
+      const size_t length = random.below( heavy ? 2 : 10 ) == 0 ? 20000 + random.below( 30000 ) : 1 + random.below( 3000 );
       if ( old_end[end].app >= 0 && !new_end[end].finished && new_end[end].pending.size() < 60000 ) {
         std::string data( length, 0 );
         for ( size_t i = 0; i < length; i++ ) {
           data[i] = static_cast<char>( random.next() );
         }
-        if ( send( old_end[end].app, data.data(), data.size(), MSG_NOSIGNAL | MSG_DONTWAIT )
-             == static_cast<ssize_t>( data.size() ) ) {
-          new_end[end].pending += data;
+        /*
+         * As much as the old world's socket takes is what the new world's application wrote: all
+         * of it where the socket has room, part of it on a machine with small socket buffers,
+         * none if the old adapter has closed its end.
+         */
+        const ssize_t took = send( old_end[end].app, data.data(), data.size(), MSG_NOSIGNAL | MSG_DONTWAIT );
+        if ( took > 0 ) {
+          new_end[end].pending.append( data.data(), took );
         }
-        /* (if the old adapter has closed its end, the write fails in the old world and is not made in the new) */
       }
     } else if ( choice < 25 ) {
       /* an application finishes writing */
@@ -301,7 +323,7 @@ static size_t scenario( unsigned int seed, unsigned int steps )
         old_wire[from].pop_front();
         new_wire[from].pop_front();
         const unsigned int fate = random.below( 100 );
-        if ( fate < 8 ) {
+        if ( fate < lost_in_100 ) {
           /* lost */
         } else if ( fate < 14 ) {
           old_wire[from].push_back( old_one ); /* held back: it arrives after what follows it */
@@ -330,16 +352,18 @@ static size_t scenario( unsigned int seed, unsigned int steps )
       }
     } else if ( choice < 94 ) {
       /* contact with the other end is lost, or found */
-      old_end[end].sink.up = !old_end[end].sink.up;
-      link[end].in_contact = old_end[end].sink.up;
+      if ( outages ) {
+        old_end[end].sink.up = !old_end[end].sink.up;
+        link[end].in_contact = old_end[end].sink.up;
+      }
     } else if ( choice < 97 ) {
       /* the largest datagram changes */
       static const size_t SIZES[] = { 1187, 600, 100, 70 };
       old_end[end].sink.largest = SIZES[random.below( 4 )];
       link[end].max_datagram = old_end[end].sink.largest;
-    } else {
+    } else if ( strays ) {
       TCPInUDP stray;
-      if ( random.below( 4 ) == 0 && !old_end[end].port.conns.empty() ) {
+      if ( resets && random.below( 4 ) == 0 && !old_end[end].port.conns.empty() ) {
         /* a reset for the connection there is, at or near where the other end should be:
            believed only within 65,535 of it */
         static const uint32_t OFF[] = { 0, 0x800, 0x2000, 0xFFFF, 0x10000, 0x1FFFF };
@@ -368,6 +392,7 @@ static size_t scenario( unsigned int seed, unsigned int steps )
       targets_seen = new_end[1].out.targets_asked;
       new_end[1].pending.clear();
       new_end[1].finished = false;
+      new_end[1].out.ended = false;
     }
 
     /* Each adapter reads what its application has written, as a program's loop would have it do. */
@@ -408,6 +433,11 @@ static size_t scenario( unsigned int seed, unsigned int steps )
         fail( seed, step, "the bytes delivered to an application", number( old_app[e].size() ) + " bytes",
               number( new_end[e].out.delivered.size() ) + " bytes" );
       }
+      /* (a socket pair cannot tell an orderly end from a reset; connection-test.cc checks which) */
+      if ( old_end[e].ended != new_end[e].out.ended ) {
+        fail( seed, step, "whether an application has been told there is no more", number( old_end[e].ended ),
+              number( new_end[e].out.ended ) );
+      }
       if ( old_end[e].port.connection_count() != new_end[e].connections.count() ) {
         fail( seed, step, "how many connections there are", number( old_end[e].port.connection_count() ),
               number( new_end[e].connections.count() ) );
@@ -428,7 +458,7 @@ static size_t scenario( unsigned int seed, unsigned int steps )
 
 int main( int argc, char* argv[] )
 {
-  const unsigned int scenarios = argc > 1 ? atoi( argv[1] ) : 500;
+  const unsigned int scenarios = argc > 1 ? atoi( argv[1] ) : 2000;
   const unsigned int steps = argc > 2 ? atoi( argv[2] ) : 600;
   const unsigned int first = argc > 3 ? atoi( argv[3] ) : 1;
 

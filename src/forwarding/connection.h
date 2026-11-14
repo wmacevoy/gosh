@@ -82,8 +82,8 @@ namespace Gosh {
  * left in it down, and the sender did that with up to 1 MB on every acknowledgment: about 40% of
  * all the processor time of a forward, by a profile of the fork (docs/FINDINGS.md, 2026-11-14).
  * Here the front is only marked as gone, and what is left is moved down once the gone part is
- * at least 64 KB and at least as large as what is left: so no byte is moved more than once for
- * each byte taken, and no more than twice the bytes held are ever kept.
+ * at least 64 KB and at least half of what is left: so no byte is moved more than twice for
+ * each byte taken, and no more than half as much again as the bytes waiting is ever kept.
  */
 class Bytes
 {
@@ -113,7 +113,7 @@ public:
     if ( gone == bytes.size() ) {
       bytes.clear();
       gone = 0;
-    } else if ( gone >= TIDY_AT && gone >= bytes.size() - gone ) {
+    } else if ( gone >= TIDY_AT && gone >= ( bytes.size() - gone ) / 2 ) {
       bytes.erase( 0, gone );
       gone = 0;
     }
