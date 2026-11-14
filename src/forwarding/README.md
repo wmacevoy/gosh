@@ -3,7 +3,8 @@
 Forwards and the stream: TCP and UDP ports, and one byte channel, carried over the side channel
 (`REQ1/FWD-1`, `REQ1/FWD-2`, `REQ1/FWD-3`, `REQ1/FWD-4`; design v2, 2.2).
 
-**Carried, not yet reshaped** (queue item 5). Every source file here is the fork's at
+**Carried, and being reshaped** (queue items 5, 15, 16). `connection.h` is the first piece in its
+new shape: see below. Every other source file here is the fork's at
 `mosh-1.4.0-pf.7`, from `src/network/` (the three tests from `src/tests/`), with nothing changed
 but the `#include` lines that name the files that moved with it. One exception: `udp-forward.cc`
 has lost three tests that are other parts' (`test_relay_frames`, `test_punch`,
@@ -20,3 +21,19 @@ to test the new against.
 | `tcpforward.*` | TCP forwards and the stream, as segments over the side channel |
 | `tcpadapter.*` | a TCP of gosh's own joined to ordinary sockets: one end of a connection |
 | `tcpinudp.*` | a TCP segment as a compact datagram, both ways |
+
+## connection (the new shape)
+
+`connection.h` is gosh's TCP as **logic**: the algorithm of the fork's `AdapterPort`, statement
+for statement, with its sockets, clock and random numbers taken out. It is told what happened,
+with the time and what the session can do just now, and says what to do through a type its
+caller supplies (the edge in the programs, a recorder in tests). **No program uses it yet**: the
+programs still run `tcpadapter.*`, which becomes its edge next.
+
+| Test | What it shows |
+| --- | --- |
+| `connection-diff.cc` | the new logic and the fork's adapter given the same scripted scenario (writes, losses, repeats, time passing, contact lost and found, resets) emit the same segments and deliver the same bytes at every step. 500 scenarios in the check; `./connection-diff 20000 1000` for more |
+| `connection-test.cc` | the logic alone, for what a real socket pair never does: a slow application, a target that refuses or never answers, the sixty-fifth connection, and six hours out of contact (`REQ1/FWD-3`) |
+
+Both were held to account by breaking the logic on purpose: of 32 breaks tried, the two tests
+together miss one, which changes nothing that can be seen (queue item 15).
