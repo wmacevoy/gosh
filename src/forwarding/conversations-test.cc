@@ -79,7 +79,9 @@ struct Pair
   Recorder ra, rb;
   Gosh::DatagramLink link;
 
-  explicit Pair( size_t max_payload = 1200 ) : a( true, false, 2 ), b( false, false, 2 ), ra(), rb(), link( link_of( max_payload ) ) {}
+  explicit Pair( size_t max_payload = 1200, bool reverse = false )
+    : a( true, reverse, 2 ), b( false, reverse, 2 ), ra(), rb(), link( link_of( max_payload ) )
+  {}
 
   /* Carries what a has sent to b; returns how many payloads. */
   size_t a_to_b( uint64_t now )
@@ -141,6 +143,46 @@ static void test_there_and_back( void )
          p.rb.opened_ids.size() == 3 && p.rb.opened_ids[0] != p.rb.opened_ids[1] );
 }
 
+/* Each conversation has a socket of its own, and an answer goes back by the conversation its socket is of. */
+static void test_which_conversation( void )
+{
+  Pair p;
+  p.say( "alice", "a", 1000 );
+  p.say( "bob", "b", 1000 );
+  p.a_to_b( 1000 );
+  check( "two conversations have two sockets, with different handles",
+         p.rb.opened.size() == 2 && p.rb.opened[0] != p.rb.opened[1] );
+  p.b.from_target( p.rb.opened[1], "for bob", 7, 1001, p.link, p.rb );
+  p.b_to_a( 1001 );
+  check( "an answer on the second socket goes to the second application",
+         p.ra.to_applications.size() == 1 && p.ra.to_applications[0].first == "bob" );
+
+  /* The same number on two forwards is two conversations (the other end chooses the numbers). */
+  Pair q;
+  q.b.payload( Gosh::encode_frame( Gosh::TYPE_UDP_DATA, 0, 5, 1, "zero" ), 1000, q.rb );
+  q.b.payload( Gosh::encode_frame( Gosh::TYPE_UDP_DATA, 1, 5, 2, "one" ), 1000, q.rb );
+  check( "the same number on two forwards is two conversations", q.b.flow_count() == 2 && q.rb.opened.size() == 2 );
+  q.b.from_target( q.rb.opened[1], "back", 4, 1000, q.link, q.rb );
+  uint8_t type = 0, forward = 0;
+  uint16_t id = 0;
+  uint64_t seq = 0;
+  std::string data;
+  check( "and an answer on the second's socket is framed for the second forward",
+         q.rb.sent.size() == 1 && Gosh::decode_frame( q.rb.sent[0], type, forward, id, seq, data ) && forward == 1
+           && id == 5 && data == "back" );
+
+  /* Forwards the server listens for have kinds of their own, there and back. */
+  Pair r( 1200, true );
+  r.say( "alice", "reverse", 1000 );
+  check( "a forward the server listens for sends its own kind of payload",
+         r.ra.sent.size() == 1 && Gosh::decode_frame( r.ra.sent[0], type, forward, id, seq, data )
+           && type == Gosh::TYPE_UDP_REVERSE_DATA );
+  r.a_to_b( 1000 );
+  check( "which its other end takes", r.rb.to_targets.size() == 1 && r.rb.to_targets[0].second == "reverse" );
+  r.b.payload( Gosh::encode_frame( Gosh::TYPE_UDP_DATA, 0, 9, 77, "plain" ), 1000, r.rb );
+  check( "and the plain kind it does not", r.rb.to_targets.size() == 1 );
+}
+
 static void test_refused_payloads( void )
 {
   Pair p;
@@ -194,6 +236,20 @@ static void test_forgotten( void )
   u.say( "bob", "b", 1000 + 120001 );
   check( "a conversation used again a minute on is not forgotten a minute after that", u.a.flow_count() == 2 );
 
+  /* So do answers, at both ends: a conversation where only the target speaks is not forgotten. */
+  Pair v;
+  v.say( "alice", "a", 1000 );
+  v.a_to_b( 1000 );
+  v.b.from_target( v.rb.opened[0], "tick", 4, 100000, v.link, v.rb );
+  v.b_to_a( 100000 );
+  v.say( "bob", "b", 1000 + 120001 );
+  v.a_to_b( 1000 + 120001 );
+  check( "a conversation in which only the target has spoken since is kept, at both ends",
+         v.a.flow_count() == 2 && v.b.flow_count() == 2 && v.rb.closed.empty() );
+  v.b.from_target( v.rb.opened[0], "tock", 4, 1000 + 120002, v.link, v.rb );
+  v.b_to_a( 1000 + 120002 );
+  check( "and its answers still reach the application", v.ra.to_applications.size() == 2 && v.ra.to_applications[1].first == "alice" );
+
   /* Sixty-four at once, each used at a different time; the sixty-fifth pushes out the quietest. */
   Pair q;
   for ( int i = 0; i < 64; i++ ) {
@@ -241,6 +297,26 @@ static void test_fragments( void )
   p.a_to_b( 3001 );
   check( "a millisecond later it is abandoned", p.b.partial_count() == 0 && p.b.get_abandoned() == 1 );
 
+  /* A fragment that arrives twice, and one that claims a datagram of another conversation. */
+  Pair f( 213 );
+  f.a.set_parity_mode( Conversations::PARITY_NEVER );
+  f.say( "alice", big, 1000 );
+  std::vector<std::string> six = f.ra.sent;
+  f.ra.sent.clear();
+  for ( int i = 0; i < 5; i++ ) {
+    f.b.payload( six[i], 1000, f.rb );
+  }
+  uint8_t type = 0, forward = 0;
+  uint16_t id = 0;
+  uint64_t seq = 0;
+  std::string piece;
+  Gosh::decode_frame( six[5], type, forward, id, seq, piece );
+  f.b.payload( Gosh::encode_frame( type, forward, id + 1, seq, piece ), 1000, f.rb );
+  check( "the last fragment, but said to be of another conversation: not taken, and the datagram not rebuilt",
+         f.rb.to_targets.empty() && f.b.partial_count() == 1 );
+  f.b.payload( six[5], 1000, f.rb );
+  check( "(that used its number: the true one after it is a replay, and refused)", f.rb.to_targets.empty() );
+
   /* Whether to add parity when left to decide: at the session's loss, would it be lost 2 times in 100 without? */
   Pair q( 213 );
   q.link.loss = 0.003; /* six fragments: lost 1.8 times in 100 */
@@ -264,6 +340,7 @@ static void test_fragments( void )
 int main()
 {
   test_there_and_back();
+  test_which_conversation();
   test_refused_payloads();
   test_forgotten();
   test_fragments();

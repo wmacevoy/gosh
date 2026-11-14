@@ -176,7 +176,8 @@ Gosh::DatagramLink UDPForwarder::link_now( void ) const
 {
   Gosh::DatagramLink now;
   now.ready = link->sidechannel_ready();
-  /* (as the fork did, the size and the loss are asked for only of a session that is ready) */
+  /* (The fork asked for the size only of a session that was ready, and for the loss only when it had a
+     datagram to fragment; here the loss is read each time. Both are plain values the session already holds.) */
   now.max_payload = now.ready ? link->sidechannel_max_payload() : 0;
   now.loss = now.ready ? link->sidechannel_loss() : 0;
   return now;

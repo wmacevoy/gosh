@@ -166,6 +166,15 @@ private:
     flow.last_used = now;
 
     if ( !listening ) {
+      /* a handle no live conversation has (the counter comes round, after four thousand million) */
+      for ( typename std::vector<Flow>::iterator i = flows.begin(); i != flows.end(); ) {
+        if ( i->handle == next_handle ) {
+          next_handle++;
+          i = flows.begin();
+        } else {
+          i++;
+        }
+      }
       flow.handle = next_handle++;
       if ( !out.open( flow.handle, forward, id ) ) {
         return NULL;
