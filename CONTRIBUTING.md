@@ -100,7 +100,7 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   `src/` holds gosh's parts, a directory each, named for the part, with a README and the part's
   unit tests; so far `src/forwarding/`, `src/seam/`, `src/command/` and `src/copy/`. `tools/` builds and checks; `tests/` holds tests that
   drive the programs from outside.
-- **Working set:** `docs/`: `REQUIREMENTS_v12.md` (the one in force; v6 to v11 are beside it, and versions 1 to 5 are
+- **Working set:** `docs/`: `REQUIREMENTS_v13.md` (the one in force; v6 to v12 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
   and still holds the seam file by file).
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
@@ -115,4 +115,4 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
 | findings | `docs/FINDINGS.md` |
 | the check command | `tools/check.sh` |
 | the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
-| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v12.md` |
+| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v13.md` |
