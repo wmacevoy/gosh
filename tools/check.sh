@@ -3,7 +3,8 @@
 # Prints PASS and exits 0, or says what failed and exits 1. In order:
 #   1. the repository is sound (se --doctor);
 #   2. the core is upstream's at the pinned commit, byte for byte (REQ6/UP-2);
-#   3. it builds (tools/build.sh);
+#   3. it builds (tools/build.sh), with the seam's patches applied to a copy of
+#      the core and gosh's parts beside it, and the parts' unit tests pass;
 #   4. gosh and a stock mosh hold a terminal session, each way (REQ10/SHAPE-1);
 #   5. the fork's tests that drive the programs from outside pass against the
 #      fork's own programs at pf.7 (tools/build-pf7.sh). These are the tests each
@@ -34,9 +35,18 @@ echo "core: upstream at $pin, untouched (REQ6/UP-2)"
 
 tools/build.sh || fail "tools/build.sh"
 
+# The unit tests of gosh's parts, built and run inside the build's copy.
+. tools/env.sh
+for part in forwarding; do
+    if make -C ".build/core/src/$part" check >.build/unit-$part.log 2>&1; then
+        echo "unit tests pass: $part ($(grep -c '^PASS:' .build/unit-$part.log))"
+    else
+        grep -E '^(FAIL|ERROR):|error' .build/unit-$part.log | head -10; fail "unit tests of $part (log: .build/unit-$part.log)"
+    fi
+done
+
 stock_client=${STOCK_CLIENT:-/usr/bin/mosh-client}
 stock_server=${STOCK_SERVER:-/usr/bin/mosh-server}
-. tools/env.sh
 python3 tests/stock-session.py .build/bin/gosh-client "$stock_server" || fail "gosh's client with a stock server"
 python3 tests/stock-session.py "$stock_client" .build/bin/gosh-server || fail "a stock client with gosh's server"
 

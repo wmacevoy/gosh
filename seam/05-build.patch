@@ -1,0 +1,28 @@
+gosh seam 05: The core's build is told where gosh's parts are.
+
+For:   REQ6/SHAPE-5. gosh's code is in a directory per part, named for the part, outside the
+       core. tools/build.sh copies those directories into its copy of the core's src/, and this
+       patch has the core's build go into them.
+What:  src/forwarding is added to the directories built (after network, which it uses, and before
+       the programs), and its Makefile to the files configure writes. One line of each kind is
+       added for each part as it arrives.
+Where: configure.ac (AC_CONFIG_FILES); src/Makefile.am (SUBDIRS).
+Kind:  additions only. Written for gosh: the fork instead put every added file into the core's
+       own networking library, which is how a file copier came to live there.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+--- a/configure.ac
++++ b/configure.ac
+@@ -588,6 +588,7 @@
+   src/fuzz/Makefile
+   src/include/Makefile
+   src/network/Makefile
++  src/forwarding/Makefile
+   src/protobufs/Makefile
+   src/statesync/Makefile
+   src/terminal/Makefile
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -1 +1 @@
+-SUBDIRS = include protobufs util crypto terminal network statesync frontend examples tests fuzz
++SUBDIRS = include protobufs util crypto terminal network forwarding statesync frontend examples tests fuzz

@@ -19,7 +19,8 @@ takes about three and a half minutes here, more from nothing. In order it checks
 
 1. the repository is sound (`./se --doctor`: the working set, versioned citations, the queue);
 2. the core is upstream's at the pinned commit, byte for byte (`REQ6/UP-2`);
-3. it builds (`tools/build.sh`, into `.build/`);
+3. it builds (`tools/build.sh`, into `.build/`: a copy of the core, the seam's patches applied
+   to it, gosh's parts from `src/` copied in beside), and the parts' unit tests pass;
 4. gosh and a stock mosh hold a terminal session, each way (`REQ10/SHAPE-1`, `tests/stock-session.py`);
 5. the fork's own programs at pf.7, built in `.build/pf7` (`tools/build-pf7.sh`, which fetches the
    tag), pass the fork's tests that have been brought here (`tests/forward-e2e.py`,
@@ -28,8 +29,9 @@ takes about three and a half minutes here, more from nothing. In order it checks
    `tests/nat-lab.py`, which needs `nft` and either root, user namespaces, or sudo). These are the tests gosh's parts must pass when they land.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
-`.build/bin`, with the transport's part of the seam applied (`seam/`, four patches) and nothing
-yet using it: no parts, no `gosh` command (queue items 5 to 10).
+`.build/bin`, with the transport's part of the seam applied (`seam/`) and the fork's forwarding
+code built beside it as a library (`src/forwarding/`) that **no program uses yet**: no forwards,
+no `gosh` command (queue items 5 to 10).
 
 To set up: `git submodule update --init` for `core/`; a stock mosh 1.4.0 installed (Debian and
 Ubuntu: the `mosh` package), since the check meets it; and the core's build needs
@@ -79,8 +81,9 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
 - **Code:** `core/` is upstream's mosh, a git submodule at the pinned commit, never edited.
   `seam/` is what gosh changes in it: patches the build applies, in order, to a copy
   (`seam/README.md`).
-  `tools/` builds and checks; `tests/` holds tests that drive the programs from outside. gosh's
-  parts will each have a directory of their own (design, *Decisions*); none exists yet.
+  `src/` holds gosh's parts, a directory each, named for the part, with a README and the part's
+  unit tests; so far `src/forwarding/`. `tools/` builds and checks; `tests/` holds tests that
+  drive the programs from outside.
 - **Working set:** `docs/`: `REQUIREMENTS_v11.md` (the one in force; v6 to v10 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
   and still holds the seam file by file).
