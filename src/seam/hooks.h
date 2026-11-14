@@ -119,15 +119,32 @@ void turn( Select& sel )
 
 /*
  * A headless client has no screen to draw. Once, when the session is up and its forwards can
- * be used, it says so on standard error, where a script can wait for it (REQ1/FWD-5).
+ * be used, it says so on standard error, where a script can wait for it (REQ1/FWD-5); or, once,
+ * that the server it reached does not forward (REQ8/CMD-3).
  * still_connecting: the client has not yet heard from the server.
  */
 template<class Transport>
 void announce( Transport& network, bool still_connecting )
 {
   Session& s = session();
-  if ( s.announced || still_connecting || ( s.forwarding && !network.sidechannel_ready() ) ) {
+  if ( s.announced || still_connecting ) {
     return;
+  }
+  if ( s.forwarding && !network.peer_can( Network::CAPABILITY_SIDECHANNEL ) ) {
+    /*
+     * (REQ8/CMD-3) The server has answered and has not said that it forwards: a stock mosh, or
+     * one of gosh's that was not given these forwards. Said once and plainly, because whoever
+     * waits for "connected; forwarding" would otherwise wait for ever.
+     */
+    s.announced = true;
+    fputs( "mosh: connected, but the server does not forward: it is a stock mosh-server, or was not given\n"
+           "      these forwards. None of them will be done.\n",
+           stderr );
+    fflush( stderr );
+    return;
+  }
+  if ( s.forwarding && !network.sidechannel_ready() ) {
+    return; /* it forwards, and is not ready yet */
   }
   s.announced = true;
   fputs( s.forwarding ? "mosh: connected; forwarding.\n" : "mosh: connected.\n", stderr );

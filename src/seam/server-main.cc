@@ -30,8 +30,8 @@ int main( int argc, char* argv[] )
     std::vector<std::string> rest;
     std::string error;
     /* "@ipcl": the core's options that take a value, so that a value is not read as an option */
-    if ( !Gosh::take_forward_options( std::vector<std::string>( args.begin() + 1, args.end() ), "@ipcl", false, options,
-                                      rest, error ) ) {
+    if ( !Gosh::take_forward_options( std::vector<std::string>( args.begin() + 1, args.end() ), "@ipcl", false, false,
+                                      options, rest, error ) ) {
       fprintf( stderr, "%s: %s\n", name.c_str(), error.c_str() );
       return 1;
     }

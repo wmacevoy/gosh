@@ -15,6 +15,10 @@
 # A stock mosh 1.4.0 must be installed for 4 (Debian, Ubuntu: the mosh package);
 # STOCK_CLIENT and STOCK_SERVER say where, if not in /usr/bin.
 cd "$(dirname "$0")/.." || exit 1
+GOSH=$(pwd); export GOSH
+# Everything this run starts carries this mark, so that what it stops is its own and not
+# another run's from the same build directory (tools/env.sh, stop_ours; the tests).
+GOSH_TEST_RUN="check.$$"; export GOSH_TEST_RUN
 fail() { echo "FAIL: $*"; exit 1; }
 
 # The doctor asks the network whether its guide is current. On a machine that has

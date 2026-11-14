@@ -22,7 +22,7 @@ Written for gosh on 2026-11-14, and seen red that day: against upstream's
 mosh-client under the name gosh, which is not the command, every check fails
 but the last (it writes nothing on standard output either).
 On its way out it stops the servers that appeared while it ran: by process id,
-and only ones running SERVER's own file.
+and only ones running SERVER's own file that carry this run's mark.
 
 Copyright 2026 Warren D. MacEvoy. Part of gosh, under the GNU General Public
 License, version 3 or later (COPYING).
@@ -47,7 +47,10 @@ if len(sys.argv) != 3:
 gosh, server_path = os.path.abspath(sys.argv[1]), os.path.realpath(sys.argv[2])
 here = os.path.dirname(os.path.abspath(__file__))
 ssh = "python3 " + os.path.join(here, "fake-ssh.py")
-env = dict(os.environ, LC_ALL="C.UTF-8", TERM="xterm", MOSH_STUN="none")
+# This run's mark, in the environment of everything it starts, so that what it stops on its way
+# out is its own: another run may be using the same programs at the same time.
+MARK = "GOSH_TEST_RUN=" + os.environ.get("GOSH_TEST_RUN", "test.%d" % os.getpid())
+env = dict(os.environ, LC_ALL="C.UTF-8", TERM="xterm", MOSH_STUN="none", GOSH_TEST_RUN=MARK.split("=", 1)[1])
 failures = []
 
 
@@ -58,13 +61,16 @@ def check(name, ok, more=""):
 
 
 def our_servers():
-    """Process ids now running SERVER's own file."""
+    """Process ids now running SERVER's own file that this run started: its mark is in their environment."""
     found = set()
     for pid in os.listdir("/proc"):
         if pid.isdigit():
             try:
-                if os.path.realpath(os.readlink("/proc/%s/exe" % pid)) == server_path:
-                    found.add(int(pid))
+                if os.path.realpath(os.readlink("/proc/%s/exe" % pid)) != server_path:
+                    continue
+                with open("/proc/%s/environ" % pid, "rb") as f:
+                    if MARK.encode() in f.read().split(b"\0"):
+                        found.add(int(pid))
             except OSError:
                 pass
     return found

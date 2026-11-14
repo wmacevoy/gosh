@@ -5,7 +5,9 @@
 # them (the machine gosh is developed on), tools/deps.sh unpacks the Debian
 # packages under .deps/, and this file points the build at them.
 
-GOSH=$(cd "$(dirname "$0")/.." && pwd)
+# (tools/check.sh sets GOSH itself: it has changed directory by the time it reads this file,
+# and "$0" is then no longer a path from where it stands.)
+GOSH=${GOSH:-$(cd "$(dirname "$0")/.." && pwd)}
 DEPS=$GOSH/.deps/usr
 BUILD=$GOSH/.build
 
@@ -19,13 +21,17 @@ else
     CONFIGURE_DEPS=
 fi
 
-# Stops the programs built here and left running: by where the program file is
-# (under .build/), never by name. A test that fails can leave its server behind,
-# and this machine runs other mosh sessions that are not ours to stop.
+# Stops the programs this run started and left running. A test that fails can leave its
+# server behind. "This run's" means both: its program file is under .build/, and it was
+# started with this run's mark, GOSH_TEST_RUN, in its environment. Never by name, and not by
+# the file alone: this machine runs other mosh sessions, and another run may share .build/.
 stop_ours() {
+    [ -n "${GOSH_TEST_RUN:-}" ] || return 0
     for p in /proc/[0-9]*; do
         exe=$(readlink "$p/exe" 2>/dev/null) || continue
-        case "$exe" in "$BUILD"/*) kill "${p#/proc/}" 2>/dev/null ;; esac
+        case "$exe" in "$BUILD"/*) ;; *) continue ;; esac
+        tr '\0' '\n' < "$p/environ" 2>/dev/null | grep -qx "GOSH_TEST_RUN=$GOSH_TEST_RUN" || continue
+        kill "${p#/proc/}" 2>/dev/null
     done
     return 0
 }

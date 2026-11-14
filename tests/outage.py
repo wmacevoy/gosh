@@ -24,6 +24,7 @@ License, version 3 or later (COPYING).
 """
 import os
 import re
+import select
 import signal
 import socket
 import subprocess
@@ -144,11 +145,15 @@ def read_exactly(conn, count, seconds):
 
 try:
     up = False
-    for line in client.stderr:
-        if b"connected; forwarding" in line:
-            up = True
-            break
-    check("the session and its forward come up", up)
+    said = b""
+    os.set_blocking(client.stderr.fileno(), False)
+    deadline = time.monotonic() + PATIENCE  # a limit on waiting, not something asserted
+    while time.monotonic() < deadline and not up and client.poll() is None:
+        ready, _, _ = select.select([client.stderr], [], [], 0.5)
+        if ready:
+            said += client.stderr.read() or b""
+            up = b"connected; forwarding" in said
+    check("the session and its forward come up", up, repr(said[-200:]))
     if up:
         conn = socket.create_connection(("127.0.0.1", listen_port), timeout=PATIENCE)
         conn.sendall(b"before the outage")

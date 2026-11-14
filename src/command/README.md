@@ -6,7 +6,8 @@ is the command when it is run under either name, or with either as its first wor
 
 **Carried, not yet reshaped** (queue items 5 and 10). `moshwrapper.*` is the fork's at
 `mosh-1.4.0-pf.7`, from `src/frontend/`, changed in two ways: one `#include` line; and, for
-`REQ8/CMD-3`, six places in its login, each marked `(gosh, REQ8/CMD-3)`, that call `stock.*`.
+`REQ8/CMD-3`, six places in its login, each marked `(gosh, REQ8/CMD-3)`, that call `stock.*`,
+and one marked `(gosh, REQ1/FWD-5)` that keeps a login's chatter off `-N`'s standard output.
 `stock.*` is new and is logic only, with `stock-test.cc`: the line that picks the host's server,
 and what is said when it is a stock mosh's. For the rest:
 

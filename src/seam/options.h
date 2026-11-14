@@ -44,8 +44,11 @@ struct ForwardOptions
  *   core_values     the core's own option letters that are followed by a value ("#" for the
  *                   client, "@ipcl" for the server), so that a value is not read as an option
  *   allow_headless  whether -N is gosh's here (the client), or left for the core to refuse
+ *   anywhere        whether options may also follow words that are not options, up to "--"
+ *                   (the client: "IP PORT -N" was accepted by the fork, whose getopt reordered)
  *
- * Options are read as getopt reads them, up to "--" or the first word that is not an option:
+ * Options are read as getopt reads them, up to "--" or, unless `anywhere`, the first word that is
+ * not an option:
  * letters may share a word ("-vN"), and a value may be joined to its letter ("-L8080:h:80") or be
  * the next word. "-LU SPEC" and "-RU SPEC" are -L and -R with the value "U" and the
  * specification in the word after.
@@ -58,6 +61,7 @@ struct ForwardOptions
 bool take_forward_options( const std::vector<std::string>& args,
                            const std::string& core_values,
                            bool allow_headless,
+                           bool anywhere,
                            ForwardOptions& options,
                            std::vector<std::string>& rest,
                            std::string& error );

@@ -75,7 +75,10 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   host and runs their private meetup. Stop what you started by process id.
 - **Never run a test against the installed programs.** The fork's `nat-lab.py` ends by stopping
   every process on the machine whose program file is under the directory it was given; given
-  `~/.local/bin`, that is the owner's live sessions. Tests get a build directory of their own. The
+  `~/.local/bin`, that is the owner's live sessions. Tests get a build directory of their own.
+  What the check and gosh's own tests stop is narrower still: a program under `.build/` that
+  also carries this run's mark (`GOSH_TEST_RUN`) in its environment, so that two runs sharing
+  `.build/` do not stop each other's. The
   stock mosh the check meets is the one exception: it is started by the test and stopped by its
   process id, and nothing else of it is touched.
 - **Tests ask servers on the Internet nothing.** (The doctor's release check, above, is not a test

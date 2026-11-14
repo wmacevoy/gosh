@@ -13,6 +13,7 @@ namespace Gosh {
 bool take_forward_options( const std::vector<std::string>& args,
                            const std::string& core_values,
                            bool allow_headless,
+                           bool anywhere,
                            ForwardOptions& options,
                            std::vector<std::string>& rest,
                            std::string& error )
@@ -24,8 +25,15 @@ bool take_forward_options( const std::vector<std::string>& args,
   size_t i = 0;
   for ( ; i < args.size(); i++ ) {
     const std::string& word = args[i];
-    if ( word == "--" || word.size() < 2 || word[0] != '-' ) {
+    if ( word == "--" ) {
       break; /* the options are over; this word and the rest are the core's */
+    }
+    if ( word.size() < 2 || word[0] != '-' ) {
+      if ( !anywhere ) {
+        break; /* the first word that is not an option ends them too */
+      }
+      rest.push_back( word ); /* not an option: the core's, and options may still follow it */
+      continue;
     }
 
     std::string kept = "-"; /* the letters of this word that are the core's */

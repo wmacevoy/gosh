@@ -21,7 +21,7 @@ before the second run, as if nothing had been kept, "it carried on from what had
 arrived" fails. A copy killed outright leaves its server
 running (a stream's session waits a week for its client), so on its way out
 this test stops the servers that appeared while it ran: by process id, and only
-ones running SERVER's own file.
+ones running SERVER's own file that carry this run's mark.
 
 Copyright 2026 Warren D. MacEvoy. Part of gosh, under the GNU General Public
 License, version 3 or later (COPYING).
@@ -43,7 +43,10 @@ PATIENCE = 120            # how long anything may take before the test gives up 
 if len(sys.argv) != 3:
     sys.exit(__doc__)
 server_path, client_path = os.path.realpath(sys.argv[1]), os.path.realpath(sys.argv[2])
-env = dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none")
+# This run's mark, in the environment of everything it starts, so that what it stops on its way
+# out is its own: another run may be using the same programs at the same time.
+MARK = "GOSH_TEST_RUN=" + os.environ.get("GOSH_TEST_RUN", "test.%d" % os.getpid())
+env = dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", GOSH_TEST_RUN=MARK.split("=", 1)[1])
 failures = []
 
 
@@ -54,13 +57,16 @@ def check(name, ok, more=""):
 
 
 def our_servers():
-    """Process ids now running SERVER's own file."""
+    """Process ids now running SERVER's own file that this run started: its mark is in their environment."""
     found = set()
     for pid in os.listdir("/proc"):
         if pid.isdigit():
             try:
-                if os.path.realpath(os.readlink("/proc/%s/exe" % pid)) == server_path:
-                    found.add(int(pid))
+                if os.path.realpath(os.readlink("/proc/%s/exe" % pid)) != server_path:
+                    continue
+                with open("/proc/%s/environ" % pid, "rb") as f:
+                    if MARK.encode() in f.read().split(b"\0"):
+                        found.add(int(pid))
             except OSError:
                 pass
     return found

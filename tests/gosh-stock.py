@@ -18,6 +18,10 @@ made for each case, so that the host has exactly the servers the case says:
   a host with neither        gosh says it found no server, and stops: status 1,
                              not a hang.
 
+  a stock server named       with --server=PATH the server is taken to be gosh's
+  by the user                and asked for everything; when it turns out not to
+                             forward, gosh says so and does not wait in silence.
+
 Written for gosh on 2026-11-14, and seen red that day: with the fork's command
 unchanged (it asks only for mosh-server and says nothing), the first and second
 cases fail. It stops nothing but what it started itself.
@@ -59,7 +63,9 @@ work = tempfile.mkdtemp(prefix="gosh-stock-")
 # The host's PATH: only what a login needs, so that no server is found that a case did not put there.
 tools = os.path.join(work, "tools")
 os.mkdir(tools)
-for name, path in (("python3", sys.executable), ("sh", "/bin/sh"), ("printf", shutil.which("printf"))):
+# (sleep: a session with no command runs a loop of sleeps; without it that loop spins)
+for name, path in (("python3", sys.executable), ("sh", "/bin/sh"), ("printf", shutil.which("printf")),
+                   ("sleep", shutil.which("sleep"))):
     os.symlink(path, os.path.join(tools, name))
 ssh = "python3 " + os.path.join(here, "fake-ssh.py")
 
@@ -101,10 +107,11 @@ def free_port():
     return port
 
 
-def headless(env, spec, until):
+def headless(env, spec, until, more=()):
     """Runs "gosh -N -L spec localhost" until it has said `until` on standard error (or gives up).
-    Returns (the process, what it said)."""
-    process = subprocess.Popen([gosh, "--ssh=" + ssh, "--experimental-remote-ip=local", "-N", "-L", spec, "localhost"],
+    more: words to put before them. Returns (the process, what it said)."""
+    process = subprocess.Popen([gosh, "--ssh=" + ssh, "--experimental-remote-ip=local"] + list(more)
+                               + ["-N", "-L", spec, "localhost"],
                                env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     said = b""
     os.set_blocking(process.stderr.fileno(), False)
@@ -117,12 +124,14 @@ def headless(env, spec, until):
 
 
 def stop(process):
+    """Ends it, and returns what it wrote on standard output while it ran."""
     process.terminate()
     try:
-        process.communicate(timeout=PATIENCE)
+        out, _ = process.communicate(timeout=PATIENCE)
     except subprocess.TimeoutExpired:
         process.kill()
-        process.communicate()
+        out, _ = process.communicate()
+    return out
 
 
 def through(port, data):
@@ -185,7 +194,7 @@ try:
     check("a host with gosh-server: the forward comes up", b"connected; forwarding" in said, repr(said[-300:]))
     check("a host with gosh-server: and carries bytes", through(port, b"through gosh") == b"through gosh")
     check("a host with gosh-server: nothing is said of a stock server", NOTICE not in said, repr(said[-300:]))
-    stop(process)
+    check("a host with gosh-server: -N writes nothing on standard output", stop(process) == b"")
 
     # ---- a host with only a stock mosh-server
     stock_host = host({"mosh-server": stock_server})
@@ -196,14 +205,27 @@ try:
               "That one cannot do these, and is not asked to: -L %s." % spec).encode()
     check("a stock host: it says which server it got, and the forward not done", wanted in said, repr(said[-400:]))
     check("a stock host: it says so once", said.count(NOTICE) == 1, repr(said[-400:]))
-    check("a stock host: the server was asked for no forward (it did not complain)", b"Usage:" not in said,
-          repr(said[-400:]))
     check("a stock host: the session comes up all the same", b"mosh: connected." in said, repr(said[-400:]))
     check("a stock host: nothing listens for the forward", through(port, b"x") is None)
-    stop(process)
+    out = stop(process)
+    # A stock server given a word it does not know says "invalid option" and prints its usage, which the
+    # command passes on; so their absence from everything gosh wrote is how "asked for no forward" shows.
+    check("a stock host: the server was asked for no forward (it did not complain)",
+          not any(w in said + out for w in (b"Usage:", b"invalid option")), repr((said + out)[-400:]))
+    check("a stock host: -N writes nothing on standard output", out == b"", repr(out[-200:]))
     drawn = session(stock_host)
     check("a stock host: a terminal session works regardless", b"hello" in drawn, repr(drawn[-300:]))
     check("a stock host: and there too it says so once", drawn.count(NOTICE) == 1, repr(drawn[-300:]))
+
+    # ---- a stock server that the user names: it is asked for everything, and cannot do it
+    target, port = echo_target(), free_port()
+    spec = "%d:127.0.0.1:%d" % (port, target.getsockname()[1])
+    process, said = headless(host({}), spec, b"does not forward", more=["--server=" + stock_server])
+    check("a stock server named with --server: gosh says that it does not forward",
+          b"connected, but the server does not forward" in said, repr(said[-400:]))
+    check("a stock server named with --server: and does not say it is forwarding",
+          b"connected; forwarding" not in said, repr(said[-400:]))
+    check("a stock server named with --server: -N writes nothing on standard output", stop(process) == b"")
 
     # ---- a host with neither
     done = subprocess.run([gosh, "--ssh=" + ssh, "--experimental-remote-ip=local", "-N", "localhost"],

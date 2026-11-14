@@ -30,10 +30,11 @@ static void check( const char* what, bool ok )
 }
 
 /* Runs the parser and says whether it succeeded; the results are left in the three references. */
+/* (In these tests the client is the one given -N, and also the one whose options may come anywhere.) */
 static bool take( const Words& args, const char* core_values, bool allow_headless, Gosh::ForwardOptions& o, Words& rest,
                   std::string& error )
 {
-  return Gosh::take_forward_options( args, core_values, allow_headless, o, rest, error );
+  return Gosh::take_forward_options( args, core_values, allow_headless, allow_headless, o, rest, error );
 }
 
 int main()
@@ -71,6 +72,10 @@ int main()
   check( "a value of one of the core's letters is never read as an option",
          take( { "-#", "-L", "ip", "port" }, "#", true, o, rest, error ) && !o.any()
            && rest == Words{ "-#", "-L", "ip", "port" } );
+
+  check( "the client's words may follow the address, as the fork's getopt allowed",
+         take( { "127.0.0.1", "60001", "-N", "-L", "1:a:1" }, "#", true, o, rest, error ) && o.headless
+           && o.tcp == Words{ "1:a:1" } && rest == Words{ "127.0.0.1", "60001" } );
 
   /* the server: what follows "new" */
   check( "the server's own options with values pass through, around gosh's",

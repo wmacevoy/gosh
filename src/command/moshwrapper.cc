@@ -1239,7 +1239,8 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
             bad_port = true;
           }
           /* what ssh or the login had to say (not on our output if that is carrying data) */
-          if ( !stream_local.empty() ) {
+          /* (gosh, REQ1/FWD-5) nor when there is no terminal: -N's standard output is not its own */
+          if ( !stream_local.empty() || headless ) {
             if ( !line.empty() ) {
               fprintf( stderr, "%s\n", raw.c_str() );
             }

@@ -53,7 +53,7 @@ int main( int argc, char* argv[] )
   std::vector<std::string> rest;
   std::string error;
   /* "#": the core's one option that takes a value (the original command line, which it ignores) */
-  if ( !Gosh::take_forward_options( args, "#", true, options, rest, error ) ) {
+  if ( !Gosh::take_forward_options( args, "#", true, true, options, rest, error ) ) {
     fprintf( stderr, "%s: %s\n", name.c_str(), error.c_str() );
     return 1;
   }
