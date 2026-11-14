@@ -118,11 +118,18 @@ struct Pair
   bool lying;
   bool lie_known;
   uint32_t lie_from, lie_to;
+  int lie_from_shift, lie_to_shift; /* (the lie's range, moved by this much at each end) */
+  unsigned int lose_acknowledgments; /* this many of end 1's next segments are lost, too */
+  std::string last_said; /* the options on the last segment from end 1 that said what it holds */
+  bool edge_known;
+  uint32_t edge;       /* the furthest end 1 has said it will take: its acknowledgment and its window */
+  size_t beyond_edge;  /* the furthest any data from end 0 reached past that, since the last reset_count() */
 
   explicit Pair( bool sack0 = true, bool sack1 = true )
     : listening( true, sack0 ), connecting( false, sack1 ), link(), now( 5000 ), carrying( true ), lose(),
       lose_in_1000( 0 ), chance( 2463534242u ), data_segments( 0 ), data_bytes( 0 ), exchanges( 0 ), said_held( 0 ), lying( false ),
-      lie_known( false ), lie_from( 0 ), lie_to( 0 )
+      lie_known( false ), lie_from( 0 ), lie_to( 0 ), lie_from_shift( 0 ), lie_to_shift( 0 ), lose_acknowledgments( 0 ),
+      last_said(), edge_known( false ), edge( 0 ), beyond_edge( 0 )
   {
     options_after_syn[0] = options_after_syn[1] = 0;
     link.ready = true;
@@ -137,6 +144,7 @@ struct Pair
     data_segments = 0;
     data_bytes = 0;
     exchanges = 0;
+    beyond_edge = 0;
   }
 
   /* Whether this segment, on its way from end e, is lost. Counts it, and what it says, either way. */
@@ -156,8 +164,29 @@ struct Pair
                               static_cast<char>( lie_to >> 8 ), static_cast<char>( lie_to ) };
       segment.options.assign( said, sizeof( said ) );
     }
+    if ( e == 1 && !segment.has( TCPInUDP::SYN ) ) {
+      if ( lose_acknowledgments ) {
+        lose_acknowledgments--;
+        return true;
+      }
+      if ( segment.options.find( '\5' ) != std::string::npos ) {
+        last_said = segment.options;
+      }
+      /* (both ends here shift the window by five: the logic's WINDOW_SHIFT) */
+      const uint32_t now_edge = segment.ack + ( static_cast<uint32_t>( segment.window ) << 5 );
+      if ( !edge_known || static_cast<int32_t>( now_edge - edge ) > 0 ) {
+        edge = now_edge;
+        edge_known = true;
+      }
+    }
     if ( e != 0 || segment.payload.empty() ) {
       return false;
+    }
+    if ( edge_known ) {
+      const int32_t past = static_cast<int32_t>( segment.seq + segment.payload.size() - edge );
+      if ( past > 0 && static_cast<size_t>( past ) > beyond_edge ) {
+        beyond_edge = past;
+      }
     }
     const unsigned int which = data_segments++;
     data_bytes += segment.payload.size();
@@ -173,8 +202,8 @@ struct Pair
     }
     if ( gone && lying && !lie_known && !lose.empty() && which == lose.back() ) {
       lie_known = true;
-      lie_from = segment.seq;
-      lie_to = segment.seq + segment.payload.size();
+      lie_from = segment.seq + lie_from_shift;
+      lie_to = segment.seq + segment.payload.size() + lie_to_shift;
     }
     return gone;
   }
@@ -829,6 +858,121 @@ static void test_lying_holder( void )
          p.now - began < 60 * 1000 && p.out[0].closed.empty() && p.out[1].closed.empty() );
 }
 
+/* What the receiver says it holds: four ranges at most, the latest arrival's first, then the nearest. */
+static void test_what_is_said( void )
+{
+  Pair p;
+  std::string sent;
+  const uint32_t id = warmed( p, sent );
+  const std::string more = pattern( 40 * SEGMENT );
+  p.reset_count();
+  const unsigned int apart[5] = { 3, 9, 15, 21, 27 };
+  p.lose.assign( apart, apart + 5 );
+  p.lose_acknowledgments = 1000; /* (none gets back, so nothing is sent again: this is the forty arriving, alone) */
+  p.write( 0, id, more );
+  /* carry the forty over, one way only */
+  std::vector<std::pair<uint8_t, TCPInUDP> > forty;
+  forty.swap( p.out[0].sent );
+  uint32_t first = 0;
+  for ( size_t i = 0; i < forty.size(); i++ ) {
+    if ( i == 0 ) {
+      first = forty[i].second.seq;
+    }
+    if ( !p.lost( 0, forty[i].second ) ) {
+      p.connecting.segment( forty[i].first, forty[i].second, p.now, p.link, p.out[1] );
+    }
+  }
+  const std::string said = p.out[1].sent.empty() ? "" : p.out[1].sent.back().second.options;
+  /* held: segments 4-8, 10-14, 16-20, 22-26, 28-39. The last to arrive was 39. */
+  std::string expected;
+  const char head[4] = { 1, 1, 5, 34 };
+  expected.assign( head, 4 );
+  const unsigned int ranges[4][2] = { { 28, 40 }, { 4, 9 }, { 10, 15 }, { 16, 21 } };
+  for ( int r = 0; r < 4; r++ ) {
+    for ( int k = 0; k < 2; k++ ) {
+      const uint32_t v = first + ranges[r][k] * SEGMENT;
+      const char b[4] = { static_cast<char>( v >> 24 ), static_cast<char>( v >> 16 ), static_cast<char>( v >> 8 ),
+                          static_cast<char>( v ) };
+      expected.append( b, 4 );
+    }
+  }
+  check( "five gaps: the last acknowledgment names the latest range, then the three nearest, exactly", said == expected );
+
+  /*
+   * Only that last acknowledgment gets back. One is not enough to start a repair, so a timer
+   * does; and going back, the sender passes over the four ranges it was told of, and is told of
+   * the fifth by the acknowledgment of the first gap before it gets there.
+   */
+  p.out[1].sent.erase( p.out[1].sent.begin(), p.out[1].sent.end() - 1 );
+  p.lose_acknowledgments = 0;
+  p.lose.clear();
+  for ( int i = 0; i < 100000 && p.out[1].got.size() < sent.size() + more.size(); i++ ) {
+    p.carry();
+    p.tick( 1 );
+  }
+  check( "with only that acknowledgment back: whole, and the five lost sent again and nothing else, 45 in all",
+         p.out[1].got == sent + more && p.data_bytes == 45 * SEGMENT );
+}
+
+/*
+ * What is held is not on its way, and does not count against how much the sender may have on
+ * its way. But it is in the receiver's buffer, or will be, and counts against the room the
+ * receiver has said it has: the sender never sends past that, a loss or no.
+ */
+static void test_loss_and_a_full_receiver( void )
+{
+  Pair p;
+  const uint32_t id = p.open();
+  p.out[1].takes = 0; /* the target takes nothing */
+  const std::string data = pattern( 1300000 );
+  size_t written = 0;
+  for ( int i = 0; i < 400 && written < 900000; i++ ) {
+    written += p.write( 0, id, data.substr( written, 900000 - written ) );
+    p.carry();
+    p.tick( 1 );
+  }
+  check( "(900,000 bytes wait in the receiver's buffer)", written == 900000 && p.out[1].got.empty() );
+  p.reset_count();
+  p.lose.push_back( 0 ); /* the next segment is lost */
+  for ( int i = 0; i < 100 && written < data.size(); i++ ) {
+    written += p.write( 0, id, data.substr( written ) );
+    p.carry();
+    p.tick( 1 );
+  }
+  check( "a segment lost while the receiver is nearly full: nothing is sent past the room it gave (but a 1-byte probe)",
+         p.beyond_edge <= 1 );
+  p.out[1].takes = -1;
+  for ( int i = 0; i < 100000 && p.out[1].got.size() < written; i++ ) {
+    written += p.write( 0, id, data.substr( written ) );
+    p.carry();
+    p.tick( 1 );
+  }
+  check( "and when the target takes again, everything arrives whole", written == data.size() && p.out[1].got == data );
+}
+
+/* An end that says it holds our FIN, which is no data of ours: not believed, and nothing breaks. */
+static void test_held_past_the_end( void )
+{
+  Pair p;
+  std::string sent;
+  const uint32_t id = warmed( p, sent );
+  p.reset_count();
+  p.lose.push_back( 0 );
+  p.lying = true;
+  p.lie_from_shift = 5; /* of ten bytes lost, it says it holds from the sixth... */
+  p.lie_to_shift = 1;   /* ...to one past the last: the FIN's place */
+  const std::string last = pattern( 10 );
+  p.write( 0, id, last );
+  p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] ); /* and the application finishes */
+  for ( int i = 0; i < 20000 && !p.out[1].shut; i++ ) {
+    p.carry();
+    p.tick( 10 );
+  }
+  check( "(the lie was told)", p.lie_known );
+  check( "an end that says it holds past the end of our data: the ten bytes and the finish arrive all the same",
+         p.out[1].got == sent + last && p.out[1].shut && p.out[0].closed.empty() );
+}
+
 int main()
 {
   test_bytes();
@@ -846,6 +990,9 @@ int main()
   test_selective_acknowledgment();
   test_lossy();
   test_lying_holder();
+  test_what_is_said();
+  test_loss_and_a_full_receiver();
+  test_held_past_the_end();
 
   if ( failures ) {
     printf( "FAIL REQ1/FWD-1, REQ1/FWD-3: %d checks of the connection logic failed\n", failures );

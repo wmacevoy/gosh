@@ -430,7 +430,8 @@ private:
   /* Sending: takes note of the ranges an ACK says the other end holds (kind 5), within what is outstanding. */
   void note_sacks( Conn& c, const std::string& options )
   {
-    const uint32_t outstanding = c.snd_max - c.snd_una;
+    /* the data outstanding: not a FIN, which takes a sequence number and is no bytes of ours to pass over */
+    const uint32_t outstanding = std::min<uint32_t>( c.snd_max - c.snd_una, c.send_buf.size() );
     for ( size_t i = 0; i < options.size(); ) {
       const uint8_t kind = options[i];
       if ( kind == 0 ) {
@@ -862,7 +863,7 @@ private:
           c.rexmit_nxt = c.snd_una;
           if ( !c.sack || !sack_retransmit( c, out ) ) {
             retransmit_one( c, out );
-            c.rexmit_nxt = c.snd_una + std::min<uint32_t>( c.mss, c.send_buf.size() );
+            c.rexmit_nxt = c.snd_una + std::min<uint32_t>( std::min( c.mss, local_mss() ), c.send_buf.size() );
           }
         } else if ( c.sack && c.recovering ) {
           /* another segment has arrived there beyond the gap, so one has left the path: fill the next gap */
@@ -913,7 +914,7 @@ private:
            */
           if ( !sack_retransmit( c, out ) && static_cast<int32_t>( c.rexmit_nxt - c.snd_una ) <= 0 ) {
             retransmit_one( c, out );
-            c.rexmit_nxt = c.snd_una + std::min<uint32_t>( c.mss, c.send_buf.size() );
+            c.rexmit_nxt = c.snd_una + std::min<uint32_t>( std::min( c.mss, local_mss() ), c.send_buf.size() );
           }
           c.rto_deadline = now + c.rto;
           return;
@@ -970,24 +971,28 @@ private:
       const uint32_t until_held = ( c.sack && !c.sacked.empty() && seq_lt( c.snd_nxt, c.snd_max ) ) ? pass_over_sacked( c )
                                                                                                : 0xFFFFFFFF;
       const uint32_t flight = c.snd_nxt - c.snd_una;
-      /* (what it holds is not on its way any more, and does not count against the windows) */
+      /*
+       * What it holds is not on its way any more, and does not count against how much may be
+       * (cwnd). It does count against the room the other end gave (snd_wnd): that is where it is.
+       */
       const uint32_t on_its_way = flight - held_below( c, flight );
       const uint32_t data_sent = flight - ( c.fin_sent && !c.fin_acked ? 1 : 0 );
       const size_t unsent = c.send_buf.size() - data_sent;
 
       uint32_t allowed = std::min( c.snd_wnd, c.cwnd );
+      uint32_t room = c.snd_wnd;
       if ( allowed == 0 && flight == 0 ) {
-        allowed = 1; /* probe a closed window, or we could wait forever for it to open */
+        allowed = room = 1; /* probe a closed window, or we could wait forever for it to open */
       }
 
       const bool fresh = !seq_lt( c.snd_nxt, c.snd_max );
 
       if ( unsent ) {
-        if ( on_its_way >= allowed ) {
+        if ( on_its_way >= allowed || flight >= room ) {
           break;
         }
         const size_t n = std::min<size_t>( std::min<size_t>( std::min<size_t>( unsent, mss ), allowed - on_its_way ),
-                                           until_held );
+                                           std::min<size_t>( until_held, room - flight ) );
         if ( n == 0 ) {
           break; /* (can't happen, but looping here for ever would be the worst way to find out) */
         }
