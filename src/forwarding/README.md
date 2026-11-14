@@ -3,8 +3,8 @@
 Forwards and the stream: TCP and UDP ports, and one byte channel, carried over the side channel
 (`REQ1/FWD-1`, `REQ1/FWD-2`, `REQ1/FWD-3`, `REQ1/FWD-4`; design v2, 2.2).
 
-**Carried, and being reshaped** (queue items 5, 15, 16). `connection.h` is the first piece in its
-new shape: see below. Every other source file here is the fork's at
+**Carried, and being reshaped** (queue items 5, 15, 16). `connection.h` and `tcpadapter.*` are in
+their new shape: see below. Every other source file here is the fork's at
 `mosh-1.4.0-pf.7`, from `src/network/` (the three tests from `src/tests/`), with nothing changed
 but the `#include` lines that name the files that moved with it. One exception: `udp-forward.cc`
 has lost three tests that are other parts' (`test_relay_frames`, `test_punch`,
@@ -21,7 +21,6 @@ to test the new against.
 | `tcpforward.*` | TCP forwards and the stream, as segments over the side channel |
 | `connection.h` | gosh's TCP: one end of a forwarded connection, as logic (new shape) |
 | `tcpadapter.*` | the sockets of forwarded TCP connections: listeners and targets, an edge (new shape) |
-| `old-tcpadapter.*` | the fork's adapter, unchanged but for its name: for the differential test only |
 | `tcpinudp.*` | a TCP segment as a compact datagram, both ways |
 
 ## connection (the new shape)
@@ -30,18 +29,22 @@ to test the new against.
 for statement, with its sockets, clock and random numbers taken out. It is told what happened,
 with the time and what the session can do just now, and says what to do through a type its
 caller supplies (the edge in the programs, a recorder in tests). `tcpadapter.*` is that **edge**:
-it owns the sockets, reads the clock and draws sequence numbers, and decides nothing. The
-programs run both. `old-tcpadapter.*` is the fork's adapter as it was, under another class name,
-linked only into `connection-diff`; it goes when forwarding has landed.
+it owns the sockets, reads the clock and draws sequence numbers, and decides nothing. Landed on
+2026-11-14 (queue item 15).
 
-| Test | What it shows |
-| --- | --- |
-| `connection-diff.cc` | the new logic and the fork's adapter given the same scripted scenario (writes, losses, repeats, time passing, contact lost and found, resets) emit the same segments and deliver the same bytes at every step. 500 scenarios in the check; `./connection-diff 20000 1000` for more |
-| `connection-test.cc` | the logic alone, for what a real socket pair never does: a slow application, a target that refuses or never answers, the sixty-fifth connection, and six hours out of contact (`REQ1/FWD-3`) |
+Its two buffers are a byte queue (`Gosh::Bytes`, in `connection.h`) and not strings: the fork
+moved its send buffer down on every acknowledgment, which was about 40% of a forward's processor
+time (`docs/FINDINGS.md`, 2026-11-14).
 
-The logic's two buffers are a byte queue (`Gosh::Bytes`, in `connection.h`) and not strings: the
-fork moved its send buffer down on every acknowledgment, which was about 40% of a forward's
-processor time (`docs/FINDINGS.md`, 2026-11-14).
+`connection-test.cc` is the logic alone, with numbers for time and a recorder for what it asks:
+transfers, a slow application, windows, handshakes, limits, two connections, and six hours out
+of contact (`REQ1/FWD-3`). The fork's own `tcp-forward.cc` runs against the edge and the logic
+together, on real sockets.
 
-Both were held to account by breaking the logic on purpose: of 32 breaks tried, the two tests
-together miss one, which changes nothing that can be seen (queue item 15).
+**What is no longer here.** While the logic was being taken out, `connection-diff.cc` gave it and
+the fork's adapter the same scripted scenarios and compared every segment (20,000 scenarios, 6.8
+million segments, no difference). It needed the fork's class, which was deleted when the part
+landed, so it went too; both are in this repository's history at commit `2001e4f`. Two kinds of
+deliberate break were caught only by that test and are caught by nothing here now: leaving loss
+recovery, and giving up on one-at-a-time repair after many losses. **Before changing the logic,
+bring the test back from that commit** and run `./connection-diff 20000 1000`.
