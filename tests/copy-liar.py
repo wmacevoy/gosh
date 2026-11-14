@@ -53,8 +53,9 @@ def message(kind, body=b""):
     return struct.pack(">BI", kind, len(body)) + body
 
 
-def liar(name, report):
-    """The sending end, as a stream's process: standard input and output are the stream."""
+def liar(name, report, lying):
+    """The sending end, as a stream's process: standard input and output are the stream.
+    lying: go on to send the file whatever the receiver says."""
     out, inp = sys.stdout.buffer, sys.stdin.buffer
     seen = []
 
@@ -82,10 +83,13 @@ def liar(name, report):
              + struct.pack(">QQI", 5, 1700000000, 0o644))  # a file of 5 bytes
     say(message(LIST, entry))
     say(message(LIST_END, b"\x00"))
-    # Whatever is said back, go on as a sender would that had been asked for the file.
-    say(message(FILE_BEGIN, struct.pack(">IQ", 0, 0)))
-    say(message(DATA, b"owned"))
-    say(message(FILE_END))
+    if lying:
+        # Whatever is said back, go on at once as a sender would that had been asked for the file.
+        say(message(FILE_BEGIN, struct.pack(">IQ", 0, 0)))
+        say(message(DATA, b"owned"))
+        say(message(FILE_END))
+    # (An honest offer stops here and listens. To go on with a file it has no proper end for
+    # would end the receiver, and whether its answer got back first would be a matter of luck.)
     while True:
         kind = hear()
         if kind is None:
@@ -98,8 +102,9 @@ def liar(name, report):
     sys.exit(0 if WANT in seen else 3)
 
 
-def offered(server, client, work, name):
-    """Offers one name to a receiver whose destination is work/dest. Returns the message types the liar heard."""
+def offered(server, client, work, name, lying):
+    """Offers one name to a receiver whose destination is work/dest; lying: and then sends the file
+    unasked. Returns the message types the sender heard."""
     dest = os.path.join(work, "dest")
     shutil.rmtree(dest, ignore_errors=True)
     os.mkdir(dest)
@@ -118,7 +123,8 @@ def offered(server, client, work, name):
         sys.exit("FAIL REQ1/CP-6: the server did not start a stream's session:\n%s%s" % (started.stdout, started.stderr))
     try:
         sender = "\x1f".join(["@sh", " ".join(shlex.quote(w) for w in
-                                              [sys.executable, os.path.abspath(__file__), "--liar", name, report])])
+                                              [sys.executable, os.path.abspath(__file__), "--liar", name, report,
+                                               "send-anyway" if lying else "listen"])])
         subprocess.run([client, "-X", sender, "127.0.0.1", connect.group(1)],
                        env=dict(env, MOSH_KEY=connect.group(2)), stdin=subprocess.DEVNULL,
                        capture_output=True, timeout=PATIENCE * 2)
@@ -135,8 +141,8 @@ def offered(server, client, work, name):
 
 
 def main():
-    if len(sys.argv) == 4 and sys.argv[1] == "--liar":
-        liar(sys.argv[2], sys.argv[3])
+    if len(sys.argv) == 5 and sys.argv[1] == "--liar":
+        liar(sys.argv[2], sys.argv[3], sys.argv[4] == "send-anyway")
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     server, client = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
@@ -149,12 +155,12 @@ def main():
 
     work = tempfile.mkdtemp(prefix="gosh-copy-liar-")
     try:
-        heard = offered(server, client, work, "inside.txt")
+        heard = offered(server, client, work, "inside.txt", False)
         check("an honest name: the receiver asks for the file", heard is not None and WANT in heard, repr(heard))
 
         outside = os.path.join(work, "outside.txt")
         for name in ("../outside.txt", "sub/../../outside.txt", outside):
-            heard = offered(server, client, work, name)
+            heard = offered(server, client, work, name, True)
             check('"%s": the receiver asks for nothing' % name.replace(work, "/…"),
                   heard is not None and WANT not in heard, repr(heard))
             strays = sorted(n for n in os.listdir(work) if n not in ("dest", "report"))
