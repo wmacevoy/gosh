@@ -59,6 +59,9 @@ reference headless-smoke.py 127.0.0.1 blocked
 reference headless-smoke.py 127.0.0.1 translated
 reference headless-smoke.py 127.0.0.1 punched
 reference headless-smoke.py 127.0.0.1 returned
+# Written here, for requirements the fork tested only from inside (queue item 4).
+reference outage.py
+reference copy-cut.py
 if python3 -c 'import socket; socket.socket(socket.AF_INET6, socket.SOCK_DGRAM).bind(("::1", 0))' 2>/dev/null; then
     reference headless-smoke.py ::1 blocked
 fi
