@@ -12,6 +12,6 @@
 # stream), relay (a TCP forward with the session carried by the relays).
 #
 # way    version                                     when, and what was measured
-udp      2001e4f12bdbff79fd4388e93ebd3fbb375ae03a    2026-11-14: 102% of 29e527d by the gate (the same forwarding code but for the byte queue's tidying; 32.7 against 31.9 Mbit/s)
-stream   pf.7                                        gosh's streams are slower than pf.7's until queue item 17 (FINDINGS, 2026-11-14)
+udp      646558489f8b8a46aae2e3a58084fae00adff5ec    2026-11-14: 171% of 2001e4f by the gate (selective acknowledgment; 47.8 against 27.9 Mbit/s)
+stream   646558489f8b8a46aae2e3a58084fae00adff5ec    2026-11-14: 158% of pf.7 by the gate (selective acknowledgment; 38.7 against 24.6 Mbit/s)
 relay    pf.7                                        gosh has no relay yet (queue item 7)

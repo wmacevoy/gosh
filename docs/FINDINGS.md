@@ -7,6 +7,32 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-14 — Selective acknowledgment: a third of the datagrams, and the inference held
+
+- **What happened:** queue item 17 gave forwarding's TCP selective acknowledgment (commit
+  `6465584`), on the inference in the entry below: that a burst overruns the receiving socket's
+  buffer and the fork's repair then sends again most of what had arrived.
+- **What was measured, on this machine, loopback:**
+  - A 40 MB copy over a stream, counted by the kernel (`/proc/net/snmp`, every UDP datagram the
+    machine sent meanwhile): pf.7 235,192, 238,343 and 238,961; gosh 78,273 to 83,517 over eight
+    runs. About 72,000 is the least possible (the data and its acknowledgments). Two gosh runs
+    taken directly after a pf.7 run read 114,896 and 126,936; taken to include pf.7's last
+    datagrams, *(inferred, not checked)*.
+  - The receive buffer still overflows as often (6,000 to 10,000 datagrams dropped a copy,
+    either program). What changed is the cost of each drop: one segment sent again.
+  - The speed gate, 30 runs of each, turn about: a TCP forward 47.8 Mbit/s against 27.9 for the
+    fastest before (171%); a copy over a stream 38.7 against pf.7's 24.6 (158%). Processor time
+    for each megabyte: 0.048 against 0.097, and 0.052 against pf.7's 0.147.
+- **What the tests taught:** the first unit tests for it passed with the repair switched off,
+  with a false claim believed, and with the held ranges not passed over: bytes sent were the same
+  and only the number of exchanges, or a path no acknowledgment rescued, told them apart. Each
+  was sharpened until the break was seen red (SE1/T3). A count of bytes alone does not test a
+  repair; count the round trips too.
+- **Not done:** nothing stops the overflow itself (the sender may still have 1 MB on its way to
+  a 200 KB buffer). It no longer costs much, so it is left; pacing would be a new change.
+- **What it changed:** `src/forwarding/connection.h` and its unit tests; `tools/fastest` names
+  `6465584` for a TCP forward and for a stream; item 6 is no longer blocked.
+
 ## 2026-11-14 — A gain on a forward was a loss on a stream; and both programs send three times what they need
 
 - **What happened:** Item 15 replaced a connection's string buffers with a byte queue, and the
