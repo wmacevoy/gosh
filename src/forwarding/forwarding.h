@@ -47,10 +47,9 @@
 
 namespace Network {
 
-class Forwarding
+class Forwarding : public SideChannelSink
 {
 private:
-  SideChannelMux mux;
   std::unique_ptr<UDPForwarder> udp;
   std::unique_ptr<UDPForwarder> udp_remote; /* forwards the server listens for (-RU) */
   std::unique_ptr<TCPForwarder> tcp;
@@ -66,7 +65,7 @@ public:
               const std::vector<std::string>& tcp_remote_specs = std::vector<std::string>(),
               const std::vector<std::string>& udp_remote_specs = std::vector<std::string>(),
               bool with_stream = false )
-    : mux(), udp(), udp_remote(), tcp(), tcp_remote(), stream()
+    : udp(), udp_remote(), tcp(), tcp_remote(), stream()
   {
     if ( with_stream ) {
       stream.reset( new TCPForwarder( link,
@@ -74,25 +73,19 @@ public:
                                       std::vector<std::string>(),
                                       Gosh::TYPE_STREAM ) );
       stream->stream_allow();
-      mux.set_sink( Gosh::TYPE_STREAM, stream.get() );
     }
     if ( !udp_specs.empty() ) {
       udp.reset( new UDPForwarder( link, client ? UDPForwarder::LISTEN : UDPForwarder::CONNECT, udp_specs ) );
-      mux.set_sink( Gosh::TYPE_UDP_DATA, udp.get() );
-      mux.set_sink( Gosh::TYPE_UDP_FRAGMENT, udp.get() );
     }
     if ( !udp_remote_specs.empty() ) {
       /* the same again with the ends exchanged */
       udp_remote.reset( new UDPForwarder(
         link, client ? UDPForwarder::CONNECT : UDPForwarder::LISTEN, udp_remote_specs, true ) );
-      mux.set_sink( Gosh::TYPE_UDP_REVERSE_DATA, udp_remote.get() );
-      mux.set_sink( Gosh::TYPE_UDP_REVERSE_FRAGMENT, udp_remote.get() );
     }
     if ( !tcp_specs.empty() ) {
       tcp.reset( new TCPForwarder( link,
                                    client ? TCPForwarder::LISTEN : TCPForwarder::CONNECT,
                                    tcp_specs ) );
-      mux.set_sink( Gosh::TYPE_TCP_SEGMENT, tcp.get() );
     }
     if ( !tcp_remote_specs.empty() ) {
       /* the same again with the ends exchanged */
@@ -100,7 +93,6 @@ public:
                                           client ? TCPForwarder::CONNECT : TCPForwarder::LISTEN,
                                           tcp_remote_specs,
                                           Gosh::TYPE_TCP_REVERSE ) );
-      mux.set_sink( Gosh::TYPE_TCP_REVERSE, tcp_remote.get() );
     }
   }
 
@@ -116,7 +108,42 @@ public:
   size_t stream_connections( void ) const { return stream ? stream->connection_count() : 0; }
 
   /* Give this to Transport::set_sidechannel_sink(). */
-  SideChannelSink* sink( void ) { return &mux; }
+  SideChannelSink* sink( void ) { return this; }
+
+  /*
+   * (gosh) A payload from the other end: the byte after the mark says what kind it is, and so
+   * whose. This was the fork's SideChannelMux, a table filled in above; there are seven kinds
+   * and they are fixed, so it is a switch, and the seam's patch is the shorter for it.
+   */
+  void sidechannel_recv( const std::string& payload )
+  {
+    if ( payload.size() < 2 ) {
+      return;
+    }
+    SideChannelSink* whose = NULL;
+    switch ( static_cast<uint8_t>( payload[1] ) ) {
+      case Gosh::TYPE_UDP_DATA:
+      case Gosh::TYPE_UDP_FRAGMENT:
+        whose = udp.get();
+        break;
+      case Gosh::TYPE_UDP_REVERSE_DATA:
+      case Gosh::TYPE_UDP_REVERSE_FRAGMENT:
+        whose = udp_remote.get();
+        break;
+      case Gosh::TYPE_TCP_SEGMENT:
+        whose = tcp.get();
+        break;
+      case Gosh::TYPE_TCP_REVERSE:
+        whose = tcp_remote.get();
+        break;
+      case Gosh::TYPE_STREAM:
+        whose = stream.get();
+        break;
+    }
+    if ( whose ) {
+      whose->sidechannel_recv( payload );
+    }
+  }
 
   /*
    * When to add parity to the UDP datagrams this end has to fragment:

@@ -42,7 +42,7 @@
  */
 namespace Network {
 
-class AdapterPort : public SegmentPort
+class AdapterPort
 {
 private:
   typedef Gosh::Connections<AdapterPort> Logic;
@@ -120,7 +120,7 @@ public:
    */
   bool open_with( uint8_t forward, int fd, uint64_t now );
 
-  /* SegmentPort: the sockets worth reading now; one of them is readable; timers; a segment has arrived. */
+  /* For the loop: the sockets worth reading now; one of them is readable; timers; a segment has arrived. */
   std::vector<int> fds( void ) const;
   void read_fd( int fd );
   void tick( uint64_t now );

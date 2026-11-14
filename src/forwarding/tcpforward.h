@@ -70,13 +70,13 @@
  * frame header in place of the UDP forwarder's flow id; the port at the
  * connecting end is implied.  So of a TCPInUDP's two port fields, only
  * the listening end's (source_port going to the connecting end,
- * dest_port coming from it) means anything between a SegmentPort and
+ * dest_port coming from it) means anything between the adapter and
  * its SegmentSink.
  */
 
 namespace Network {
 
-/* Where a SegmentPort sends segments bound for the other end. */
+/* Where the adapter (tcpadapter.h) sends segments bound for the other end. */
 class SegmentSink
 {
 public:
@@ -96,22 +96,6 @@ public:
   virtual void to_network( uint8_t forward, const TCPInUDP& segment ) = 0;
 
   virtual ~SegmentSink() {}
-};
-
-/* One end's source and destination of TCP segments. */
-class SegmentPort
-{
-public:
-  virtual std::vector<int> fds( void ) const = 0;
-  virtual void read_fd( int fd ) = 0;
-
-  /* Timers.  wait_time() is in milliseconds, INT_MAX if nothing is pending. */
-  virtual void tick( uint64_t now ) = 0;
-  virtual int wait_time( uint64_t now ) const = 0;
-
-  virtual void from_network( uint8_t forward, const TCPInUDP& segment ) = 0;
-
-  virtual ~SegmentPort() {}
 };
 
 class AdapterPort;

@@ -20,7 +20,7 @@ to test the new against.
 
 | File | What it holds |
 | --- | --- |
-| `forwarding.h` | every forward of a session behind one event-loop interface |
+| `forwarding.h` | every forward of a session behind one event-loop interface; gives each arriving payload to its kind (a switch; the fork's `SideChannelMux` is gone from the seam) |
 | `forward.*` | one forward's specification, `[bind:]port:host:hostport`: logic (the fork's text, moved out of `udpforward` at item 16) |
 | `frame.*` | the 13-byte header every forwarded payload has, and the replay window: logic (likewise) |
 | `fragments.*` | a datagram cut into pieces with parity, and rebuilt; whether parity is worth it: logic (likewise) |
