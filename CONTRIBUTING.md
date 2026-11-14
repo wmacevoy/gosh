@@ -48,9 +48,11 @@ To reset: `rm -rf .build`. Nothing else holds state.
 
 The doctor also asks GitHub whether the vendored guide is current: with no network it fails unless
 this machine was able to ask in the last 30 days, so a fresh machine or CI runner needs the network.
-`tools/speed.py SERVER CLIENT` measures how fast a forward carries bytes and what it costs the
-processor (`REQ6/SPEED-1`); pf.7's figures on this machine are in `docs/FINDINGS.md`. It is not
-part of the check: it takes a minute and a half, and nothing of gosh's can carry a forward yet.
+The speed gate (`REQ6/SPEED-1`) is `tools/speed.py --against` with pf.7's server and client
+(`.build/pf7/src/frontend/mosh-server`, `mosh-client`) and then gosh's (`.build/bin/gosh-server`,
+`gosh-client`): the two are run turn and turn about, and it fails if gosh's rate is more than 10%
+under pf.7's. It is not part of the check: it takes about 15 minutes. It is run when a part
+lands. Why it takes the runs it does is in `docs/FINDINGS.md` (2026-11-14).
 The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mosh-dev/tools/check.sh`.
 
 `./se --doctor` says what this repository lacks. The start hook that runs `./se --post` is in
@@ -61,7 +63,7 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
 - **No new features; push back on requests for them** (requirements, *Scope decisions*). Migrating,
   naming, testing and reshaping are not new features.
 - **A part lands only pinned**: its tests that drive the programs from outside were first green
-  against pf.7's programs, each was seen to fail, and `tools/speed.py`'s figure for it is not more than 10% under pf.7's (`REQ6/SPEED-1`).
+  against pf.7's programs, each was seen to fail, and the speed gate passes for it (`REQ6/SPEED-1`).
 - **The core is not edited.** Upstream's code is carried at a named commit, untouched; what gosh
   needs changed there is the seam, and every change in it is tracked to that commit and listed in
   the design. A change that reshapes the core's code says where the code came from and why

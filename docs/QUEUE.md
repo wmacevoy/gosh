@@ -8,8 +8,8 @@ not a task; mark it blocked, and say on what. Only the owner sets *done*.
 **Features are frozen** (requirements, *Scope decisions*). **A part is landed** when: its tests that
 drive the programs from outside were first green against pf.7's programs and each was seen to fail
 (a test that links the fork's classes cannot be run against pf.7's programs, so a requirement with
-no outside test gets one first, in item 4); `tools/speed.py`'s figure is not
-more than 10% under pf.7's; its logic is apart from sockets, clocks and the environment; its name
+no outside test gets one first, in item 4); `tools/speed.py --against`, the gate, passes
+(the rate not more than 10% under pf.7's, both run turn and turn about); its logic is apart from sockets, clocks and the environment; its name
 is the glossary's word and the design says which requirements it serves; every concept of the old
 code under it points at new code or at "dropped, because"; and the agent's review of it is written
 in its row, by a session that was given the code and not the author's reasoning.

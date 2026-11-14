@@ -7,6 +7,34 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-14 — The speed gate: what it took to hold a rate to 10%, and a pass it gave for nothing
+
+- **What happened:** The owner kept the gate as the requirement has it ("not more than 10% slower
+  overall compared to pf7"), so the measurement had to decide a 10% difference in a rate that
+  varies. Three things were learned making it do that.
+  1. *Fifteen runs are not enough by UDP.* pf.7 against itself, alternating, 15 runs of each: the
+     "rate under test" was 90% of the reference's, on the line, with nothing changed. By the relay
+     it was 99%.
+  2. *Thirty are.* Thirty single runs of pf.7 by UDP ranged from 13.5 to 28.9 Mbit/s (median 17.0;
+     the day before it was about 21, so the machine drifts and a stored baseline would not do).
+     Resampling them, two medians of 15 differ by more than 10% about 3 times in 100 by chance, two
+     medians of 30 about 3 times in 1,000. This assumes runs are independent. The gate now takes 30
+     alternating runs of each by UDP and 15 by the relay, and takes about 15 minutes.
+  3. *The first run of the gate on gosh passed a thing gosh cannot do.* It reported gosh by the
+     relay at 139% of pf.7. gosh has no relay: its client ignored the setting and went by UDP, and
+     the measurement had no way to tell. A run by the relay now counts only if the client said it
+     was going through ssh; gosh's is refused and reported as not counted, and pf.7's still
+     measures (each seen).
+- **Kind:** K3, the third: a gate that says PASS with no way to say "that was not the relay".
+- **Cost:** about an hour of measuring; nothing was accepted on the false pass.
+- **Findable by:** asking of each figure what would make it wrong, and running a thing against
+  itself before trusting a comparison.
+- **Changed:** `tools/speed.py --against REF_SERVER REF_CLIENT SERVER CLIENT` is the gate, with
+  the numbers above written into it. First verdict, gosh (queue item 5, the fork's forwarding
+  carried unchanged) against pf.7 by UDP, 30 runs of each: **94%, pass** (medians 23.2 and 24.9
+  Mbit/s). The relay is not counted until gosh has one (queue item 7). The gate is not in the
+  check that runs on every push; it is run when a part lands.
+
 ## 2026-11-14 — Where pf.7's processor time goes: one erase, in the sender
 
 - **What happened:** With `perf` installed (`tools/setup-root.sh`, run by the owner), pf.7 was
@@ -56,7 +84,11 @@ worth reading before migrating the part it concerns.
 - **Findable by:** measuring what the programs spend as well as what the clock saw.
 - **Changed:** `REQ6/SPEED-1`'s kept measurement now reports both figures. Proposed, for the owner:
   hold a part to 10% on **CPU s/MB** by UDP, where the rate cannot hold anything to 10%, and to
-  10% on both figures by the relay. A profile of pf.7 followed the next day (the entry above). Nothing compares gosh with these figures until a part
+  10% on both figures by the relay. **Not accepted** (owner, 2026-11-14): "not more than 10%
+  slower overall compared to pf7." The gate is the rate, as the requirement says; the processor
+  figure is reported beside it and holds nothing. So the measurement had to be made able to
+  decide a 10% difference in an unsteady rate: `tools/speed.py --against` runs the reference and
+  the programs under test turn and turn about, 15 of each, and compares medians. A profile of pf.7 followed the next day (the entry above). Nothing compares gosh with these figures until a part
   can carry a forward (queue item 5).
 
 ## 2026-11-13 — A meetup's proof of its key can be replayed by anyone who sees one
