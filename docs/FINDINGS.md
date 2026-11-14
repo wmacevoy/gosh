@@ -7,6 +7,40 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-14 — A gain on a forward was a loss on a stream; and both programs send three times what they need
+
+- **What happened:** Item 15 replaced a connection's string buffers with a byte queue, and the
+  speed gate put a TCP forward at 157% of pf.7. The owner changed `REQ12/SPEED-1` to keep that gain.
+  Item 6 then gave gosh streams, and a session given the code (not the author's account) timed
+  them: a 40 MB `gocp` took gosh about 34 s and pf.7 about 5 s. Here, on a quiet machine, it was
+  16 to 20 s against 9 to 15 s; it varies a great deal. The gate had passed, because it measures
+  only a TCP forward.
+- **What was found, by running:**
+  - With the old buffer behaviour put back in a build copy, gosh's stream took about 13 s, level
+    with pf.7. So the buffer change is the cause of the difference.
+  - The kernel's counters (`/proc/net/snmp`, `RcvbufErrors`) over one copy: both pf.7 and gosh
+    have 3% to 9% of their datagrams dropped because the receiving socket's buffer is full, and
+    both send about 230,000 datagrams for a copy that needs about 70,000.
+  - Having the core's two loops read every datagram that has arrived each pass, in place of
+    one, did not help: drops stayed near 3% and the copy was no faster.
+- **What is inferred, not measured:** the sender may have up to 1 MB on its way; the receiving
+  socket's buffer (`rmem_default`, 212,992 bytes here, which is also the most a program without
+  root may ask for) holds about 100 KB of datagrams; a burst overruns it; and the repair after
+  several losses is to send again everything outstanding, most of which had arrived. The time
+  the fork spent moving its buffer slowed its sender enough to soften this. That this is why the
+  rate by UDP was always "unsteady" is likely and not shown.
+- **Kind:** K3, twice. "157% of pf.7" was true of one kind of traffic and was recorded as the
+  fastest version; and "loopback has no loss" was assumed by the measurement's own description
+  ("with no delay and no loss, so what it shows is what the programs cost").
+- **Cost:** a part accepted on a figure that did not hold for the next part; half a day.
+- **Findable by:** measuring every kind of traffic the programs carry before recording a gain;
+  and counting the datagrams a transfer sends against what it needs, which nobody had.
+- **Changed:** the owner chose to fix the repair of losses and not to take the buffer change
+  back ("Do 2. This will haunt in other ways until it is done."): requirements v14 takes up
+  selective acknowledgment (queue item 17) and has `REQ14/SPEED-1`'s measurement include a copy over a
+  stream. Item 6 waits on item 17. Until item 17 lands, gosh's streams are slower than pf.7's,
+  and `tools/fastest`'s entry by UDP is the fastest for a TCP forward only.
+
 ## 2026-11-14 — A differential test that agreed over millions of segments, and compared too little
 
 - **What happened:** `connection-diff` held the reshaped connection logic to the fork's adapter

@@ -1,5 +1,5 @@
 #!/bin/sh
-# The speed gate (REQ12/SPEED-1): a forward in gosh carries bytes at not more than 10% under
+# The speed gate (REQ14/SPEED-1): a forward in gosh carries bytes at not more than 10% under
 # the fastest version benchmarked so far, by UDP and by the relay.
 #
 # For each way it builds the version tools/fastest names, in a directory of its own under

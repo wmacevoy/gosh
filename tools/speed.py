@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How fast a forward carries bytes, end to end, on this machine.
 
-REQ12/SPEED-1: the figure a part of gosh is held to. A forward in gosh carries
+REQ14/SPEED-1: the figure a part of gosh is held to. A forward in gosh carries
 bytes at not more than 10% lower than mosh-1.4.0-pf.7 does on the same machine,
 session by UDP and session by the relay. It measures the whole, not a layer:
 bytes into a TCP forward at the client, out of it at the server.
@@ -202,7 +202,7 @@ if not against:
         print("speed: " + said(way, figures))
     sys.exit(1 if failed else 0)
 
-# The gate (REQ12/SPEED-1): the reference and the programs under test, turn and turn about.
+# The gate (REQ14/SPEED-1): the reference and the programs under test, turn and turn about.
 print("speed: reference %s" % version(against[1]))
 print("speed: under test %s; %d MB a run, alternating, loopback" % (version(client_path), megabytes))
 for way in ways:
@@ -222,7 +222,7 @@ for way in ways:
     print("speed: under test " + said(way, tested))
     ratio = statistics.median(f[0] for f in tested) / statistics.median(f[0] for f in reference)
     ok = ratio >= 0.9
-    print("speed: %-5s %s REQ12/SPEED-1: over %d runs of each, the rate under test is %.0f%% of the reference's (not less than 90%% passes)"
+    print("speed: %-5s %s REQ14/SPEED-1: over %d runs of each, the rate under test is %.0f%% of the reference's (not less than 90%% passes)"
           % (way, "PASS" if ok else "FAIL", count, ratio * 100))
     if ratio > 1:
         print("speed: %-5s the version under test is the faster of the two: once committed, it is the fastest benchmarked this way: record it in tools/fastest" % way)

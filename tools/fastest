@@ -1,4 +1,4 @@
-# The fastest version benchmarked so far, one for each way (REQ12/SPEED-1).
+# The fastest version benchmarked so far, one for each way (REQ14/SPEED-1).
 # tools/speed-gate.sh builds the version named here and runs it turn and turn about with the
 # version being landed, which must carry bytes at not less than 90% of its rate.
 #

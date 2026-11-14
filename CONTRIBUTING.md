@@ -49,7 +49,7 @@ To reset: `rm -rf .build`. Nothing else holds state.
 
 The doctor also asks GitHub whether the vendored guide is current: with no network it fails unless
 this machine was able to ask in the last 30 days, so a fresh machine or CI runner needs the network.
-The speed gate (`REQ12/SPEED-1`) is `tools/speed-gate.sh`. For each way (UDP, the relay) it builds
+The speed gate (`REQ14/SPEED-1`) is `tools/speed-gate.sh`. For each way (UDP, the relay) it builds
 the fastest version benchmarked so far, which `tools/fastest` names, and runs it turn and turn
 about with the programs in `.build/bin`; it fails if gosh's rate is more than 10% under that
 version's. It is not part of the check: it takes about 15 minutes. It is run when a part lands,
@@ -65,7 +65,7 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
 - **No new features; push back on requests for them** (requirements, *Scope decisions*). Migrating,
   naming, testing and reshaping are not new features.
 - **A part lands only pinned**: its tests that drive the programs from outside were first green
-  against pf.7's programs, each was seen to fail, and the speed gate passes for it (`tools/speed-gate.sh`, `REQ12/SPEED-1`).
+  against pf.7's programs, each was seen to fail, and the speed gate passes for it (`tools/speed-gate.sh`, `REQ14/SPEED-1`).
 - **The core is not edited.** Upstream's code is carried at a named commit, untouched; what gosh
   needs changed there is the seam, and every change in it is tracked to that commit and listed in
   the design. A change that reshapes the core's code says where the code came from and why
@@ -100,7 +100,7 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   `src/` holds gosh's parts, a directory each, named for the part, with a README and the part's
   unit tests; so far `src/forwarding/`, `src/seam/`, `src/command/` and `src/copy/`. `tools/` builds and checks; `tests/` holds tests that
   drive the programs from outside.
-- **Working set:** `docs/`: `REQUIREMENTS_v13.md` (the one in force; v6 to v12 are beside it, and versions 1 to 5 are
+- **Working set:** `docs/`: `REQUIREMENTS_v14.md` (the one in force; v6 to v13 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
   and still holds the seam file by file).
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
@@ -115,4 +115,4 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
 | findings | `docs/FINDINGS.md` |
 | the check command | `tools/check.sh` |
 | the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
-| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v13.md` |
+| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v14.md` |
