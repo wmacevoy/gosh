@@ -22,7 +22,12 @@
 #include <string>
 #include <vector>
 
+#include "src/forwarding/tcp/bytes.h"
+#include "src/forwarding/tcp/early.h"
+#include "src/forwarding/tcp/held.h"
+#include "src/forwarding/tcp/options.h"
 #include "src/forwarding/tcp/tcpinudp.h"
+#include "src/forwarding/tcp/timer.h"
 
 /*
  * forwarding: connection (design v2, 2.2). gosh's TCP: one end of each forwarded connection
@@ -79,51 +84,6 @@
  */
 namespace Gosh {
 
-/*
- * Bytes waiting in order: added at the end, taken from the front.
- *
- * A connection's two buffers are these. Taking from the front of a std::string moves everything
- * left in it down, and the sender did that with up to 1 MB on every acknowledgment: about 40% of
- * all the processor time of a forward, by a profile of the fork (docs/FINDINGS.md, 2026-11-14).
- * Here the front is only marked as gone, and what is left is moved down once the gone part is
- * at least 64 KB and at least half of what is left: so no byte is moved more than twice for
- * each byte taken, and no more than half as much again as the bytes waiting is ever kept.
- */
-class Bytes
-{
-  std::string bytes;
-  size_t gone; /* how much at the front of `bytes` has been taken */
-
-public:
-  static const size_t TIDY_AT = 65536;
-
-  Bytes() : bytes(), gone( 0 ) {}
-
-  size_t size( void ) const { return bytes.size() - gone; }
-  bool empty( void ) const { return size() == 0; }
-  const char* data( void ) const { return bytes.data() + gone; }
-
-  void append( const char* more, size_t length ) { bytes.append( more, length ); }
-  /* length bytes of `from`, starting at `at`. */
-  void append( const std::string& from, size_t at, size_t length ) { bytes.append( from, at, length ); }
-
-  /* Up to length bytes starting `at` bytes in, as a string. */
-  std::string substr( size_t at, size_t length ) const { return bytes.substr( gone + at, length ); }
-
-  /* Takes this many from the front (all of them, if there are fewer). */
-  void drop( size_t length )
-  {
-    gone += std::min( length, size() );
-    if ( gone == bytes.size() ) {
-      bytes.clear();
-      gone = 0;
-    } else if ( gone >= TIDY_AT && gone >= ( bytes.size() - gone ) / 2 ) {
-      bytes.erase( 0, gone );
-      gone = 0;
-    }
-  }
-};
-
 /* What the session can do at the moment of a call. The edge reads these; they are not kept. */
 struct Link
 {
@@ -155,9 +115,8 @@ public:
   static constexpr uint32_t MIN_MSS = 64; /* the least we will send at a time, whatever the other end asks */
   static constexpr uint32_t INITIAL_WINDOW_SEGMENTS = 10;
 
-  static constexpr uint32_t RTO_INITIAL = 1000; /* ms */
-  static constexpr uint32_t RTO_MIN = 200;
-  static constexpr uint32_t RTO_MAX = 30000;
+  static constexpr uint32_t RTO_INITIAL = RoundTrip::RTO_INITIAL; /* (timer.h) */
+  static constexpr uint32_t RTO_MAX = RoundTrip::RTO_MAX;
   static constexpr unsigned int MAX_RETRIES = 10;
   static constexpr unsigned int MAX_SYN_RETRIES = 5;
   /*
@@ -218,14 +177,12 @@ private:
     bool rtt_timing;
     uint32_t rtt_seq;
     uint64_t rtt_start;
-    bool rtt_valid;
-    double srtt, rttvar;
+    RoundTrip round_trip; /* (timer.h) */
 
     /* receiving: bytes from the other end, on their way to the socket */
     Bytes recv_buf;
     uint32_t rcv_nxt;
-    std::map<uint32_t, std::string> early; /* segments from beyond rcv_nxt, by sequence number */
-    size_t early_bytes;
+    Early early; /* segments from beyond rcv_nxt, and what to say we hold (early.h) */
     bool fin_received;
     bool shut_wr;         /* we have passed their FIN on to the socket */
     uint32_t last_window; /* what we last said we would accept, in bytes */
@@ -234,13 +191,8 @@ private:
 
     /* selective acknowledgment, when both ends asked for it in the handshake */
     bool sack;
-    /* sending: the ranges beyond snd_una that the other end says it holds, [first, second), in
-       order of distance from snd_una, apart from each other */
-    std::vector<std::pair<uint32_t, uint32_t> > sacked;
+    Held held;           /* sending: what the other end says it holds beyond snd_una (held.h) */
     uint32_t rexmit_nxt; /* sending, while repairing a loss: where to look next for a gap to send again */
-    /* receiving: where the out-of-order segment that arrived last begins (it is reported first) */
-    bool early_latest_valid;
-    uint32_t early_latest;
 
     Conn()
       : forward( 0 ), port( 0 ), state( CONNECTING ), dead( false ), mss( DEFAULT_MSS ), send_buf(), iss( 0 ),
@@ -248,9 +200,8 @@ private:
         ssthresh( 0xFFFFFFFF ), dupacks( 0 ), recovering( false ), recover( 0 ), holes( 0 ), resending( false ),
         calm_until( 0 ), local_eof( false ), fin_sent( false ), fin_was_sent( false ), fin_acked( false ), fin_seq( 0 ),
         rto_deadline( 0 ), rto( RTO_INITIAL ), retries( 0 ), rtt_timing( false ), rtt_seq( 0 ), rtt_start( 0 ),
-        rtt_valid( false ), srtt( 0 ), rttvar( 0 ), recv_buf(), rcv_nxt( 0 ), early(), early_bytes( 0 ),
-        fin_received( false ), shut_wr( false ), last_window( 0 ), connect_deadline( 0 ), sack( false ), sacked(),
-        rexmit_nxt( 0 ), early_latest_valid( false ), early_latest( 0 )
+        round_trip(), recv_buf(), rcv_nxt( 0 ), early(), fin_received( false ), shut_wr( false ), last_window( 0 ),
+        connect_deadline( 0 ), sack( false ), held(), rexmit_nxt( 0 )
     {}
 
     Id id( void ) const { return id_of( forward, port ); }
@@ -266,280 +217,6 @@ private:
   /* sequence numbers wrap */
   static bool seq_lt( uint32_t a, uint32_t b ) { return static_cast<int32_t>( a - b ) < 0; }
 
-  static uint32_t mss_option( const std::string& options )
-  {
-    for ( size_t i = 0; i < options.size(); ) {
-      const uint8_t kind = options[i];
-      if ( kind == 0 ) {
-        break;
-      }
-      if ( kind == 1 ) {
-        i++;
-        continue;
-      }
-      if ( i + 1 >= options.size() ) {
-        break;
-      }
-      const uint8_t len = options[i + 1];
-      if ( len < 2 || i + len > options.size() ) {
-        break;
-      }
-      if ( kind == 2 && len == 4 ) {
-        return ( static_cast<uint8_t>( options[i + 2] ) << 8 ) | static_cast<uint8_t>( options[i + 3] );
-      }
-      i += len;
-    }
-    return DEFAULT_MSS;
-  }
-
-  /* The window scale option: the shift asked for, or -1 if it was not. */
-  static int scale_option( const std::string& options )
-  {
-    for ( size_t i = 0; i < options.size(); ) {
-      const uint8_t kind = options[i];
-      if ( kind == 0 ) {
-        break;
-      }
-      if ( kind == 1 ) {
-        i++;
-        continue;
-      }
-      if ( i + 1 >= options.size() ) {
-        break;
-      }
-      const uint8_t len = options[i + 1];
-      if ( len < 2 || i + len > options.size() ) {
-        break;
-      }
-      if ( kind == 3 && len == 3 ) {
-        return std::min<int>( static_cast<uint8_t>( options[i + 2] ), 14 );
-      }
-      i += len;
-    }
-    return -1;
-  }
-
-  /* Whether the options of a SYN say "selective acknowledgment permitted" (kind 4). */
-  static bool sack_permitted( const std::string& options )
-  {
-    for ( size_t i = 0; i < options.size(); ) {
-      const uint8_t kind = options[i];
-      if ( kind == 0 ) {
-        break;
-      }
-      if ( kind == 1 ) {
-        i++;
-        continue;
-      }
-      if ( i + 1 >= options.size() ) {
-        break;
-      }
-      const uint8_t len = options[i + 1];
-      if ( len < 2 || i + len > options.size() ) {
-        break;
-      }
-      if ( kind == 4 && len == 2 ) {
-        return true;
-      }
-      i += len;
-    }
-    return false;
-  }
-
-  static void put32( std::string& to, uint32_t v )
-  {
-    const char b[4] = { static_cast<char>( v >> 24 ), static_cast<char>( v >> 16 ), static_cast<char>( v >> 8 ),
-                        static_cast<char>( v ) };
-    to.append( b, 4 );
-  }
-
-  static uint32_t get32( const std::string& from, size_t at )
-  {
-    return ( static_cast<uint32_t>( static_cast<uint8_t>( from[at] ) ) << 24 )
-           | ( static_cast<uint32_t>( static_cast<uint8_t>( from[at + 1] ) ) << 16 )
-           | ( static_cast<uint32_t>( static_cast<uint8_t>( from[at + 2] ) ) << 8 )
-           | static_cast<uint32_t>( static_cast<uint8_t>( from[at + 3] ) );
-  }
-
-  /*
-   * Receiving: the selective acknowledgment option for an ACK, saying which ranges beyond
-   * rcv_nxt we hold. The range the latest arrival fell in comes first, as RFC 2018 asks, so
-   * that every arrival is reported at least once; then the others, nearest first; as many as
-   * fit (four at most). Empty if we hold nothing out of order.
-   */
-  std::string sack_blocks( const Conn& c ) const
-  {
-    /* what we hold, as distances beyond rcv_nxt, joined where segments touch or overlap */
-    std::vector<std::pair<uint32_t, uint32_t> > held;
-    for ( std::map<uint32_t, std::string>::const_iterator i = c.early.begin(); i != c.early.end(); i++ ) {
-      const uint32_t from = i->first - c.rcv_nxt;
-      if ( from > RECV_BUFFER ) {
-        continue; /* behind us by now (it will be thrown away), not ahead */
-      }
-      held.push_back( std::make_pair( from, from + static_cast<uint32_t>( i->second.size() ) ) );
-    }
-    std::sort( held.begin(), held.end() );
-    std::vector<std::pair<uint32_t, uint32_t> > ranges;
-    for ( size_t i = 0; i < held.size(); i++ ) {
-      if ( !ranges.empty() && held[i].first <= ranges.back().second ) {
-        ranges.back().second = std::max( ranges.back().second, held[i].second );
-      } else {
-        ranges.push_back( held[i] );
-      }
-    }
-    if ( ranges.empty() ) {
-      return std::string();
-    }
-
-    size_t first = ranges.size(); /* the range the latest arrival is in, if it is still held */
-    if ( c.early_latest_valid ) {
-      const uint32_t latest = c.early_latest - c.rcv_nxt;
-      for ( size_t i = 0; i < ranges.size(); i++ ) {
-        if ( ranges[i].first <= latest && latest < ranges[i].second ) {
-          first = i;
-        }
-      }
-    }
-
-    const size_t room = link.max_datagram > Segment::DATAGRAM_HEADER_LEN + 4
-                          ? ( link.max_datagram - Segment::DATAGRAM_HEADER_LEN - 4 ) / 8
-                          : 0;
-    const size_t count = std::min<size_t>( std::min<size_t>( ranges.size(), 4 ), room );
-    if ( count == 0 ) {
-      return std::string();
-    }
-    std::string option;
-    const char head[4] = { 1, 1, 5, static_cast<char>( 2 + 8 * count ) };
-    option.assign( head, sizeof( head ) );
-    size_t written = 0;
-    if ( first < ranges.size() ) {
-      put32( option, c.rcv_nxt + ranges[first].first );
-      put32( option, c.rcv_nxt + ranges[first].second );
-      written++;
-    }
-    for ( size_t i = 0; i < ranges.size() && written < count; i++ ) {
-      if ( i != first ) {
-        put32( option, c.rcv_nxt + ranges[i].first );
-        put32( option, c.rcv_nxt + ranges[i].second );
-        written++;
-      }
-    }
-    return option;
-  }
-
-  /* Sending: takes note of the ranges an ACK says the other end holds (kind 5), within what is outstanding. */
-  void note_sacks( Conn& c, const std::string& options )
-  {
-    /* the data outstanding: not a FIN, which takes a sequence number and is no bytes of ours to pass over */
-    const uint32_t outstanding = std::min<uint32_t>( c.snd_max - c.snd_una, c.send_buf.size() );
-    for ( size_t i = 0; i < options.size(); ) {
-      const uint8_t kind = options[i];
-      if ( kind == 0 ) {
-        break;
-      }
-      if ( kind == 1 ) {
-        i++;
-        continue;
-      }
-      if ( i + 1 >= options.size() ) {
-        break;
-      }
-      const uint8_t len = options[i + 1];
-      if ( len < 2 || i + len > options.size() ) {
-        break;
-      }
-      if ( kind == 5 && ( len - 2 ) % 8 == 0 ) {
-        for ( size_t at = i + 2; at + 8 <= i + len; at += 8 ) {
-          const uint32_t from = get32( options, at ) - c.snd_una;
-          const uint32_t to = get32( options, at + 4 ) - c.snd_una;
-          /* (Anything else is not about what we have sent; and what begins at snd_una it would have
-             acknowledged, not said it holds.) */
-          if ( 0 < from && from < to && to <= outstanding ) {
-            add_sacked( c, from, to );
-          }
-        }
-      }
-      i += len;
-    }
-  }
-
-  /* Adds [from, to), as distances beyond snd_una, to what the other end is known to hold. */
-  void add_sacked( Conn& c, uint32_t from, uint32_t to )
-  {
-    std::vector<std::pair<uint32_t, uint32_t> > merged;
-    bool placed = false;
-    for ( size_t i = 0; i < c.sacked.size(); i++ ) {
-      const uint32_t first = c.sacked[i].first - c.snd_una, second = c.sacked[i].second - c.snd_una;
-      if ( second < from ) {
-        merged.push_back( c.sacked[i] ); /* wholly before */
-      } else if ( to < first ) {
-        if ( !placed ) {
-          merged.push_back( std::make_pair( c.snd_una + from, c.snd_una + to ) );
-          placed = true;
-        }
-        merged.push_back( c.sacked[i] ); /* wholly after */
-      } else {
-        from = std::min( from, first ); /* touching or overlapping: it becomes part of the new one */
-        to = std::max( to, second );
-      }
-    }
-    if ( !placed ) {
-      merged.push_back( std::make_pair( c.snd_una + from, c.snd_una + to ) );
-    }
-    c.sacked.swap( merged );
-  }
-
-  /*
-   * Sending: snd_una has moved; forget what it has reached. That is every range that begins at
-   * or before it: an end that held from there on would have acknowledged past the range's end,
-   * so a range snd_una stops inside was never held, and is sent again like anything else.
-   */
-  void prune_sacked( Conn& c )
-  {
-    std::vector<std::pair<uint32_t, uint32_t> > kept;
-    for ( size_t i = 0; i < c.sacked.size(); i++ ) {
-      if ( static_cast<int32_t>( c.sacked[i].first - c.snd_una ) > 0 ) {
-        kept.push_back( c.sacked[i] );
-      }
-    }
-    c.sacked.swap( kept );
-  }
-
-  /* Sending: how many of the bytes from snd_una up to this distance the other end is known to hold. */
-  uint32_t held_below( const Conn& c, uint32_t distance ) const
-  {
-    uint32_t held = 0;
-    for ( size_t i = 0; i < c.sacked.size(); i++ ) {
-      const uint32_t first = c.sacked[i].first - c.snd_una, second = c.sacked[i].second - c.snd_una;
-      if ( first >= distance ) {
-        break;
-      }
-      held += std::min( second, distance ) - first;
-    }
-    return held;
-  }
-
-  /*
-   * Sending again from an earlier point: if snd_nxt is at something the other end holds, moves
-   * it past. Returns how far from there to the next thing it holds (so as not to send into it).
-   */
-  uint32_t pass_over_sacked( Conn& c )
-  {
-    uint32_t at = c.snd_nxt - c.snd_una;
-    uint32_t until = 0xFFFFFFFF;
-    for ( size_t i = 0; i < c.sacked.size(); i++ ) {
-      const uint32_t first = c.sacked[i].first - c.snd_una, second = c.sacked[i].second - c.snd_una;
-      if ( first <= at && at < second ) {
-        at = second;
-      } else if ( at < first ) {
-        until = first - at;
-        break;
-      }
-    }
-    c.snd_nxt = c.snd_una + at;
-    return until;
-  }
-
   /*
    * Repairing a loss: sends again the next gap, from rexmit_nxt on, that lies below something
    * the other end holds; one segment of it. False if there is no such gap: what is beyond the
@@ -547,23 +224,8 @@ private:
    */
   bool sack_retransmit( Conn& c, Out& out )
   {
-    if ( c.sacked.empty() ) {
-      return false;
-    }
-    const uint32_t top = c.sacked.back().second - c.snd_una;
-    uint32_t at = static_cast<int32_t>( c.rexmit_nxt - c.snd_una ) < 0 ? 0 : c.rexmit_nxt - c.snd_una;
-    uint32_t gap_end = top;
-    for ( size_t i = 0; i < c.sacked.size(); i++ ) {
-      const uint32_t first = c.sacked[i].first - c.snd_una, second = c.sacked[i].second - c.snd_una;
-      if ( at < first ) {
-        gap_end = first;
-        break;
-      }
-      if ( at < second ) {
-        at = second;
-      }
-    }
-    if ( at >= top || at >= c.send_buf.size() ) {
+    uint32_t at = 0, gap_end = 0;
+    if ( !c.held.next_gap( c.snd_una, c.rexmit_nxt, at, gap_end ) || at >= c.send_buf.size() ) {
       return false;
     }
     const size_t n = std::min<size_t>( std::min<size_t>( std::min( c.mss, local_mss() ), gap_end - at ),
@@ -626,7 +288,7 @@ private:
    */
   uint32_t agreed_mss( const std::string& their_options ) const
   {
-    return std::max<uint32_t>( MIN_MSS, std::min( mss_option( their_options ), local_mss() ) );
+    return std::max<uint32_t>( MIN_MSS, std::min( SegmentOptions::mss( their_options, DEFAULT_MSS ), local_mss() ) );
   }
 
   /* How much we can take, in bytes, as nearly as the header can say it. */
@@ -667,7 +329,10 @@ private:
       }
     } else if ( c.sack && payload.empty() && flags == Segment::ACK && !c.early.empty() ) {
       /* an ACK with nothing else to say, while we hold something out of order: say what */
-      s.options = sack_blocks( c );
+      const size_t room = link.max_datagram > Segment::DATAGRAM_HEADER_LEN + 4
+                            ? ( link.max_datagram - Segment::DATAGRAM_HEADER_LEN - 4 ) / 8
+                            : 0;
+      s.options = c.early.blocks( c.rcv_nxt, RECV_BUFFER, room );
     }
     s.payload = payload;
     out.send( c.forward, s );
@@ -728,9 +393,9 @@ private:
     c->rcv_nxt = syn.seq + 1;
     c->snd_wnd = syn.window;
     c->mss = agreed_mss( syn.options );
-    c->sack = offer_sack && sack_permitted( syn.options );
-    if ( scale_option( syn.options ) >= 0 ) {
-      c->snd_scale = scale_option( syn.options );
+    c->sack = offer_sack && SegmentOptions::sack_permitted( syn.options );
+    if ( SegmentOptions::scale( syn.options ) >= 0 ) {
+      c->snd_scale = SegmentOptions::scale( syn.options );
       c->rcv_scale = WINDOW_SHIFT;
     }
   }
@@ -786,13 +451,7 @@ private:
     const uint32_t skip = c.rcv_nxt - seq; /* how much of this we already have */
     if ( skip > payload.size() ) {
       /* Not next. If it is ahead of us (and not absurdly far), hold on to it. */
-      const uint32_t ahead = seq - c.rcv_nxt;
-      if ( !payload.empty() && ahead <= RECV_BUFFER && c.early_bytes + payload.size() <= RECV_BUFFER
-           && c.early.insert( std::make_pair( seq, payload ) ).second ) {
-        c.early_bytes += payload.size();
-        c.early_latest = seq;
-        c.early_latest_valid = true;
-      }
+      c.early.keep( seq, payload, c.rcv_nxt, RECV_BUFFER );
       return; /* (an early FIN is not remembered; it will be sent again) */
     }
 
@@ -807,26 +466,14 @@ private:
       c.fin_received = true;
       c.rcv_nxt++;
       c.early.clear();
-      c.early_bytes = 0;
       return;
     }
 
     /* Does something we were holding come next now? */
-    for ( std::map<uint32_t, std::string>::iterator i = c.early.begin(); i != c.early.end(); ) {
-      const uint32_t behind = c.rcv_nxt - i->first;
-      if ( behind > RECV_BUFFER ) {
-        i++; /* still ahead */
-        continue;
-      }
-      const std::string held = i->second;
-      const uint32_t held_seq = i->first;
-      c.early_bytes -= held.size();
-      c.early.erase( i );
-      if ( behind <= held.size() ) {
-        accept_data( c, held_seq, held, false );
-        return; /* which has looked through the rest */
-      }
-      i = c.early.begin(); /* that one was stale; start over */
+    uint32_t held_seq = 0;
+    std::string held;
+    if ( c.early.take_next( c.rcv_nxt, RECV_BUFFER, held_seq, held ) ) {
+      accept_data( c, held_seq, held, false ); /* which looks for what comes after that */
     }
   }
 
@@ -842,7 +489,8 @@ private:
     const uint32_t their_window = static_cast<uint32_t>( segment.window ) << c.snd_scale;
 
     if ( c.sack ) {
-      note_sacks( c, segment.options );
+      /* (the data outstanding: not a FIN, which takes a sequence number and is no bytes of ours to pass over) */
+      c.held.note( segment.options, c.snd_una, std::min<uint32_t>( c.snd_max - c.snd_una, c.send_buf.size() ) );
     }
 
     if ( ack == c.snd_una ) {
@@ -885,25 +533,17 @@ private:
     if ( seq_lt( c.snd_nxt, ack ) ) {
       c.snd_nxt = ack;
     }
-    prune_sacked( c );
+    c.held.forget( c.snd_una );
     c.snd_wnd = their_window;
     c.dupacks = 0;
     c.retries = 0;
 
     /* round-trip time, from a segment that was sent only once */
     if ( c.rtt_timing && !seq_lt( ack, c.rtt_seq ) ) {
-      const double r = now - c.rtt_start;
-      if ( !c.rtt_valid ) {
-        c.srtt = r;
-        c.rttvar = r / 2;
-        c.rtt_valid = true;
-      } else {
-        c.rttvar = 0.75 * c.rttvar + 0.25 * fabs( c.srtt - r );
-        c.srtt = 0.875 * c.srtt + 0.125 * r;
-      }
+      c.round_trip.sample( now - c.rtt_start );
       c.rtt_timing = false;
     }
-    c.rto = settled_rto( c );
+    c.rto = c.round_trip.settled();
 
     if ( c.recovering ) {
       if ( seq_lt( ack, c.recover ) ) {
@@ -968,14 +608,14 @@ private:
 
     while ( true ) {
       /* Sending again from an earlier point, pass over what the other end says it holds. */
-      const uint32_t until_held = ( c.sack && !c.sacked.empty() && seq_lt( c.snd_nxt, c.snd_max ) ) ? pass_over_sacked( c )
+      const uint32_t until_held = ( c.sack && !c.held.empty() && seq_lt( c.snd_nxt, c.snd_max ) ) ? c.held.pass_over( c.snd_una, c.snd_nxt )
                                                                                                : 0xFFFFFFFF;
       const uint32_t flight = c.snd_nxt - c.snd_una;
       /*
        * What it holds is not on its way any more, and does not count against how much may be
        * (cwnd). It does count against the room the other end gave (snd_wnd): that is where it is.
        */
-      const uint32_t on_its_way = flight - held_below( c, flight );
+      const uint32_t on_its_way = flight - c.held.below( c.snd_una, flight );
       const uint32_t data_sent = flight - ( c.fin_sent && !c.fin_acked ? 1 : 0 );
       const size_t unsent = c.send_buf.size() - data_sent;
 
@@ -1028,16 +668,6 @@ private:
     } else if ( c.fin_was_sent && !c.fin_acked ) {
       emit( c, Segment::FIN | Segment::ACK, c.fin_seq, "", out );
     }
-  }
-
-  /* The retransmission timeout when nothing has gone wrong: from the measured round trip, if there is one. */
-  uint32_t settled_rto( const Conn& c ) const
-  {
-    if ( !c.rtt_valid ) {
-      return RTO_INITIAL;
-    }
-    const double rto = c.srtt + std::max( 4 * c.rttvar, 10.0 );
-    return std::min<double>( std::max<double>( rto, RTO_MIN ), RTO_MAX );
   }
 
   /* The retransmission timer has gone off. */
@@ -1195,9 +825,9 @@ public:
           c->rcv_nxt = segment.seq + 1;
           c->snd_wnd = segment.window;
           c->mss = agreed_mss( segment.options );
-          c->sack = offer_sack && sack_permitted( segment.options );
-          if ( scale_option( segment.options ) >= 0 ) {
-            c->snd_scale = scale_option( segment.options );
+          c->sack = offer_sack && SegmentOptions::sack_permitted( segment.options );
+          if ( SegmentOptions::scale( segment.options ) >= 0 ) {
+            c->snd_scale = SegmentOptions::scale( segment.options );
             c->rcv_scale = WINDOW_SHIFT;
           }
           c->cwnd = INITIAL_WINDOW_SEGMENTS * c->mss;
@@ -1292,7 +922,7 @@ public:
       for ( typename std::list<Conn>::iterator i = conns.begin(); i != conns.end(); i++ ) {
         if ( !i->dead && i->rto_deadline ) {
           i->retries = 0;
-          i->rto = settled_rto( *i );
+          i->rto = i->round_trip.settled();
           i->rto_deadline = now;
         }
       }

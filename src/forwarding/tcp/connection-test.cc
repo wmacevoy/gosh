@@ -276,33 +276,6 @@ static std::string pattern( size_t length )
   return s;
 }
 
-/* Bytes behaves as a string that is appended to at the end and taken from at the front. */
-static void test_bytes( void )
-{
-  Gosh::Bytes queue;
-  std::string model;
-  uint32_t state = 12345;
-  bool agree = true;
-  size_t most = 0;
-  for ( int i = 0; i < 200000 && agree; i++ ) {
-    state = state * 1664525 + 1013904223;
-    const size_t n = ( state >> 8 ) % 3000;
-    if ( ( state >> 28 ) % 2 == 0 && model.size() < 1024 * 1024 ) {
-      const std::string more = pattern( n ).substr( 0, n );
-      queue.append( more.data(), more.size() );
-      model += more;
-    } else {
-      queue.drop( n );
-      model.erase( 0, std::min( n, model.size() ) );
-    }
-    most = std::max( most, model.size() );
-    agree = queue.size() == model.size() && queue.empty() == model.empty()
-            && std::string( queue.data(), queue.size() ) == model
-            && queue.substr( n % ( model.size() + 1 ), 100 ) == model.substr( n % ( model.size() + 1 ), 100 );
-  }
-  check( "the byte queue holds what a string would, through 200,000 additions and removals", agree && most > 100000 );
-}
-
 static void test_transfer( void )
 {
   Pair p;
@@ -975,7 +948,6 @@ static void test_held_past_the_end( void )
 
 int main()
 {
-  test_bytes();
   test_transfer();
   test_slow_application();
   test_window();

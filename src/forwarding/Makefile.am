@@ -11,16 +11,21 @@ AUTOMAKE_OPTIONS = subdir-objects
 noinst_LIBRARIES = libgoshforwarding.a
 
 libgoshforwarding_a_SOURCES = forwarding.h forward.cc forward.h frame.cc frame.h \
-  tcp/connection.h tcp/tcpadapter.cc tcp/tcpadapter.h tcp/tcpforward.cc tcp/tcpforward.h tcp/tcpinudp.cc tcp/tcpinudp.h \
+  tcp/bytes.h tcp/connection.h tcp/early.h tcp/held.h tcp/options.h tcp/timer.h tcp/tcpadapter.cc tcp/tcpadapter.h tcp/tcpforward.cc tcp/tcpforward.h tcp/tcpinudp.cc tcp/tcpinudp.h \
   udp/conversations.h udp/fragments.cc udp/fragments.h udp/udpforward.cc udp/udpforward.h \
   stream/stream.h stream/streamchild.cc stream/streamchild.h
 
 # A unit test is named for the file it tests, with -test. Those of tcpforward, tcpinudp and
 # udpforward are the fork's, which drive the classes on real sockets; the others are logic
 # alone, with no socket and no clock.
-check_PROGRAMS = tcp/connection-test tcp/tcpforward-test tcp/tcpinudp-test udp/conversations-test udp/udpforward-test stream/stream-test
+check_PROGRAMS = tcp/bytes-test tcp/options-test tcp/held-test tcp/early-test tcp/timer-test tcp/connection-test tcp/tcpforward-test tcp/tcpinudp-test udp/conversations-test udp/udpforward-test stream/stream-test
 TESTS = $(check_PROGRAMS)
 LDADD = libgoshforwarding.a ../copy/libgoshcopy.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+tcp_bytes_test_SOURCES = tcp/bytes-test.cc
+tcp_options_test_SOURCES = tcp/options-test.cc
+tcp_held_test_SOURCES = tcp/held-test.cc
+tcp_early_test_SOURCES = tcp/early-test.cc
+tcp_timer_test_SOURCES = tcp/timer-test.cc
 tcp_connection_test_SOURCES = tcp/connection-test.cc
 tcp_tcpforward_test_SOURCES = tcp/tcpforward-test.cc
 tcp_tcpinudp_test_SOURCES = tcp/tcpinudp-test.cc

@@ -4,15 +4,24 @@
 the two ends, each segment a datagram on the side channel. Part of forwarding
 (`../README.md`); it uses forwarding's `forward` and `frame`, and nothing of `../udp/` or `../stream/`.
 
-| File | What it holds |
-| --- | --- |
-| `tcpforward.*` | TCP forwards and the stream, as segments over the side channel |
-| `connection.h` | gosh's TCP: one end of a forwarded connection, as logic (new shape) |
-| `tcpadapter.*` | the sockets of forwarded TCP connections: listeners and targets, an edge (new shape) |
-| `tcpinudp.*` | a TCP segment as a compact datagram, both ways |
+| File | What it holds | Test |
+| --- | --- | --- |
+| `connection.h` | gosh's TCP, the protocol: handshake, states, sending and acknowledgment, repair of losses, congestion, closing, and the table of connections. Logic | `connection-test.cc` |
+| `bytes.h` | the byte queue a connection's two buffers are | `bytes-test.cc` |
+| `options.h` | a segment's options, read: largest segment, window shift, selective acknowledgment permitted | `options-test.cc` |
+| `held.h` | sending: what the other end says it holds beyond what it has acknowledged; the next gap to fill; what to pass over | `held-test.cc` |
+| `early.h` | receiving: segments that came before their turn, and which ranges to say we hold | `early-test.cc` |
+| `timer.h` | the round trip, and from it how long to wait before sending again | `timer-test.cc` |
+| `tcpinudp.*` | a TCP segment as a compact datagram, both ways | `tcpinudp-test.cc` (the fork's) |
+| `tcpadapter.*` | the sockets of forwarded TCP connections: listeners and targets. An edge | `tcpforward-test.cc` (the fork's, on real sockets) |
+| `tcpforward.*` | TCP forwards and the stream, as segments over the side channel: frames each segment, refuses replays | the same |
 
-Unit tests: `connection-test.cc` (logic alone: numbers for time, no socket), `tcpforward-test.cc`
-and `tcpinudp-test.cc` (the fork's, on real sockets).
+`connection.h` was one file of 1,367 lines until 2026-11-14 (the owner: "too much to digest").
+The five small files are what in it was arithmetic and not protocol: each is a plain value
+with no socket, no clock and no `Out`, read and tested by itself. `held` and `early` are gosh's
+words for what TCP calls the SACK scoreboard and the reassembly queue. Nothing they do changed:
+the same statements, moved; with selective acknowledgment off the whole still agrees with the
+fork's adapter over 5,000 scripted scenarios (the differential test, below).
 
 ## connection (the new shape)
 
