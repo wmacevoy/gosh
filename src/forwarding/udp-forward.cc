@@ -52,6 +52,18 @@
 
 using namespace Network;
 
+/* (gosh) The fork's UDPForwarder::encode and ::decode, which only its tests called: a frame of plain UDP data. */
+static std::string encode_data( uint8_t forward, uint16_t flow_id, uint64_t seq, const std::string& datagram )
+{
+  return Gosh::encode_frame( Gosh::TYPE_UDP_DATA, forward, flow_id, seq, datagram );
+}
+
+static bool decode_data( const std::string& payload, uint8_t& forward, uint16_t& flow_id, uint64_t& seq, std::string& datagram )
+{
+  uint8_t type;
+  return Gosh::decode_frame( payload, type, forward, flow_id, seq, datagram ) && type == Gosh::TYPE_UDP_DATA;
+}
+
 #define CHECK( x )                                                                                                 \
   do {                                                                                                             \
     if ( !( x ) ) {                                                                                                \
@@ -63,7 +75,7 @@ using namespace Network;
 static bool spec_ok( const char* s )
 {
   try {
-    ForwardSpec spec( s );
+    Gosh::ForwardSpec spec( s );
     return true;
   } catch ( const NetworkException& ) {
     return false;
@@ -72,15 +84,15 @@ static bool spec_ok( const char* s )
 
 static void test_spec( void )
 {
-  ForwardSpec a( "5353:ns.example.com:53" );
+  Gosh::ForwardSpec a( "5353:ns.example.com:53" );
   CHECK( a.bind_host == "127.0.0.1" && a.bind_port == "5353" );
   CHECK( a.target_host == "ns.example.com" && a.target_port == "53" );
 
-  ForwardSpec b( "[::1]:5353:[2001:db8::1]:53" );
+  Gosh::ForwardSpec b( "[::1]:5353:[2001:db8::1]:53" );
   CHECK( b.bind_host == "::1" && b.bind_port == "5353" );
   CHECK( b.target_host == "2001:db8::1" && b.target_port == "53" );
 
-  ForwardSpec c( "*:1:h:65535" );
+  Gosh::ForwardSpec c( "*:1:h:65535" );
   CHECK( c.bind_host == "*" && c.bind_port == "1" && c.target_port == "65535" );
 
   CHECK( !spec_ok( "" ) );
@@ -97,31 +109,31 @@ static void test_spec( void )
 static void test_wire( void )
 {
   const std::string datagram( "hello\0world", 11 );
-  std::string wire = UDPForwarder::encode( 7, 0xBEEF, 0x0102030405060708ULL, datagram );
-  CHECK( wire.size() == UDPForwarder::HEADER_LEN + datagram.size() );
+  std::string wire = encode_data( 7, 0xBEEF, 0x0102030405060708ULL, datagram );
+  CHECK( wire.size() == Gosh::FRAME_HEADER_LEN + datagram.size() );
   CHECK( static_cast<uint8_t>( wire[0] ) == SIDECHANNEL_MAGIC );
 
   uint8_t forward;
   uint16_t flow;
   uint64_t seq;
   std::string out;
-  CHECK( UDPForwarder::decode( wire, forward, flow, seq, out ) );
+  CHECK( decode_data( wire, forward, flow, seq, out ) );
   CHECK( forward == 7 && flow == 0xBEEF && seq == 0x0102030405060708ULL && out == datagram );
 
   /* an empty datagram is a legitimate datagram */
-  CHECK( UDPForwarder::decode( UDPForwarder::encode( 0, 0, 0, "" ), forward, flow, seq, out ) );
+  CHECK( decode_data( encode_data( 0, 0, 0, "" ), forward, flow, seq, out ) );
   CHECK( out.empty() );
 
-  CHECK( !UDPForwarder::decode( wire.substr( 0, UDPForwarder::HEADER_LEN - 1 ), forward, flow, seq, out ) );
+  CHECK( !decode_data( wire.substr( 0, Gosh::FRAME_HEADER_LEN - 1 ), forward, flow, seq, out ) );
   wire[0] = 0;
-  CHECK( !UDPForwarder::decode( wire, forward, flow, seq, out ) );
+  CHECK( !decode_data( wire, forward, flow, seq, out ) );
 }
 
 static void test_replay( void )
 {
-  const uint64_t W = ReplayWindow::WINDOW;
+  const uint64_t W = Gosh::ReplayWindow::WINDOW;
 
-  ReplayWindow w;
+  Gosh::ReplayWindow w;
   CHECK( w.accept( 5 ) );
   CHECK( !w.accept( 5 ) );
   CHECK( w.accept( 3 ) ); /* reordering is fine */
@@ -131,7 +143,7 @@ static void test_replay( void )
   CHECK( !w.accept( 4 ) && !w.accept( 5 ) && !w.accept( 6 ) );
 
   /* everything is accepted exactly once across many windows */
-  ReplayWindow x;
+  Gosh::ReplayWindow x;
   for ( uint64_t i = 0; i < 5 * W; i++ ) {
     CHECK( x.accept( i ) );
     CHECK( !x.accept( i ) );
@@ -141,7 +153,7 @@ static void test_replay( void )
   }
 
   /* skipped numbers stay acceptable only while inside the window */
-  ReplayWindow y;
+  Gosh::ReplayWindow y;
   CHECK( y.accept( 0 ) );
   CHECK( y.accept( 2 ) );
   CHECK( y.accept( W ) );
@@ -154,7 +166,7 @@ static void test_replay( void )
   CHECK( !y.accept( 3 ) ); /* W behind: too old, and already seen anyway */
 
   /* a large jump forgets everything older */
-  ReplayWindow z;
+  Gosh::ReplayWindow z;
   CHECK( z.accept( 1 ) );
   CHECK( z.accept( 100 * W ) );
   CHECK( !z.accept( 1 ) );
@@ -179,7 +191,7 @@ static bool reassembles( const std::vector<std::string>& fragments,
                          bool backwards = false,
                          bool* used_parity = NULL )
 {
-  DatagramAssembly assembly;
+  Gosh::DatagramAssembly assembly;
   std::string out;
   bool parity = false;
   bool complete = false;
@@ -188,9 +200,9 @@ static bool reassembles( const std::vector<std::string>& fragments,
     if ( i == skip_a || i == skip_b ) {
       continue;
     }
-    const DatagramAssembly::Result r = assembly.add( fragments[i], out, parity );
-    CHECK( r != DatagramAssembly::REJECTED );
-    if ( r == DatagramAssembly::COMPLETE ) {
+    const Gosh::DatagramAssembly::Result r = assembly.add( fragments[i], out, parity );
+    CHECK( r != Gosh::DatagramAssembly::REJECTED );
+    if ( r == Gosh::DatagramAssembly::COMPLETE ) {
       CHECK( out == expect );
       complete = true;
       break;
@@ -204,18 +216,18 @@ static bool reassembles( const std::vector<std::string>& fragments,
 
 static void test_fragments( void )
 {
-  const size_t H = DatagramAssembly::FRAGMENT_HEADER_LEN;
+  const size_t H = Gosh::DatagramAssembly::FRAGMENT_HEADER_LEN;
 
   /* pieces are as equal as possible, and never over the limit */
   const std::string d = varied( 2500 );
-  std::vector<std::string> f = DatagramAssembly::split( d, 1000 + H, false );
+  std::vector<std::string> f = Gosh::DatagramAssembly::split( d, 1000 + H, false );
   CHECK( f.size() == 3 );
   CHECK( f[0].size() == 834 + H && f[1].size() == 833 + H && f[2].size() == 833 + H );
   CHECK( reassembles( f, d ) && reassembles( f, d, -1, -1, true ) );
   CHECK( !reassembles( f, d, 0 ) && !reassembles( f, d, 1 ) && !reassembles( f, d, 2 ) );
 
   /* one parity fragment, as long as the longest piece; any one fragment can go missing */
-  f = DatagramAssembly::split( d, 1000 + H, true );
+  f = Gosh::DatagramAssembly::split( d, 1000 + H, true );
   CHECK( f.size() == 4 && f[3].size() == 834 + H );
   for ( int lost = 0; lost < 4; lost++ ) {
     bool parity;
@@ -227,7 +239,7 @@ static void test_fragments( void )
   /* every length around a boundary, with every single loss */
   for ( size_t len = 195; len <= 405; len++ ) {
     const std::string x = varied( len );
-    f = DatagramAssembly::split( x, 100 + H, true );
+    f = Gosh::DatagramAssembly::split( x, 100 + H, true );
     CHECK( f.size() == ( len + 99 ) / 100 + 1 || len <= 100 );
     for ( size_t i = 0; i < f.size(); i++ ) {
       CHECK( f[i].size() <= 100 + H );
@@ -237,7 +249,7 @@ static void test_fragments( void )
 
   /* more than eight pieces: a parity fragment for each group of eight */
   const std::string big = varied( 20 * 500 );
-  f = DatagramAssembly::split( big, 500 + H, true );
+  f = Gosh::DatagramAssembly::split( big, 500 + H, true );
   CHECK( f.size() == 20 + 3 );
   CHECK( reassembles( f, big ) );
   CHECK( reassembles( f, big, 0, 8 ) );   /* one from each of two groups */
@@ -248,10 +260,10 @@ static void test_fragments( void )
   CHECK( reassembles( f, big, 3, 21 ) );  /* a piece and another group's parity */
 
   /* when parity is worth sending: when the datagram would otherwise be lost 2% of the time or more */
-  CHECK( !UDPForwarder::parity_worthwhile( 0.0, 2 ) && !UDPForwarder::parity_worthwhile( 0.0, 200 ) );
-  CHECK( !UDPForwarder::parity_worthwhile( 0.01, 2 ) && UDPForwarder::parity_worthwhile( 0.01, 3 ) );
-  CHECK( !UDPForwarder::parity_worthwhile( 0.001, 20 ) && UDPForwarder::parity_worthwhile( 0.001, 21 ) );
-  CHECK( UDPForwarder::parity_worthwhile( 0.05, 2 ) && UDPForwarder::parity_worthwhile( 1.0, 2 ) );
+  CHECK( !Gosh::parity_worthwhile( 0.0, 2 ) && !Gosh::parity_worthwhile( 0.0, 200 ) );
+  CHECK( !Gosh::parity_worthwhile( 0.01, 2 ) && Gosh::parity_worthwhile( 0.01, 3 ) );
+  CHECK( !Gosh::parity_worthwhile( 0.001, 20 ) && Gosh::parity_worthwhile( 0.001, 21 ) );
+  CHECK( Gosh::parity_worthwhile( 0.05, 2 ) && Gosh::parity_worthwhile( 1.0, 2 ) );
 
   /*
    * The most pieces a datagram can have is 226, with or without parity,
@@ -261,40 +273,40 @@ static void test_fragments( void )
    */
   for ( int with_parity = 0; with_parity < 2; with_parity++ ) {
     const std::string most = varied( 226 * 10 );
-    f = DatagramAssembly::split( most, 10 + H, with_parity );
+    f = Gosh::DatagramAssembly::split( most, 10 + H, with_parity );
     CHECK( f.size() == 226u + ( with_parity ? 29 : 0 ) );
     CHECK( reassembles( f, most ) );
-    CHECK( DatagramAssembly::split( most + "x", 10 + H, with_parity ).empty() );
-    CHECK( DatagramAssembly::piece_count( most.size(), 10 + H ) == 226 );
-    CHECK( DatagramAssembly::piece_count( most.size() + 1, 10 + H ) == 0 );
+    CHECK( Gosh::DatagramAssembly::split( most + "x", 10 + H, with_parity ).empty() );
+    CHECK( Gosh::DatagramAssembly::piece_count( most.size(), 10 + H ) == 226 );
+    CHECK( Gosh::DatagramAssembly::piece_count( most.size() + 1, 10 + H ) == 0 );
   }
 
   /* what can't be done */
-  CHECK( DatagramAssembly::split( d, H, false ).empty() );
-  CHECK( DatagramAssembly::split( varied( 65507 ), 100 + H, false ).empty() ); /* too many fragments */
-  CHECK( DatagramAssembly::split( varied( 65507 ), 500 + H, true ).size() == 132 + 17 );
+  CHECK( Gosh::DatagramAssembly::split( d, H, false ).empty() );
+  CHECK( Gosh::DatagramAssembly::split( varied( 65507 ), 100 + H, false ).empty() ); /* too many fragments */
+  CHECK( Gosh::DatagramAssembly::split( varied( 65507 ), 500 + H, true ).size() == 132 + 17 );
 
   /* junk, and fragments of something else, are refused without disturbing what is there */
-  f = DatagramAssembly::split( d, 1000 + H, true );
-  const std::vector<std::string> other = DatagramAssembly::split( varied( 2400 ), 1000 + H, true );
-  DatagramAssembly a;
+  f = Gosh::DatagramAssembly::split( d, 1000 + H, true );
+  const std::vector<std::string> other = Gosh::DatagramAssembly::split( varied( 2400 ), 1000 + H, true );
+  Gosh::DatagramAssembly a;
   std::string out;
   bool parity;
   CHECK( a.empty() );
-  CHECK( a.add( "", out, parity ) == DatagramAssembly::REJECTED );
+  CHECK( a.add( "", out, parity ) == Gosh::DatagramAssembly::REJECTED );
   /* the wrong length for its place */
-  CHECK( a.add( f[0].substr( 0, f[0].size() - 1 ), out, parity ) == DatagramAssembly::REJECTED );
+  CHECK( a.add( f[0].substr( 0, f[0].size() - 1 ), out, parity ) == Gosh::DatagramAssembly::REJECTED );
   /* an index beyond the pieces and parity */
   CHECK( a.add( std::string( "\x05\x03\x09\xC4", 4 ) + std::string( 834, 'x' ), out, parity )
-         == DatagramAssembly::REJECTED );
+         == Gosh::DatagramAssembly::REJECTED );
   /* a count of one: not fragmented at all */
-  CHECK( a.add( std::string( "\x00\x01\x00\x05hello", 9 ), out, parity ) == DatagramAssembly::REJECTED );
+  CHECK( a.add( std::string( "\x00\x01\x00\x05hello", 9 ), out, parity ) == Gosh::DatagramAssembly::REJECTED );
   CHECK( a.empty() );
-  CHECK( a.add( f[0], out, parity ) == DatagramAssembly::INCOMPLETE && !a.empty() );
-  CHECK( a.add( other[1], out, parity ) == DatagramAssembly::REJECTED );
-  CHECK( a.add( f[0], out, parity ) == DatagramAssembly::INCOMPLETE ); /* a duplicate changes nothing */
-  CHECK( a.add( f[2], out, parity ) == DatagramAssembly::INCOMPLETE );
-  CHECK( a.add( f[3], out, parity ) == DatagramAssembly::COMPLETE && out == d && parity );
+  CHECK( a.add( f[0], out, parity ) == Gosh::DatagramAssembly::INCOMPLETE && !a.empty() );
+  CHECK( a.add( other[1], out, parity ) == Gosh::DatagramAssembly::REJECTED );
+  CHECK( a.add( f[0], out, parity ) == Gosh::DatagramAssembly::INCOMPLETE ); /* a duplicate changes nothing */
+  CHECK( a.add( f[2], out, parity ) == Gosh::DatagramAssembly::INCOMPLETE );
+  CHECK( a.add( f[3], out, parity ) == Gosh::DatagramAssembly::COMPLETE && out == d && parity );
 }
 
 /* Joins two meetups, standing in for an established mosh session. */
@@ -464,7 +476,7 @@ static void test_relay( void )
   CHECK( !readable( target, 100 ) );
 
   /* the largest datagram that fits goes through whole */
-  const size_t limit = to_server.max_payload - UDPForwarder::HEADER_LEN;
+  const size_t limit = to_server.max_payload - Gosh::FRAME_HEADER_LEN;
   size_t crossed = to_server.sent.size();
   send_to_port( app[0], listen_port, std::string( limit, 'x' ) );
   CHECK( readable( listen_fd ) );
@@ -617,8 +629,8 @@ static void test_relay( void )
   /* junk from the network is ignored */
   server.sidechannel_recv( "" );
   server.sidechannel_recv( std::string( 1, static_cast<char>( SIDECHANNEL_MAGIC ) ) );
-  server.sidechannel_recv( UDPForwarder::encode( 9, 0, 1000, "no such forward" ) );
-  client.sidechannel_recv( UDPForwarder::encode( 0, 999, 1000, "no such flow" ) );
+  server.sidechannel_recv( encode_data( 9, 0, 1000, "no such forward" ) );
+  client.sidechannel_recv( encode_data( 0, 999, 1000, "no such flow" ) );
   CHECK( client.flow_count() == 2 && server.flow_count() == 2 );
 
   close( target );

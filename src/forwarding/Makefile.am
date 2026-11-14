@@ -6,7 +6,7 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshforwarding.a
 
-libgoshforwarding_a_SOURCES = forwarding.h udpforward.cc udpforward.h tcpforward.cc tcpforward.h tcpadapter.cc tcpadapter.h tcpinudp.cc tcpinudp.h connection.h stream.h streamchild.cc streamchild.h
+libgoshforwarding_a_SOURCES = forwarding.h forward.cc forward.h frame.cc frame.h fragments.cc fragments.h udpforward.cc udpforward.h tcpforward.cc tcpforward.h tcpadapter.cc tcpadapter.h tcpinudp.cc tcpinudp.h connection.h stream.h streamchild.cc streamchild.h
 
 # The first three are the fork's tests of these classes, which call them directly: they hold
 # the carried code to what it did at pf.7, and go as each piece is reshaped. connection-test is

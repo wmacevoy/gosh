@@ -72,35 +72,35 @@ public:
       stream.reset( new TCPForwarder( link,
                                       client ? TCPForwarder::LISTEN : TCPForwarder::CONNECT,
                                       std::vector<std::string>(),
-                                      UDPForwarder::TYPE_STREAM ) );
+                                      Gosh::TYPE_STREAM ) );
       stream->stream_allow();
-      mux.set_sink( UDPForwarder::TYPE_STREAM, stream.get() );
+      mux.set_sink( Gosh::TYPE_STREAM, stream.get() );
     }
     if ( !udp_specs.empty() ) {
       udp.reset( new UDPForwarder( link, client ? UDPForwarder::LISTEN : UDPForwarder::CONNECT, udp_specs ) );
-      mux.set_sink( UDPForwarder::TYPE_UDP_DATA, udp.get() );
-      mux.set_sink( UDPForwarder::TYPE_UDP_FRAGMENT, udp.get() );
+      mux.set_sink( Gosh::TYPE_UDP_DATA, udp.get() );
+      mux.set_sink( Gosh::TYPE_UDP_FRAGMENT, udp.get() );
     }
     if ( !udp_remote_specs.empty() ) {
       /* the same again with the ends exchanged */
       udp_remote.reset( new UDPForwarder(
         link, client ? UDPForwarder::CONNECT : UDPForwarder::LISTEN, udp_remote_specs, true ) );
-      mux.set_sink( UDPForwarder::TYPE_UDP_REVERSE_DATA, udp_remote.get() );
-      mux.set_sink( UDPForwarder::TYPE_UDP_REVERSE_FRAGMENT, udp_remote.get() );
+      mux.set_sink( Gosh::TYPE_UDP_REVERSE_DATA, udp_remote.get() );
+      mux.set_sink( Gosh::TYPE_UDP_REVERSE_FRAGMENT, udp_remote.get() );
     }
     if ( !tcp_specs.empty() ) {
       tcp.reset( new TCPForwarder( link,
                                    client ? TCPForwarder::LISTEN : TCPForwarder::CONNECT,
                                    tcp_specs ) );
-      mux.set_sink( UDPForwarder::TYPE_TCP_SEGMENT, tcp.get() );
+      mux.set_sink( Gosh::TYPE_TCP_SEGMENT, tcp.get() );
     }
     if ( !tcp_remote_specs.empty() ) {
       /* the same again with the ends exchanged */
       tcp_remote.reset( new TCPForwarder( link,
                                           client ? TCPForwarder::CONNECT : TCPForwarder::LISTEN,
                                           tcp_remote_specs,
-                                          UDPForwarder::TYPE_TCP_REVERSE ) );
-      mux.set_sink( UDPForwarder::TYPE_TCP_REVERSE, tcp_remote.get() );
+                                          Gosh::TYPE_TCP_REVERSE ) );
+      mux.set_sink( Gosh::TYPE_TCP_REVERSE, tcp_remote.get() );
     }
   }
 

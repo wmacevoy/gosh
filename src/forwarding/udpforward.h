@@ -39,6 +39,9 @@
 #include <string>
 #include <vector>
 
+#include "src/forwarding/forward.h"
+#include "src/forwarding/fragments.h"
+#include "src/forwarding/frame.h"
 #include "src/network/network.h"
 #include "src/network/sidechannel.h"
 
@@ -80,100 +83,6 @@
 
 namespace Network {
 
-/* [bind_address:]port:host:hostport -- IPv6 addresses go in [brackets]. */
-class ForwardSpec
-{
-public:
-  std::string bind_host; /* empty or "*" means all interfaces; default is loopback */
-  std::string bind_port;
-  std::string target_host;
-  std::string target_port;
-
-  ForwardSpec( const std::string& spec ); /* throws NetworkException */
-};
-
-/* Sliding-window duplicate suppression, as in IPsec. */
-class ReplayWindow
-{
-public:
-  static constexpr uint64_t WINDOW = 1024;
-
-private:
-  std::vector<bool> seen; /* seen[ seq % WINDOW ] for highest - WINDOW < seq <= highest */
-  uint64_t highest;
-  bool any;
-
-public:
-  ReplayWindow() : seen( WINDOW, false ), highest( 0 ), any( false ) {}
-
-  /* True the first time a sequence number is offered, unless it is too old to tell. */
-  bool accept( uint64_t seq );
-};
-
-/*
- * Fragmentation of one datagram.
- *
- * The datagram is cut into "count" pieces of as nearly equal size as
- * possible (so that parity costs as little as possible).  Each travels
- * with a 4-byte header: its index, the count, and the datagram's total
- * length, from which the receiver knows every piece's size and place.
- *
- * With parity, the pieces are taken in groups of PARITY_GROUP, and each
- * group is followed (at index count + group number) by the exclusive-or
- * of its pieces.  Any one piece of a group can be rebuilt from the
- * others and the parity, so the datagram survives the loss of one
- * fragment per group.
- */
-class DatagramAssembly
-{
-public:
-  static constexpr size_t FRAGMENT_HEADER_LEN = 4;
-  static constexpr unsigned int PARITY_GROUP = 8;
-  static constexpr unsigned int MAX_FRAGMENTS = 255; /* pieces and parity together, so at most 226 pieces */
-  static constexpr size_t MAX_DATAGRAM = 65535;
-
-  enum Result
-  {
-    REJECTED,   /* malformed, or doesn't belong to this datagram */
-    INCOMPLETE, /* accepted; more are needed */
-    COMPLETE    /* the datagram has been rebuilt */
-  };
-
-private:
-  unsigned int count; /* 0 until the first fragment arrives */
-  size_t total;
-  std::vector<std::string> parts; /* pieces, then parity */
-  std::vector<bool> have;
-
-  static unsigned int groups( unsigned int count ) { return ( count + PARITY_GROUP - 1 ) / PARITY_GROUP; }
-  static size_t piece_len( size_t total, unsigned int count, unsigned int index );
-  static size_t piece_offset( size_t total, unsigned int count, unsigned int index );
-
-  bool rebuild( std::string& datagram, bool& used_parity );
-
-public:
-  DatagramAssembly() : count( 0 ), total( 0 ), parts(), have() {}
-
-  /* True until a fragment has been accepted. */
-  bool empty( void ) const { return count == 0; }
-
-  /*
-   * Cut a datagram into fragments (header included) of at most
-   * max_fragment bytes each, in the order they should be sent.
-   * Returns nothing if that can't be done.
-   */
-  static std::vector<std::string> split( const std::string& datagram, size_t max_fragment, bool parity );
-
-  /* How many pieces split() would cut a datagram of this length into; 0 if it can't be done. */
-  static unsigned int piece_count( size_t total, size_t max_fragment );
-
-  /* The index a fragment claims, which is also how far its sequence number is from the first one's. */
-  static bool index_of( const std::string& fragment, unsigned int& index );
-
-  /* On COMPLETE, fills in the datagram and whether parity was needed to rebuild it. */
-  Result add( const std::string& fragment, std::string& datagram, bool& used_parity );
-};
-
 class UDPForwarder : public SideChannelSink
 {
 public:
@@ -183,28 +92,12 @@ public:
     CONNECT /* relay them to the targets */
   };
 
-  /* magic, type, forward index, flow id (2), sequence number (8) */
-  static constexpr size_t HEADER_LEN = 13;
-  static constexpr uint8_t TYPE_UDP_DATA = 0;
-  static constexpr uint8_t TYPE_TCP_SEGMENT = 1; /* see tcpforward.h */
-  static constexpr uint8_t TYPE_UDP_FRAGMENT = 2;
-  static constexpr uint8_t TYPE_TCP_REVERSE = 3; /* TCP segments of forwards the server listens for (-R) */
-  static constexpr uint8_t TYPE_UDP_REVERSE_DATA = 4; /* likewise for UDP (-RU) */
-  static constexpr uint8_t TYPE_UDP_REVERSE_FRAGMENT = 5;
-  static constexpr uint8_t TYPE_STREAM = 6; /* TCP segments of a stream between a process at each end */
-
   enum ParityMode
   {
     PARITY_AUTO,  /* when the measured loss makes it worthwhile */
     PARITY_ALWAYS,
     PARITY_NEVER
   };
-
-  /* In PARITY_AUTO, add parity if the datagram would otherwise be lost at least this often. */
-  static constexpr double PARITY_WORTHWHILE = 0.02;
-
-  /* Would a datagram of this many fragments be lost often enough, at this loss rate, to deserve parity? */
-  static bool parity_worthwhile( double loss, unsigned int fragments );
 
   /* Datagrams being put back together: how many at once, and for how long. */
   static constexpr size_t MAX_PARTIALS = 64;
@@ -215,26 +108,6 @@ public:
   static constexpr size_t MAX_FLOWS = 64;
   static constexpr uint64_t FLOW_IDLE_TIMEOUT = 120000; /* ms */
   static constexpr int MAX_READS_PER_WAKEUP = 16;
-
-  /* The same framing serves every kind of forwarded payload. */
-  static std::string encode_frame( uint8_t type,
-                                   uint8_t forward,
-                                   uint16_t flow_id,
-                                   uint64_t seq,
-                                   const std::string& data );
-  static bool decode_frame( const std::string& payload,
-                            uint8_t& type,
-                            uint8_t& forward,
-                            uint16_t& flow_id,
-                            uint64_t& seq,
-                            std::string& data );
-
-  static std::string encode( uint8_t forward, uint16_t flow_id, uint64_t seq, const std::string& datagram );
-  static bool decode( const std::string& payload,
-                      uint8_t& forward,
-                      uint16_t& flow_id,
-                      uint64_t& seq,
-                      std::string& datagram );
 
 private:
   struct Forward
@@ -261,7 +134,7 @@ private:
 
   struct Partial
   {
-    DatagramAssembly assembly;
+    Gosh::DatagramAssembly assembly;
     uint8_t forward;
     uint16_t flow_id;
     uint64_t started;
@@ -280,7 +153,7 @@ private:
   uint16_t next_flow_id;
 
   uint64_t next_seq;
-  ReplayWindow replay;
+  Gosh::ReplayWindow replay;
 
   /*
    * Fragments of a datagram are sent with consecutive sequence numbers,

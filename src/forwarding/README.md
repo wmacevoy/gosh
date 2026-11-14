@@ -6,7 +6,11 @@ Forwards and the stream: TCP and UDP ports, and one byte channel, carried over t
 **Carried, and being reshaped** (queue items 5, 15, 16). `connection.h` and `tcpadapter.*` are in
 their new shape: see below. Every other source file here is the fork's at
 `mosh-1.4.0-pf.7`, from `src/network/` (the three tests from `src/tests/`), with nothing changed
-but the `#include` lines that name the files that moved with it. One exception: `udp-forward.cc`
+but the `#include` lines that name the files that moved with it. Since item 16 began, three
+pieces that were already logic stand in files of their own, in gosh's namespace, the text of
+each function unchanged (compared line for line); the error for a bad specification no longer
+says "UDP", since TCP forwards use it too; and `UDPForwarder::encode` and `decode`, which only
+tests called, are in the two tests that call them. One exception: `udp-forward.cc`
 has lost three tests that are other parts' (`test_relay_frames`, `test_punch`,
 `test_loss_measurement`); they come back with relay, path-finding and the seam.
 
@@ -17,7 +21,10 @@ to test the new against.
 | File | What it holds |
 | --- | --- |
 | `forwarding.h` | every forward of a session behind one event-loop interface |
-| `udpforward.*` | UDP forwards; and the frame, the replay window and the forward's specification, which TCP uses too |
+| `forward.*` | one forward's specification, `[bind:]port:host:hostport`: logic (the fork's text, moved out of `udpforward` at item 16) |
+| `frame.*` | the 13-byte header every forwarded payload has, and the replay window: logic (likewise) |
+| `fragments.*` | a datagram cut into pieces with parity, and rebuilt; whether parity is worth it: logic (likewise) |
+| `udpforward.*` | UDP forwards: conversations and their sockets, still together (item 16 takes them apart) |
 | `tcpforward.*` | TCP forwards and the stream, as segments over the side channel |
 | `connection.h` | gosh's TCP: one end of a forwarded connection, as logic (new shape) |
 | `tcpadapter.*` | the sockets of forwarded TCP connections: listeners and targets, an edge (new shape) |

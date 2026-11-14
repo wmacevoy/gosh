@@ -105,7 +105,7 @@ public:
   ~AdapterPort();
 
   /* Listening end: start listening. Returns the address, for the user. Throws NetworkException. */
-  std::string add_listener( uint8_t forward, const ForwardSpec& spec );
+  std::string add_listener( uint8_t forward, const Gosh::ForwardSpec& spec );
 
   /* Connecting end: where connections on this forward go. */
   void add_target( uint8_t forward, const Addr& addr, socklen_t len );

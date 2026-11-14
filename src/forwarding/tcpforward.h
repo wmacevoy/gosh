@@ -137,7 +137,7 @@ private:
   size_t forwards; /* how many there are */
 
   uint64_t next_seq;
-  ReplayWindow replay;
+  Gosh::ReplayWindow replay;
 
   uint64_t dropped_oversize;
 
@@ -153,7 +153,7 @@ public:
   TCPForwarder( SideChannelLink* s_link,
                 Role s_role,
                 const std::vector<std::string>& specs,
-                uint8_t s_frame_type = UDPForwarder::TYPE_TCP_SEGMENT );
+                uint8_t s_frame_type = Gosh::TYPE_TCP_SEGMENT );
   ~TCPForwarder();
 
   void set_verbose( unsigned int s_verbose ) { verbose = s_verbose; }

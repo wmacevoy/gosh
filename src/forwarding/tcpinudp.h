@@ -147,7 +147,7 @@ public:
   /*
    * The largest MSS the TCP endpoints may use if each datagram-form
    * segment must fit in max_datagram bytes (for forwarding, the side
-   * channel's limit less UDPForwarder::HEADER_LEN), leaving room for a
+   * channel's limit less Gosh::FRAME_HEADER_LEN), leaving room for a
    * full set of options.
    */
   static size_t max_segment_size( size_t max_datagram );

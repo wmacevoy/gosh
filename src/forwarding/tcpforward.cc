@@ -61,7 +61,7 @@ TCPForwarder::TCPForwarder( SideChannelLink* s_link,
   adapter.reset( new AdapterPort( this, role == LISTEN ) );
 
   for ( size_t i = 0; i < specs.size(); i++ ) {
-    const ForwardSpec spec( specs[i] );
+    const Gosh::ForwardSpec spec( specs[i] );
 
     if ( role == LISTEN ) {
       adapter->add_listener( i, spec );
@@ -132,7 +132,7 @@ int TCPForwarder::wait_time( void ) const
 size_t TCPForwarder::max_datagram( void ) const
 {
   const size_t limit = link->sidechannel_max_payload();
-  return limit > UDPForwarder::HEADER_LEN ? limit - UDPForwarder::HEADER_LEN : 0;
+  return limit > Gosh::FRAME_HEADER_LEN ? limit - Gosh::FRAME_HEADER_LEN : 0;
 }
 
 void TCPForwarder::to_network( uint8_t forward, const TCPInUDP& segment )
@@ -155,7 +155,7 @@ void TCPForwarder::to_network( uint8_t forward, const TCPInUDP& segment )
 
   const uint16_t listener_port = ( role == LISTEN ) ? segment.source_port : segment.dest_port;
   link->sidechannel_send(
-    UDPForwarder::encode_frame( frame_type, forward, listener_port, next_seq++, datagram ) );
+    Gosh::encode_frame( frame_type, forward, listener_port, next_seq++, datagram ) );
 }
 
 void TCPForwarder::sidechannel_recv( const std::string& payload )
@@ -165,7 +165,7 @@ void TCPForwarder::sidechannel_recv( const std::string& payload )
   uint64_t seq;
   std::string datagram;
 
-  if ( !UDPForwarder::decode_frame( payload, type, forward, listener_port, seq, datagram ) || type != frame_type
+  if ( !Gosh::decode_frame( payload, type, forward, listener_port, seq, datagram ) || type != frame_type
        || forward >= forwards ) {
     return;
   }

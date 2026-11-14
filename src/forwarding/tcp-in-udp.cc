@@ -46,6 +46,18 @@
 
 using namespace Network;
 
+/* (gosh) The fork's UDPForwarder::encode and ::decode, which only its tests called: a frame of plain UDP data. */
+static std::string encode_data( uint8_t forward, uint16_t flow_id, uint64_t seq, const std::string& datagram )
+{
+  return Gosh::encode_frame( Gosh::TYPE_UDP_DATA, forward, flow_id, seq, datagram );
+}
+
+static bool decode_data( const std::string& payload, uint8_t& forward, uint16_t& flow_id, uint64_t& seq, std::string& datagram )
+{
+  uint8_t type;
+  return Gosh::decode_frame( payload, type, forward, flow_id, seq, datagram ) && type == Gosh::TYPE_UDP_DATA;
+}
+
 #define CHECK( x )                                                                                                 \
   do {                                                                                                             \
     if ( !( x ) ) {                                                                                                \
@@ -238,7 +250,7 @@ static void test_rejects( void )
 static void test_sizes( void )
 {
   /* a full-sized segment with full options exactly fills the budget */
-  const size_t budget = 1200 - UDPForwarder::HEADER_LEN;
+  const size_t budget = 1200 - Gosh::FRAME_HEADER_LEN;
   const size_t mss = TCPInUDP::max_segment_size( budget );
   CHECK( mss == budget - 12 - 40 );
 
@@ -252,14 +264,14 @@ static void test_sizes( void )
   CHECK( TCPInUDP::max_segment_size( 52 ) == 0 && TCPInUDP::max_segment_size( 0 ) == 0 );
 
   /* and it survives the forwarder's own framing untouched */
-  const std::string wire = UDPForwarder::encode( 0, 1, 2, s.to_datagram() );
+  const std::string wire = encode_data( 0, 1, 2, s.to_datagram() );
   CHECK( wire.size() == 1200 );
   uint8_t forward;
   uint16_t flow;
   uint64_t seq;
   std::string datagram;
   TCPInUDP r;
-  CHECK( UDPForwarder::decode( wire, forward, flow, seq, datagram ) );
+  CHECK( decode_data( wire, forward, flow, seq, datagram ) );
   CHECK( TCPInUDP::from_datagram( 0, 0, datagram, r ) );
   CHECK( r.payload == s.payload && r.options == s.options && r.flags == s.flags );
 }

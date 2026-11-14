@@ -79,7 +79,7 @@ AdapterPort::~AdapterPort()
   }
 }
 
-std::string AdapterPort::add_listener( uint8_t forward, const ForwardSpec& spec )
+std::string AdapterPort::add_listener( uint8_t forward, const Gosh::ForwardSpec& spec )
 {
   const bool wildcard = spec.bind_host.empty() || spec.bind_host == "*";
   const std::string where = spec.bind_host + ":" + spec.bind_port;
