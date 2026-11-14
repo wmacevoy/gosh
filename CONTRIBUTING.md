@@ -15,7 +15,7 @@ record of how it came to be are in `../mosh-dev`; nothing is changed there.
 **The full check:** `tools/check.sh`
 
 It prints PASS or says what failed, and CI runs the same command (`.github/workflows/ci.yml`). It
-takes about two minutes here from nothing. In order it checks that:
+takes about two and a half minutes here, more from nothing. In order it checks that:
 
 1. the repository is sound (`./se --doctor`: the working set, versioned citations, the queue);
 2. the core is upstream's at the pinned commit, byte for byte (`REQ6/UP-2`);
@@ -23,7 +23,8 @@ takes about two minutes here from nothing. In order it checks that:
 4. gosh and a stock mosh hold a terminal session, each way (`REQ10/SHAPE-1`, `tests/stock-session.py`);
 5. the fork's own programs at pf.7, built in `.build/pf7` (`tools/build-pf7.sh`, which fetches the
    tag), pass the fork's tests that have been brought here (`tests/forward-e2e.py`,
-   `tests/headless-smoke.py`, `tests/mocp.test`, `tests/wrapper.test`). These are the tests gosh's parts must pass when they land.
+   `tests/headless-smoke.py`, `tests/mocp.test`, `tests/wrapper.test`, and four cases of the NAT lab,
+   `tests/nat-lab.py`, which needs `nft` and either root, user namespaces, or sudo). These are the tests gosh's parts must pass when they land.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
 `.build/bin`: no seam, no parts, no `gosh` command yet (queue items 5 to 10).

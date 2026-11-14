@@ -18,6 +18,6 @@ jobs:
       - name: What the core needs to build, and a stock mosh to meet
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q autoconf automake pkg-config protobuf-compiler libprotobuf-dev libncurses-dev libssl-dev zlib1g-dev mosh
+          sudo apt-get install -y -q autoconf automake pkg-config protobuf-compiler libprotobuf-dev libncurses-dev libssl-dev zlib1g-dev mosh nftables iproute2 iputils-ping
           mosh-server --version | head -1
       - run: tools/check.sh

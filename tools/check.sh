@@ -75,4 +75,7 @@ shell_reference() { # NAME ARGS...
 }
 shell_reference mocp.test
 shell_reference wrapper.test "$here/.build/core/src/tests/inpty"
+# The NAT lab, against pf.7. Not "room": it failed at random in the fork's CI, and a
+# test that fails at random teaches people to ignore red (queue item 8 settles it).
+tools/nat-lab.sh "$pf7" easy hard passed moved || { stop_ours; fail "pf.7 in the NAT lab"; }
 echo "PASS"
