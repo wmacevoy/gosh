@@ -9,5 +9,5 @@
 # the name here may change with nothing gained; it names a version to compare with, not a figure.
 #
 # way    version                                     when, and what was measured
-udp      29e527db11edfe236e8da8b4587d6292eae6315f    2026-11-14: 157% of pf.7 by the gate (35.8 against 22.9 Mbit/s)
+udp      2001e4f12bdbff79fd4388e93ebd3fbb375ae03a    2026-11-14: 102% of 29e527d by the gate (the same forwarding code but for the byte queue's tidying; 32.7 against 31.9 Mbit/s)
 relay    pf.7                                        gosh has no relay yet (queue item 7)
