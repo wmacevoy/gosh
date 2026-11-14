@@ -366,6 +366,18 @@ each end (`tests/stock-session.py`). `REQ8/CMD-3`: none.
 | **a stream's process** | start the process at one end; become `@copy`, `@stdio` or `@sh` | edge | `stream_child`, `become`, `stdio_pump`, `streamchild.cc:80-235` | — | `REQ1/CP-7` |
 | **forwarding** (the whole) | own the forwards of each kind; give each arriving payload to its kind; one surface for a program's loop | edge, thin | `forwarding.h` | `SideChannelMux` (a `switch` on five fixed kinds) | all of the above |
 
+*Two departures from the table above, accepted by the owner on 2026-11-14 (queue item 16):*
+
+- *`SegmentSink` is kept, where the table has it dropped. The table's reason was that it is an
+  interface with one implementation; it has two: `TCPForwarder`, and the recorder in the fork's
+  unit test `tcp-forward.cc`, which is how that test sees every segment the adapter sends. To
+  drop it would be to rewrite a carried test that holds the code to what it did at pf.7.*
+- *`TCPForwarder` is not divided into logic and edge. It resolves names and reads the clock, and
+  what it decides is about twenty lines: a frame around each segment, the replay window, a
+  check that a segment fits, and which of the two ports the frame carries. Those read only what
+  the session says and no clock. A piece of their own would add a file and a template for
+  twenty lines; if they grow, that is the time.*
+
 The **connection** piece is the centre of the part and of the speed question. Its shape, as a
 sketch and not a contract:
 
