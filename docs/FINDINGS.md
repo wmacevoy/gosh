@@ -7,6 +7,36 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-14 — The one erase, taken out: a forward by UDP at about one and a half times pf.7
+
+- **What happened:** The profile of pf.7 (below) put about 40% of a forward's processor time in
+  one `memmove`: the sender moving what was left of its send buffer down on every acknowledgment.
+  With forwarding's TCP reshaped into logic (`src/forwarding/connection.h`) and held to the fork's
+  adapter by a differential test, the two buffers were made a byte queue (`Gosh::Bytes`) that marks
+  its front as gone and moves what is left only now and then. Four lines of the logic changed.
+- **What showed nothing else changed:** `connection-diff` still agrees with the fork's adapter,
+  segment for segment, over 20,000 scenarios; the outside tests pass; a gosh end still works with
+  a pf.7 end each way.
+- **Measured:** the speed gate, by UDP, 30 alternating runs of each:
+
+  | | pf.7 | gosh |
+  | --- | --- | --- |
+  | rate, median (lowest to highest), Mbit/s | 22.9 (14.5 to 44.8) | 35.8 (15.8 to 62.0) |
+  | processor time, median, CPU s/MB | 0.1333 | 0.0930 |
+
+  gosh's rate is 157% of pf.7's, and it spends about 30% less processor time per megabyte. One
+  run of the gate before the change, same day, same code otherwise: 109% and 0.1335. Profiled as
+  pf.7 was, the client's share of processor time went from 71% to 47%, level with the server's,
+  and the largest single cost is now OpenSSL's sealing.
+- **Kind:** K0 now: what the profile predicted was measured.
+- **Cost:** an afternoon, almost all of it the reshaping and its tests; the change itself is small
+  because the logic had been taken apart from the sockets first.
+- **Findable by:** the profile. Nothing else pointed at it.
+- **Changed:** `REQ6/SPEED-1` asks only that gosh not be more than 10% slower; nothing requires
+  this. It is recorded because it moves what later parts are compared with: the gate compares gosh
+  with pf.7, so a later part that lost half of this gain would still pass. If the owner wants a
+  gain kept, that is a requirement to write.
+
 ## 2026-11-14 — The speed gate: what it took to hold a rate to 10%, and a pass it gave for nothing
 
 - **What happened:** The owner kept the gate as the requirement has it ("not more than 10% slower

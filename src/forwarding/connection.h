@@ -75,6 +75,51 @@
  */
 namespace Gosh {
 
+/*
+ * Bytes waiting in order: added at the end, taken from the front.
+ *
+ * A connection's two buffers are these. Taking from the front of a std::string moves everything
+ * left in it down, and the sender did that with up to 1 MB on every acknowledgment: about 40% of
+ * all the processor time of a forward, by a profile of the fork (docs/FINDINGS.md, 2026-11-14).
+ * Here the front is only marked as gone, and what is left is moved down once the gone part is
+ * at least 64 KB and at least as large as what is left: so no byte is moved more than once for
+ * each byte taken, and no more than twice the bytes held are ever kept.
+ */
+class Bytes
+{
+  std::string bytes;
+  size_t gone; /* how much at the front of `bytes` has been taken */
+
+public:
+  static const size_t TIDY_AT = 65536;
+
+  Bytes() : bytes(), gone( 0 ) {}
+
+  size_t size( void ) const { return bytes.size() - gone; }
+  bool empty( void ) const { return size() == 0; }
+  const char* data( void ) const { return bytes.data() + gone; }
+
+  void append( const char* more, size_t length ) { bytes.append( more, length ); }
+  /* length bytes of `from`, starting at `at`. */
+  void append( const std::string& from, size_t at, size_t length ) { bytes.append( from, at, length ); }
+
+  /* Up to length bytes starting `at` bytes in, as a string. */
+  std::string substr( size_t at, size_t length ) const { return bytes.substr( gone + at, length ); }
+
+  /* Takes this many from the front (all of them, if there are fewer). */
+  void drop( size_t length )
+  {
+    gone += std::min( length, size() );
+    if ( gone == bytes.size() ) {
+      bytes.clear();
+      gone = 0;
+    } else if ( gone >= TIDY_AT && gone >= bytes.size() - gone ) {
+      bytes.erase( 0, gone );
+      gone = 0;
+    }
+  }
+};
+
 /* What the session can do at the moment of a call. The edge reads these; they are not kept. */
 struct Link
 {
@@ -141,7 +186,7 @@ private:
     uint32_t mss; /* largest payload we send */
 
     /* sending: bytes read from the socket, on their way to the other end */
-    std::string send_buf; /* everything from snd_una on, sent or not */
+    Bytes send_buf; /* everything from snd_una on, sent or not */
     uint32_t iss;
     uint32_t snd_una; /* oldest unacknowledged */
     uint32_t snd_nxt; /* next to send (falls back to snd_una on a timeout) */
@@ -173,7 +218,7 @@ private:
     double srtt, rttvar;
 
     /* receiving: bytes from the other end, on their way to the socket */
-    std::string recv_buf;
+    Bytes recv_buf;
     uint32_t rcv_nxt;
     std::map<uint32_t, std::string> early; /* segments from beyond rcv_nxt, by sequence number */
     size_t early_bytes;
@@ -543,7 +588,7 @@ private:
       c.fin_sent = c.fin_acked = true;
       acked--;
     }
-    c.send_buf.erase( 0, std::min<size_t>( acked, c.send_buf.size() ) );
+    c.send_buf.drop( acked );
     c.snd_una = ack;
     if ( seq_lt( c.snd_nxt, ack ) ) {
       c.snd_nxt = ack;
@@ -736,7 +781,7 @@ private:
     while ( !c.recv_buf.empty() ) {
       const long n = out.deliver( c.id(), c.recv_buf.data(), c.recv_buf.size() );
       if ( n > 0 ) {
-        c.recv_buf.erase( 0, n );
+        c.recv_buf.drop( n );
       } else if ( n == 0 ) {
         break; /* the application is slow; tick() will try again */
       } else {

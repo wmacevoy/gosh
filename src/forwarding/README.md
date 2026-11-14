@@ -39,5 +39,9 @@ linked only into `connection-diff`; it goes when forwarding has landed.
 | `connection-diff.cc` | the new logic and the fork's adapter given the same scripted scenario (writes, losses, repeats, time passing, contact lost and found, resets) emit the same segments and deliver the same bytes at every step. 500 scenarios in the check; `./connection-diff 20000 1000` for more |
 | `connection-test.cc` | the logic alone, for what a real socket pair never does: a slow application, a target that refuses or never answers, the sixty-fifth connection, and six hours out of contact (`REQ1/FWD-3`) |
 
+The logic's two buffers are a byte queue (`Gosh::Bytes`, in `connection.h`) and not strings: the
+fork moved its send buffer down on every acknowledgment, which was about 40% of a forward's
+processor time (`docs/FINDINGS.md`, 2026-11-14).
+
 Both were held to account by breaking the logic on purpose: of 32 breaks tried, the two tests
 together miss one, which changes nothing that can be seen (queue item 15).
