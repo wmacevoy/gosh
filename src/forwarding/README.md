@@ -22,6 +22,8 @@ to test the new against.
 | `connection.h` | gosh's TCP: one end of a forwarded connection, as logic (new shape) |
 | `tcpadapter.*` | the sockets of forwarded TCP connections: listeners and targets, an edge (new shape) |
 | `tcpinudp.*` | a TCP segment as a compact datagram, both ways |
+| `stream.h` | when the client of a stream's session is finished, as logic (new shape); `stream-test.cc` |
+| `streamchild.*` | a stream's process: starts what is at each end of a stream (`@copy`, `@stdio`, `@sh`). The fork's, carried with two include lines changed; an edge |
 
 ## connection (the new shape)
 
@@ -48,3 +50,19 @@ landed, so it went too; both are in this repository's history at commit `2001e4f
 deliberate break were caught only by that test and are caught by nothing here now: leaving loss
 recovery, and giving up on one-at-a-time repair after many losses. **Before changing the logic,
 bring the test back from that commit** and run `./connection-diff 20000 1000`.
+
+## the stream
+
+A stream is one reliable byte channel between a process at each end of a session (`-X`;
+`REQ1/CP-7`, and what `gocp` rides on). It is forward 0 of a kind of its own: a connection with no
+listening port, between a socket the client already has and one the server makes when asked. So
+`connection.h` carries it with nothing added.
+
+- `streamchild.*` starts the process at each end. A stream's words say what: `@copy …` (it becomes
+  one end of a file copy: `../copy/`), `@stdio` (this program's own input and output), `@sh
+  COMMAND`. **Carried, not reshaped**: it forks, execs and reads `HOME` and `SHELL`.
+- `stream.h` is the one decision, as logic: the client is finished when its process has ended and
+  either nothing of the stream is left or five seconds have passed.
+- The seam joins them to the session (`../seam/hooks.h`): the client starts its process once the
+  session is up; the server gives forwarding a function that starts its own when the stream's
+  connection arrives. Forwarding decides when, never what.

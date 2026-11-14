@@ -13,11 +13,15 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include <sys/types.h>
+
 #include "src/forwarding/forwarding.h"
+#include "src/forwarding/streamchild.h"
 #include "src/seam/options.h"
 
 /*
@@ -37,6 +41,12 @@
  *     turn            after it waits: what became readable, and the timers
  *   announce          (the client, headless) in place of drawing the screen
  *   session_ended     before the transport goes, or in a child that must not hold its sockets
+ *   stream_exit       (the client, for a stream) the status to exit with
+ *
+ * A stream (REQ1/CP-7): the session exists to join a process at each end. The server's is
+ * started by forwarding when the stream's connection arrives. The client's is started here once
+ * the session is up; when it has ended and the last of what it sent has gone, the client ends
+ * the session, and exits with that process's status.
  */
 namespace Gosh {
 
@@ -49,10 +59,31 @@ struct Session
   std::vector<int> watched; /* forwarding's descriptors, as last given to the program's loop */
   bool announced;           /* whether a headless client has said that it is connected */
 
-  Session() : options(), client( false ), forwarding(), watched(), announced( false ) {}
+  /* a stream: the process at this end (the client's; the server's is forwarding's to start) */
+  std::vector<std::string> stream_words; /* what to start; empty if the session is not for a stream */
+  pid_t stream_pid;                      /* 0 before it starts, -1 once it has ended or could not start */
+  int stream_status;                     /* how it ended, as an exit status */
+  uint64_t stream_ended;                 /* when */
+  /* the session's own state, as the client's loop cannot be handed it each pass (set by session_started) */
+  std::function<bool()> ending;         /* the session is being ended */
+  std::function<void()> end_it;         /* begin to end it */
+
+  Session()
+    : options(), client( false ), forwarding(), watched(), announced( false ), stream_words(), stream_pid( 0 ),
+      stream_status( 1 ), stream_ended( 0 ), ending(), end_it()
+  {}
 };
 
 Session& session( void );
+
+/* The client, for a stream: sees whether its process has ended, and ends the session when the stream is over. */
+void tend_stream( void );
+
+/* Whether this session is for a stream. */
+inline bool has_stream( void )
+{
+  return !session().options.stream.empty();
+}
 
 /* Whether this client has no terminal (REQ1/FWD-5). */
 inline bool headless( void )
@@ -70,24 +101,42 @@ template<class Transport>
 void session_started( Transport& network, unsigned int verbose )
 {
   Session& s = session();
-  if ( !s.options.any() ) {
+  const bool stream = !s.options.stream.empty();
+  /* (only then: the words of an empty string are one empty word, which is not "no stream") */
+  s.stream_words = stream ? Network::stream_words( s.options.stream ) : std::vector<std::string>();
+  if ( !s.options.any() && !stream ) {
     return;
   }
   s.forwarding.reset( new Network::Forwarding(
-    &network, s.client, s.options.udp, s.options.tcp, s.options.tcp_remote, s.options.udp_remote ) );
+    &network, s.client, s.options.udp, s.options.tcp, s.options.tcp_remote, s.options.udp_remote, stream ) );
+  if ( stream && !s.client ) {
+    /* the server's end of the stream is started when the client asks for it */
+    const std::vector<std::string> words = s.stream_words;
+    s.forwarding->set_stream_spawner( [words]() { return Network::stream_child( words, false, NULL ); } );
+  }
   s.forwarding->set_verbose( verbose );
   if ( !s.forwarding->set_fragment_parity( s.options.parity ) ) {
     throw Network::NetworkException(
       "Bad fragment parity mode (" + s.options.parity + "): expected auto, always or never", 0 );
   }
-  network.set_sidechannel_sink( s.forwarding->sink() );
+  network.set_sidechannel_sink( s.forwarding->sink(), stream ? Network::CAPABILITY_STREAM : 0 );
+  if ( s.client ) {
+    s.ending = [&network]() { return network.shutdown_in_progress(); };
+    s.end_it = [&network]() { network.start_shutdown(); };
+  }
 }
 
 /* How long the program's loop may wait: `otherwise`, or less if forwarding has a timer due sooner (ms). */
 inline int wait_time( int otherwise )
 {
   Session& s = session();
-  return s.forwarding ? std::min( otherwise, s.forwarding->wait_time() ) : otherwise;
+  if ( !s.forwarding ) {
+    return otherwise;
+  }
+  if ( s.client && !s.stream_words.empty() ) {
+    otherwise = std::min( 50, otherwise ); /* to see the stream's process end */
+  }
+  return std::min( otherwise, s.forwarding->wait_time() );
 }
 
 /* Adds forwarding's descriptors to those the program's loop waits on. */
@@ -115,6 +164,9 @@ void turn( Select& sel )
     }
   }
   s.forwarding->tick();
+  if ( s.client && !s.stream_words.empty() ) {
+    tend_stream();
+  }
 }
 
 /*
@@ -130,7 +182,17 @@ void announce( Transport& network, bool still_connecting )
   if ( s.announced || still_connecting ) {
     return;
   }
-  if ( s.forwarding && !network.peer_can( Network::CAPABILITY_SIDECHANNEL ) ) {
+  const bool stream = !s.stream_words.empty();
+  if ( stream && !network.peer_can( Network::CAPABILITY_STREAM ) ) {
+    /* (REQ8/CMD-3) It has answered, and has not said that it can do what we are here for. */
+    s.announced = true;
+    fputs( "mosh: the server does not do this: it is a stock mosh-server, or one from before streams.\n", stderr );
+    fflush( stderr );
+    s.stream_pid = -1;
+    s.stream_ended = Network::timestamp();
+    return;
+  }
+  if ( !stream && s.forwarding && !network.peer_can( Network::CAPABILITY_SIDECHANNEL ) ) {
     /*
      * (REQ8/CMD-3) The server has answered and has not said that it forwards: a stock mosh, or
      * one of gosh's that was not given these forwards. Said once and plainly, because whoever
@@ -147,8 +209,36 @@ void announce( Transport& network, bool still_connecting )
     return; /* it forwards, and is not ready yet */
   }
   s.announced = true;
+  if ( stream ) {
+    /* The session is up: start our end of the stream, and ask the server for its end. */
+    pid_t pid = 0;
+    const int fd = Network::stream_child( s.stream_words, true, &pid );
+    if ( fd < 0 ) {
+      s.stream_pid = -1;
+      s.stream_ended = Network::timestamp();
+    } else {
+      s.stream_pid = pid;
+      s.forwarding->open_stream( fd ); /* (if it can't be, the process sees its stream end at once) */
+    }
+    return;
+  }
   fputs( s.forwarding ? "mosh: connected; forwarding.\n" : "mosh: connected.\n", stderr );
   fflush( stderr );
+}
+
+/*
+ * The client, for a stream: the status to exit with. We were only the means; what matters is
+ * how the process the stream was for got on: its exit status, or 1 if it never ran.
+ * success: whether the session itself ended cleanly.
+ */
+inline int stream_exit( bool success )
+{
+  Session& s = session();
+  const int status = s.stream_pid == -1 ? s.stream_status : 1;
+  if ( status == 1 && !success ) {
+    fputs( "mosh: the session ended before its work was done.\n", stderr );
+  }
+  return status;
 }
 
 /* Ends forwarding and closes its sockets. Safe to call when there is none. */

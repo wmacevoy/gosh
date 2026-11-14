@@ -43,7 +43,7 @@ tools/build.sh || fail "tools/build.sh"
 
 # The unit tests of gosh's parts, built and run inside the build's copy.
 . tools/env.sh
-for part in forwarding seam command; do
+for part in copy forwarding seam command; do
     if make -C ".build/core/src/$part" check >.build/unit-$part.log 2>&1; then
         echo "unit tests pass: $part ($(grep -c '^PASS:' .build/unit-$part.log))"
     else
@@ -111,10 +111,20 @@ pair() { # LABEL SERVER CLIENT NAME ARGS...
 gosh=.build/bin
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" forward-e2e.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" outage.py
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" copy-cut.py gocp
+if tests/mocp.test "$here/$gosh/gosh-client" "$here/$gosh/gosh-server" gocp gosh >.build/gosh-test.log 2>&1; then
+    echo "gosh passes mocp.test"
+else
+    cat .build/gosh-test.log; stop_ours; fail "gosh with tests/mocp.test"
+fi
 # (this one takes the command first: gosh-client under the name gosh)
 pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-command.py
 # (and this one the stock server last: a host with gosh-server, with only mosh-server, with neither)
 pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-stock.py "$stock_server"
 pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" forward-e2e.py
 pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" forward-e2e.py
+# (with no relay mode this test ends with a file copied each way over a stream)
+pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" headless-smoke.py
+pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" headless-smoke.py
 echo "PASS"

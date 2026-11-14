@@ -40,7 +40,7 @@ bool take_forward_options( const std::vector<std::string>& args,
     for ( size_t at = 1; at < word.size(); at++ ) {
       const char letter = word[at];
 
-      if ( letter == 'L' || letter == 'R' || letter == 'F' ) {
+      if ( letter == 'L' || letter == 'R' || letter == 'F' || letter == 'X' ) {
         /* one of gosh's that takes a value: the rest of this word, or the next word */
         std::string value = word.substr( at + 1 );
         if ( value.empty() ) {
@@ -52,6 +52,11 @@ bool take_forward_options( const std::vector<std::string>& args,
         }
         if ( letter == 'F' ) {
           options.parity = value;
+        } else if ( letter == 'X' ) {
+          options.stream = value;
+          if ( allow_headless ) {
+            options.headless = true; /* a stream has no terminal at the client */
+          }
         } else {
           const bool udp = value == "U";
           if ( udp ) {

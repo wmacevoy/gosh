@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """REQ1/CP-2 and REQ1/CP-3: a copy that is cut off, and run again.
 
-usage: copy-cut.py SERVER CLIENT
+usage: copy-cut.py SERVER CLIENT [COPY]
+
+COPY is the name the client answers to as the copy command: "mocp" for the
+fork, which is the default; "gocp" for gosh (REQ6/NAME-1).
 
 Copies a file to a "server" that is this machine (mocp --local, so no ssh),
 kills the copy part way, and looks at what is there:
@@ -40,8 +43,9 @@ SIZE = 40 * 1000 * 1000   # large enough that a copy on loopback takes several s
 CUT_AT = 4 * 1000 * 1000  # kill the copy once this much has arrived
 PATIENCE = 120            # how long anything may take before the test gives up waiting
 
-if len(sys.argv) != 3:
+if len(sys.argv) not in (3, 4):
     sys.exit(__doc__)
+copy_name = sys.argv[3] if len(sys.argv) > 3 else "mocp"
 server_path, client_path = os.path.realpath(sys.argv[1]), os.path.realpath(sys.argv[2])
 # This run's mark, in the environment of everything it starts, so that what it stops on its way
 # out is its own: another run may be using the same programs at the same time.
@@ -73,7 +77,7 @@ def our_servers():
 
 
 def mocp(source, there):
-    return subprocess.Popen([client_path, "mocp", "-q", "--local", "--server=" + server_path,
+    return subprocess.Popen([client_path, copy_name, "-q", "--local", "--server=" + server_path,
                              source, "127.0.0.1:" + there + "/"],
                             env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

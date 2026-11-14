@@ -28,15 +28,16 @@ takes about three and a half minutes here, more from nothing. In order it checks
    fork tested only from inside, `tests/outage.py` and `tests/copy-cut.py`, and four cases of the NAT lab,
    `tests/nat-lab.py`, which needs `nft` and either root, user namespaces, or sudo);
 6. gosh's own programs pass the tests of what they can do so far (`forward-e2e.py`, `outage.py`,
-   `gosh-command.py`, which goes from the `gosh` command line to a byte at a forward's target, and
+   `headless-smoke.py` with no relay, `mocp.test`, `copy-cut.py`, `gosh-command.py`, which goes from the `gosh` command line to a byte at a forward's target, and
    `gosh-stock.py`, for what `gosh` does with a host that has only a stock mosh),
    and a gosh end works with a pf.7 end each way. These are the tests gosh's parts must pass when they land.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
 `.build/bin`, with the seam applied (`seam/`, eight patches; `src/seam/`) and the fork's forwarding
-and command code carried unchanged (`src/forwarding/`, `src/command/`). So `gosh host` opens a
-session and `gosh-client` and `gosh-server` do forwards (`-L -R -LU -RU -N`), and nothing else of
-gosh's works yet: no relay, copy or stream (queue items 6 to 10). `gosh` asks a host for
+command, stream and copy code carried over (`src/forwarding/`, `src/command/`, `src/copy/`). So
+`gosh host` opens a session, `gosh-client` and `gosh-server` do forwards (`-L -R -LU -RU -N`),
+`gosh --stdio` runs a command over a stream, and `gocp` copies files. Not yet: the relay,
+path-finding and the meetup (queue items 7 and 8). `gosh` asks a host for
 `gosh-server` and then `mosh-server`, and says what a stock one will not do (`REQ8/CMD-3`).
 
 To set up: `git submodule update --init` for `core/`; a stock mosh 1.4.0 installed (Debian and
@@ -97,7 +98,7 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   `seam/` is what gosh changes in it: patches the build applies, in order, to a copy
   (`seam/README.md`).
   `src/` holds gosh's parts, a directory each, named for the part, with a README and the part's
-  unit tests; so far `src/forwarding/`, `src/seam/` and `src/command/`. `tools/` builds and checks; `tests/` holds tests that
+  unit tests; so far `src/forwarding/`, `src/seam/`, `src/command/` and `src/copy/`. `tools/` builds and checks; `tests/` holds tests that
   drive the programs from outside.
 - **Working set:** `docs/`: `REQUIREMENTS_v12.md` (the one in force; v6 to v11 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,

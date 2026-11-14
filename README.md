@@ -5,8 +5,8 @@ fallback and NAT traversal beside it, as comprehensible, tested parts.
 
 **Only the first slice is here.** What builds today is upstream's mosh at a pinned commit, with
 gosh's seam applied and the fork's port forwarding carried over: `gosh-client` and `gosh-server`
-forward ports and still hold a session with a stock mosh, and `gosh host` logs in and opens a
-session (`tools/check.sh`). Relay, copy and the rest are not here yet. gosh is being migrated, part by part, from `wmacevoy/mosh` at
+forward ports and still hold a session with a stock mosh, `gosh host` logs in and opens a session,
+and `gocp` copies files (`tools/check.sh`). The ssh fallback and NAT traversal are not here yet. gosh is being migrated, part by part, from `wmacevoy/mosh` at
 `mosh-1.4.0-pf.7`, which works today and is what gosh is measured against. What gosh must do, and
 what it will not, is `docs/REQUIREMENTS_v12.md`; what is being worked is `docs/QUEUE.md`.
 

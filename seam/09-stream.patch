@@ -1,0 +1,68 @@
+gosh seam 09: A session that exists for a stream.
+
+For:   REQ1/CP-7, REQ1/CP-1. A stream joins a process at each end of a session, and such a
+       session has nobody at a terminal: the client is finished when its process is, and exits
+       with that process's status; the server must not wait for ever on a client that is gone.
+What:  the client, at the end of main, returns the stream's status in place of its own. The
+       server gives a stream's session a week without its client before it gives up, unless a
+       timeout was set. And neither drops its privileges (OpenBSD's pledge) for a stream, because
+       its processes are yet to be started and will do whatever they do.
+Where: the end of main (mosh-client.cc); STMClient::main (stmclient.cc); run_server
+       (mosh-server.cc), after the timeout is read and where it would pledge.
+Kind:  additions, and two conditions that gain a term. Nothing is moved.
+Needs: 07-headless (a stream's client is headless), 08-loop.
+From:  the fork at mosh-1.4.0-pf.7, where the tests were on a member and a local.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/frontend/mosh-client.cc b/src/frontend/mosh-client.cc
+index a85507c..e909e80 100644
+--- a/src/frontend/mosh-client.cc
++++ b/src/frontend/mosh-client.cc
+@@ -213,6 +213,10 @@ int mosh_client_main( int argc, char* argv[] )
+     success = false;
+   }
+ 
++  if ( Gosh::has_stream() ) {
++    return Gosh::stream_exit( success ); /* we were only the means */
++  }
++
+   if ( Gosh::headless() ) {
+     fputs( "mosh: exiting.\n", stderr ); /* (standard output is not ours to write on) */
+   } else {
+diff --git a/src/frontend/mosh-server.cc b/src/frontend/mosh-server.cc
+index 3e3a975..3bf8a8a 100644
+--- a/src/frontend/mosh-server.cc
++++ b/src/frontend/mosh-server.cc
+@@ -406,6 +406,10 @@ static int run_server( const char* desired_ip,
+       network_timeout = 0;
+     }
+   }
++  if ( Gosh::has_stream() && !( timeout_envar && *timeout_envar ) ) {
++    /* nobody is at a terminal to end a stream's session: if its client never comes back, give up after a week */
++    network_timeout = 7 * 24 * 60 * 60;
++  }
+   /* get network signaled idle timeout */
+   long network_signaled_timeout = 0;
+   char* signal_envar = getenv( "MOSH_SERVER_SIGNAL_TMOUT" );
+@@ -647,7 +651,7 @@ static int run_server( const char* desired_ip,
+     /* Drop unnecessary privileges */
+ #ifdef HAVE_PLEDGE
+     /* OpenBSD pledge() syscall */
+-    if ( pledge( "stdio inet tty", NULL ) ) {
++    if ( !Gosh::has_stream() && pledge( "stdio inet tty", NULL ) ) {
+       perror( "pledge() failed" );
+       exit( 1 );
+     }
+diff --git a/src/frontend/stmclient.cc b/src/frontend/stmclient.cc
+index 197f055..eec1b05 100644
+--- a/src/frontend/stmclient.cc
++++ b/src/frontend/stmclient.cc
+@@ -462,7 +462,7 @@ bool STMClient::main( void )
+   /* Drop unnecessary privileges */
+ #ifdef HAVE_PLEDGE
+   /* OpenBSD pledge() syscall */
+-  if ( pledge( "stdio inet tty", NULL ) ) {
++  if ( !Gosh::has_stream() && pledge( "stdio inet tty", NULL ) ) {
+     perror( "pledge() failed" );
+     exit( 1 );
+   }

@@ -14,6 +14,6 @@ and what is said when it is a stock mosh's. For the rest:
 - it reads and sets the environment in the middle of its work (design v1, *Edges*);
 - its usage text and messages still say `mosh` and `mocp`, and its help has leftover Perl in it
   (`docs/FINDINGS.md`, 2026-11-13); the names change in one go with queue item 10;
-- it writes words for copy, the stream and relay (`--copy`, `--stdio`, `--relay`) that gosh's
-  programs do not take yet: only a terminal session and the forwards work through it so far;
+- it writes words for relay (`--relay`) that gosh's programs do not take yet. A terminal session,
+  the forwards, `--stdio` and copies (`gocp`) work through it;
 - its ssh fallback still names `mosh-server` on the host (`--relay`; relay is queue item 7).

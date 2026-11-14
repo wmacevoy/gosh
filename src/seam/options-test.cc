@@ -66,6 +66,12 @@ int main()
   check( "-F sets the parity word, which defaults to auto",
          take( { "-F", "always", "ip", "port" }, "#", true, o, rest, error ) && o.parity == "always"
            && take( { "ip", "port" }, "#", true, o, rest, error ) && o.parity == "auto" );
+  check( "REQ1/CP-7: -X takes a stream's words whole, and at the client means no terminal",
+         take( { "-X", "@sh\x1ftr a-z A-Z", "ip", "port" }, "#", true, o, rest, error ) && o.stream == "@sh\x1ftr a-z A-Z"
+           && o.headless && !o.any() && rest == Words{ "ip", "port" } );
+  check( "at the server -X is taken too, and does not mean headless, which is not the server's",
+         take( { "-X", "@stdio", "--", "sh" }, "@ipcl", false, o, rest, error ) && o.stream == "@stdio" && !o.headless
+           && rest == Words{ "--", "sh" } );
   check( "with nothing of gosh's, the words are untouched and nothing is asked for",
          take( { "-#", "ARGS -L not ours", "-v", "ip", "port" }, "#", true, o, rest, error ) && !o.any() && !o.headless
            && rest == Words{ "-#", "ARGS -L not ours", "-v", "ip", "port" } );

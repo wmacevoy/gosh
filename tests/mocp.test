@@ -9,23 +9,28 @@
 # way), REQ1/CP-4 (not copied again), REQ1/CP-5 (--auto --delete),
 # REQ1/CP-7 (--stdio).
 #
-# usage: mocp.test CLIENT SERVER      (the two programs, by absolute path)
+# usage: mocp.test CLIENT SERVER [COPY COMMAND]
+#   the two programs, by absolute path; and the names the client answers to as the
+#   copy command and the command: "mocp" and "mosh" for the fork, which is the
+#   default; "gocp" and "gosh" for gosh (REQ6/NAME-1)
 #
 # From the fork at mosh-1.4.0-pf.7 (src/tests/mocp.test). Changed here: the
-# programs are arguments, and the locale is set and not searched for, so that it
+# programs and the two names are arguments, and the locale is set and not searched for, so that it
 # needs nothing of the build tree it came from. Seen red in gosh on 2026-11-13:
 # against upstream's programs, which have no mocp, 7 of its 8 checks fail. The
 # one that passes there ("a missing file is an error") asks only for exit status
 # 1, which a program that refuses everything also gives.
 #
 
-[ $# -eq 2 ] || { printf 'usage: mocp.test CLIENT SERVER\n' >&2; exit 2; }
+[ $# -eq 2 ] || [ $# -eq 4 ] || { printf 'usage: mocp.test CLIENT SERVER [COPY COMMAND]\n' >&2; exit 2; }
 client=$1
 server=$2
+copy_name=${3:-mocp}
+command_name=${4:-mosh}
 LC_ALL=C.UTF-8
 export LC_ALL
-mocp="$client mocp --local --server=$server"
-mosh="$client mosh --local --server=$server"
+mocp="$client $copy_name --local --server=$server"
+mosh="$client $command_name --local --server=$server"
 
 work=$(mktemp -d 2>/dev/null || mktemp -d -t mocp-test)
 auto=

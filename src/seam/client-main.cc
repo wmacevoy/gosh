@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "src/command/moshwrapper.h"
+#include "src/forwarding/streamchild.h"
 #include "src/seam/core-main.h"
 #include "src/seam/hooks.h"
 #include "src/seam/options.h"
@@ -55,6 +56,11 @@ int main( int argc, char* argv[] )
   /* "#": the core's one option that takes a value (the original command line, which it ignores) */
   if ( !Gosh::take_forward_options( args, "#", true, true, options, rest, error ) ) {
     fprintf( stderr, "%s: %s\n", name.c_str(), error.c_str() );
+    return 1;
+  }
+
+  if ( !options.stream.empty() && !Network::stream_words_valid( Network::stream_words( options.stream ) ) ) {
+    fprintf( stderr, "%s: -X: not something that can be started\n", name.c_str() );
     return 1;
   }
 
