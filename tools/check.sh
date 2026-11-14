@@ -43,7 +43,7 @@ tools/build.sh || fail "tools/build.sh"
 
 # The unit tests of gosh's parts, built and run inside the build's copy.
 . tools/env.sh
-for part in copy forwarding seam command; do
+for part in copy forwarding relay seam command; do
     if make -C ".build/core/src/$part" check >.build/unit-$part.log 2>&1; then
         echo "unit tests pass: $part ($(grep -c '^PASS:' .build/unit-$part.log))"
     else
@@ -113,6 +113,14 @@ gosh=.build/bin
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" forward-e2e.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" outage.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py
+# The relay (REQ1/PATH-1, REQ1/PATH-2), with path-finding off until it lands: so not "punched".
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 always
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 blocked
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 translated
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 returned
+if python3 -c 'import socket; socket.socket(socket.AF_INET6, socket.SOCK_DGRAM).bind(("::1", 0))' 2>/dev/null; then
+    pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py ::1 blocked
+fi
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" copy-cut.py gocp
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" copy-liar.py
 if tests/mocp.test "$here/$gosh/gosh-client" "$here/$gosh/gosh-server" gocp gosh >.build/gosh-test.log 2>&1; then
@@ -129,4 +137,7 @@ pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" fo
 # (with no relay mode this test ends with a file copied each way over a stream)
 pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" headless-smoke.py
 pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" headless-smoke.py
+# (the remote relay is the server's program: each of these has one end's relay from each)
+pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" headless-smoke.py 127.0.0.1 always
+pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 always
 echo "PASS"

@@ -20,11 +20,21 @@
 #include "src/seam/core-main.h"
 #include "src/seam/hooks.h"
 #include "src/seam/options.h"
+#include "src/relay/relay.h"
 
 int main( int argc, char* argv[] )
 {
   const std::string name( argc > 0 ? argv[0] : "gosh-server" );
   std::vector<std::string> args( argv + ( argc > 0 ? 1 : 0 ), argv + argc );
+
+  /*
+   * "gosh-server relay ADDRESS PORT" is not a server at all: it carries a session's datagrams
+   * between an ssh connection and a server already running here, for when they cannot get here
+   * by UDP (src/relay/relay.h; the fork's mosh-server.cc).
+   */
+  if ( args.size() == 3 && args[0] == "relay" ) {
+    return Network::relay_remote( args[1].c_str(), args[2].c_str() );
+  }
 
   if ( !args.empty() && args[0] == "new" ) {
     Gosh::ForwardOptions options;

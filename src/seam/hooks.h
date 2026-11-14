@@ -23,6 +23,7 @@
 #include "src/forwarding/forwarding.h"
 #include "src/forwarding/streamchild.h"
 #include "src/seam/options.h"
+#include "src/relay/start.h"
 
 /*
  * The seam: what the core's two programs call, at the places the seam's patches
@@ -70,9 +71,21 @@ struct Session
   std::function<void()> end_it;         /* begin to end it */
   bool loop_returned;                   /* the client's loop came to its end, and was not thrown out of */
 
+  /* the relay (the client's): whether, with what, to where; and whether it was started (REQ1/PATH-1) */
+  RelayMode relay_mode;
+  std::vector<std::string> relay_command; /* starts the remote relay, through ssh as a rule */
+  std::string server_ip, server_port;     /* where the server is, as the client was told */
+  bool relay_engaged;
+  int relay_keep_alive; /* the local relay runs until this closes, which it does when we exit */
+  uint64_t started_at;
+  std::function<uint64_t()> last_heard; /* when the server was last heard (set by session_started) */
+  std::function<void( const Network::Addr&, socklen_t )> send_elsewhere; /* send to here from now on */
+
   Session()
     : options(), client( false ), forwarding(), watched(), announced( false ), stream_words(), stream_pid( 0 ),
-      stream_status( 1 ), stream_ended( 0 ), ending(), end_it(), loop_returned( false )
+      stream_status( 1 ), stream_ended( 0 ), ending(), end_it(), loop_returned( false ), relay_mode( RELAY_NEVER ),
+      relay_command(), server_ip(), server_port(), relay_engaged( false ), relay_keep_alive( -1 ), started_at( 0 ),
+      last_heard(), send_elsewhere()
   {}
 };
 
@@ -80,6 +93,18 @@ Session& session( void );
 
 /* The client, for a stream: sees whether its process has ended, and ends the session when the stream is over. */
 void tend_stream( void );
+
+/* The client: starts the local relay, and talks to the server through it from now on. Once. */
+void engage_relay( void );
+
+/* The client: if the server has gone quiet and there is a relay to start, starts it (start.h has the rule). */
+void consider_relay( void );
+
+/* Whether this program may yet start a process: a stream's, or the relay. (It must not give up the right to.) */
+inline bool may_start_processes( void )
+{
+  return !session().options.stream.empty() || session().relay_mode != RELAY_NEVER;
+}
 
 /* Whether this session is for a stream. */
 inline bool has_stream( void )
@@ -106,6 +131,16 @@ void session_started( Transport& network, unsigned int verbose )
   const bool stream = !s.options.stream.empty();
   /* (only then: the words of an empty string are one empty word, which is not "no stream") */
   s.stream_words = stream ? Network::stream_words( s.options.stream ) : std::vector<std::string>();
+  if ( s.client ) {
+    s.ending = [&network]() { return network.shutdown_in_progress(); };
+    s.end_it = [&network]() { network.start_shutdown(); };
+    s.last_heard = [&network]() { return network.last_heard(); };
+    s.send_elsewhere = [&network]( const Network::Addr& to, socklen_t len ) { network.set_remote_addr( to, len ); };
+    s.started_at = Network::timestamp();
+    if ( s.relay_mode == RELAY_ALWAYS ) {
+      engage_relay();
+    }
+  }
   if ( !s.options.any() && !stream ) {
     return;
   }
@@ -122,10 +157,6 @@ void session_started( Transport& network, unsigned int verbose )
       "Bad fragment parity mode (" + s.options.parity + "): expected auto, always or never", 0 );
   }
   network.set_sidechannel_sink( s.forwarding->sink(), stream ? Network::CAPABILITY_STREAM : 0 );
-  if ( s.client ) {
-    s.ending = [&network]() { return network.shutdown_in_progress(); };
-    s.end_it = [&network]() { network.start_shutdown(); };
-  }
 }
 
 /* How long the program's loop may wait: `otherwise`, or less if forwarding has a timer due sooner (ms). */
@@ -157,6 +188,9 @@ template<class Select>
 void turn( Select& sel )
 {
   Session& s = session();
+  if ( s.client ) {
+    consider_relay();
+  }
   if ( !s.forwarding ) {
     return;
   }

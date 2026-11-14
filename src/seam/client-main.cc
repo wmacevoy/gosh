@@ -17,6 +17,7 @@
  *                 it is the command's way of learning which address ssh reached.
  */
 
+#include <cstdlib>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -66,5 +67,32 @@ int main( int argc, char* argv[] )
 
   Gosh::session().client = true;
   Gosh::session().options = options;
+
+  /*
+   * How to reach the server if UDP will not get there (the fork's mosh-client.cc): a command
+   * that starts the remote relay on it, through ssh as a rule, given as its words separated by
+   * the character 0x1F so that no shell is needed to take it apart; and whether to use it when
+   * needed or from the start. The command writes both (src/command).
+   */
+  std::vector<std::string> relay_command;
+  if ( const char* command = getenv( "MOSH_RELAY_COMMAND" ) ) {
+    std::string word;
+    for ( const char* c = command; *c; c++ ) {
+      if ( *c == '\x1f' ) {
+        relay_command.push_back( word );
+        word.clear();
+      } else {
+        word.push_back( *c );
+      }
+    }
+    relay_command.push_back( word );
+  }
+  Gosh::session().relay_command = relay_command;
+  Gosh::session().relay_mode = Gosh::relay_mode( getenv( "MOSH_RELAY" ) ? getenv( "MOSH_RELAY" ) : "auto", !relay_command.empty() );
+  if ( rest.size() >= 2 ) { /* the core's client is given the server's address and port last */
+    Gosh::session().server_ip = rest[rest.size() - 2];
+    Gosh::session().server_port = rest[rest.size() - 1];
+  }
+
   return Gosh::call_core_main( mosh_client_main, name, rest );
 }
