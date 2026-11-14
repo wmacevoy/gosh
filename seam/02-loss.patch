@@ -1,0 +1,223 @@
+gosh seam 02: Each end measures how much of what it is sent does not arrive, and tells the other.
+
+For:   REQ1/FWD-2. A UDP datagram too large for one frame is sent in fragments, and whether to add
+       parity to them follows the loss the path really has. mosh already numbers every datagram,
+       so the receiver can count the ones missing; only the sender can use the answer.
+What:  Connection counts, from the sequence numbers it already reads in recv_one, the share of
+       the peer's datagrams that did not arrive (measure_loss; get_recv_loss). The sender reports
+       it in a second optional field, recv_loss (field 9), only alongside capabilities, so a
+       stock mosh is never sent it. The receiver keeps what the peer reported (sidechannel_loss).
+Where: Connection (two constructors, recv_one, and a new function beside port());
+       transportinstruction.proto; TransportSender::send_in_fragments; Fragmenter::make_fragments;
+       Transport (its constructors and recv).
+Kind:  additions only. It must be inside recv_one: the sequence number is a local there.
+Needs: 01-capabilities.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+From:  the fork, wmacevoy/mosh at mosh-1.4.0-pf.7; the text added is the fork's, unchanged.
+
+diff --git a/src/network/network.cc b/src/network/network.cc
+index 8a6118e..501a606 100644
+--- a/src/network/network.cc
++++ b/src/network/network.cc
+@@ -32,6 +32,7 @@
+ 
+ #include "src/include/config.h"
+ 
++#include <algorithm>
+ #include <cassert>
+ #include <cerrno>
+ #include <cstring>
+@@ -231,7 +232,8 @@ Connection::Connection( const char* desired_ip, const char* desired_port ) /* se
+   : socks(), has_remote_addr( false ), remote_addr(), remote_addr_len( 0 ), server( true ), MTU( DEFAULT_SEND_MTU ),
+     key(), session( key ), direction( TO_CLIENT ), saved_timestamp( -1 ), saved_timestamp_received_at( 0 ),
+     expected_receiver_seq( 0 ), last_heard( -1 ), last_port_choice( -1 ), last_roundtrip_success( -1 ),
+-    RTT_hit( false ), SRTT( 1000 ), RTTVAR( 500 ), send_error()
++    RTT_hit( false ), SRTT( 1000 ), RTTVAR( 500 ), loss_start( 0 ), loss_received( 0 ), loss_since( 0 ),
++    recv_loss_valid( false ), recv_loss( 0 ), send_error()
+ {
+   setup();
+ 
+@@ -342,7 +344,8 @@ Connection::Connection( const char* key_str, const char* ip, const char* port )
+   : socks(), has_remote_addr( false ), remote_addr(), remote_addr_len( 0 ), server( false ),
+     MTU( DEFAULT_SEND_MTU ), key( key_str ), session( key ), direction( TO_SERVER ), saved_timestamp( -1 ),
+     saved_timestamp_received_at( 0 ), expected_receiver_seq( 0 ), last_heard( -1 ), last_port_choice( -1 ),
+-    last_roundtrip_success( -1 ), RTT_hit( false ), SRTT( 1000 ), RTTVAR( 500 ), send_error()
++    last_roundtrip_success( -1 ), RTT_hit( false ), SRTT( 1000 ), RTTVAR( 500 ), loss_start( 0 ),
++    loss_received( 0 ), loss_since( 0 ), recv_loss_valid( false ), recv_loss( 0 ), send_error()
+ {
+   setup();
+ 
+@@ -481,10 +484,12 @@ std::string Connection::recv_one( int sock_to_recv )
+ 
+   if ( p.seq
+        < expected_receiver_seq ) { /* don't use (but do return) out-of-order packets for timestamp or targeting */
++    measure_loss( p.seq );
+     return p.payload;
+   }
+   expected_receiver_seq = p.seq + 1; /* this is security-sensitive because a replay attack could otherwise
+                                         screw up the timestamp and targeting */
++  measure_loss( p.seq );
+ 
+   if ( p.timestamp != uint16_t( -1 ) ) {
+     saved_timestamp = p.timestamp;
+@@ -544,6 +549,33 @@ std::string Connection::recv_one( int sock_to_recv )
+   return p.payload;
+ }
+ 
++/* Called for each datagram received, after expected_receiver_seq has been brought up to date. */
++void Connection::measure_loss( uint64_t seq )
++{
++  const uint64_t now = timestamp();
++
++  if ( loss_since == 0 ) {
++    loss_since = now;
++  }
++  if ( seq >= loss_start ) {
++    loss_received++; /* (one from before this measurement began was counted as lost then) */
++  }
++
++  const uint64_t span = expected_receiver_seq - loss_start;
++  if ( now - loss_since < LOSS_INTERVAL || span < LOSS_MIN_SPAN ) {
++    return;
++  }
++
++  /* received can exceed span only if datagrams are being duplicated or replayed */
++  const double sample = 1.0 - static_cast<double>( std::min( loss_received, span ) ) / span;
++  recv_loss = recv_loss_valid ? ( recv_loss + sample ) / 2 : sample;
++  recv_loss_valid = true;
++
++  loss_start = expected_receiver_seq;
++  loss_received = 0;
++  loss_since = now;
++}
++
+ std::string Connection::port( void ) const
+ {
+   Addr local_addr;
+diff --git a/src/network/network.h b/src/network/network.h
+index 00125f5..9fe0c16 100644
+--- a/src/network/network.h
++++ b/src/network/network.h
+@@ -193,6 +193,21 @@ private:
+   double SRTT;
+   double RTTVAR;
+ 
++  /*
++   * Loss of what we receive.  Every datagram the peer sends carries the
++   * next sequence number, so the ones missing from those we get were
++   * lost.  (The transport has never needed to know; port forwarding does.)
++   */
++  static const uint64_t LOSS_INTERVAL = 1000; /* ms: measure no more often than this... */
++  static const uint64_t LOSS_MIN_SPAN = 20;   /* ...and over at least this many datagrams */
++  uint64_t loss_start;    /* sequence number at which the current measurement began */
++  uint64_t loss_received; /* how many from there on have arrived */
++  uint64_t loss_since;
++  bool recv_loss_valid;
++  double recv_loss;
++
++  void measure_loss( uint64_t seq );
++
+   /* Error from send()/sendto(). */
+   std::string send_error;
+ 
+@@ -231,6 +246,9 @@ public:
+   uint64_t timeout( void ) const;
+   double get_SRTT( void ) const { return SRTT; }
+ 
++  /* The fraction (0 to 1) of the peer's recent datagrams that did not reach us. */
++  double get_recv_loss( void ) const { return recv_loss; }
++
+   const Addr& get_remote_addr( void ) const { return remote_addr; }
+   socklen_t get_remote_addr_len( void ) const { return remote_addr_len; }
+ 
+diff --git a/src/network/networktransport-impl.h b/src/network/networktransport-impl.h
+index 778a8ef..8d3b16b 100644
+--- a/src/network/networktransport-impl.h
++++ b/src/network/networktransport-impl.h
+@@ -47,7 +47,7 @@ Transport<MyState, RemoteState>::Transport( MyState& initial_state,
+   : connection( desired_ip, desired_port ), sender( &connection, initial_state ),
+     received_states( 1, TimestampedState<RemoteState>( timestamp(), 0, initial_remote ) ),
+     receiver_quench_timer( 0 ), last_receiver_state( initial_remote ), fragments(), verbose( 0 ),
+-    peer_capabilities( 0 )
++    peer_capabilities( 0 ), peer_recv_loss( 0 )
+ {
+   /* server */
+ }
+@@ -61,7 +61,7 @@ Transport<MyState, RemoteState>::Transport( MyState& initial_state,
+   : connection( key_str, ip, port ), sender( &connection, initial_state ),
+     received_states( 1, TimestampedState<RemoteState>( timestamp(), 0, initial_remote ) ),
+     receiver_quench_timer( 0 ), last_receiver_state( initial_remote ), fragments(), verbose( 0 ),
+-    peer_capabilities( 0 )
++    peer_capabilities( 0 ), peer_recv_loss( 0 )
+ {
+   /* client */
+ }
+@@ -80,6 +80,9 @@ void Transport<MyState, RemoteState>::recv( void )
+     }
+ 
+     peer_capabilities = inst.capabilities();
++    if ( inst.has_recv_loss() ) {
++      peer_recv_loss = std::min( inst.recv_loss(), 10000u ) / 10000.0;
++    }
+ 
+     sender.process_acknowledgment_through( inst.ack_num() );
+ 
+diff --git a/src/network/networktransport.h b/src/network/networktransport.h
+index d56b409..25d36b6 100644
+--- a/src/network/networktransport.h
++++ b/src/network/networktransport.h
+@@ -65,6 +65,7 @@ private:
+   unsigned int verbose;
+ 
+   uint32_t peer_capabilities;
++  double peer_recv_loss; /* how much of what we send the peer says it is missing */
+ 
+ public:
+   Transport( MyState& initial_state,
+@@ -133,6 +134,8 @@ public:
+ 
+   /* Whether the peer has said it can do this (a CAPABILITY bit).  Not known until it has been heard from. */
+   bool peer_can( uint32_t capability ) const { return ( peer_capabilities & capability ) == capability; }
++
++  double sidechannel_loss( void ) const { return peer_recv_loss; }
+ };
+ }
+ 
+diff --git a/src/network/transportfragment.cc b/src/network/transportfragment.cc
+index d7a3270..475100b 100644
+--- a/src/network/transportfragment.cc
++++ b/src/network/transportfragment.cc
+@@ -161,6 +161,7 @@ std::vector<Fragment> Fragmenter::make_fragments( const Instruction& inst, size_
+        || ( inst.throwaway_num() != last_instruction.throwaway_num() )
+        || ( inst.chaff() != last_instruction.chaff() )
+        || ( inst.capabilities() != last_instruction.capabilities() )
++       || ( inst.recv_loss() != last_instruction.recv_loss() )
+        || ( inst.protocol_version() != last_instruction.protocol_version() ) || ( last_MTU != MTU ) ) {
+     next_instruction_id++;
+   }
+diff --git a/src/network/transportsender-impl.h b/src/network/transportsender-impl.h
+index dfb9286..356cde4 100644
+--- a/src/network/transportsender-impl.h
++++ b/src/network/transportsender-impl.h
+@@ -316,6 +316,8 @@ void TransportSender<MyState>::send_in_fragments( const std::string& diff, uint6
+   inst.set_chaff( make_chaff() );
+   if ( capabilities ) {
+     inst.set_capabilities( capabilities );
++    /* a peer that forwards for us wants to know how much of it is getting through */
++    inst.set_recv_loss( lrint( connection->get_recv_loss() * 10000 ) );
+   }
+ 
+   if ( new_num == uint64_t( -1 ) ) {
+diff --git a/src/protobufs/transportinstruction.proto b/src/protobufs/transportinstruction.proto
+index d4ed2f2..903afcd 100644
+--- a/src/protobufs/transportinstruction.proto
++++ b/src/protobufs/transportinstruction.proto
+@@ -19,4 +19,8 @@ message Instruction {
+   /* Optional features this end supports (see src/network/sidechannel.h).
+      Unknown to, and ignored by, older peers. */
+   optional uint32 capabilities = 8;
++
++  /* Share of the datagrams sent to this end that did not arrive, lately,
++     in parts per 10000.  Only sent along with capabilities. */
++  optional uint32 recv_loss = 9;
+ }

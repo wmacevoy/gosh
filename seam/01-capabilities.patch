@@ -1,0 +1,141 @@
+gosh seam 01: Each end says what it can do, in mosh's own instruction.
+
+For:   REQ10/SHAPE-1, REQ8/CMD-3. A stock mosh must never be sent anything it would misread, and a
+       user must be told what the other end cannot do. So before gosh sends anything of its own it
+       has to know the other end is a gosh; this is how it is told.
+What:  an optional field, capabilities, in Instruction (field 8; an end that does not know the
+       field ignores it). The sender holds the value and puts it in each instruction when it is
+       not zero; a change in it makes a new instruction; the receiver keeps what the peer said
+       (peer_can). Nothing sets it yet, so with this patch alone nothing on the wire changes.
+Where: transportinstruction.proto; TransportSender (its constructor and send_in_fragments);
+       Fragmenter::make_fragments; Transport (its constructors and recv).
+Kind:  additions only. No line of the core is moved or reshaped.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+From:  the fork, wmacevoy/mosh at mosh-1.4.0-pf.7; the text added is the fork's, unchanged.
+
+diff --git a/src/network/networktransport-impl.h b/src/network/networktransport-impl.h
+index 2a088bc..778a8ef 100644
+--- a/src/network/networktransport-impl.h
++++ b/src/network/networktransport-impl.h
+@@ -46,7 +46,8 @@ Transport<MyState, RemoteState>::Transport( MyState& initial_state,
+                                             const char* desired_port )
+   : connection( desired_ip, desired_port ), sender( &connection, initial_state ),
+     received_states( 1, TimestampedState<RemoteState>( timestamp(), 0, initial_remote ) ),
+-    receiver_quench_timer( 0 ), last_receiver_state( initial_remote ), fragments(), verbose( 0 )
++    receiver_quench_timer( 0 ), last_receiver_state( initial_remote ), fragments(), verbose( 0 ),
++    peer_capabilities( 0 )
+ {
+   /* server */
+ }
+@@ -59,7 +60,8 @@ Transport<MyState, RemoteState>::Transport( MyState& initial_state,
+                                             const char* port )
+   : connection( key_str, ip, port ), sender( &connection, initial_state ),
+     received_states( 1, TimestampedState<RemoteState>( timestamp(), 0, initial_remote ) ),
+-    receiver_quench_timer( 0 ), last_receiver_state( initial_remote ), fragments(), verbose( 0 )
++    receiver_quench_timer( 0 ), last_receiver_state( initial_remote ), fragments(), verbose( 0 ),
++    peer_capabilities( 0 )
+ {
+   /* client */
+ }
+@@ -77,6 +79,8 @@ void Transport<MyState, RemoteState>::recv( void )
+       throw NetworkException( "mosh protocol version mismatch", 0 );
+     }
+ 
++    peer_capabilities = inst.capabilities();
++
+     sender.process_acknowledgment_through( inst.ack_num() );
+ 
+     /* inform network layer of roundtrip (end-to-end-to-end) connectivity */
+diff --git a/src/network/networktransport.h b/src/network/networktransport.h
+index 1b09a63..d56b409 100644
+--- a/src/network/networktransport.h
++++ b/src/network/networktransport.h
+@@ -64,6 +64,8 @@ private:
+   FragmentAssembly fragments;
+   unsigned int verbose;
+ 
++  uint32_t peer_capabilities;
++
+ public:
+   Transport( MyState& initial_state,
+              RemoteState& initial_remote,
+@@ -128,6 +130,9 @@ public:
+   socklen_t get_remote_addr_len( void ) const { return connection.get_remote_addr_len(); }
+ 
+   std::string& get_send_error( void ) { return connection.get_send_error(); }
++
++  /* Whether the peer has said it can do this (a CAPABILITY bit).  Not known until it has been heard from. */
++  bool peer_can( uint32_t capability ) const { return ( peer_capabilities & capability ) == capability; }
+ };
+ }
+ 
+diff --git a/src/network/transportfragment.cc b/src/network/transportfragment.cc
+index 427f2c2..d7a3270 100644
+--- a/src/network/transportfragment.cc
++++ b/src/network/transportfragment.cc
+@@ -160,6 +160,7 @@ std::vector<Fragment> Fragmenter::make_fragments( const Instruction& inst, size_
+        || ( inst.ack_num() != last_instruction.ack_num() )
+        || ( inst.throwaway_num() != last_instruction.throwaway_num() )
+        || ( inst.chaff() != last_instruction.chaff() )
++       || ( inst.capabilities() != last_instruction.capabilities() )
+        || ( inst.protocol_version() != last_instruction.protocol_version() ) || ( last_MTU != MTU ) ) {
+     next_instruction_id++;
+   }
+diff --git a/src/network/transportsender-impl.h b/src/network/transportsender-impl.h
+index 69921d3..dfb9286 100644
+--- a/src/network/transportsender-impl.h
++++ b/src/network/transportsender-impl.h
+@@ -52,8 +52,8 @@ TransportSender<MyState>::TransportSender( Connection* s_connection, MyState& in
+     sent_states( 1, TimestampedState<MyState>( timestamp(), 0, initial_state ) ),
+     assumed_receiver_state( sent_states.begin() ), fragmenter(), next_ack_time( timestamp() ),
+     next_send_time( timestamp() ), verbose( 0 ), shutdown_in_progress( false ), shutdown_tries( 0 ),
+-    shutdown_start( -1 ), ack_num( 0 ), pending_data_ack( false ), SEND_MINDELAY( 8 ), last_heard( 0 ), prng(),
+-    mindelay_clock( -1 )
++    shutdown_start( -1 ), ack_num( 0 ), capabilities( 0 ), pending_data_ack( false ), SEND_MINDELAY( 8 ),
++    last_heard( 0 ), prng(), mindelay_clock( -1 )
+ {}
+ 
+ /* Try to send roughly two frames per RTT, bounded by limits on frame rate */
+@@ -314,6 +314,9 @@ void TransportSender<MyState>::send_in_fragments( const std::string& diff, uint6
+   inst.set_throwaway_num( sent_states.front().num );
+   inst.set_diff( diff );
+   inst.set_chaff( make_chaff() );
++  if ( capabilities ) {
++    inst.set_capabilities( capabilities );
++  }
+ 
+   if ( new_num == uint64_t( -1 ) ) {
+     shutdown_tries++;
+diff --git a/src/network/transportsender.h b/src/network/transportsender.h
+index c0f48cc..7533f21 100644
+--- a/src/network/transportsender.h
++++ b/src/network/transportsender.h
+@@ -95,6 +95,7 @@ private:
+ 
+   /* information about receiver state */
+   uint64_t ack_num;
++  uint32_t capabilities; /* advertised to the peer when nonzero */
+   bool pending_data_ack;
+ 
+   unsigned int SEND_MINDELAY; /* ms to collect all input */
+@@ -122,6 +123,7 @@ public:
+ 
+   /* Executed upon entry to new receiver state */
+   void set_ack_num( uint64_t s_ack_num );
++  void set_capabilities( uint32_t s_capabilities ) { capabilities = s_capabilities; }
+ 
+   /* Accelerate reply ack */
+   void set_data_ack( void ) { pending_data_ack = true; }
+diff --git a/src/protobufs/transportinstruction.proto b/src/protobufs/transportinstruction.proto
+index b08e7b0..d4ed2f2 100644
+--- a/src/protobufs/transportinstruction.proto
++++ b/src/protobufs/transportinstruction.proto
+@@ -15,4 +15,8 @@ message Instruction {
+   optional bytes diff = 6;
+ 
+   optional bytes chaff = 7;
++
++  /* Optional features this end supports (see src/network/sidechannel.h).
++     Unknown to, and ignored by, older peers. */
++  optional uint32 capabilities = 8;
+ }

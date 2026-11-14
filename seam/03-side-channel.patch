@@ -1,0 +1,309 @@
+gosh seam 03: The side channel: sealed datagrams between the two ends, beside state synchronisation.
+
+For:   REQ1/FWD-1, REQ1/FWD-2, REQ1/FWD-3 (forwarding rides on it), and REQ1/PATH-1 (when the
+       server was last heard decides when the relay starts).
+What:  a new file, sidechannel.h, with the two interfaces (a sink that receives payloads, a link
+       that sends them), the first byte that marks a payload (0xFF, which a transport fragment
+       cannot begin with), the 10 s after which the peer counts as out of contact, and the
+       capability bits. Transport becomes a link: in recv a payload that begins 0xFF goes to the
+       sink and never to state synchronisation; sidechannel_send sends one, and only once the
+       peer has advertised the capability, so a stock mosh is never sent one. Connection says
+       when it last heard the peer (get_last_heard).
+Where: Transport (class head, members, recv, new functions); Connection (one getter).
+Kind:  additions, and one change of kind: Transport gains a base class and so loses its implicit
+       copy, which nothing used (it is now declared private and not defined). The test in recv
+       must be inside it: the connection is private to Transport, and the next line would build a
+       fragment from the payload.
+Needs: 01-capabilities, 02-loss.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+From:  the fork, wmacevoy/mosh at mosh-1.4.0-pf.7; the text added is the fork's, unchanged.
+
+diff --git a/src/network/network.h b/src/network/network.h
+index 9fe0c16..c16a510 100644
+--- a/src/network/network.h
++++ b/src/network/network.h
+@@ -246,6 +246,9 @@ public:
+   uint64_t timeout( void ) const;
+   double get_SRTT( void ) const { return SRTT; }
+ 
++  /* When a datagram last arrived from the peer; uint64_t( -1 ) if none has. */
++  uint64_t get_last_heard( void ) const { return last_heard; }
++
+   /* The fraction (0 to 1) of the peer's recent datagrams that did not reach us. */
+   double get_recv_loss( void ) const { return recv_loss; }
+ 
+diff --git a/src/network/networktransport-impl.h b/src/network/networktransport-impl.h
+index 8d3b16b..a8feb3d 100644
+--- a/src/network/networktransport-impl.h
++++ b/src/network/networktransport-impl.h
+@@ -47,7 +47,7 @@ Transport<MyState, RemoteState>::Transport( MyState& initial_state,
+   : connection( desired_ip, desired_port ), sender( &connection, initial_state ),
+     received_states( 1, TimestampedState<RemoteState>( timestamp(), 0, initial_remote ) ),
+     receiver_quench_timer( 0 ), last_receiver_state( initial_remote ), fragments(), verbose( 0 ),
+-    peer_capabilities( 0 ), peer_recv_loss( 0 )
++    sidechannel_sink( NULL ), peer_capabilities( 0 ), peer_recv_loss( 0 )
+ {
+   /* server */
+ }
+@@ -61,7 +61,7 @@ Transport<MyState, RemoteState>::Transport( MyState& initial_state,
+   : connection( key_str, ip, port ), sender( &connection, initial_state ),
+     received_states( 1, TimestampedState<RemoteState>( timestamp(), 0, initial_remote ) ),
+     receiver_quench_timer( 0 ), last_receiver_state( initial_remote ), fragments(), verbose( 0 ),
+-    peer_capabilities( 0 ), peer_recv_loss( 0 )
++    sidechannel_sink( NULL ), peer_capabilities( 0 ), peer_recv_loss( 0 )
+ {
+   /* client */
+ }
+@@ -70,6 +70,15 @@ template<class MyState, class RemoteState>
+ void Transport<MyState, RemoteState>::recv( void )
+ {
+   std::string s( connection.recv() );
++
++  if ( !s.empty() && static_cast<uint8_t>( s[0] ) == SIDECHANNEL_MAGIC ) {
++    /* not a transport fragment; bypasses state synchronization entirely */
++    if ( sidechannel_sink ) {
++      sidechannel_sink->sidechannel_recv( s );
++    }
++    return;
++  }
++
+   Fragment frag( s );
+ 
+   if ( fragments.add_fragment( frag ) ) { /* complete packet */
+@@ -181,6 +190,18 @@ void Transport<MyState, RemoteState>::recv( void )
+   }
+ }
+ 
++template<class MyState, class RemoteState>
++void Transport<MyState, RemoteState>::sidechannel_send( const std::string& payload )
++{
++  assert( !payload.empty() && static_cast<uint8_t>( payload[0] ) == SIDECHANNEL_MAGIC );
++
++  if ( !sidechannel_ready() || payload.size() > sidechannel_max_payload() ) {
++    return;
++  }
++
++  connection.send( payload );
++}
++
+ /* The sender uses throwaway_num to tell us the earliest received state that we need to keep around */
+ template<class MyState, class RemoteState>
+ void Transport<MyState, RemoteState>::process_throwaway_until( uint64_t throwaway_num )
+diff --git a/src/network/networktransport.h b/src/network/networktransport.h
+index 25d36b6..961a518 100644
+--- a/src/network/networktransport.h
++++ b/src/network/networktransport.h
+@@ -40,12 +40,13 @@
+ #include <vector>
+ 
+ #include "src/network/network.h"
++#include "src/network/sidechannel.h"
+ #include "src/network/transportsender.h"
+ #include "transportfragment.h"
+ 
+ namespace Network {
+ template<class MyState, class RemoteState>
+-class Transport
++class Transport : public SideChannelLink
+ {
+ private:
+   /* the underlying, encrypted network connection */
+@@ -64,9 +65,15 @@ private:
+   FragmentAssembly fragments;
+   unsigned int verbose;
+ 
++  /* side channel (see sidechannel.h) */
++  SideChannelSink* sidechannel_sink;
+   uint32_t peer_capabilities;
+   double peer_recv_loss; /* how much of what we send the peer says it is missing */
+ 
++  /* unused */
++  Transport( const Transport& );
++  Transport& operator=( const Transport& );
++
+ public:
+   Transport( MyState& initial_state,
+              RemoteState& initial_remote,
+@@ -132,10 +139,39 @@ public:
+ 
+   std::string& get_send_error( void ) { return connection.get_send_error(); }
+ 
++  /* Enable the side channel: advertise it to the peer and deliver what arrives to the sink. */
++  void set_sidechannel_sink( SideChannelSink* s_sink, uint32_t more_capabilities = 0 )
++  {
++    sidechannel_sink = s_sink;
++    sender.set_capabilities( s_sink ? ( CAPABILITY_SIDECHANNEL | more_capabilities ) : 0 );
++  }
++
+   /* Whether the peer has said it can do this (a CAPABILITY bit).  Not known until it has been heard from. */
+   bool peer_can( uint32_t capability ) const { return ( peer_capabilities & capability ) == capability; }
+ 
++  bool sidechannel_ready( void ) const
++  {
++    return sidechannel_sink && ( peer_capabilities & CAPABILITY_SIDECHANNEL ) && connection.get_has_remote_addr()
++           && !sender.get_shutdown_in_progress();
++  }
++
++  size_t sidechannel_max_payload( void ) const
++  {
++    return connection.get_MTU() - Network::Connection::ADDED_BYTES - Crypto::Session::ADDED_BYTES;
++  }
++
++  void sidechannel_send( const std::string& payload );
++
+   double sidechannel_loss( void ) const { return peer_recv_loss; }
++
++  /* When anything last arrived from the peer; uint64_t( -1 ) if nothing has. */
++  uint64_t last_heard( void ) const { return connection.get_last_heard(); }
++
++  bool sidechannel_connected( void ) const
++  {
++    const uint64_t heard = connection.get_last_heard();
++    return heard != uint64_t( -1 ) && timestamp() - heard < SIDECHANNEL_QUIET;
++  }
+ };
+ }
+ 
+diff --git a/src/network/sidechannel.h b/src/network/sidechannel.h
+new file mode 100644
+index 0000000..5979504
+--- /dev/null
++++ b/src/network/sidechannel.h
+@@ -0,0 +1,137 @@
++/*
++    Mosh: the mobile shell
++    Copyright 2012 Keith Winstein
++
++    This program is free software: you can redistribute it and/or modify
++    it under the terms of the GNU General Public License as published by
++    the Free Software Foundation, either version 3 of the License, or
++    (at your option) any later version.
++
++    This program is distributed in the hope that it will be useful,
++    but WITHOUT ANY WARRANTY; without even the implied warranty of
++    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++    GNU General Public License for more details.
++
++    You should have received a copy of the GNU General Public License
++    along with this program.  If not, see <http://www.gnu.org/licenses/>.
++
++    In addition, as a special exception, the copyright holders give
++    permission to link the code of portions of this program with the
++    OpenSSL library under certain conditions as described in each
++    individual source file, and distribute linked combinations including
++    the two.
++
++    You must obey the GNU General Public License in all respects for all
++    of the code used other than OpenSSL. If you modify file(s) with this
++    exception, you may extend this exception to your version of the
++    file(s), but you are not obligated to do so. If you do not wish to do
++    so, delete this exception statement from your version. If you delete
++    this exception statement from all source files in the program, then
++    also delete it here.
++*/
++
++#ifndef SIDECHANNEL_HPP
++#define SIDECHANNEL_HPP
++
++#include <cstddef>
++#include <cstdint>
++#include <string>
++#include <vector>
++
++/*
++ * The side channel carries datagrams between the two ends of a mosh
++ * session *underneath* the state-synchronization transport.  Payloads
++ * are encrypted and authenticated by the session like any other mosh
++ * datagram, but they are not acknowledged, retransmitted, ordered or
++ * paced: a side-channel datagram that is lost stays lost.
++ *
++ * On the wire, a side-channel payload is distinguished from a transport
++ * Fragment by its first byte.  A Fragment begins with a big-endian
++ * 64-bit instruction id that counts up from zero, so its first byte
++ * cannot be 0xFF within the lifetime of any session.
++ *
++ * A side-channel datagram is only ever sent to a peer that has
++ * advertised CAPABILITY_SIDECHANNEL in a transport Instruction, because
++ * older peers would try to parse it as a Fragment.
++ */
++
++namespace Network {
++
++const uint8_t SIDECHANNEL_MAGIC = 0xFF;
++
++/* How long without a word from the peer before we say we have lost contact with it (ms). */
++const uint64_t SIDECHANNEL_QUIET = 10000;
++
++/* Bits for Instruction.capabilities */
++const uint32_t CAPABILITY_SIDECHANNEL = 1;
++const uint32_t CAPABILITY_STREAM = 2; /* a stream between a process at each end (1.4.0-pf.4) */
++
++/* Receives side-channel payloads (including the leading magic byte). */
++class SideChannelSink
++{
++public:
++  virtual void sidechannel_recv( const std::string& payload ) = 0;
++  virtual ~SideChannelSink() {}
++};
++
++/*
++ * Shares the side channel between several users.  The byte after the
++ * magic byte says what kind of payload this is, and so whose it is.
++ */
++class SideChannelMux : public SideChannelSink
++{
++private:
++  std::vector<SideChannelSink*> sinks; /* by type; not owned */
++
++public:
++  SideChannelMux() : sinks() {}
++
++  void set_sink( uint8_t type, SideChannelSink* sink )
++  {
++    if ( sinks.size() <= type ) {
++      sinks.resize( type + 1, NULL );
++    }
++    sinks[type] = sink;
++  }
++
++  void sidechannel_recv( const std::string& payload )
++  {
++    if ( payload.size() < 2 ) {
++      return;
++    }
++    const uint8_t type = static_cast<uint8_t>( payload[1] );
++    if ( type < sinks.size() && sinks[type] ) {
++      sinks[type]->sidechannel_recv( payload );
++    }
++  }
++};
++
++/* Sends side-channel payloads.  Implemented by Transport. */
++class SideChannelLink
++{
++public:
++  /* True once the peer has advertised support and we may send. */
++  virtual bool sidechannel_ready( void ) const = 0;
++
++  /* Largest payload (including the magic byte) that fits in one datagram. */
++  virtual size_t sidechannel_max_payload( void ) const = 0;
++
++  /* Payload must begin with SIDECHANNEL_MAGIC. */
++  virtual void sidechannel_send( const std::string& payload ) = 0;
++
++  /*
++   * True if we have heard from the peer lately.  The session outlives
++   * losing contact (that is what mosh is for), so this going false is
++   * a reason to wait, not to give up.
++   */
++  virtual bool sidechannel_connected( void ) const = 0;
++
++  /* The fraction (0 to 1) of what we send that the peer says is not arriving; 0 until it says. */
++  virtual double sidechannel_loss( void ) const = 0;
++
++  virtual ~SideChannelLink() {}
++};
++
++}
++
++#endif

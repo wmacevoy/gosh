@@ -1,0 +1,63 @@
+gosh seam 04: The client can be told to send to another address from now on.
+
+For:   REQ1/PATH-1. When UDP does not reach the server, the client sends to the local relay on
+       its own machine instead, and the relay carries the datagrams inside ssh.
+What:  Connection::set_remote_addr, for a client only: it takes the new address and opens a new
+       socket of the right family, as it already does when it hops ports. Transport passes it on.
+Where: Connection, beside hop_port(); Transport.
+Kind:  additions only.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+From:  the fork, wmacevoy/mosh at mosh-1.4.0-pf.7; the text added is the fork's, unchanged.
+
+diff --git a/src/network/network.cc b/src/network/network.cc
+index 501a606..04268cf 100644
+--- a/src/network/network.cc
++++ b/src/network/network.cc
+@@ -549,6 +549,16 @@ std::string Connection::recv_one( int sock_to_recv )
+   return p.payload;
+ }
+ 
++void Connection::set_remote_addr( const Addr& addr, socklen_t len )
++{
++  assert( !server );
++  remote_addr = addr;
++  remote_addr_len = len;
++  has_remote_addr = true;
++  set_MTU( remote_addr.sa.sa_family );
++  hop_port(); /* a new socket, of the right family; the old ones are kept a while, then dropped */
++}
++
+ /* Called for each datagram received, after expected_receiver_seq has been brought up to date. */
+ void Connection::measure_loss( uint64_t seq )
+ {
+diff --git a/src/network/network.h b/src/network/network.h
+index c16a510..49755fe 100644
+--- a/src/network/network.h
++++ b/src/network/network.h
+@@ -246,6 +246,12 @@ public:
+   uint64_t timeout( void ) const;
+   double get_SRTT( void ) const { return SRTT; }
+ 
++  /*
++   * Client: send to somewhere else from now on (to a local relay, when
++   * the server cannot be reached directly; see relay.h).
++   */
++  void set_remote_addr( const Addr& addr, socklen_t len );
++
+   /* When a datagram last arrived from the peer; uint64_t( -1 ) if none has. */
+   uint64_t get_last_heard( void ) const { return last_heard; }
+ 
+diff --git a/src/network/networktransport.h b/src/network/networktransport.h
+index 961a518..7dbdb45 100644
+--- a/src/network/networktransport.h
++++ b/src/network/networktransport.h
+@@ -164,6 +164,9 @@ public:
+ 
+   double sidechannel_loss( void ) const { return peer_recv_loss; }
+ 
++  /* Client: reach the server by way of something else (a local relay). */
++  void set_remote_addr( const Addr& addr, socklen_t len ) { connection.set_remote_addr( addr, len ); }
++
+   /* When anything last arrived from the peer; uint64_t( -1 ) if nothing has. */
+   uint64_t last_heard( void ) const { return connection.get_last_heard(); }
+ 
