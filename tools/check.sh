@@ -39,7 +39,7 @@ tools/build.sh || fail "tools/build.sh"
 
 # The unit tests of gosh's parts, built and run inside the build's copy.
 . tools/env.sh
-for part in forwarding seam; do
+for part in forwarding seam command; do
     if make -C ".build/core/src/$part" check >.build/unit-$part.log 2>&1; then
         echo "unit tests pass: $part ($(grep -c '^PASS:' .build/unit-$part.log))"
     else
@@ -109,6 +109,8 @@ pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" forward-e2e.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" outage.py
 # (this one takes the command first: gosh-client under the name gosh)
 pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-command.py
+# (and this one the stock server last: a host with gosh-server, with only mosh-server, with neither)
+pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-stock.py "$stock_server"
 pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" forward-e2e.py
 pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" forward-e2e.py
 echo "PASS"

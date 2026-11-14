@@ -58,6 +58,7 @@
 #endif
 
 #include "src/command/moshwrapper.h"
+#include "src/command/stock.h"
 #include "src/include/version.h"
 
 using namespace MoshWrapper;
@@ -1096,6 +1097,8 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
       forward_args.push_back( "-F" );
       forward_args.push_back( fragment_parity );
     }
+    /* (gosh, REQ8/CMD-3) what a stock mosh-server is asked: the same, less what only gosh's knows */
+    std::vector<std::string> stock_args = server_args;
     server_args.insert( server_args.end(), forward_args.begin(), forward_args.end() );
     if ( !stream_remote.empty() ) {
       server_args.push_back( "-X" );
@@ -1104,8 +1107,18 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
     if ( !command.empty() ) {
       server_args.push_back( "--" );
       server_args.insert( server_args.end(), command.begin(), command.end() );
+      stock_args.push_back( "--" );
+      stock_args.insert( stock_args.end(), command.begin(), command.end() );
     }
-    const std::string server_command = server + " " + shell_quote( server_args );
+    /*
+     * (gosh, REQ8/CMD-3) Unless the user named a server, the host is asked for gosh-server and,
+     * where it has none, for mosh-server, and says which it started. A server the user named is
+     * taken to be gosh's and is asked for everything, as before.
+     */
+    const bool pick_server = !s.has( "server" );
+    const std::string server_command = pick_server
+                                         ? Gosh::server_command( shell_quote( server_args ), shell_quote( stock_args ) )
+                                         : server + " " + shell_quote( server_args );
 
     int fds[2];
     if ( pipe( fds ) < 0 ) {
@@ -1179,6 +1192,7 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
     close( fds[1] );
     std::string port, key, ssh_ip, pending;
     bool bad_port = false, done = false;
+    bool stock = false; /* (gosh, REQ8/CMD-3) the host said that the server it started is a stock mosh's */
     char buf[4096];
     ssize_t n;
     while ( !done && ( n = read( fds[0], buf, sizeof( buf ) ) ) != 0 ) {
@@ -1217,6 +1231,8 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
           port = words[2];
           key = words[3];
           done = true;
+        } else if ( pick_server && line == Gosh::STOCK_SERVER_LINE ) { /* (gosh, REQ8/CMD-3) */
+          stock = true;
         } else {
           if ( s.has( "port" ) && s.value( "port" ).find( ':' ) != std::string::npos
                && line.find( "Bad UDP port" ) != std::string::npos ) {
@@ -1252,6 +1268,22 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
       throw Failure( name + ": Did not find mosh server startup message. (Have you installed mosh on your server?)" );
     }
 
+    /*
+     * (gosh, REQ8/CMD-3) A stock server was asked for no forward, stream or relay. Say so once,
+     * naming each thing the user asked for that will not be done, and do not have the client
+     * wait on forwards the server knows nothing of. A stream is the whole of what was asked
+     * (a copy, or --stdio), so without one there is nothing to go on with. The host is named
+     * as the user gave it (rest[0]); userhost may by now hold its address.
+     */
+    if ( stock ) {
+      if ( !stream_local.empty() ) {
+        throw Failure( name + ": " + rest[0] + " has no gosh-server, and its mosh-server cannot do this ("
+                       + ( copy ? "copying files" : "--stdio" ) + ")." );
+      }
+      fprintf( stderr, "%s\n", Gosh::stock_notice( name, rest[0], forward_args, s.has( "relay" ) && relay != "never" ).c_str() );
+      forward_args.clear();
+    }
+
     /* ---- become the client */
 
     setenv( "MOSH_KEY", key.c_str(), 1 );
@@ -1268,7 +1300,7 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
      * over ssh instead, by running a relay on the server.  ssh must not ask
      * for anything, because the terminal will be the session's by then.
      */
-    if ( relay != "never" ) {
+    if ( relay != "never" && !stock ) { /* (gosh, REQ8/CMD-3) a stock server has no relay to start */
       const std::string remote = server + " relay " + shell_quote( std::vector<std::string>( 1, ip ) ) + " "
                                  + shell_quote( std::vector<std::string>( 1, port ) );
       std::vector<std::string> words;

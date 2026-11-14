@@ -28,15 +28,16 @@ takes about three and a half minutes here, more from nothing. In order it checks
    fork tested only from inside, `tests/outage.py` and `tests/copy-cut.py`, and four cases of the NAT lab,
    `tests/nat-lab.py`, which needs `nft` and either root, user namespaces, or sudo);
 6. gosh's own programs pass the tests of what they can do so far (`forward-e2e.py`, `outage.py`,
-   and `gosh-command.py`, which goes from the `gosh` command line to a byte at a forward's target),
+   `gosh-command.py`, which goes from the `gosh` command line to a byte at a forward's target, and
+   `gosh-stock.py`, for what `gosh` does with a host that has only a stock mosh),
    and a gosh end works with a pf.7 end each way. These are the tests gosh's parts must pass when they land.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
 `.build/bin`, with the seam applied (`seam/`, eight patches; `src/seam/`) and the fork's forwarding
 and command code carried unchanged (`src/forwarding/`, `src/command/`). So `gosh host` opens a
 session and `gosh-client` and `gosh-server` do forwards (`-L -R -LU -RU -N`), and nothing else of
-gosh's works yet: no relay, copy or stream, and `gosh` still asks a host for `mosh-server`
-(queue items 5 to 10).
+gosh's works yet: no relay, copy or stream (queue items 6 to 10). `gosh` asks a host for
+`gosh-server` and then `mosh-server`, and says what a stock one will not do (`REQ8/CMD-3`).
 
 To set up: `git submodule update --init` for `core/`; a stock mosh 1.4.0 installed (Debian and
 Ubuntu: the `mosh` package), since the check meets it; and the core's build needs

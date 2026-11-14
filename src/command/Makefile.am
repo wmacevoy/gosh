@@ -4,4 +4,9 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshcommand.a
 
-libgoshcommand_a_SOURCES = moshwrapper.cc moshwrapper.h
+libgoshcommand_a_SOURCES = moshwrapper.cc moshwrapper.h stock.cc stock.h
+
+check_PROGRAMS = stock-test
+TESTS = $(check_PROGRAMS)
+stock_test_SOURCES = stock-test.cc
+stock_test_LDADD = libgoshcommand.a
