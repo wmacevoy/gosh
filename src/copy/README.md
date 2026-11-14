@@ -6,7 +6,7 @@ it lacks and how much of each it already holds, and the sender sends the rest (`
 agrees.
 
 **Carried, not yet reshaped** (queue items 6 and 9). `filecopy.*` is the fork's at
-`mosh-1.4.0-pf.7`, from `src/network/`, and `file-copy.cc` its test from `src/tests/`, each with
+`mosh-1.4.0-pf.7`, from `src/network/`, and `filecopy-test.cc` its test (the fork's `src/tests/file-copy.cc`, renamed by the owner on 2026-11-14), each with
 one `#include` line changed. So what `REQ6/SHAPE-5` asks is not yet true here: its logic is two
 blocking procedures that read and write the stream, the clock and the file system from several
 depths, and it reads `HOME` at each use (design v1, *Edges*). Item 9 reshapes it.

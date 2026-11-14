@@ -8,7 +8,7 @@ libgoshcopy_a_SOURCES = filecopy.cc filecopy.h
 
 # The fork's test of these functions, which calls them directly. It holds this code to
 # what it did at pf.7 while it is carried unchanged; it goes when copy is reshaped (item 9).
-check_PROGRAMS = file-copy
+check_PROGRAMS = filecopy-test
 TESTS = $(check_PROGRAMS)
-file_copy_SOURCES = file-copy.cc
-file_copy_LDADD = libgoshcopy.a
+filecopy_test_SOURCES = filecopy-test.cc
+filecopy_test_LDADD = libgoshcopy.a
