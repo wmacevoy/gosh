@@ -72,24 +72,6 @@
 
 namespace Network {
 
-/* A datagram as it goes on the stream. */
-std::string relay_frame( const std::string& datagram );
-
-/* Takes the stream apart again. */
-class RelayFrameParser
-{
-private:
-  std::string pending;
-
-public:
-  RelayFrameParser() : pending() {}
-
-  void append( const char* data, size_t len ) { pending.append( data, len ); }
-
-  /* The next whole datagram, if one has arrived. */
-  bool next( std::string& datagram );
-};
-
 /*
  * The remote relay ("mosh-server relay ADDRESS PORT"): datagrams
  * arriving on standard input go to ADDRESS:PORT, and what comes back

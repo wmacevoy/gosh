@@ -9,13 +9,18 @@ The session carried over an ssh connection when UDP cannot get there (`REQ1/PATH
 `relay.cc` and in `paths.h`: which way a datagram goes, when the ssh stream is started, started
 again and let go, when a fresh socket is tried, and at the remote relay which way an answer
 goes back and when it leaves. `relay.cc` asks `paths.h` at the places marked `(gosh)` and does
-what it says; the rest of its text is the fork's. It still reads the clock and five
-environment variables and holds the framing; those are what is left of the reshape.
+what it says. The framing and the relays' words are `frame.h`; what the environment tells the
+relays is made sense of in `settings.h`. What is left in `relay.cc` is the two relays as
+processes: sockets, the ssh child, the clock, `getenv` in one place for the local relay and one
+line each for the log and for what ssh says of the connection, and its dealings with
+path-finding, which are item 8's. That text is the fork's.
 
 | File | What it holds |
 | --- | --- |
 | `start.h` | when the client starts its relay: logic (new shape); `start-test.cc` |
 | `paths.h` | every change of path the two relays make: logic (new shape); `paths-test.cc` |
+| `frame.h` | a datagram on the ssh stream (two bytes of length before it), and the relays' words to each other: logic; `frame-test.cc` (its first test is the fork's) |
+| `settings.h` | what the environment tells the relays, as one value: idle time, path-finding, whom to ask, the key; and the addresses in what ssh says of a connection: logic; `settings-test.cc` |
 | `relay.*` | both relays as processes, their framing and their words to each other: the fork's, an edge of `paths.h` |
 
 Who calls it: the seam. gosh's client `main` reads how the relay is started (`MOSH_RELAY`,

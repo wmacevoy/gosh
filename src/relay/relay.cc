@@ -48,23 +48,24 @@
 #include <unistd.h>
 
 #include "src/pathfinding/punch.h"
+#include "src/relay/frame.h"
 #include "src/relay/paths.h"
 #include "src/relay/relay.h"
+#include "src/relay/settings.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <memory>
 
 using namespace Network;
+using Gosh::relay_frame;
+using Gosh::RelayFrameParser;
 
 static const size_t MAX_DATAGRAM = 65535;
 
 /* (gosh) The times that decide a path are in paths.h, with the rules that use them. */
 /* how much may wait to go down a stream that is not taking it */
 static const size_t STREAM_BACKLOG = 256 * 1024;
-/* the plain STUN servers asked where we appear to be from outside, unless there is a meetup, or MOSH_STUN says otherwise */
-static const char DEFAULT_STUN[] = "stun.l.google.com:19302,stun.cloudflare.com:3478";
-
 /* What the relays are doing, for whoever sets MOSH_RELAY_LOG to a file to hear of it. */
 static const char* relay_log_who = "";
 static void say( const char* format, ... )
@@ -104,74 +105,18 @@ static void say( const char* format, ... )
  */
 static std::string control( const std::string& text )
 {
-  return relay_frame( std::string( PUNCH_MARK, sizeof( PUNCH_MARK ) ) + text );
+  return Gosh::relay_words( std::string( PUNCH_MARK, sizeof( PUNCH_MARK ) ), text );
 }
 
 static bool is_control( const std::string& frame, std::vector<std::string>& words )
 {
-  if ( frame.size() < sizeof( PUNCH_MARK ) || memcmp( frame.data(), PUNCH_MARK, sizeof( PUNCH_MARK ) ) != 0 ) {
-    return false;
-  }
-  words.clear();
-  std::string word;
-  for ( size_t i = sizeof( PUNCH_MARK ); i <= frame.size(); i++ ) {
-    if ( i == frame.size() || frame[i] == ' ' ) {
-      if ( !word.empty() ) {
-        words.push_back( word );
-      }
-      word.clear();
-    } else {
-      word.push_back( frame[i] );
-    }
-  }
-  return true;
-}
-
-static std::vector<std::string> comma_list( const std::string& text )
-{
-  std::vector<std::string> ret;
-  std::string item;
-  for ( size_t i = 0; i <= text.size(); i++ ) {
-    if ( i == text.size() || text[i] == ',' ) {
-      if ( !item.empty() && item != "none" ) {
-        ret.push_back( item );
-      }
-      item.clear();
-    } else {
-      item.push_back( text[i] );
-    }
-  }
-  return ret;
+  return Gosh::relay_words_of( std::string( PUNCH_MARK, sizeof( PUNCH_MARK ) ), frame, words );
 }
 
 static bool is_ipv4( const std::string& text )
 {
   Addr addr;
   return parse_ip_port( text + ":1", addr );
-}
-
-std::string Network::relay_frame( const std::string& datagram )
-{
-  std::string ret;
-  ret.reserve( 2 + datagram.size() );
-  ret.push_back( static_cast<char>( datagram.size() >> 8 ) );
-  ret.push_back( static_cast<char>( datagram.size() & 0xFF ) );
-  ret += datagram;
-  return ret;
-}
-
-bool RelayFrameParser::next( std::string& datagram )
-{
-  if ( pending.size() < 2 ) {
-    return false;
-  }
-  const size_t len = ( static_cast<uint8_t>( pending[0] ) << 8 ) | static_cast<uint8_t>( pending[1] );
-  if ( pending.size() < 2 + len ) {
-    return false;
-  }
-  datagram.assign( pending, 2, len );
-  pending.erase( 0, 2 + len );
-  return true;
 }
 
 /*
@@ -251,13 +196,9 @@ int Network::relay_remote( const char* address, const char* port )
    */
   std::vector<std::string> addresses;
   if ( const char* ssh_connection = getenv( "SSH_CONNECTION" ) ) {
-    /* "client-address client-port server-address server-port" */
-    const std::string s( ssh_connection );
-    const size_t first = s.find( ' ' );
-    const size_t second = first == std::string::npos ? first : s.find( ' ', first + 1 );
-    const size_t third = second == std::string::npos ? second : s.find( ' ', second + 1 );
-    if ( third != std::string::npos ) {
-      addresses.push_back( s.substr( second + 1, third - second - 1 ) );
+    std::string as_ssh_reached_it;
+    if ( Gosh::ssh_server_address( ssh_connection, as_ssh_reached_it ) ) {
+      addresses.push_back( as_ssh_reached_it );
     }
   }
   addresses.push_back( address );
@@ -292,8 +233,7 @@ int Network::relay_remote( const char* address, const char* port )
   /* the client's address as ssh saw it: where its relay may be found, for all we know */
   std::string client_ip;
   if ( const char* ssh_connection = getenv( "SSH_CONNECTION" ) ) {
-    const std::string c( ssh_connection );
-    client_ip = c.substr( 0, c.find( ' ' ) );
+    client_ip = Gosh::ssh_client_address( ssh_connection );
   }
 
   RelayFrameParser parser;
@@ -486,15 +426,11 @@ private:
   std::unique_ptr<Punch> punch;
   bool was_open;
 
-  /* (for tests, which cannot wait a minute to see the stream let go) */
-  static uint64_t stream_idle_wanted( void )
+  /* (gosh) What the environment tells the relay: read here, and made sense of in settings.h. */
+  static Gosh::RelaySettings told( bool stream_only )
   {
-    if ( const char* idle = getenv( "MOSH_RELAY_STREAM_IDLE_MS" ) ) {
-      if ( atol( idle ) >= 1000 ) {
-        return atol( idle );
-      }
-    }
-    return Gosh::RelayRules::STREAM_IDLE_MS;
+    return Gosh::relay_settings( stream_only, getenv( "MOSH_RELAY_STREAM_IDLE_MS" ), getenv( "MOSH_PUNCH" ),
+                                 getenv( "MOSH_MEETUP" ), getenv( "MOSH_STUN" ), getenv( "MOSH_MEETUP_KEY" ) );
   }
 
   void open_direct( void )
@@ -690,27 +626,14 @@ public:
   LocalRelay( const RelayOptions& s_options, int s_client_fd, int s_alive_fd )
     : options( s_options ), client_fd( s_client_fd ), direct_fd( -1 ), alive_fd( s_alive_fd ), client(),
       client_len( 0 ), child( -1 ), to_child( -1 ), from_child( -1 ), backlog(), parser(),
-      paths( s_options.stream_only, !s_options.command.empty(), stream_idle_wanted() ), punching( false ), ask(),
-      meetup_key(), punch(), was_open( false )
+      paths( s_options.stream_only, !s_options.command.empty(), told( s_options.stream_only ).stream_idle ),
+      punching( false ), ask(), meetup_key(), punch(), was_open( false )
   {
     open_direct();
-    /* Look for a way through unless told not to; and not when told to use the stream and nothing else. */
-    const char* wanted = getenv( "MOSH_PUNCH" );
-    punching = !options.stream_only && !( wanted && strcmp( wanted, "never" ) == 0 );
-    /*
-     * Whom to ask where we appear to be: our own meetup, if we have one
-     * (MOSH_MEETUP, with its key in MOSH_MEETUP_KEY); and plain STUN
-     * servers, those named in MOSH_STUN or, when nothing at all is named,
-     * two public ones.
-     */
-    const char* meetup = getenv( "MOSH_MEETUP" );
-    const char* servers = getenv( "MOSH_STUN" );
-    ask = comma_list( meetup ? meetup : "" );
-    const std::vector<std::string> plain = comma_list( servers ? servers : ( ask.empty() ? DEFAULT_STUN : "" ) );
-    ask.insert( ask.end(), plain.begin(), plain.end() );
-    if ( const char* key = getenv( "MOSH_MEETUP_KEY" ) ) {
-      meetup_key = key;
-    }
+    const Gosh::RelaySettings settings = told( options.stream_only );
+    punching = settings.path_finding;
+    ask = settings.ask;
+    meetup_key = settings.meetup_key;
   }
 
   void run( void )
