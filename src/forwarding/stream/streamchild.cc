@@ -46,7 +46,7 @@
 #include <unistd.h>
 
 #include "src/copy/filecopy.h"
-#include "src/forwarding/streamchild.h"
+#include "src/forwarding/stream/streamchild.h"
 
 std::vector<std::string> Network::stream_words( const std::string& joined )
 {

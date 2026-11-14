@@ -21,7 +21,7 @@
 #include <sys/types.h>
 
 #include "src/forwarding/forwarding.h"
-#include "src/forwarding/streamchild.h"
+#include "src/forwarding/stream/streamchild.h"
 #include "src/seam/options.h"
 #include "src/relay/start.h"
 

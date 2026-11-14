@@ -33,7 +33,7 @@
 #include <string>
 #include <vector>
 
-#include "src/forwarding/connection.h"
+#include "src/forwarding/tcp/connection.h"
 
 using Network::TCPInUDP;
 

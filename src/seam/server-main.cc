@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-#include "src/forwarding/streamchild.h"
+#include "src/forwarding/stream/streamchild.h"
 #include "src/seam/core-main.h"
 #include "src/seam/hooks.h"
 #include "src/seam/options.h"

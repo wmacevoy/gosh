@@ -41,8 +41,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-#include "src/forwarding/tcpinudp.h"
-#include "src/forwarding/udpforward.h"
+#include "src/forwarding/tcp/tcpinudp.h"
+#include "src/forwarding/frame.h"
 
 using namespace Network;
 

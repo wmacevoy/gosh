@@ -11,7 +11,7 @@
 
 #include <sys/wait.h>
 
-#include "src/forwarding/stream.h"
+#include "src/forwarding/stream/stream.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

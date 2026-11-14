@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "src/forwarding/tcpinudp.h"
+#include "src/forwarding/tcp/tcpinudp.h"
 
 /*
  * forwarding: connection (design v2, 2.2). gosh's TCP: one end of each forwarded connection

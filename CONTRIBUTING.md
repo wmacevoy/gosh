@@ -101,6 +101,8 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   (`seam/README.md`).
   `src/` holds gosh's parts, a directory each, named for the part, with a README and the part's
   unit tests; so far `src/forwarding/`, `src/seam/`, `src/command/`, `src/copy/`, `src/relay/` and `src/pathfinding/`.
+  A part with several kinds of thing in it has a subdirectory for each, with its own README and tests:
+  `src/forwarding/tcp/`, `udp/` and `stream/`.
   **A unit test is named for the file it tests, with `-test`:** `connection-test.cc` for `connection.h`,
   `filecopy-test.cc` for `filecopy.cc` (the owner, 2026-11-14: "thisthing-test for thisthing", so that a test is
   found from the name of what it tests). A test the fork named otherwise is renamed when it is carried. `tools/` builds and checks; `tests/` holds tests that

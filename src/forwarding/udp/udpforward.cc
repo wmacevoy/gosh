@@ -47,7 +47,7 @@
 #include <unistd.h>
 
 #include "src/crypto/byteorder.h"
-#include "src/forwarding/udpforward.h"
+#include "src/forwarding/udp/udpforward.h"
 #include "src/util/timestamp.h"
 
 using namespace Network;

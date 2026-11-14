@@ -24,7 +24,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "src/forwarding/tcpadapter.h"
+#include "src/forwarding/tcp/tcpadapter.h"
 #include "src/util/timestamp.h"
 
 #ifndef MSG_NOSIGNAL

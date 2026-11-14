@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "src/forwarding/stream.h"
+#include "src/forwarding/stream/stream.h"
 
 static int failures = 0;
 

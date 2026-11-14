@@ -49,8 +49,8 @@
 #include <unistd.h>
 
 #include "src/forwarding/forwarding.h"
-#include "src/forwarding/tcpadapter.h"
-#include "src/forwarding/tcpforward.h"
+#include "src/forwarding/tcp/tcpadapter.h"
+#include "src/forwarding/tcp/tcpforward.h"
 #include "src/util/timestamp.h"
 
 using namespace Network;

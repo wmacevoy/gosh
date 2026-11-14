@@ -40,8 +40,8 @@
 #include <string>
 #include <vector>
 
-#include "src/forwarding/tcpforward.h"
-#include "src/forwarding/udpforward.h"
+#include "src/forwarding/tcp/tcpforward.h"
+#include "src/forwarding/udp/udpforward.h"
 
 /* Everything a frontend forwards over the side channel, behind one event-loop interface. */
 

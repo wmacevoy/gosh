@@ -366,6 +366,13 @@ each end (`tests/stock-session.py`). `REQ8/CMD-3`: none.
 | **a stream's process** | start the process at one end; become `@copy`, `@stdio` or `@sh` | edge | `stream_child`, `become`, `stdio_pump`, `streamchild.cc:80-235` | — | `REQ1/CP-7` |
 | **forwarding** (the whole) | own the forwards of each kind; give each arriving payload to its kind; one surface for a program's loop | edge, thin | `forwarding.h` | `SideChannelMux` (a `switch` on five fixed kinds) | all of the above |
 
+*Where the pieces stand, since 2026-11-14 (the owner: "forwarding seems a little too pooled";
+"subdirectories i agree"): `src/forwarding/` holds `forward`, `frame` and the whole;
+`src/forwarding/tcp/` holds connection, segment, and TCP's listeners and targets;
+`src/forwarding/udp/` holds fragments, conversations, and UDP's listeners and targets;
+`src/forwarding/stream/` holds the stream and a stream's process. Subdirectories and not
+parts: forwarding stays the one part the glossary names. The three include nothing of each other.*
+
 *Two departures from the table above, accepted by the owner on 2026-11-14 (queue item 16):*
 
 - *`SegmentSink` is kept, where the table has it dropped. The table's reason was that it is an

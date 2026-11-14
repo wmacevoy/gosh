@@ -42,8 +42,9 @@
 
 #include "src/network/network.h"
 #include "src/network/sidechannel.h"
-#include "src/forwarding/tcpinudp.h"
-#include "src/forwarding/udpforward.h"
+#include "src/forwarding/tcp/tcpinudp.h"
+#include "src/forwarding/forward.h"
+#include "src/forwarding/frame.h"
 
 /*
  * TCP port forwarding over the mosh side channel.

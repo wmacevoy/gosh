@@ -20,8 +20,8 @@
 #include <vector>
 
 #include "src/crypto/prng.h"
-#include "src/forwarding/connection.h"
-#include "src/forwarding/tcpforward.h"
+#include "src/forwarding/tcp/connection.h"
+#include "src/forwarding/tcp/tcpforward.h"
 
 /*
  * forwarding: listeners and targets (design v2, 2.2). The sockets of forwarded TCP connections.
