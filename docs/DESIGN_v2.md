@@ -370,7 +370,7 @@ each end (`tests/stock-session.py`). `REQ8/CMD-3`: none.
 
 - *`SegmentSink` is kept, where the table has it dropped. The table's reason was that it is an
   interface with one implementation; it has two: `TCPForwarder`, and the recorder in the fork's
-  unit test `tcp-forward.cc`, which is how that test sees every segment the adapter sends. To
+  unit test `tcpforward-test.cc` (the fork's `tcp-forward.cc`), which is how that test sees every segment the adapter sends. To
   drop it would be to rewrite a carried test that holds the code to what it did at pf.7.*
 - *`TCPForwarder` is not divided into logic and edge. It resolves names and reads the clock, and
   what it decides is about twenty lines: a frame around each segment, the replay window, a

@@ -9,7 +9,7 @@
  * REQ1/FWD-2: UDP forwards' conversations (conversations.h), by themselves, with numbers for
  * time and a recorder for everything asked. No socket, no clock, no sleep.
  *
- * The fork's udp-forward.cc drives the same logic through its edge on real sockets, where time
+ * The fork's test, udpforward-test.cc, drives the same logic through its edge on real sockets, where time
  * is the real clock: it cannot wait two minutes for a conversation to be forgotten, refuse a
  * socket, or lose the one fragment it chooses. These are those cases.
  */

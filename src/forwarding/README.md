@@ -5,12 +5,12 @@ Forwards and the stream: TCP and UDP ports, and one byte channel, carried over t
 
 **Carried, and being reshaped** (queue items 5, 15, 16). `connection.h` and `tcpadapter.*` are in
 their new shape: see below. Every other source file here is the fork's at
-`mosh-1.4.0-pf.7`, from `src/network/` (the three tests from `src/tests/`), with nothing changed
+`mosh-1.4.0-pf.7`, from `src/network/` (the three tests from `src/tests/`, where they were `udp-forward.cc`, `tcp-forward.cc` and `tcp-in-udp.cc`; renamed on 2026-11-14 so that a file's test is the file's name and `-test`), with nothing changed
 but the `#include` lines that name the files that moved with it. Since item 16 began, three
 pieces that were already logic stand in files of their own, in gosh's namespace, the text of
 each function unchanged (compared line for line); the error for a bad specification no longer
 says "UDP", since TCP forwards use it too; and `UDPForwarder::encode` and `decode`, which only
-tests called, are in the two tests that call them. One exception: `udp-forward.cc`
+tests called, are in the two tests that call them. One exception: `udpforward-test.cc`
 has lost three tests that are other parts' (`test_relay_frames`, `test_punch`,
 `test_loss_measurement`); they come back with relay, path-finding and the seam.
 
@@ -60,7 +60,7 @@ is what the differential test below was run against.
 transfers, a slow application, windows, handshakes, limits, two connections, six hours out
 of contact (`REQ1/FWD-3`), and segments lost on the way: how many are then sent again and in how
 many exchanges, with selective acknowledgment and without, against an end that does not know
-it, and against one that says it holds what it never got. The fork's own `tcp-forward.cc` runs against the edge and the logic
+it, and against one that says it holds what it never got. The fork's own `tcpforward-test.cc` runs against the edge and the logic
 together, on real sockets.
 
 **What is no longer here.** While the logic was being taken out, `connection-diff.cc` gave it and
@@ -86,7 +86,7 @@ in queue item 16.
 refused (a replay, another kind, no such forward, no socket, the session not ready), forgetting
 at two minutes and a millisecond, the sixty-fifth conversation, fragments with a chosen one
 lost, and when parity is added. Each was seen red with the logic broken. The fork's
-`udp-forward.cc` still runs against the edge and the logic together, on real sockets.
+`udpforward-test.cc` still runs against the edge and the logic together, on real sockets.
 
 ## the stream
 
