@@ -58,7 +58,7 @@ index 3e3a975..3bf8a8a 100644
  #ifdef HAVE_PLEDGE
      /* OpenBSD pledge() syscall */
 -    if ( pledge( "stdio inet tty", NULL ) ) {
-+    if ( !Gosh::may_start_processes() && pledge( "stdio inet tty", NULL ) ) {
++    if ( !Gosh::has_stream() && pledge( "stdio inet tty", NULL ) ) {
        perror( "pledge() failed" );
        exit( 1 );
      }
@@ -71,7 +71,7 @@ index 197f055..eec1b05 100644
  #ifdef HAVE_PLEDGE
    /* OpenBSD pledge() syscall */
 -  if ( pledge( "stdio inet tty", NULL ) ) {
-+  if ( !Gosh::has_stream() && pledge( "stdio inet tty", NULL ) ) {
++  if ( !Gosh::may_start_processes() && pledge( "stdio inet tty", NULL ) ) {
      perror( "pledge() failed" );
      exit( 1 );
    }

@@ -92,6 +92,15 @@ enum Role
  */
 Role which_role( const std::string& program, const std::vector<std::string>& args, std::string& called, size_t& skip );
 
+/*
+ * The words of a command line that are not options or their values, in order, as the core's
+ * own reading (getopt, which lets options come after them) will find them.
+ *   args         the words after the program's name
+ *   core_values  the core's option letters that take a value
+ * "--" ends the options: every word after it is one of these.
+ */
+std::vector<std::string> operands( const std::vector<std::string>& args, const std::string& core_values );
+
 }
 
 #endif

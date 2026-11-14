@@ -130,4 +130,31 @@ Role which_role( const std::string& program, const std::vector<std::string>& arg
   return role;
 }
 
+
+std::vector<std::string> operands( const std::vector<std::string>& args, const std::string& core_values )
+{
+  std::vector<std::string> found;
+  for ( size_t i = 0; i < args.size(); i++ ) {
+    const std::string& word = args[i];
+    if ( word == "--" ) {
+      found.insert( found.end(), args.begin() + i + 1, args.end() );
+      break;
+    }
+    if ( word.size() < 2 || word[0] != '-' ) {
+      found.push_back( word );
+      continue;
+    }
+    /* letters, the last of which may take a value: the rest of the word, or the next word */
+    for ( size_t at = 1; at < word.size(); at++ ) {
+      if ( core_values.find( word[at] ) != std::string::npos ) {
+        if ( at + 1 == word.size() ) {
+          i++;
+        }
+        break;
+      }
+    }
+  }
+  return found;
+}
+
 }

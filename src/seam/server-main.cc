@@ -12,6 +12,7 @@
  * Any other way of starting it goes to the core untouched.
  */
 
+#include <cstdlib>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -21,6 +22,7 @@
 #include "src/seam/hooks.h"
 #include "src/seam/options.h"
 #include "src/relay/relay.h"
+#include "src/crypto/crypto.h"
 
 int main( int argc, char* argv[] )
 {
@@ -33,6 +35,9 @@ int main( int argc, char* argv[] )
    * by UDP (src/relay/relay.h; the fork's mosh-server.cc).
    */
   if ( args.size() == 3 && args[0] == "relay" ) {
+    Crypto::disable_dumping_core(); /* (as the fork's server did before anything else) */
+    /* Path-finding is not landed (queue item 8): the remote relay does not offer it. This line goes when it lands. */
+    setenv( "MOSH_PUNCH", "never", 1 );
     return Network::relay_remote( args[1].c_str(), args[2].c_str() );
   }
 

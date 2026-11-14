@@ -120,6 +120,15 @@ int main()
   check( "under its own name, with an address first, it is the client",
          Gosh::which_role( "/usr/bin/gosh-client", { "127.0.0.1", "60001" }, called, skip ) == Gosh::THE_CLIENT
            && called == "gosh-client" && skip == 0 );
+  typedef std::vector<std::string> Words;
+  check( "the server's address and port are found last", Gosh::operands( { "-v", "192.0.2.1", "60001" }, "#" ) == Words( { "192.0.2.1", "60001" } ) );
+  check( "and first, with an option after them", Gosh::operands( { "192.0.2.1", "60001", "-v" }, "#" ) == Words( { "192.0.2.1", "60001" } ) );
+  check( "an option's value is not one of them, as the next word or joined on",
+         Gosh::operands( { "192.0.2.1", "-#", "5", "6" }, "#" ) == Words( { "192.0.2.1", "6" } )
+           && Gosh::operands( { "-#5", "192.0.2.1", "6" }, "#" ) == Words( { "192.0.2.1", "6" } )
+           && Gosh::operands( { "-v#", "5", "192.0.2.1", "6" }, "#" ) == Words( { "192.0.2.1", "6" } ) );
+  check( "after \"--\" every word is one, and a lone \"-\" is one",
+         Gosh::operands( { "-v", "--", "-x", "6" }, "#" ) == Words( { "-x", "6" } ) && Gosh::operands( { "-" }, "#" ) == Words( { "-" } ) );
   check( "the names it used to have are not the command (no alias but REQ6/CMD-4's)",
          Gosh::which_role( "mosh", { "host" }, called, skip ) == Gosh::THE_CLIENT
            && Gosh::which_role( "gosh-client", { "mosh", "host" }, called, skip ) == Gosh::THE_CLIENT && skip == 0 );

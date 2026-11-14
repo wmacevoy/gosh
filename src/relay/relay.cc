@@ -246,7 +246,14 @@ int Network::relay_remote( const char* address, const char* port )
   bool stream_open = true, was_open = false;
   uint64_t stream_heard = 0, stream_closed = 0;
 
-  if ( !write_all( STDOUT_FILENO, control( "HELLO 1" ) ) ) {
+  /*
+   * (gosh) HELLO is what invites the local relay to look for a way through; one that is not
+   * told it says nothing of the kind. While path-finding is off (MOSH_PUNCH=never, which gosh's
+   * server sets until queue item 8 lands) it is not said, so no path-finding code runs here
+   * whichever local relay is at the other end, and no server on the Internet is asked anything.
+   */
+  if ( Gosh::relay_settings( false, NULL, getenv( "MOSH_PUNCH" ), NULL, NULL, NULL ).path_finding
+       && !write_all( STDOUT_FILENO, control( "HELLO 1" ) ) ) {
     return 0;
   }
 

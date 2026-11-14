@@ -37,12 +37,17 @@ int main()
 
   check( "an idle time of 3000: three seconds", relay_settings( false, "3000", NULL, NULL, NULL, NULL ).stream_idle == 3000 );
   check( "of 1000: one second", relay_settings( false, "1000", NULL, NULL, NULL, NULL ).stream_idle == 1000 );
+  check( "of 300000: five minutes", relay_settings( false, "300000", NULL, NULL, NULL, NULL ).stream_idle == 300000 );
+  check( "of a negative number: the minute", relay_settings( false, "-5000", NULL, NULL, NULL, NULL ).stream_idle == 60000 );
   check( "of 999, of nothing, of a word: the minute",
          relay_settings( false, "999", NULL, NULL, NULL, NULL ).stream_idle == 60000
            && relay_settings( false, "", NULL, NULL, NULL, NULL ).stream_idle == 60000
            && relay_settings( false, "soon", NULL, NULL, NULL, NULL ).stream_idle == 60000 );
 
   check( "MOSH_PUNCH=never: no path-finding", !relay_settings( false, NULL, "never", NULL, NULL, NULL ).path_finding );
+  check( "a word that only begins like it: path-finding", relay_settings( false, NULL, "no", NULL, NULL, NULL ).path_finding
+                                                            && relay_settings( false, NULL, "nevermore", NULL, NULL, NULL ).path_finding );
+  check( "a key with no meetup named is kept all the same", relay_settings( false, NULL, NULL, NULL, NULL, "k" ).meetup_key == "k" );
   check( "any other word: path-finding", relay_settings( false, NULL, "always", NULL, NULL, NULL ).path_finding
                                            && relay_settings( false, NULL, "", NULL, NULL, NULL ).path_finding );
   check( "the stream and nothing else: no path-finding, whatever the word",

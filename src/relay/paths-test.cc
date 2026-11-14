@@ -49,6 +49,9 @@ static void test_local( void )
   check( "the next: by the stream too; it is not started twice, nor another socket tried",
          also.by_stream && !also.start_stream && !also.hop );
 
+  check( "nor is it started again while it runs, the wait after its start long past",
+         !p.from_client( T + 1500, true, 0 ).start_stream );
+
   p.direct_answered( T + 200 );
   also = p.from_client( T + 300, true, 0 );
   check( "an answer came straight back: the next datagram goes direct and nothing more", !also.by_stream && !also.start_stream && !also.hop );
@@ -67,6 +70,8 @@ static void test_local( void )
 
   /* letting the stream go: it was last wanted at T + 20202 */
   p.direct_answered( T + 20300 );
+  p.from_client( T + 21000, true, 0 ); /* (the session goes on talking by the direct way, which does not want the stream) */
+  p.direct_answered( T + 21010 );
   check( "the stream not needed for 60,000 ms: kept", !p.let_stream_go( T + 20202 + 60000 ) && p.stream_running() );
   check( "for 60,001 ms: let go", p.let_stream_go( T + 20202 + 60001 ) && !p.stream_running() );
   also = p.from_client( T + 90000, true, 0 );
@@ -127,6 +132,14 @@ static void test_starting_again( void )
   check( "(the direct way answers; a second and a millisecond on, the stream is let go)", q.let_stream_go( began + 1001 ) );
   check( "wanted again 2.6 s later, it is started at once, not after the 128 s its failures had built up",
          q.from_client( began + 2600, true, 0 ).start_stream );
+
+  /* Asked whether to let go a stream that is not running changes nothing: the wait to start again still holds. */
+  LocalPaths w( false, true, 100 );
+  w.from_client( T, true, 0 );
+  w.stream_started( false );
+  check( "a stream that is not running is not let go, however long unneeded", !w.let_stream_go( T + 400 ) );
+  check( "and the wait to start it again still holds: not at 999 ms, but at 1,000",
+         !w.from_client( T + 999, true, 0 ).start_stream && w.from_client( T + 1000, true, 0 ).start_stream );
 
   LocalPaths none( false, false );
   LocalPaths::Also also = none.from_client( T, true, 0 );

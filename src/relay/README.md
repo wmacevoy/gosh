@@ -29,9 +29,11 @@ the client's loop and start the local relay once; gosh's server `main` becomes t
 when its first word is `relay`.
 
 **Path-finding is off.** `relay.cc` builds against `src/pathfinding/punch.*`, and every use of
-it is behind a test for whether there is one. Until queue item 8 lands, the seam starts the
-relay with `MOSH_PUNCH=never` whatever the environment says, so no path-finding code runs and
-no server on the Internet is asked anything.
+it is behind a test for whether there is one. Until queue item 8 lands, both relays are started
+with `MOSH_PUNCH=never` whatever the environment says: the local one then never looks, and the
+remote one never says the `HELLO` that invites a local relay to (a pf.7 client's would,
+otherwise). So no path-finding code runs at either end and no server on the Internet is asked
+anything.
 
 **Tested** (in `tools/check.sh`): `tests/headless-smoke.py` with the relay from the start
 (`always`), found when UDP gets no answer (`blocked`, by IPv4 and IPv6), with the server's
@@ -45,5 +47,7 @@ relay's 3 s and its minute. It was written against the fork's rules before `rela
 changed to ask `paths.h`; sixteen deliberate breaks of a rule are each noticed.
 
 **Not tested:** that the edge does what `paths.h` says is tested only by the smoke test's four
-cases; that the local relay dying is noticed (`docs/FINDINGS.md`, 2026-11-13: it is not); OpenBSD,
+cases. Nothing in the check makes `relay.cc` try a fresh socket, back off from an ssh that
+fails or asks for a password, stop a real ssh (the remote relay is run directly), fill its
+backlog, or be killed outright; `MOSH_RELAY=never` with a command is tested only as a rule. That the local relay dying is noticed (`docs/FINDINGS.md`, 2026-11-13: it is not); OpenBSD,
 where the client must keep the right to start a process.

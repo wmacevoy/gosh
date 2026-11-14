@@ -5,7 +5,8 @@
     Public License, version 3 or later (see COPYING).
 
     The rule is the fork's (mosh-1.4.0-pf.7, src/frontend/stmclient.cc,
-    STMClient::consider_relay and set_relay), under the same license.
+    STMClient::consider_relay and set_relay; and src/frontend/mosh-client.cc, where
+    "never" was dropped before set_relay), under the same license.
 */
 
 /*
@@ -28,10 +29,17 @@ enum RelayMode
   RELAY_ALWAYS /* from the start, and nothing by UDP */
 };
 
-/* The mode for a word (MOSH_RELAY): "always", or anything else for auto; never, if there is no command. */
+/*
+ * The mode for a word (MOSH_RELAY): "never"; "always"; anything else is auto. And never, whatever
+ * the word, if there is no command to start one with. (The fork's mosh-client.cc dropped "never"
+ * before set_relay saw it; the two rules are one here.)
+ */
 inline RelayMode relay_mode( const std::string& word, bool have_command )
 {
-  return !have_command ? RELAY_NEVER : ( word == "always" ? RELAY_ALWAYS : RELAY_AUTO );
+  if ( !have_command || word == "never" ) {
+    return RELAY_NEVER;
+  }
+  return word == "always" ? RELAY_ALWAYS : RELAY_AUTO;
 }
 
 /* Sooner at the start, when a network that will not carry UDP is the likeliest reason. */

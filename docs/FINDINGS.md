@@ -7,6 +7,61 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-14 — The carried relay: five things a reader should decide on before release
+
+- **What happened:** the review of the relay (queue item 7; a session given the code and the
+  fork's) was asked what an attacker on the path, a local user, or a hostile remote relay can
+  make the relays do. All five are the fork's and unchanged; none reads or alters a session,
+  whose datagrams stay sealed. **Read, not demonstrated** at the programs; two were shown
+  against the rule in `paths.h` with numbers.
+  1. *A local user on the server can take over the relayed path.* The remote relay sends each
+     datagram to the address ssh reached, the address it was told, `127.0.0.1` and `::1`, and
+     stays with whichever socket answers first. The server listens on one address, so the
+     loopback ports are free for any local user, and the port is in the relay's arguments. One
+     answer, and the relay closes the real socket for the life of that ssh connection.
+  2. *Anything arriving at the local relay's direct socket counts as the server answering.* The
+     source is not checked. Whoever can reach that port can keep the ssh way from ever being
+     started (by the rule: 480 datagrams from the client in two minutes, none by the stream).
+  3. *The local relay takes "the client" to be whoever last sent to its loopback port.* A local
+     user on the client's machine can have the server's answers sent to themselves until the
+     real client next sends, and can have datagrams passed on.
+  4. *One byte from the stream resets the wait between attempts.* A login that prints something
+     and then fails means an ssh login every second (by the rule: 600 in ten minutes, against
+     10), which is what the five-minute cap was there to prevent.
+  5. *A hostile remote relay* can do little while path-finding is off: feed datagrams the
+     session refuses, and cause 4. With path-finding on (item 8) its words can point the local
+     relay's probes at addresses of its choosing.
+- **Kind:** K1 for the owner: each is a question of whether to fix before release, and a fix
+  changes what the fork's relay does.
+- **What it changed:** nothing in behaviour. The agent's recommendation: 1 and 2 are worth a
+  queue item before anyone but the owner uses the relay (answer only from the server's own
+  address; count as "the server answering" only what comes from it); 3 and 4 with them; 5 is
+  item 8's.
+
+## 2026-11-14 — The relay's review: the logic matched the fork's, and the wiring did not
+
+- **What happened:** the reviewer found no difference between the fork's relays and
+  `relay.cc` with `paths.h`. It found four in how the client was wired to them, all the
+  author's: (1) the line of the stream patch changed to let a client keep the right to start a
+  process was the server's, not the client's, so on OpenBSD a client would have been killed when
+  it started its relay; (2) `MOSH_RELAY=never` with a command still in the environment meant
+  "when needed", and a unit test had pinned that as intended; (3) path-finding was switched off
+  in the local relay only, so a pf.7 client could still have it run in gosh's remote relay,
+  which the README said could not happen; (4) the server's address was taken as the last two
+  words of the command line, where the core takes the first two that are not options.
+- **What would have found them:** (1) reading the built file where the patch lands, not the
+  patch; (2) reading the fork's `mosh-client.cc` as well as `stmclient.cc`: the rule was in two
+  places and one was cited; (3) asking, of a switch, at which ends it is read; (4) a contract
+  for what the command hands the client, in place of a comment.
+- **What it changed:** all four fixed with tests where a test can reach (the mode's word, the
+  operands; OpenBSD and the pf.7-client case are read only). Nine more checks for breaks the
+  reviewer showed the unit tests missed. Also found, not fixed: `tests/headless-smoke.py`'s
+  check that the relay goes when the client does cannot fail in the `translated` case (it looks
+  for a process by the wrong address); it is the fork's test and is left for item 4's list.
+  The relay is considered a little earlier in each pass of the client's loop than the fork
+  considered it; in one pass in which the session also ends, a relay may be started that the
+  fork would not have started, and it goes with the client.
+
 ## 2026-11-14 — A closed end resets a late segment, and the other end throws away bytes not yet taken
 
 - **What happened:** the review of selective acknowledgment (a session given the code) ran
