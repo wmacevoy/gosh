@@ -38,9 +38,21 @@ Its two buffers are a byte queue (`Gosh::Bytes`, in `connection.h`) and not stri
 moved its send buffer down on every acknowledgment, which was about 40% of a forward's processor
 time (`docs/FINDINGS.md`, 2026-11-14).
 
+It has one thing the fork's did not: **selective acknowledgment** (RFC 2018; requirements v14,
+queue item 17). The listening end asks for it in its SYN and the other end agrees if it knows
+it; then an end holding segments beyond a gap says which ranges it holds on each acknowledgment
+(up to four, the latest arrival's first), and the sender keeps those ranges, sends again only
+the gaps between them, one for each acknowledgment that says another segment got there, and
+passes over them when a timer sends it back to the start. A range the acknowledgments reach
+and stop inside is not believed. An end that does not know it (pf.7) never agrees, is never
+sent a range, and gets the fork's TCP unchanged: `Connections( listening, false )` is that, and
+is what the differential test below was run against.
+
 `connection-test.cc` is the logic alone, with numbers for time and a recorder for what it asks:
-transfers, a slow application, windows, handshakes, limits, two connections, and six hours out
-of contact (`REQ1/FWD-3`). The fork's own `tcp-forward.cc` runs against the edge and the logic
+transfers, a slow application, windows, handshakes, limits, two connections, six hours out
+of contact (`REQ1/FWD-3`), and segments lost on the way: how many are then sent again and in how
+many exchanges, with selective acknowledgment and without, against an end that does not know
+it, and against one that says it holds what it never got. The fork's own `tcp-forward.cc` runs against the edge and the logic
 together, on real sockets.
 
 **What is no longer here.** While the logic was being taken out, `connection-diff.cc` gave it and
@@ -49,7 +61,9 @@ million segments, no difference). It needed the fork's class, which was deleted 
 landed, so it went too; both are in this repository's history at commit `2001e4f`. Two kinds of
 deliberate break were caught only by that test and are caught by nothing here now: leaving loss
 recovery, and giving up on one-at-a-time repair after many losses. **Before changing the logic,
-bring the test back from that commit** and run `./connection-diff 20000 1000`.
+bring the test back from that commit** and run `./connection-diff 20000 1000`. That was done for
+selective acknowledgment on 2026-11-14, with `connections( listening, false )` in the test: old
+and new agreed over 2,000 scenarios of 600 steps, 418,252 segments.
 
 ## the stream
 

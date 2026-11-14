@@ -21,6 +21,10 @@
  *   a session not ready to carry anything;
  *   six hours out of contact with data on its way (REQ1/FWD-3), against the same silence while
  *   in contact, which does end a connection.
+ *
+ * And REQ14 (Selective acknowledgment; queue item 17): segments lost on the way, with numbers
+ * for how much is then sent again; an end that does not know selective acknowledgment (as pf.7
+ * does not) is never sent it; and an end that says it holds what it does not.
  */
 
 #include <cstdio>
@@ -101,14 +105,79 @@ struct Pair
   uint64_t now;
   bool carrying; /* whether segments get from one end to the other */
 
-  Pair() : listening( true ), connecting( false ), link(), now( 5000 ), carrying( true )
+  /* What is lost on the way from end 0 to end 1, of the segments that carry data: */
+  std::vector<unsigned int> lose; /* these, counted from 0 at the last reset_count(); each once */
+  unsigned int lose_in_1000;      /* and this many in a thousand, by a seeded generator */
+  uint32_t chance;
+  unsigned int data_segments; /* how many segments with data end 0 has sent, */
+  size_t data_bytes;          /* and how many bytes of data in them, since the last reset_count() */
+  unsigned int exchanges;     /* how many times end 0's segments were carried over, since then */
+  unsigned int said_held;     /* how many segments from end 1 said what it holds out of order */
+  unsigned int options_after_syn[2]; /* how many segments from each end, not a SYN, had any option */
+  /* An end 1 that lies: the last segment in "lose" is said, on every acknowledgment, to be held. */
+  bool lying;
+  bool lie_known;
+  uint32_t lie_from, lie_to;
+
+  explicit Pair( bool sack0 = true, bool sack1 = true )
+    : listening( true, sack0 ), connecting( false, sack1 ), link(), now( 5000 ), carrying( true ), lose(),
+      lose_in_1000( 0 ), chance( 2463534242u ), data_segments( 0 ), data_bytes( 0 ), exchanges( 0 ), said_held( 0 ), lying( false ),
+      lie_known( false ), lie_from( 0 ), lie_to( 0 )
   {
+    options_after_syn[0] = options_after_syn[1] = 0;
     link.ready = true;
     link.in_contact = true;
     link.max_datagram = 1187;
   }
 
   Connections& end( int e ) { return e == 0 ? listening : connecting; }
+
+  void reset_count( void )
+  {
+    data_segments = 0;
+    data_bytes = 0;
+    exchanges = 0;
+  }
+
+  /* Whether this segment, on its way from end e, is lost. Counts it, and what it says, either way. */
+  bool lost( int e, TCPInUDP& segment )
+  {
+    if ( !segment.has( TCPInUDP::SYN ) && !segment.options.empty() ) {
+      options_after_syn[e]++;
+      if ( e == 1 && segment.options.find( '\5' ) != std::string::npos ) {
+        said_held++;
+      }
+    }
+    if ( e == 1 && lying && lie_known && segment.payload.empty() && !segment.has( TCPInUDP::SYN ) ) {
+      const char said[12] = { 1, 1, 5, 10,
+                              static_cast<char>( lie_from >> 24 ), static_cast<char>( lie_from >> 16 ),
+                              static_cast<char>( lie_from >> 8 ), static_cast<char>( lie_from ),
+                              static_cast<char>( lie_to >> 24 ), static_cast<char>( lie_to >> 16 ),
+                              static_cast<char>( lie_to >> 8 ), static_cast<char>( lie_to ) };
+      segment.options.assign( said, sizeof( said ) );
+    }
+    if ( e != 0 || segment.payload.empty() ) {
+      return false;
+    }
+    const unsigned int which = data_segments++;
+    data_bytes += segment.payload.size();
+    bool gone = false;
+    for ( size_t i = 0; i < lose.size(); i++ ) {
+      if ( lose[i] == which ) {
+        gone = true;
+      }
+    }
+    if ( lose_in_1000 ) {
+      chance = chance * 1664525 + 1013904223;
+      gone = gone || ( chance >> 10 ) % 1000 < lose_in_1000;
+    }
+    if ( gone && lying && !lie_known && !lose.empty() && which == lose.back() ) {
+      lie_known = true;
+      lie_from = segment.seq;
+      lie_to = segment.seq + segment.payload.size();
+    }
+    return gone;
+  }
 
   /* Carries everything each end has sent to the other, and what that provokes, until both are quiet. */
   void carry( void )
@@ -120,7 +189,13 @@ struct Pair
       for ( int e = 0; e < 2; e++ ) {
         std::vector<std::pair<uint8_t, TCPInUDP> > on_their_way;
         on_their_way.swap( out[e].sent );
+        if ( e == 0 && carrying && !on_their_way.empty() ) {
+          exchanges++;
+        }
         for ( size_t i = 0; carrying && i < on_their_way.size(); i++ ) {
+          if ( lost( e, on_their_way[i].second ) ) {
+            continue;
+          }
           end( 1 - e ).segment( on_their_way[i].first, on_their_way[i].second, now, link, out[1 - e] );
         }
       }
@@ -569,6 +644,191 @@ static void test_application_gone( void )
          q.out[0].closed.size() == 1 && q.out[0].closed[0].second && q.out[1].closed.size() == 1 && q.out[1].closed[0].second );
 }
 
+static const size_t SEGMENT = 1187 - TCPInUDP::DATAGRAM_HEADER_LEN; /* the data one segment carries here */
+
+/* Opens a connection and sends enough over it, with nothing lost, that the sender will send 40 segments at once. */
+static uint32_t warmed( Pair& p, std::string& sent )
+{
+  const uint32_t id = p.open();
+  sent = pattern( 300000 );
+  size_t a = 0;
+  for ( int i = 0; i < 2000 && a < sent.size(); i++ ) {
+    a += p.write( 0, id, sent.substr( a ) );
+    p.carry();
+    p.tick( 1 );
+  }
+  p.carry();
+  return id;
+}
+
+/*
+ * Forty segments are sent at once and these of them (and of what is sent again after: 40 is
+ * the first segment sent again) are lost. Returns how many bytes of data the sender sent in all
+ * to get the forty there; and how long it took, and in how many exchanges.
+ */
+static size_t forty( bool sack, const std::vector<unsigned int>& gone, uint64_t& took, unsigned int& said_held,
+                     unsigned int& exchanges, bool& whole, bool& burst )
+{
+  Pair p( sack, sack );
+  std::string sent;
+  const uint32_t id = warmed( p, sent );
+  const std::string more = pattern( 40 * SEGMENT );
+  sent += more;
+
+  p.reset_count();
+  p.lose = gone;
+  const uint64_t began = p.now;
+  const size_t written = p.write( 0, id, more );
+  burst = written == more.size() && p.out[0].sent.size() == 40;
+  for ( int i = 0; i < 100000 && p.out[1].got.size() < sent.size(); i++ ) {
+    p.carry();
+    p.tick( 1 );
+  }
+  took = p.now - began;
+  said_held = p.said_held;
+  exchanges = p.exchanges;
+  whole = p.out[1].got == sent;
+  return p.data_bytes;
+}
+
+static void test_selective_acknowledgment( void )
+{
+  uint64_t took = 0;
+  unsigned int said_held = 0, exchanges = 0;
+  bool whole = false, burst = false;
+  const unsigned int apart[5] = { 3, 9, 15, 21, 27 };
+  const std::vector<unsigned int> five( apart, apart + 5 );
+
+  const size_t with = forty( true, five, took, said_held, exchanges, whole, burst );
+  check( "(forty segments are sent at once)", burst );
+  check( "five of forty segments lost, apart: everything arrives whole", whole );
+  check( "the receiver said what it held beyond each gap", said_held >= 35 );
+  check( "the sender sent again the five that were lost and nothing else: 45 segments of data",
+         with == 45 * SEGMENT );
+  check( "and without waiting for a timer: in under 200 ms of the logic's time", took < 200 );
+  /* the forty; the five again, each as an acknowledgment says another segment got there; (and the last ACK answered) */
+  check( "in two exchanges: all five were sent again before any of them was acknowledged", exchanges == 2 );
+
+  const size_t without = forty( false, five, took, said_held, exchanges, whole, burst );
+  check( "without selective acknowledgment (the fork's way) it arrives whole too", whole && burst );
+  check( "with nothing said of what is held", said_held == 0 );
+  check( "and more is sent again than was lost", without > 45 * SEGMENT );
+  check( "in more exchanges", exchanges > 2 );
+  printf( "    (without it: %lu segments' worth of data sent for 40, in %u exchanges)\n",
+          static_cast<unsigned long>( ( without + SEGMENT - 1 ) / SEGMENT ), exchanges );
+
+  /*
+   * Two lost, and lost again when sent again: only a timer gets the sender going, and it starts
+   * from the beginning. What the receiver holds is still known, and is passed over.
+   */
+  const unsigned int twice[4] = { 3, 9, 40, 41 };
+  const std::vector<unsigned int> again( twice, twice + 4 );
+  const size_t slow = forty( true, again, took, said_held, exchanges, whole, burst );
+  check( "two lost, and lost again when sent again: it arrives whole, after a timer", whole && burst && took >= 200 );
+  check( "and going back, the sender passed over what was held: 44 segments of data in all", slow == 44 * SEGMENT );
+  const size_t slow_without = forty( false, again, took, said_held, exchanges, whole, burst );
+  check( "(without selective acknowledgment: whole, and more than 44)", whole && slow_without > 44 * SEGMENT );
+
+  /*
+   * Three, likewise. After the timer the sender may send one segment, then two: the second gap,
+   * and the third with it, because the five segments held between them are not on their way and
+   * do not count against what it may have outstanding.
+   */
+  const unsigned int thrice[6] = { 3, 9, 15, 40, 41, 42 };
+  const std::vector<unsigned int> three( thrice, thrice + 6 );
+  const size_t slower = forty( true, three, took, said_held, exchanges, whole, burst );
+  check( "three lost, and lost again: whole, with 46 segments of data in all", whole && slower == 46 * SEGMENT );
+  check( "the second and third gaps are filled in one exchange after the first: 4 in all", exchanges == 4 );
+}
+
+/* Two megabytes with five segments in a hundred lost on the way. Returns the bytes of data sent in all. */
+static size_t lossy( bool sack0, bool sack1, bool& whole, Pair** kept = NULL )
+{
+  Pair* p = new Pair( sack0, sack1 );
+  const uint32_t id = p->open();
+  const std::string data = pattern( 2 * 1024 * 1024 );
+  p->reset_count();
+  p->lose_in_1000 = 50;
+  size_t a = 0;
+  for ( int i = 0; i < 2000000 && p->out[1].got.size() < data.size(); i++ ) {
+    a += p->write( 0, id, data.substr( a, 65536 ) );
+    p->carry();
+    p->tick( 1 );
+  }
+  whole = p->out[1].got == data;
+  const size_t sent = p->data_bytes;
+  if ( kept ) {
+    *kept = p;
+  } else {
+    delete p;
+  }
+  return sent;
+}
+
+static void test_lossy( void )
+{
+  bool whole = false;
+  const size_t data = 2 * 1024 * 1024;
+
+  const size_t with = lossy( true, true, whole );
+  check( "2 MB with 5 in 100 segments lost: it arrives whole", whole );
+  /* 5 in 100 lost means 100 sent for 95 to arrive, 105.3% at the least; what is over that was sent for nothing. */
+  check( "having sent less than 108% of it", with < data / 100 * 108 );
+  printf( "    (with selective acknowledgment: %.1f%% of the data was sent)\n", 100.0 * with / data );
+
+  const size_t without = lossy( false, false, whole );
+  check( "without selective acknowledgment it arrives whole", whole );
+  check( "having sent more than that", without > with );
+  printf( "    (without: %.1f%%)\n", 100.0 * without / data );
+
+  /* An end that does not know selective acknowledgment: pf.7's, at either end. */
+  for ( int knows = 0; knows < 2; knows++ ) {
+    Pair* p = NULL;
+    const size_t mixed = lossy( knows == 0, knows == 1, whole, &p );
+    check( knows == 0 ? "the target's end does not know it: 2 MB with losses arrives whole"
+                      : "the listening end does not know it: 2 MB with losses arrives whole",
+           whole );
+    check( "  and no segment after the handshake carries any option, either way",
+           p->options_after_syn[0] == 0 && p->options_after_syn[1] == 0 );
+    check( "  and as much is sent as when neither end knows it: it is the fork's TCP", mixed == without );
+    delete p;
+  }
+}
+
+/*
+ * An end that says it holds a segment it never got. The sender has no reason to send that
+ * segment again until the acknowledgments reach it and stop there; an end that held it would
+ * have acknowledged past it, so from then the claim is not believed, and it is sent.
+ */
+static void test_lying_holder( void )
+{
+  Pair p;
+  std::string sent;
+  const uint32_t id = warmed( p, sent );
+  const std::string more = pattern( 40 * SEGMENT ), last = pattern( SEGMENT );
+  sent += more + last;
+  p.reset_count();
+  /*
+   * The lie is about the last of the forty, the only one lost. Nothing arrives after it, so
+   * nothing prompts the sender but its timer; and the lie is told both while the segment is
+   * ahead of what is acknowledged and, with one more segment sent after, when it is next.
+   */
+  p.lose.push_back( 39 );
+  p.lying = true;
+  p.write( 0, id, more );
+  p.carry();
+  p.write( 0, id, last );
+  const uint64_t began = p.now;
+  for ( int i = 0; i < 20000 && p.out[1].got.size() < sent.size() && p.out[0].closed.empty(); i++ ) {
+    p.carry();
+    p.tick( 10 );
+  }
+  check( "(the lie was told)", p.lie_known && p.said_held > 0 );
+  check( "an end that says it holds what it never got: everything arrives whole all the same", p.out[1].got == sent );
+  check( "  within a minute of the logic's time, and the connection stays",
+         p.now - began < 60 * 1000 && p.out[0].closed.empty() && p.out[1].closed.empty() );
+}
+
 int main()
 {
   test_bytes();
@@ -583,6 +843,9 @@ int main()
   test_limits();
   test_outage();
   test_application_gone();
+  test_selective_acknowledgment();
+  test_lossy();
+  test_lying_holder();
 
   if ( failures ) {
     printf( "FAIL REQ1/FWD-1, REQ1/FWD-3: %d checks of the connection logic failed\n", failures );
