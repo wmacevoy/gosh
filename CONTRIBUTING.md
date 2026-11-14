@@ -26,12 +26,15 @@ takes about three and a half minutes here, more from nothing. In order it checks
    tag), pass the fork's tests that have been brought here (`tests/forward-e2e.py`,
    `tests/headless-smoke.py`, `tests/mocp.test`, `tests/wrapper.test`, two written here for what the
    fork tested only from inside, `tests/outage.py` and `tests/copy-cut.py`, and four cases of the NAT lab,
-   `tests/nat-lab.py`, which needs `nft` and either root, user namespaces, or sudo). These are the tests gosh's parts must pass when they land.
+   `tests/nat-lab.py`, which needs `nft` and either root, user namespaces, or sudo);
+6. gosh's own programs pass the tests of what they can do so far (`forward-e2e.py`, `outage.py`),
+   and a gosh end works with a pf.7 end each way. These are the tests gosh's parts must pass when they land.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
-`.build/bin`, with the transport's part of the seam applied (`seam/`) and the fork's forwarding
-code built beside it as a library (`src/forwarding/`) that **no program uses yet**: no forwards,
-no `gosh` command (queue items 5 to 10).
+`.build/bin`, with the seam applied (`seam/`, eight patches; `src/seam/`) and the fork's forwarding
+code carried unchanged (`src/forwarding/`). So `gosh-client` and `gosh-server` do forwards
+(`-L -R -LU -RU -N`) and nothing else of gosh's: no `gosh` command, relay, copy or stream yet
+(queue items 5 to 10).
 
 To set up: `git submodule update --init` for `core/`; a stock mosh 1.4.0 installed (Debian and
 Ubuntu: the `mosh` package), since the check meets it; and the core's build needs
@@ -82,7 +85,7 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   `seam/` is what gosh changes in it: patches the build applies, in order, to a copy
   (`seam/README.md`).
   `src/` holds gosh's parts, a directory each, named for the part, with a README and the part's
-  unit tests; so far `src/forwarding/`. `tools/` builds and checks; `tests/` holds tests that
+  unit tests; so far `src/forwarding/` and `src/seam/`. `tools/` builds and checks; `tests/` holds tests that
   drive the programs from outside.
 - **Working set:** `docs/`: `REQUIREMENTS_v11.md` (the one in force; v6 to v10 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,

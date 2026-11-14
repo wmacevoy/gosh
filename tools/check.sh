@@ -9,7 +9,9 @@
 #   5. the fork's tests that drive the programs from outside pass against the
 #      fork's own programs at pf.7 (tools/build-pf7.sh). These are the tests each
 #      part of gosh must then pass; until a part lands they say only that the
-#      test and the reference agree (queue item 4).
+#      test and the reference agree (queue item 4);
+#   6. gosh's own programs pass the ones they can so far, and a gosh end works
+#      with a pf.7 end each way.
 # A stock mosh 1.4.0 must be installed for 4 (Debian, Ubuntu: the mosh package);
 # STOCK_CLIENT and STOCK_SERVER say where, if not in /usr/bin.
 cd "$(dirname "$0")/.." || exit 1
@@ -37,7 +39,7 @@ tools/build.sh || fail "tools/build.sh"
 
 # The unit tests of gosh's parts, built and run inside the build's copy.
 . tools/env.sh
-for part in forwarding; do
+for part in forwarding seam; do
     if make -C ".build/core/src/$part" check >.build/unit-$part.log 2>&1; then
         echo "unit tests pass: $part ($(grep -c '^PASS:' .build/unit-$part.log))"
     else
@@ -91,4 +93,20 @@ shell_reference wrapper.test "$here/.build/core/src/tests/inpty"
 # The NAT lab, against pf.7. Not "room": it failed at random in the fork's CI, and a
 # test that fails at random teaches people to ignore red (queue item 8 settles it).
 tools/nat-lab.sh "$pf7" easy hard passed moved || { stop_ours; fail "pf.7 in the NAT lab"; }
+
+# 6. What gosh can do so far (queue item 5): the same tests, against gosh's own programs;
+# and a gosh end with a pf.7 end, each way, which holds only while the wire is unchanged.
+pair() { # LABEL SERVER CLIENT NAME ARGS...
+    label=$1; server=$2; client=$3; name=$4; shift 4
+    if python3 "tests/$name" "$server" "$client" "$@" >.build/gosh-test.log 2>&1; then
+        echo "$label passes $name $*"
+    else
+        cat .build/gosh-test.log; stop_ours; fail "$label with tests/$name $*"
+    fi
+}
+gosh=.build/bin
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" forward-e2e.py
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" outage.py
+pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" forward-e2e.py
+pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" forward-e2e.py
 echo "PASS"

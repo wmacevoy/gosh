@@ -1,0 +1,158 @@
+gosh seam 07: A client with no terminal: nothing read, drawn or restored (-N).
+
+For:   REQ1/FWD-5, and REQ10/SHAPE-1's named exception. A session that only holds forwards open
+       has no terminal: it must not read the keyboard, draw, or change the terminal's settings,
+       and its standard output is not its own to write on.
+What:  STMClient asks Gosh::headless() and, when it is so: init does nothing; shutdown restores
+       no screen or terminal; the window is taken to be 80 by 24; no first frame is drawn; in
+       place of drawing, the client says once on standard error that it is connected; the
+       keyboard and the window-size and continue signals are not watched; and the display is
+       made without the terminal's description. mosh-client.cc says "mosh: exiting." on
+       standard error in place of its line on standard output.
+Where: STMClient::init, shutdown, main_init, output_new_frame, main (stmclient.cc); its
+       constructor (stmclient.h); the end of main (mosh-client.cc).
+Kind:  guards. Lines are added around the core's, and four conditions gain a term; no line of
+       the core is moved or re-indented, so that a change upstream to what is guarded still
+       applies. (The copy's indentation inside a guard is therefore the core's, not the guard's.)
+Needs: 06-main.
+From:  the fork's headless changes at mosh-1.4.0-pf.7, where the test was a member of STMClient.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/frontend/mosh-client.cc b/src/frontend/mosh-client.cc
+index 3c8b1f9..aae614c 100644
+--- a/src/frontend/mosh-client.cc
++++ b/src/frontend/mosh-client.cc
+@@ -213,7 +213,11 @@ int mosh_client_main( int argc, char* argv[] )
+     success = false;
+   }
+ 
++  if ( Gosh::headless() ) {
++    fputs( "mosh: exiting.\n", stderr ); /* (standard output is not ours to write on) */
++  } else {
+   printf( "[mosh is exiting.]\n" );
++  }
+ 
+   return !success;
+ }
+diff --git a/src/frontend/stmclient.cc b/src/frontend/stmclient.cc
+index bccab7d..5633b52 100644
+--- a/src/frontend/stmclient.cc
++++ b/src/frontend/stmclient.cc
+@@ -81,6 +81,10 @@ void STMClient::resume( void )
+ 
+ void STMClient::init( void )
+ {
++  if ( Gosh::headless() ) {
++    return; /* nothing of the terminal's to look at or change */
++  }
++
+   if ( !is_utf8_locale() ) {
+     LocaleVar native_ctype = get_ctype();
+     std::string native_charset( locale_charset() );
+@@ -203,6 +207,7 @@ void STMClient::init( void )
+ 
+ void STMClient::shutdown( void )
+ {
++  if ( !Gosh::headless() ) {
+   /* Restore screen state */
+   overlays.get_notification_engine().set_notification_string( std::wstring( L"" ) );
+   overlays.get_notification_engine().server_heard( timestamp() );
+@@ -216,6 +221,7 @@ void STMClient::shutdown( void )
+     perror( "tcsetattr" );
+     exit( 1 );
+   }
++  } /* (not headless) */
+ 
+   if ( still_connecting() ) {
+     fprintf( stderr,
+@@ -244,6 +250,12 @@ void STMClient::main_init( void )
+   sel.add_signal( SIGCONT );
+ 
+   /* get initial window size */
++  if ( Gosh::headless() ) {
++    /* there is no window; tell the server something ordinary */
++    window_size = winsize();
++    window_size.ws_col = 80;
++    window_size.ws_row = 24;
++  } else
+   if ( ioctl( STDIN_FILENO, TIOCGWINSZ, &window_size ) < 0 ) {
+     perror( "ioctl TIOCGWINSZ" );
+     return;
+@@ -254,8 +266,10 @@ void STMClient::main_init( void )
+   new_state = Terminal::Framebuffer( 1, 1 );
+ 
+   /* initialize screen */
++  if ( !Gosh::headless() ) {
+   std::string init = display.new_frame( false, local_framebuffer, local_framebuffer );
+   swrite( STDOUT_FILENO, init.data(), init.size() );
++  }
+ 
+   /* open network */
+   Network::UserStream blank;
+@@ -278,6 +292,12 @@ void STMClient::output_new_frame( void )
+     return;
+   }
+ 
++  if ( Gosh::headless() ) {
++    /* nothing to draw on: say once, where a script can see it, that the session is up */
++    Gosh::announce( *network, still_connecting() );
++    return;
++  }
++
+   /* fetch target state */
+   new_state = network->get_latest_remote_state().state.get_fb();
+ 
+@@ -465,7 +485,9 @@ bool STMClient::main( void )
+       for ( std::vector<int>::const_iterator it = fd_list.begin(); it != fd_list.end(); it++ ) {
+         sel.add_fd( *it );
+       }
++      if ( !Gosh::headless() ) {
+       sel.add_fd( STDIN_FILENO );
++      }
+ 
+       int active_fds = sel.select( wait_time );
+       if ( active_fds < 0 ) {
+@@ -487,7 +509,7 @@ bool STMClient::main( void )
+         process_network_input();
+       }
+ 
+-      if ( sel.read( STDIN_FILENO )
++      if ( !Gosh::headless() && sel.read( STDIN_FILENO )
+            && !process_user_input( STDIN_FILENO ) ) { /* input from the user needs to be fed to the network */
+         if ( !network->has_remote_addr() ) {
+           break;
+@@ -497,11 +519,11 @@ bool STMClient::main( void )
+         }
+       }
+ 
+-      if ( sel.signal( SIGWINCH ) && !process_resize() ) { /* resize */
++      if ( !Gosh::headless() && sel.signal( SIGWINCH ) && !process_resize() ) { /* resize */
+         return false;
+       }
+ 
+-      if ( sel.signal( SIGCONT ) ) {
++      if ( !Gosh::headless() && sel.signal( SIGCONT ) ) {
+         resume();
+       }
+ 
+diff --git a/src/frontend/stmclient.h b/src/frontend/stmclient.h
+index 4d19225..b0dc137 100644
+--- a/src/frontend/stmclient.h
++++ b/src/frontend/stmclient.h
+@@ -41,6 +41,7 @@
+ 
+ #include "src/frontend/terminaloverlay.h"
+ #include "src/network/networktransport.h"
++#include "src/seam/hooks.h"
+ #include "src/statesync/completeterminal.h"
+ #include "src/statesync/user.h"
+ 
+@@ -98,7 +99,7 @@ public:
+     : ip( s_ip ? s_ip : "" ), port( s_port ? s_port : "" ), key( s_key ? s_key : "" ), escape_key( 0x1E ),
+       escape_pass_key( '^' ), escape_pass_key2( '^' ), escape_requires_lf( false ), escape_key_help( L"?" ),
+       saved_termios(), raw_termios(), window_size(), local_framebuffer( 1, 1 ), new_state( 1, 1 ), overlays(),
+-      network(), display( true ) /* use TERM environment var to initialize display */, connecting_notification(),
++      network(), display( !Gosh::headless() ) /* use TERM environment var to initialize display */, connecting_notification(),
+       repaint_requested( false ), lf_entered( false ), quit_sequence_started( false ), clean_shutdown( false ),
+       verbose( s_verbose )
+   {

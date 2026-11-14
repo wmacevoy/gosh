@@ -1,0 +1,56 @@
+gosh seam 06: The core's two mains get other names, so that gosh's main runs first.
+
+For:   REQ10/SHAPE-1, REQ6/NAME-1. gosh's words (its options, and later its names and first
+       words) are taken out of the arguments by gosh's own main, in src/seam, which then calls
+       the core's main with only what a stock mosh would have been given. So no option of
+       gosh's is parsed inside the core, and a moved pin cannot break one.
+What:  main becomes mosh_client_main in mosh-client.cc and mosh_server_main in mosh-server.cc;
+       each file includes the header that declares them.
+Where: mosh-client.cc; mosh-server.cc.
+Kind:  one line changed and one added in each. Nothing is moved.
+Needs: 05-build, which links the library holding gosh's main into each program.
+From:  written for gosh.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/frontend/mosh-client.cc b/src/frontend/mosh-client.cc
+index d617179..3c8b1f9 100644
+--- a/src/frontend/mosh-client.cc
++++ b/src/frontend/mosh-client.cc
+@@ -40,6 +40,7 @@
+ #include "src/crypto/crypto.h"
+ #include "src/util/fatal_assert.h"
+ #include "src/util/locale_utils.h"
++#include "src/seam/core-main.h"
+ #include "stmclient.h"
+ 
+ /* These need to be included last because of conflicting defines. */
+@@ -105,7 +106,7 @@ static void print_colorcount( void )
+   printf( "%d\n", color_val );
+ }
+ 
+-int main( int argc, char* argv[] )
++int mosh_client_main( int argc, char* argv[] )
+ {
+   unsigned int verbose = 0;
+   /* For security, make sure we don't dump core */
+diff --git a/src/frontend/mosh-server.cc b/src/frontend/mosh-server.cc
+index 5d22553..5a3fd8b 100644
+--- a/src/frontend/mosh-server.cc
++++ b/src/frontend/mosh-server.cc
+@@ -94,6 +94,7 @@
+ #endif
+ 
+ #include "src/network/networktransport-impl.h"
++#include "src/seam/core-main.h"
+ 
+ using ServerConnection = Network::Transport<Terminal::Complete, Network::UserStream>;
+ 
+@@ -175,7 +176,7 @@ static std::string get_SSH_IP( void )
+   return local_interface_IP;
+ }
+ 
+-int main( int argc, char* argv[] )
++int mosh_server_main( int argc, char* argv[] )
+ {
+   /* For security, make sure we don't dump core */
+   Crypto::disable_dumping_core();

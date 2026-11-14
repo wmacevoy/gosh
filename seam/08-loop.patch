@@ -1,0 +1,127 @@
+gosh seam 08: gosh's parts get a turn in each program's loop.
+
+For:   REQ1/FWD-1, REQ1/FWD-2, REQ1/FWD-3. Forwarding has sockets to watch and timers to run,
+       and the two programs each have one loop.
+What:  each program calls the seam's hooks (src/seam/hooks.h): once when the session's transport
+       exists, to start forwarding and give it the side channel; in each pass of its loop, for
+       how long it may wait, which descriptors to watch as well, and what to do after the wait;
+       and when the session ends. The server also ends it in the child that becomes the user's
+       shell, which must not hold forwarding's sockets.
+Where: STMClient::main_init, main, shutdown (stmclient.cc); run_server and serve
+       (mosh-server.cc).
+Kind:  additions only: five lines in the client, seven in the server. No refactor of either
+       loop was needed (design v2, 4.3).
+Needs: 03-side-channel, 05-build, 07-headless.
+From:  the fork at mosh-1.4.0-pf.7, where these lines called a member, forwarder, directly.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/frontend/mosh-server.cc b/src/frontend/mosh-server.cc
+index 5a3fd8b..3e3a975 100644
+--- a/src/frontend/mosh-server.cc
++++ b/src/frontend/mosh-server.cc
+@@ -95,6 +95,7 @@
+ 
+ #include "src/network/networktransport-impl.h"
+ #include "src/seam/core-main.h"
++#include "src/seam/hooks.h"
+ 
+ using ServerConnection = Network::Transport<Terminal::Complete, Network::UserStream>;
+ 
+@@ -440,6 +441,9 @@ static int run_server( const char* desired_ip,
+   network->set_verbose( verbose );
+   Select::set_verbose( verbose );
+ 
++  /* its targets are resolved now, while we can still complain */
++  Gosh::session_started( *network, verbose );
++
+   /*
+    * If mosh-server is run on a pty, then typeahead may echo and break mosh.pl's
+    * detection of the MOSH CONNECT message.  Print it on a new line to bodge
+@@ -551,6 +555,7 @@ static int run_server( const char* desired_ip,
+ #endif
+ 
+     /* close server-related file descriptors */
++    Gosh::session_ended();
+     network.reset();
+ 
+     /* set IUTF8 if available */
+@@ -660,6 +665,7 @@ static int run_server( const char* desired_ip,
+     } catch ( const Crypto::CryptoException& e ) {
+       fprintf( stderr, "Crypto exception: %s\n", e.what() );
+     }
++    Gosh::session_ended();
+ 
+ #ifdef HAVE_UTEMPTER
+     utempter_remove_record( master );
+@@ -721,6 +727,7 @@ static void serve( int host_fd,
+ 
+       timeout = std::min( timeout, network.wait_time() );
+       timeout = std::min( timeout, terminal.wait_time( now ) );
++      timeout = Gosh::wait_time( timeout );
+       if ( ( !network.get_remote_state_num() ) || network.shutdown_in_progress() ) {
+         timeout = std::min( timeout, 5000 );
+       }
+@@ -748,6 +755,7 @@ static void serve( int host_fd,
+       if ( !network.shutdown_in_progress() ) {
+         sel.add_fd( host_fd );
+       }
++      Gosh::watch( sel );
+ 
+       int active_fds = sel.select( timeout );
+       if ( active_fds < 0 ) {
+@@ -859,6 +867,8 @@ static void serve( int host_fd,
+         }
+       }
+ 
++      Gosh::turn( sel );
++
+       if ( ( !network.shutdown_in_progress() ) && sel.read( host_fd ) ) {
+         /* input from the host needs to be fed to the terminal */
+         const int buf_size = 16384;
+diff --git a/src/frontend/stmclient.cc b/src/frontend/stmclient.cc
+index 5633b52..197f055 100644
+--- a/src/frontend/stmclient.cc
++++ b/src/frontend/stmclient.cc
+@@ -237,6 +237,8 @@ void STMClient::shutdown( void )
+            "mosh-server process may still be running on the server.\n",
+            stderr );
+   }
++
++  Gosh::session_ended();
+ }
+ 
+ void STMClient::main_init( void )
+@@ -284,6 +286,8 @@ void STMClient::main_init( void )
+   /* be noisy as necessary */
+   network->set_verbose( verbose );
+   Select::set_verbose( verbose );
++
++  Gosh::session_started( *network, 0 );
+ }
+ 
+ void STMClient::output_new_frame( void )
+@@ -472,6 +476,7 @@ bool STMClient::main( void )
+       output_new_frame();
+ 
+       int wait_time = std::min( network->wait_time(), overlays.wait_time() );
++      wait_time = Gosh::wait_time( wait_time );
+ 
+       /* Handle startup "Connecting..." message */
+       if ( still_connecting() ) {
+@@ -488,6 +493,7 @@ bool STMClient::main( void )
+       if ( !Gosh::headless() ) {
+       sel.add_fd( STDIN_FILENO );
+       }
++      Gosh::watch( sel );
+ 
+       int active_fds = sel.select( wait_time );
+       if ( active_fds < 0 ) {
+@@ -509,6 +515,8 @@ bool STMClient::main( void )
+         process_network_input();
+       }
+ 
++      Gosh::turn( sel );
++
+       if ( !Gosh::headless() && sel.read( STDIN_FILENO )
+            && !process_user_input( STDIN_FILENO ) ) { /* input from the user needs to be fed to the network */
+         if ( !network->has_remote_addr() ) {
