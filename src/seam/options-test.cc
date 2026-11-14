@@ -1,4 +1,6 @@
 /*
+    Copyright 2026 Warren D. MacEvoy
+
     This file is part of gosh, which is free software under the GNU General
     Public License, version 3 or later (see COPYING).
 */
@@ -87,6 +89,26 @@ int main()
          !take( { "-L" }, "#", true, o, rest, error ) && error == "-L needs a value" );
   check( "-RU with no specification is an error that names it",
          !take( { "-RU" }, "#", true, o, rest, error ) && error == "-RU needs a forwarding specification" );
+
+  /* REQ6/NAME-1: which program it has been asked to be */
+  std::string called;
+  size_t skip = 9;
+  check( "REQ6/NAME-1: under the name gosh it is the command",
+         Gosh::which_role( "/home/u/.local/bin/gosh", { "host" }, called, skip ) == Gosh::THE_COMMAND && called == "gosh"
+           && skip == 0 );
+  check( "REQ6/NAME-1: under the name gocp it is the copy command",
+         Gosh::which_role( "gocp", { "a", "host:b" }, called, skip ) == Gosh::THE_COPY && called == "gocp" && skip == 0 );
+  check( "with gosh as its first word it is the command, and the word is passed over",
+         Gosh::which_role( "./gosh-client", { "gosh", "host" }, called, skip ) == Gosh::THE_COMMAND && called == "gosh"
+           && skip == 1 );
+  check( "a Windows path and .exe are not part of the name",
+         Gosh::which_role( "C:\\bin\\gosh.exe", {}, called, skip ) == Gosh::THE_COMMAND && called == "gosh" );
+  check( "under its own name, with an address first, it is the client",
+         Gosh::which_role( "/usr/bin/gosh-client", { "127.0.0.1", "60001" }, called, skip ) == Gosh::THE_CLIENT
+           && called == "gosh-client" && skip == 0 );
+  check( "the names it used to have are not the command (no alias but REQ6/CMD-4's)",
+         Gosh::which_role( "mosh", { "host" }, called, skip ) == Gosh::THE_CLIENT
+           && Gosh::which_role( "gosh-client", { "mosh", "host" }, called, skip ) == Gosh::THE_CLIENT && skip == 0 );
 
   if ( failures ) {
     printf( "FAIL REQ1/FWD-1, REQ1/FWD-2, REQ1/FWD-5: %d checks of the forwarding words failed\n", failures );

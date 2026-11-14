@@ -38,4 +38,7 @@ eval ./configure $CONFIGURE_DEPS >>../build.log 2>&1 || { tail -30 ../build.log;
 make -j"$(nproc 2>/dev/null || echo 2)" >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED (log: $BUILD/build.log)"; exit 1; }
 cp src/frontend/mosh-client "$BUILD/bin/gosh-client"
 cp src/frontend/mosh-server "$BUILD/bin/gosh-server"
+# gosh and gocp are gosh-client under those names (REQ6/NAME-1; src/seam/client-main.cc).
+ln -sf gosh-client "$BUILD/bin/gosh"
+ln -sf gosh-client "$BUILD/bin/gocp"
 echo "build: $("$BUILD/bin/gosh-client" --version | head -1) as gosh-client and gosh-server in $BUILD/bin"

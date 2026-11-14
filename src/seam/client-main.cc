@@ -1,18 +1,27 @@
 /*
+    Copyright 2026 Warren D. MacEvoy
+
     This file is part of gosh, which is free software under the GNU General
     Public License, version 3 or later (see COPYING).
 */
 
 /*
- * gosh-client's main (design v2, 4.2). It takes gosh's words out of the arguments, keeps what
- * they ask for where the seam's hooks will find it, and then runs the core's client with what
- * is left: exactly the words a stock mosh-client would have been given.
+ * gosh-client's main (design v2, 4.2). gosh-client is several programs under one name:
+ *
+ *   the command   run as gosh or gocp, it first logs in by ssh and starts the server
+ *                 (src/command), and then carries on, in this same process, as
+ *   the client    of the session that made. It takes gosh's words out of the arguments, keeps
+ *                 what they ask for where the seam's hooks will find it, and runs the core's
+ *                 client with what is left: exactly the words a stock mosh-client would be given.
+ *   ssh's proxy   run by ssh as its ProxyCommand, with a first word only the command gives it,
+ *                 it is the command's way of learning which address ssh reached.
  */
 
 #include <cstdio>
 #include <string>
 #include <vector>
 
+#include "src/command/moshwrapper.h"
 #include "src/seam/core-main.h"
 #include "src/seam/hooks.h"
 #include "src/seam/options.h"
@@ -20,7 +29,25 @@
 int main( int argc, char* argv[] )
 {
   const std::string name( argc > 0 ? argv[0] : "gosh-client" );
-  const std::vector<std::string> args( argv + ( argc > 0 ? 1 : 0 ), argv + argc );
+  std::vector<std::string> args( argv + ( argc > 0 ? 1 : 0 ), argv + argc );
+
+  /* (the word is the fork's, and the command writes it: src/command) */
+  if ( args.size() == 4 && args[0] == "--mosh-fake-proxy" ) {
+    return MoshWrapper::fake_proxy( args[1], args[2], args[3] );
+  }
+
+  std::string called;
+  size_t skip = 0;
+  const Gosh::Role role = Gosh::which_role( name, args, called, skip );
+  if ( role != Gosh::THE_CLIENT ) {
+    std::vector<std::string> client_words; /* the client's name, then its arguments */
+    int status = 1;
+    if ( !MoshWrapper::run( std::vector<std::string>( args.begin() + skip, args.end() ), role == Gosh::THE_COPY, called,
+                            name, print_colorcount, client_words, status ) ) {
+      return status; /* it has said why, or has done all that was asked (--help, --version) */
+    }
+    args.assign( client_words.begin() + ( client_words.empty() ? 0 : 1 ), client_words.end() );
+  }
 
   Gosh::ForwardOptions options;
   std::vector<std::string> rest;

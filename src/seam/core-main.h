@@ -1,4 +1,6 @@
 /*
+    Copyright 2026 Warren D. MacEvoy
+
     This file is part of gosh, which is free software under the GNU General
     Public License, version 3 or later (see COPYING).
 */
@@ -15,6 +17,9 @@
  */
 int mosh_client_main( int argc, char* argv[] );
 int mosh_server_main( int argc, char* argv[] );
+
+/* The core's own: prints the number of colors the terminal has on standard output (mosh-client -c). */
+void print_colorcount( void );
 
 namespace Gosh {
 

@@ -107,6 +107,8 @@ pair() { # LABEL SERVER CLIENT NAME ARGS...
 gosh=.build/bin
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" forward-e2e.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" outage.py
+# (this one takes the command first: gosh-client under the name gosh)
+pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-command.py
 pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" forward-e2e.py
 pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" forward-e2e.py
 echo "PASS"

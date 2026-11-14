@@ -1,4 +1,6 @@
 /*
+    Copyright 2026 Warren D. MacEvoy
+
     This file is part of gosh, which is free software under the GNU General
     Public License, version 3 or later (see COPYING). gosh carries mosh's code
     and is not the mosh project's work. The words parsed here, and what they
@@ -59,6 +61,27 @@ bool take_forward_options( const std::vector<std::string>& args,
                            ForwardOptions& options,
                            std::vector<std::string>& rest,
                            std::string& error );
+
+/* Which program gosh-client has been asked to be (REQ6/NAME-1). */
+enum Role
+{
+  THE_CLIENT, /* the client of a session someone else started */
+  THE_COMMAND, /* gosh: log in, start the server, and become the client */
+  THE_COPY     /* gocp: the command, copying files */
+};
+
+/*
+ * gosh-client is the command when it is run under the name gosh or gocp, or with either as its
+ * first word ("gosh-client gosh host"), which is how it is used where a second name cannot be
+ * made. The name is what follows the last "/" or "\\" of `program`, less ".exe".
+ *
+ *   program  argv[0], as the program was started
+ *   args     what followed it
+ *
+ * Returns the role. `called` is then the name to use in messages, and `skip` how many of `args`
+ * were the name and are to be passed over (0 or 1).
+ */
+Role which_role( const std::string& program, const std::vector<std::string>& args, std::string& called, size_t& skip );
 
 }
 

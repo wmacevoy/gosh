@@ -3,7 +3,7 @@ gosh seam 05: The core's build is told where gosh's parts are, and links them in
 For:   REQ6/SHAPE-5. gosh's code is in a directory per part, named for the part, outside the
        core. tools/build.sh copies those directories into its copy of the core's src/; this
        patch has the core's build go into them and link what they make.
-What:  src/forwarding and src/seam are added to the directories built (after network, which
+What:  src/forwarding, src/seam and src/command are added to the directories built (after network, which
        they use, and before the programs), and their Makefiles to those configure writes. Each
        program is linked with gosh's libraries, and with the one that holds its main.
 Where: configure.ac (AC_CONFIG_FILES); src/Makefile.am (SUBDIRS); src/frontend/Makefile.am
@@ -14,27 +14,28 @@ From:  written for gosh.
 Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
 
 diff --git a/configure.ac b/configure.ac
-index 75dd7d2..b28b829 100644
+index 75dd7d2..7fd2054 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -588,6 +588,8 @@ AC_CONFIG_FILES([
+@@ -588,6 +588,9 @@ AC_CONFIG_FILES([
    src/fuzz/Makefile
    src/include/Makefile
    src/network/Makefile
 +  src/forwarding/Makefile
 +  src/seam/Makefile
++  src/command/Makefile
    src/protobufs/Makefile
    src/statesync/Makefile
    src/terminal/Makefile
 diff --git a/src/Makefile.am b/src/Makefile.am
-index 0c2e9fe..f869367 100644
+index 0c2e9fe..481a61b 100644
 --- a/src/Makefile.am
 +++ b/src/Makefile.am
 @@ -1 +1 @@
 -SUBDIRS = include protobufs util crypto terminal network statesync frontend examples tests fuzz
-+SUBDIRS = include protobufs util crypto terminal network forwarding seam statesync frontend examples tests fuzz
++SUBDIRS = include protobufs util crypto terminal network forwarding seam command statesync frontend examples tests fuzz
 diff --git a/src/frontend/Makefile.am b/src/frontend/Makefile.am
-index c4574e9..791ed33 100644
+index c4574e9..fad51c6 100644
 --- a/src/frontend/Makefile.am
 +++ b/src/frontend/Makefile.am
 @@ -1,9 +1,10 @@
@@ -42,7 +43,7 @@ index c4574e9..791ed33 100644
  AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXFLAGS) $(CODE_COVERAGE_CXXFLAGS)
  AM_LDFLAGS  = $(HARDEN_LDFLAGS) $(CODE_COVERAGE_LIBS)
 -LDADD = ../crypto/libmoshcrypto.a ../network/libmoshnetwork.a ../statesync/libmoshstatesync.a ../terminal/libmoshterminal.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a -lm $(TINFO_LIBS) $(protobuf_LIBS) $(CRYPTO_LIBS)
-+LDADD = ../seam/libgoshseam.a ../forwarding/libgoshforwarding.a ../crypto/libmoshcrypto.a ../network/libmoshnetwork.a ../statesync/libmoshstatesync.a ../terminal/libmoshterminal.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a -lm $(TINFO_LIBS) $(protobuf_LIBS) $(CRYPTO_LIBS)
++LDADD = ../seam/libgoshseam.a ../command/libgoshcommand.a ../forwarding/libgoshforwarding.a ../crypto/libmoshcrypto.a ../network/libmoshnetwork.a ../statesync/libmoshstatesync.a ../terminal/libmoshterminal.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a -lm $(TINFO_LIBS) $(protobuf_LIBS) $(CRYPTO_LIBS)
  
 -mosh_server_LDADD = $(LDADD)
 +mosh_client_LDADD = ../seam/libgoshclientmain.a $(LDADD)

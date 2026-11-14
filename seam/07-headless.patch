@@ -19,7 +19,7 @@ From:  the fork's headless changes at mosh-1.4.0-pf.7, where the test was a memb
 Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
 
 diff --git a/src/frontend/mosh-client.cc b/src/frontend/mosh-client.cc
-index 3c8b1f9..aae614c 100644
+index 132dba8..a85507c 100644
 --- a/src/frontend/mosh-client.cc
 +++ b/src/frontend/mosh-client.cc
 @@ -213,7 +213,11 @@ int mosh_client_main( int argc, char* argv[] )

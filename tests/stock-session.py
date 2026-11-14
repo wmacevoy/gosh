@@ -13,6 +13,9 @@ with gosh's server.
 
 It stops only the two processes it started, by process id: the machine may be
 running other mosh sessions that are not ours to stop (CONTRIBUTING.md).
+
+Copyright 2026 Warren D. MacEvoy. Part of gosh, under the GNU General Public
+License, version 3 or later (COPYING).
 """
 import fcntl
 import os

@@ -6,14 +6,16 @@ For:   REQ10/SHAPE-1, REQ6/NAME-1. gosh's words (its options, and later its name
        gosh's is parsed inside the core, and a moved pin cannot break one.
 What:  main becomes mosh_client_main in mosh-client.cc and mosh_server_main in mosh-server.cc;
        each file includes the header that declares them.
+       The client's print_colorcount stops being private to its file, because the command
+       is given it to call (it is what "mosh-client -c" prints).
 Where: mosh-client.cc; mosh-server.cc.
-Kind:  one line changed and one added in each. Nothing is moved.
+Kind:  one line changed and one added in each, and one word (static) removed. Nothing is moved.
 Needs: 05-build, which links the library holding gosh's main into each program.
 From:  written for gosh.
 Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
 
 diff --git a/src/frontend/mosh-client.cc b/src/frontend/mosh-client.cc
-index d617179..3c8b1f9 100644
+index d617179..132dba8 100644
 --- a/src/frontend/mosh-client.cc
 +++ b/src/frontend/mosh-client.cc
 @@ -40,6 +40,7 @@
@@ -24,6 +26,15 @@ index d617179..3c8b1f9 100644
  #include "stmclient.h"
  
  /* These need to be included last because of conflicting defines. */
+@@ -91,7 +92,7 @@ static void print_usage( FILE* file, const char* argv0 )
+            argv0 );
+ }
+ 
+-static void print_colorcount( void )
++void print_colorcount( void )
+ {
+   /* check colors */
+   setupterm( (char*)0, 1, (int*)0 );
 @@ -105,7 +106,7 @@ static void print_colorcount( void )
    printf( "%d\n", color_val );
  }

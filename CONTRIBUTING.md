@@ -27,13 +27,15 @@ takes about three and a half minutes here, more from nothing. In order it checks
    `tests/headless-smoke.py`, `tests/mocp.test`, `tests/wrapper.test`, two written here for what the
    fork tested only from inside, `tests/outage.py` and `tests/copy-cut.py`, and four cases of the NAT lab,
    `tests/nat-lab.py`, which needs `nft` and either root, user namespaces, or sudo);
-6. gosh's own programs pass the tests of what they can do so far (`forward-e2e.py`, `outage.py`),
+6. gosh's own programs pass the tests of what they can do so far (`forward-e2e.py`, `outage.py`,
+   and `gosh-command.py`, which goes from the `gosh` command line to a byte at a forward's target),
    and a gosh end works with a pf.7 end each way. These are the tests gosh's parts must pass when they land.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
 `.build/bin`, with the seam applied (`seam/`, eight patches; `src/seam/`) and the fork's forwarding
-code carried unchanged (`src/forwarding/`). So `gosh-client` and `gosh-server` do forwards
-(`-L -R -LU -RU -N`) and nothing else of gosh's: no `gosh` command, relay, copy or stream yet
+and command code carried unchanged (`src/forwarding/`, `src/command/`). So `gosh host` opens a
+session and `gosh-client` and `gosh-server` do forwards (`-L -R -LU -RU -N`), and nothing else of
+gosh's works yet: no relay, copy or stream, and `gosh` still asks a host for `mosh-server`
 (queue items 5 to 10).
 
 To set up: `git submodule update --init` for `core/`; a stock mosh 1.4.0 installed (Debian and
@@ -64,7 +66,10 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   the design. A change that reshapes the core's code says where the code came from and why
   (`REQ10/SHAPE-1`, `REQ6/UP-2`).
 - **Code and tests name the requirements they serve**, by versioned ID (`REQ1/CP-2`).
-- **Every file that came from mosh or the fork keeps its copyright notice.** gosh is GPL-3.
+- **Every file that came from mosh or the fork keeps its copyright notice.** gosh is GPL-3. A file
+  written for gosh begins "Copyright 2026 Warren D. MacEvoy" (the year it was written) and says
+  it is part of gosh under the GPL, version 3 or later: the owner holds the copyright in what an
+  agent writes here (owner, 2026-11-14).
 - **Never stop a process by name.** The machine this is developed on is also the owner's live mosh
   host and runs their private meetup. Stop what you started by process id.
 - **Never run a test against the installed programs.** The fork's `nat-lab.py` ends by stopping
@@ -85,7 +90,7 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   `seam/` is what gosh changes in it: patches the build applies, in order, to a copy
   (`seam/README.md`).
   `src/` holds gosh's parts, a directory each, named for the part, with a README and the part's
-  unit tests; so far `src/forwarding/` and `src/seam/`. `tools/` builds and checks; `tests/` holds tests that
+  unit tests; so far `src/forwarding/`, `src/seam/` and `src/command/`. `tools/` builds and checks; `tests/` holds tests that
   drive the programs from outside.
 - **Working set:** `docs/`: `REQUIREMENTS_v11.md` (the one in force; v6 to v10 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,

@@ -22,6 +22,9 @@ arrived" fails. A copy killed outright leaves its server
 running (a stream's session waits a week for its client), so on its way out
 this test stops the servers that appeared while it ran: by process id, and only
 ones running SERVER's own file.
+
+Copyright 2026 Warren D. MacEvoy. Part of gosh, under the GNU General Public
+License, version 3 or later (COPYING).
 """
 import os
 import random

@@ -1,4 +1,6 @@
 /*
+    Copyright 2026 Warren D. MacEvoy
+
     This file is part of gosh, which is free software under the GNU General
     Public License, version 3 or later (see COPYING). gosh carries mosh's code
     and is not the mosh project's work.
@@ -86,6 +88,32 @@ bool take_forward_options( const std::vector<std::string>& args,
     rest.push_back( args[i] );
   }
   return true;
+}
+
+static Role role_named( const std::string& name )
+{
+  return name == "gosh" ? THE_COMMAND : name == "gocp" ? THE_COPY : THE_CLIENT;
+}
+
+Role which_role( const std::string& program, const std::vector<std::string>& args, std::string& called, size_t& skip )
+{
+  called = program;
+  const size_t slash = called.find_last_of( "/\\" );
+  if ( slash != std::string::npos ) {
+    called.erase( 0, slash + 1 );
+  }
+  if ( called.size() > 4 && called.compare( called.size() - 4, 4, ".exe" ) == 0 ) {
+    called.erase( called.size() - 4 );
+  }
+
+  skip = 0;
+  Role role = role_named( called );
+  if ( role == THE_CLIENT && !args.empty() && role_named( args[0] ) != THE_CLIENT ) {
+    called = args[0];
+    role = role_named( called );
+    skip = 1;
+  }
+  return role;
 }
 
 }
