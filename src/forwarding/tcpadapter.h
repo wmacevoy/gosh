@@ -1,33 +1,13 @@
 /*
-    Mosh: the mobile shell
-    Copyright 2012 Keith Winstein
+    Copyright 2026 Warren D. MacEvoy
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+    This file is part of gosh, which is free software under the GNU General
+    Public License, version 3 or later (see COPYING). gosh carries mosh's code
+    and is not the mosh project's work.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-    In addition, as a special exception, the copyright holders give
-    permission to link the code of portions of this program with the
-    OpenSSL library under certain conditions as described in each
-    individual source file, and distribute linked combinations including
-    the two.
-
-    You must obey the GNU General Public License in all respects for all
-    of the code used other than OpenSSL. If you modify file(s) with this
-    exception, you may extend this exception to your version of the
-    file(s), but you are not obligated to do so. If you do not wish to do
-    so, delete this exception statement from your version. If you delete
-    this exception statement from all source files in the program, then
-    also delete it here.
+    The socket calls here, and their order, are those of AdapterPort in
+    wmacevoy/mosh at mosh-1.4.0-pf.7 (src/network/tcpadapter.cc), which did
+    them in the middle of its TCP. The TCP is now in connection.h.
 */
 
 #ifndef TCPADAPTER_HPP
@@ -35,93 +15,48 @@
 
 #include <cstdint>
 #include <functional>
-#include <list>
 #include <map>
 #include <string>
 #include <vector>
 
 #include "src/crypto/prng.h"
+#include "src/forwarding/connection.h"
 #include "src/forwarding/tcpforward.h"
 
 /*
- * The socket adapter: a SegmentPort made of ordinary sockets.
+ * forwarding: listeners and targets (design v2, 2.2). The sockets of forwarded TCP connections.
  *
- * The kernel will not give an unprivileged program TCP segments, only
- * byte streams.  So this is a TCP endpoint of our own, just enough of
- * one to be a correct peer for a real TCP (or for another adapter) at
- * the far end of the tunnel, joined back to back with an ordinary
- * socket on this machine:
+ *   application <-- kernel TCP --> socket | AdapterPort | Connections <== segments ==> other end
  *
- *   application <-- kernel TCP --> socket | AdapterPort <== segments ==> other end
+ * THIS IS AN EDGE. It owns the listening sockets, each connection's socket, and the targets'
+ * addresses; it reads the clock, and draws each connection's first sequence number. It decides
+ * nothing about a connection: connection.h does, and tells this what to do with the sockets.
  *
- * On the client it listens, and opens a connection through the tunnel
- * for each one it accepts.  On the server it answers a SYN from the
- * tunnel by connecting to the forward's target, and completes the
- * handshake only if that works (a refused connection is refused all the
- * way back to the application).
+ * On the listening end it accepts applications' connections and hands each to the logic. On the
+ * connecting end, when the logic asks, it connects to the forward's target (or has a function
+ * make the socket, for a stream).
  *
- * What it does: the three-way handshake in both roles, cumulative
- * acknowledgment, reassembly of segments that arrive out of order,
- * retransmission with an adaptive, backed-off timeout (RFC 6298), fast
- * retransmit and recovery (NewReno, RFC 6582), slow start and
- * congestion avoidance, flow control in both directions including
- * zero-window probes, independent half-close of each direction, and
- * resets.
- *
- * A mosh session survives losing contact with the other end for as long
- * as it takes, and so must the connections it carries.  While the
- * session is out of contact, retransmissions that go unanswered are not
- * held against a connection, and when contact returns everything
- * outstanding is sent again at once.
- *
- * What it leaves out, which costs speed but not correctness: selective
- * acknowledgment, window scaling, timestamps, delayed acknowledgments
- * and urgent data.
+ * How it fails: a listener that cannot be bound throws from add_listener; anything that goes
+ * wrong with a connection's socket is told to the logic, which ends that connection and tells
+ * the other end. Nothing here ends the session.
  */
-
 namespace Network {
 
 class AdapterPort : public SegmentPort
 {
+private:
+  typedef Gosh::Connections<AdapterPort> Logic;
+  typedef Logic::Id Id;
+
 public:
-  static constexpr size_t MAX_CONNECTIONS = 64;
-  static constexpr size_t SEND_BUFFER = 1024 * 1024;
-  static constexpr size_t RECV_BUFFER = 1024 * 1024;
-  /*
-   * A TCP header's window field counts to 65535.  With the window scale
-   * option (RFC 7323) it counts in units of this many bits' worth of
-   * bytes instead, if both ends ask for that, so that more than 64 KB
-   * can be on its way at once: without it a long path is a slow one.
-   */
-  static constexpr uint8_t WINDOW_SHIFT = 5;
-
-  static constexpr uint32_t DEFAULT_MSS = 536;
-  static constexpr uint32_t MIN_MSS = 64; /* the least we will send at a time, whatever the other end asks */
-  static constexpr uint32_t INITIAL_WINDOW_SEGMENTS = 10;
-
-  static constexpr uint32_t RTO_INITIAL = 1000; /* ms */
-  static constexpr uint32_t RTO_MIN = 200;
-  static constexpr uint32_t RTO_MAX = 30000;
-  static constexpr unsigned int MAX_RETRIES = 10;
-  static constexpr unsigned int MAX_SYN_RETRIES = 5;
-  /*
-   * Lost segments are repaired one per round trip, which is right for
-   * the odd one and hopeless for hundreds (a burst that overran the
-   * path).  After this many in one repair, stop: go back to the first
-   * of them and send on from there, slowly at first.
-   */
-  static constexpr unsigned int MANY_HOLES = 3;
-  static constexpr uint64_t CONNECT_TIMEOUT = 10000;
-  static constexpr int POLL_INTERVAL = 10; /* ms, while waiting to write to a socket */
+  /* The logic's numbers, for the code that names them through this class. They are the logic's: one place. */
+  static constexpr size_t MAX_CONNECTIONS = Logic::MAX_CONNECTIONS;
+  static constexpr size_t SEND_BUFFER = Logic::SEND_BUFFER;
+  static constexpr size_t RECV_BUFFER = Logic::RECV_BUFFER;
+  static constexpr uint32_t MIN_MSS = Logic::MIN_MSS;
 
 private:
-  enum State
-  {
-    CONNECTING,  /* server: waiting for our socket to reach the target */
-    SYN_SENT,    /* client: waiting for the other end to accept */
-    SYN_RCVD,    /* server: accepted; waiting for the handshake to finish */
-    ESTABLISHED, /* including after either direction has closed */
-  };
+  friend class Gosh::Connections<AdapterPort>; /* it calls the seven functions below */
 
   struct Listener
   {
@@ -139,140 +74,60 @@ private:
     Target() : addr(), len( 0 ), present( false ), spawn() {}
   };
 
-  struct Conn
-  {
-    uint8_t forward;
-    uint16_t port; /* client-side port: names this connection in the tunnel */
-    int fd;
-    State state;
-    bool dead; /* finished with; to be removed */
-
-    uint32_t mss; /* largest payload we send */
-
-    /* sending: bytes read from the socket, on their way to the other end */
-    std::string send_buf; /* everything from snd_una on, sent or not */
-    uint32_t iss;
-    uint32_t snd_una; /* oldest unacknowledged */
-    uint32_t snd_nxt; /* next to send (falls back to snd_una on a timeout) */
-    uint32_t snd_max; /* highest ever sent, plus one */
-    uint32_t snd_wnd; /* what the other end will accept */
-    uint8_t snd_scale; /* how far to shift the windows it tells us... */
-    uint8_t rcv_scale; /* ...and the ones we tell it (both 0 unless both asked) */
-    uint32_t cwnd, ssthresh;
-    unsigned int dupacks;
-    bool recovering;  /* repairing a loss found by duplicate acknowledgments... */
-    uint32_t recover; /* ...which is over when this much is acknowledged */
-    unsigned int holes; /* how many more losses that repair has uncovered */
-    bool resending;     /* sending again from an earlier point, after heavy loss or a timeout, up to recover */
-    uint64_t calm_until; /* ...and for a moment after: its echoes are still coming back */
-    bool local_eof;    /* the socket has no more to send */
-    bool fin_sent;     /* our FIN lies before snd_nxt */
-    bool fin_was_sent; /* ...or did once, at fin_seq */
-    bool fin_acked;
-    uint32_t fin_seq;
-
-    /* retransmission */
-    uint64_t rto_deadline; /* 0 when the timer is off */
-    uint32_t rto;
-    unsigned int retries;
-    bool rtt_timing;
-    uint32_t rtt_seq;
-    uint64_t rtt_start;
-    bool rtt_valid;
-    double srtt, rttvar;
-
-    /* receiving: bytes from the other end, on their way to the socket */
-    std::string recv_buf;
-    uint32_t rcv_nxt;
-    std::map<uint32_t, std::string> early; /* segments from beyond rcv_nxt, by sequence number */
-    size_t early_bytes;
-    bool fin_received;
-    bool shut_wr; /* we have passed their FIN on to the socket */
-    uint32_t last_window; /* what we last said we would accept, in bytes */
-
-    uint64_t connect_deadline;
-
-    Conn()
-      : forward( 0 ), port( 0 ), fd( -1 ), state( CONNECTING ), dead( false ), mss( DEFAULT_MSS ), send_buf(),
-        iss( 0 ),
-        snd_una( 0 ), snd_nxt( 0 ), snd_max( 0 ), snd_wnd( 0 ), snd_scale( 0 ), rcv_scale( 0 ), cwnd( 0 ), ssthresh( 0xFFFFFFFF ), dupacks( 0 ),
-        recovering( false ), recover( 0 ), holes( 0 ), resending( false ), calm_until( 0 ),
-        local_eof( false ), fin_sent( false ), fin_was_sent( false ), fin_acked( false ), fin_seq( 0 ),
-        rto_deadline( 0 ), rto( RTO_INITIAL ), retries( 0 ), rtt_timing( false ), rtt_seq( 0 ), rtt_start( 0 ),
-        rtt_valid( false ), srtt( 0 ), rttvar( 0 ), recv_buf(), rcv_nxt( 0 ), early(), early_bytes( 0 ),
-        fin_received( false ),
-        shut_wr( false ), last_window( 0 ), connect_deadline( 0 )
-    {}
-  };
-
   SegmentSink* sink;
-  bool client;
-
   std::vector<Listener> listeners;
   std::vector<Target> targets; /* by forward index */
-  std::list<Conn> conns;
-  uint16_t next_port;
+  std::map<Id, int> sockets;   /* each connection's socket */
   PRNG prng;
-  bool link_was_up;
+  Logic logic;
 
-  Conn* find( uint8_t forward, uint16_t port );
-  Conn* new_conn( uint8_t forward, uint16_t port, int fd );
-  void sweep( void );
-
-  uint32_t local_mss( void ) const;
-  uint32_t agreed_mss( const std::string& their_options ) const;
-  uint32_t settled_rto( const Conn& c ) const;
-  uint32_t window( const Conn& c ) const;
-  void emit( Conn& c, uint16_t flags, uint32_t seq, const std::string& payload, bool with_options = false );
-  void reply_reset( uint8_t forward, uint16_t port, const TCPInUDP& to );
-
+  /* What the session can do just now, for the logic. */
+  Gosh::Link link( void ) const;
+  int socket_of( Id id ) const; /* -1 if it has none */
   void accept_from( const Listener& listener, uint64_t now );
-  void passive_open( uint8_t forward, uint16_t port, const TCPInUDP& syn, uint64_t now );
-  void connected( Conn& c, uint64_t now );
-  void abort( Conn& c, bool tell_peer );
 
-  void established_input( Conn& c, const TCPInUDP& segment, uint64_t now );
-  void accept_data( Conn& c, uint32_t seq, const std::string& payload, bool fin );
-  void process_ack( Conn& c, const TCPInUDP& segment, uint64_t now );
-  void output( Conn& c, uint64_t now );
-  void retransmit_one( Conn& c );
-  void timeout( Conn& c, uint64_t now );
-  void flush( Conn& c );
-  void read_socket( Conn& c, uint64_t now );
-  void maybe_finish( Conn& c );
+  /* What the logic asks for (connection.h says what each must do). */
+  void send( uint8_t forward, const TCPInUDP& segment );
+  uint32_t fresh_sequence( void );
+  bool connect( Id id, uint8_t forward );
+  int connecting( Id id );
+  long deliver( Id id, const char* data, size_t length );
+  void shut_write( Id id );
+  void close( Id id, bool reset );
 
   /* unused */
   AdapterPort( const AdapterPort& );
   AdapterPort& operator=( const AdapterPort& );
 
 public:
+  /* s_client: this end listens for applications; the other end connects to the targets. */
   AdapterPort( SegmentSink* s_sink, bool s_client );
   ~AdapterPort();
 
-  /* Client: start listening.  Returns the address, for the user.  Throws NetworkException. */
+  /* Listening end: start listening. Returns the address, for the user. Throws NetworkException. */
   std::string add_listener( uint8_t forward, const ForwardSpec& spec );
 
-  /* Server: where connections on this forward go. */
+  /* Connecting end: where connections on this forward go. */
   void add_target( uint8_t forward, const Addr& addr, socklen_t len );
   /*
-   * Server: connections on this forward go to whatever this makes.  It
-   * returns a connected stream socket (one end of a pair, say), or -1.
+   * Connecting end: connections on this forward go to whatever this makes. It returns a
+   * connected stream socket (one end of a pair, say), or -1.
    */
   void add_spawner( uint8_t forward, const std::function<int()>& spawn );
   /*
-   * Client: a connection on this forward, for a socket we already have,
-   * as if a listener had just accepted it.  False (and the socket is
-   * closed) if it cannot be forwarded now.
+   * Listening end: a connection on this forward, for a socket we already have, as if a listener
+   * had just accepted it. False (and the socket is closed) if it cannot be forwarded now.
    */
   bool open_with( uint8_t forward, int fd, uint64_t now );
 
+  /* SegmentPort: the sockets worth reading now; one of them is readable; timers; a segment has arrived. */
   std::vector<int> fds( void ) const;
   void read_fd( int fd );
   void tick( uint64_t now );
   int wait_time( uint64_t now ) const;
   void from_network( uint8_t forward, const TCPInUDP& segment );
 
-  size_t connection_count( void ) const { return conns.size(); }
+  size_t connection_count( void ) const { return logic.count(); }
 };
 
 }

@@ -16,7 +16,7 @@
  * hours, contact with the other end lost and found, the largest datagram changing, and stray
  * segments for connections that do not exist. The same script is given to two worlds:
  *
- *   old   two of the fork's AdapterPort, one listening and one connecting, each on a real socket
+ *   old   two of the fork's AdapterPort (old-tcpadapter.*), one listening and one connecting, each on a real socket
  *         pair, with the times it reads from the clock supplied by this test;
  *   new   two Connections, with no socket at all.
  *
@@ -59,9 +59,15 @@
 #include "src/network/network.h"
 #include "src/util/timestamp.h"
 
-/* (to read each old connection's first sequence number; see above) */
+/*
+ * The fork's adapter, kept under another name for this test alone (old-tcpadapter.*; the build
+ * compiles it with the same renaming). "private" is opened to read each old connection's first
+ * sequence number; see above.
+ */
 #define private public
-#include "src/forwarding/tcpadapter.h"
+#define AdapterPort OldAdapterPort
+#include "src/forwarding/old-tcpadapter.h"
+#undef AdapterPort
 #undef private
 
 using Network::TCPInUDP;
@@ -112,7 +118,7 @@ public:
 struct OldEnd
 {
   OldSink sink;
-  Network::AdapterPort port;
+  Network::OldAdapterPort port;
   int app, adapter; /* the two ends of the socket pair: the application's, and the adapter's */
 
   explicit OldEnd( bool listening ) : sink(), port( &sink, listening ), app( -1 ), adapter( -1 ) {}

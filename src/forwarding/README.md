@@ -19,7 +19,9 @@ to test the new against.
 | `forwarding.h` | every forward of a session behind one event-loop interface |
 | `udpforward.*` | UDP forwards; and the frame, the replay window and the forward's specification, which TCP uses too |
 | `tcpforward.*` | TCP forwards and the stream, as segments over the side channel |
-| `tcpadapter.*` | a TCP of gosh's own joined to ordinary sockets: one end of a connection |
+| `connection.h` | gosh's TCP: one end of a forwarded connection, as logic (new shape) |
+| `tcpadapter.*` | the sockets of forwarded TCP connections: listeners and targets, an edge (new shape) |
+| `old-tcpadapter.*` | the fork's adapter, unchanged but for its name: for the differential test only |
 | `tcpinudp.*` | a TCP segment as a compact datagram, both ways |
 
 ## connection (the new shape)
@@ -27,8 +29,10 @@ to test the new against.
 `connection.h` is gosh's TCP as **logic**: the algorithm of the fork's `AdapterPort`, statement
 for statement, with its sockets, clock and random numbers taken out. It is told what happened,
 with the time and what the session can do just now, and says what to do through a type its
-caller supplies (the edge in the programs, a recorder in tests). **No program uses it yet**: the
-programs still run `tcpadapter.*`, which becomes its edge next.
+caller supplies (the edge in the programs, a recorder in tests). `tcpadapter.*` is that **edge**:
+it owns the sockets, reads the clock and draws sequence numbers, and decides nothing. The
+programs run both. `old-tcpadapter.*` is the fork's adapter as it was, under another class name,
+linked only into `connection-diff`; it goes when forwarding has landed.
 
 | Test | What it shows |
 | --- | --- |

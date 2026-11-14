@@ -20,4 +20,11 @@ udp_forward_SOURCES = udp-forward.cc
 tcp_in_udp_SOURCES = tcp-in-udp.cc
 tcp_forward_SOURCES = tcp-forward.cc
 connection_diff_SOURCES = connection-diff.cc
+connection_diff_LDADD = libgosholdadapter.a $(LDADD)
+
+# The fork's adapter as it was, under another name, for connection-diff alone: the programs
+# no longer use it. It goes when forwarding has landed (queue item 15).
+check_LIBRARIES = libgosholdadapter.a
+libgosholdadapter_a_SOURCES = old-tcpadapter.cc old-tcpadapter.h
+libgosholdadapter_a_CPPFLAGS = $(AM_CPPFLAGS) -DAdapterPort=OldAdapterPort
 connection_test_SOURCES = connection-test.cc
