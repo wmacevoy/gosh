@@ -13,6 +13,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "src/network/network.h"
 #include "src/relay/relay.h"
@@ -62,6 +63,7 @@ void Gosh::engage_relay( void )
 {
   Session& s = session();
   s.relay_engaged = true; /* (or tried: either way, once) */
+  s.relay_started_at = Network::timestamp();
 
   Network::RelayOptions options;
   options.command = s.relay_command;
@@ -91,6 +93,7 @@ void Gosh::engage_relay( void )
   if ( relay_port == 0 ) {
     return;
   }
+  s.relay_pid = pid;
 
   Network::Addr relay;
   memset( &relay, 0, sizeof( relay ) );
@@ -114,6 +117,30 @@ void Gosh::consider_relay( void )
     return; /* the session has not started */
   }
   if ( relay_due( Network::timestamp(), s.started_at, s.last_heard(), s.relay_mode, s.relay_engaged, s.ending() ) ) {
+    engage_relay();
+  }
+
+  /*
+   * Is the relay we started still there? It is our child, so this asks only about it. If it
+   * has died we are sending to a port nobody has: say so, and start another (REQ1/PATH-1).
+   */
+  if ( s.relay_pid > 0 ) {
+    const pid_t gone = waitpid( s.relay_pid, NULL, WNOHANG );
+    if ( gone == s.relay_pid || ( gone < 0 && errno == ECHILD ) ) {
+      s.relay_pid = 0;
+      s.relay_gone = true;
+      if ( s.relay_keep_alive >= 0 ) {
+        close( s.relay_keep_alive );
+        s.relay_keep_alive = -1;
+      }
+      if ( s.options.headless && s.options.stream.empty() ) {
+        fputs( "mosh: the relay through ssh has stopped; starting another.\n", stderr );
+        fflush( stderr );
+      }
+    }
+  }
+  if ( s.relay_gone && relay_again( Network::timestamp(), s.relay_started_at, s.ending() ) ) {
+    s.relay_gone = false;
     engage_relay();
   }
 }

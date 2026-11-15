@@ -55,6 +55,20 @@ inline bool relay_due( uint64_t now, uint64_t started_at, uint64_t last_heard, R
                                           : ( now - last_heard > RELAY_AFTER_QUIET );
 }
 
+/*
+ * A relay that was started has gone: it died, which nobody intended. Whether to start another
+ * at `now`: yes, but not within a second of when the last was started, so that one that dies
+ * as soon as it starts is not started over and over without a pause; and not while the session
+ * is ending. (The fork did not look: a session whose relay died carried nothing from then on
+ * and said nothing. docs/FINDINGS.md, 2026-11-13.)
+ */
+static constexpr uint64_t RELAY_AGAIN_AFTER = 1000; /* ms since the last was started */
+
+inline bool relay_again( uint64_t now, uint64_t last_started, bool ending )
+{
+  return !ending && now - last_started >= RELAY_AGAIN_AFTER;
+}
+
 }
 
 #endif

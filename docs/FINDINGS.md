@@ -7,6 +7,24 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-15 — A relay that died was not noticed; now it is, and two limits are accepted
+
+- **What happened:** the reading of 2026-11-13 said nobody notices if the local relay dies. The
+  owner, 2026-11-15: "dying relay seems important, can you add tests." `tests/relay-dies.py`
+  kills the relay of a session carried by nothing else and sends bytes through a forward:
+  against pf.7, and against gosh as it was, they never come back and the client says nothing.
+- **What it changed:** gosh's client looks at its relay each turn, says when it has stopped, and
+  starts another, not within a second of the last (`src/relay/start.h`, with numbers in its
+  test; the seam's hooks). The test kills two relays in a row and is in the check.
+- **Accepted by the owner the same day, with why:** (1) the check that a new sender on the
+  relay's loopback socket is a socket of the same user works on Linux only: "accept linux and
+  write why. it is a denial attack since the stream is encrypted." Another user of the client's
+  own machine can at most stop the session or see sealed datagrams. (2) "accept untested bsd":
+  no BSD or macOS machine has run the relay, and the one line that is there for OpenBSD has
+  never run. Both are said in `src/relay/README.md`. *(The agent's note: these read as scope
+  decisions; they are in the README and here, and not in the requirements, which only a new
+  version changes.)*
+
 ## 2026-11-14 — The carried relay: five things a reader should decide on before release
 
 - **What happened:** the review of the relay (queue item 7; a session given the code and the

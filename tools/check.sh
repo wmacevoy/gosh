@@ -122,8 +122,9 @@ pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 
 if python3 -c 'import socket; socket.socket(socket.AF_INET6, socket.SOCK_DGRAM).bind(("::1", 0))' 2>/dev/null; then
     pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py ::1 blocked
 fi
-# (gosh only: pf.7 fails this one, which is the fault it was written to show. FINDINGS, 2026-11-14 and 15)
+# (gosh only: pf.7 fails these two, which are the faults they were written to show. FINDINGS, 2026-11-13 to 15)
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-spoof.py
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-dies.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" copy-cut.py gocp
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" copy-liar.py
 if tests/mocp.test "$here/$gosh/gosh-client" "$here/$gosh/gosh-server" gocp gosh >.build/gosh-test.log 2>&1; then

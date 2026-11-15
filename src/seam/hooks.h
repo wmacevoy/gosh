@@ -69,6 +69,9 @@ struct Session
   std::string server_ip, server_port;     /* where the server is, as the client was told */
   bool relay_engaged;
   int relay_keep_alive; /* the local relay runs until this closes, which it does when we exit */
+  pid_t relay_pid;      /* the local relay's process, while there is one: it is our child */
+  bool relay_gone;      /* it died, and another has not been started yet */
+  uint64_t relay_started_at;
   uint64_t started_at;
   std::function<uint64_t()> last_heard; /* when the server was last heard (set by session_started) */
   std::function<void( const Network::Addr&, socklen_t )> send_elsewhere; /* send to here from now on */
@@ -76,7 +79,8 @@ struct Session
   Session()
     : options(), client( false ), forwarding(), watched(), announced( false ), stream_words(), stream_pid( 0 ),
       stream_status( 1 ), stream_ended( 0 ), ending(), end_it(), loop_returned( false ), relay_mode( RELAY_NEVER ),
-      relay_command(), server_ip(), server_port(), relay_engaged( false ), relay_keep_alive( -1 ), started_at( 0 ),
+      relay_command(), server_ip(), server_port(), relay_engaged( false ), relay_keep_alive( -1 ), relay_pid( 0 ),
+      relay_gone( false ), relay_started_at( 0 ), started_at( 0 ),
       last_heard(), send_elsewhere()
   {}
 };
@@ -89,7 +93,10 @@ void tend_stream( void );
 /* The client: starts the local relay, and talks to the server through it from now on. Once. */
 void engage_relay( void );
 
-/* The client: if the server has gone quiet and there is a relay to start, starts it (start.h has the rule). */
+/*
+ * The client, each turn: if the server has gone quiet and there is a relay to start, starts it;
+ * and if the relay it started has died, says so and starts another (start.h has both rules).
+ */
 void consider_relay( void );
 
 /* Whether this program may yet start a process: a stream's, or the relay. (It must not give up the right to.) */

@@ -59,6 +59,11 @@ changes, at places marked `(gosh)` in `local.cc` and `remote.cc`:
 3. The local relay took whoever last sent to its loopback port for the client. gosh takes a new
    sender only if the kernel's list of UDP sockets says it is a socket of the same user. **On a
    system without `/proc/net/udp` (not Linux) it cannot tell, and behaves as the fork did.**
+   *Accepted by the owner, 2026-11-15: "accept linux and write why. it is a denial attack
+   since the stream is encrypted."* The why: what another user of the client's machine gains
+   there is to stop the session or see its sealed datagrams, never to read or change what it
+   carries; and telling whose a UDP datagram is needs something each system does its own way,
+   which is not worth carrying for a denial by someone already on the user's own machine.
 4. One byte from ssh reset the wait between attempts to start it. gosh resets it when a whole
    frame has arrived.
 
@@ -66,8 +71,17 @@ Of these, 2 is shown from outside; 1, 3 and 4 are tested as rules (`whose-test.c
 `paths-test.cc`) and their few lines at the edge are read, not driven by a test: 1 is a race
 to demonstrate, and 3 needs a second user.
 
+**A relay that dies** (2026-11-15). The local relay is a process of its own. In the fork, if it
+died, the client went on sending to a port nobody had and never said so. gosh's client looks
+each turn (the relay is its child), says "the relay through ssh has stopped; starting another",
+and starts one, not within a second of the last (`start.h`). `tests/relay-dies.py` kills the
+relay twice and sends bytes through a forward after each: red against pf.7, green against gosh.
+
 **Not tested:** that the edge does what `paths.h` says is tested only by the smoke test's four
 cases. Nothing in the check makes the local relay try a fresh socket, back off from an ssh that
 fails or asks for a password, stop a real ssh (the remote relay is run directly), fill its
-backlog, or be killed outright; `MOSH_RELAY=never` with a command is tested only as a rule. That the local relay dying is noticed (`docs/FINDINGS.md`, 2026-11-13: it is not); OpenBSD,
-where the client must keep the right to start a process.
+backlog, or be killed outright; `MOSH_RELAY=never` with a command is tested only as a rule. "Killed outright" is now tested
+for the local relay (above), not for the ssh it runs or the remote relay. OpenBSD, where the
+client must keep the right to start a process: the line for it is read and has never run
+(*accepted by the owner, 2026-11-15: "accept untested bsd"*). No BSD or macOS machine has run
+any of this part.

@@ -42,6 +42,10 @@ int main()
   check( "no relay to start, or one from the start: this rule starts none",
          !relay_due( 99999, 5000, never, RELAY_NEVER, false, false ) && !relay_due( 99999, 5000, never, RELAY_ALWAYS, false, false ) );
 
+  check( "a relay that has gone, started 999 ms ago: not another yet", !relay_again( 5999, 5000, false ) );
+  check( "started 1,000 ms ago: another", relay_again( 6000, 5000, false ) );
+  check( "but not while the session is ending", !relay_again( 99999, 5000, true ) );
+
   if ( failures ) {
     printf( "FAIL REQ1/PATH-1: %d checks of when the relay starts failed\n", failures );
     return EXIT_FAILURE;
