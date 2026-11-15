@@ -652,3 +652,58 @@ not work with the fork's releases at the other end.
   compared on PASS; Microsoft domains need their own tenant; `--new`; small-order keys refused;
   options in place of words after `gosh`; `gosh-server meetup-term` in place of a new program;
   sizes computed. **Not yet attacked.**
+
+## 14. The attack on revision 9 (2026-11-15): findings, to be taken in revision 10
+
+A sixth session, held to section 2. Verdict: "build with these changes"; 1 and 2 first, since
+each lets an outsider stop a user's session.
+
+1. **A copied REGISTER takes an end's place.** Step 5 never requires the cookie inside the box to
+   be the outer one, so an onlooker gets a cookie of their own for the `E` (in the clear) and
+   sends the copied box under it: the registration moves to them, for the whole session, again
+   and again. *Change:* the inner cookie must equal the outer, with a test.
+2. **The costly-open limits can be spent by outsiders**, one unenrolled student per campus NAT
+   or a few addresses for the whole service, and every roam needs a costly open; "full" is
+   answered with a box. *Change:* a REBIND under `Kr` that moves a registration's address with no
+   public-key work; only REGISTERs that fail count against an address; "full" is silence.
+3. **A NO judged by its own list**: an onlooker replays a genuine list older than the end's term,
+   and the user is told to sign in again. *Change:* judge a NO against the newest list the end
+   holds.
+4. **The Roughtime check is unspecified** (servers, keys, version, the nonce and delegation
+   checks) and fails unsafely: it guards the least important clock, blocks first runs and
+   `--now`, rots as servers retire, and contradicts an identity key kept elsewhere. A list's
+   made-time should be at least the previous one's plus one.
+5. **The emergency refuses when 16 ended-term slots would fill**, at the worst moment, and the
+   arithmetic was wrong. *Change:* never refuse; drop the oldest ids.
+6. **The service name is used as a pin key and a file name unchecked**; a pass made by someone
+   who knows `U` could name `../../.ssh/authorized_keys`. *Change:* a lower-case DNS host name
+   only, checked before use.
+7. **The hook cannot apply expiry** without reading the clock. *Change:*
+   `admit(account, U, now) -> ... until`; the edge moves the counter at the earliest `until`.
+8. **Silence starts storms**: a server end whose laptop sleeps re-registers once a minute.
+   *Change:* on silence, KEEP first.
+9. **"down, or its identity has changed" after five HELLOs** is a false alarm where UDP is
+   blocked, the usual reason for falling back. *Change:* say it only if other UDP was answered.
+10. **Two signing keys are kept**, not one (the waiting term's); box keys are five, not four.
+11. **Sizes right, rule 3 not**: REGISTERED (1,035) is larger than REGISTER (863), KEPT (70) than
+    KEEP (43); COOKIE and NO go to forged addresses at about 1:1. *Change:* pad the requests;
+    give KEEP, KEPT and PASS their lengths; a repeated answer is the same bytes.
+12. **`--new` would strand other services' passes.** Keep the old key while any pass names it.
+13. **Options**: `--meetup-pass [FILE]` cannot be parsed (use `=FILE`); abbreviations clash;
+    the old `--meetup=HOST:PORT`, `MOSH_MEETUP`, `MOSH_MEETUP_KEY`, `gosh-server meetup-key`
+    unmentioned; how a session chooses among several services, and the port, unsaid.
+14. **Smaller**: spans half-open; registrations with no KEEPs never expire; the voucher and gate
+    need fixed encodings and vectors; the UDP side should refuse small-order `U` too, and
+    non-canonical `E`, `P`; a clock behind refuses good passes near a term's start.
+15. **Cross-references** off by one section in places; the tests' hook is for REQ15/PATH-5;
+    "pair" for two ends and two keys; messages lack `gosh:`.
+
+**Against REQUIREMENTS_v15:** REQ1/PATH-7 against the term tool's Roughtime (the scope decisions
+allow it; the two disagree); REQ1/PATH-2 reread, not reworded, by REQ15/PATH-4; REQ6/NAME-1 (old
+names, `gosh:`); REQ6/SHAPE-5 (a clock read in the hook); the envelope's "not designed for a
+shared public meetup" against the default whitelist; Roughtime operators and meetup operators
+not among the people it touches; "one name" in the glossary and "one address" in scope
+decisions; REQ15/PATH-5's "just shown" against a registration that lives on `Kr`.
+
+**Not decided by the attacker:** a REGISTER's cost in TweetNaCl; which Roughtime servers live;
+SQLite's regexp bound; NATs with 30-second timeouts; 2,048 cipher sessions in 10 MB.
