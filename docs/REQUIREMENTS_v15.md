@@ -20,7 +20,7 @@ the agent from `PROPOSAL_meetup-registration.md` and the client's answers to its
 **rewritten in place the same day**, before it was accepted, to the proposal's revision 10: "lets
 just get back to the basics ... no third party ... no new auth" (no citation of v15 had come to
 mean anything else);
-**not yet read back to him as a whole.** *Tell us what is wrong with it.*
+**Accepted by the client on 2026-11-15: "accept v15".**
 
 **What changed from v14.** How a meetup decides whom to pass datagrams for, and which STUN servers
 are asked; nothing else.
