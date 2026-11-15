@@ -679,3 +679,14 @@ that says no (a test hook is needed); sign-in providers are not among the people
 **Not decided by the attacker:** whether the largest PASS fits the cipher's 2,048-byte buffer;
 Apple's `email_verified` as a string; `xms_edov` for personal accounts; whether one machine may
 hold passes for several services.
+
+**The owner's answers to the fifth attack, 2026-11-15:** to finding 1, "i'm not sure what the
+attack is? permission to use them as a relay?"; to 2, "hacked web server means all bets are off;
+again they get permission to relay encrypted data"; to 3, "roughtime is signed, and we have a
+clock"; to 4, "the key role means it does not have to be. roughtime is everywhere --- days does
+not matter in a 90 day window keep a future key valid (so 5 max, 1 in the future)". A pin is by
+name ("meetup.vikiverse.net or meetup.cs.coloradomesa.edu"); "I don't understand the service
+words, why?" And the picture changed: "attacking a meetup allows an attacker to relay encrypted
+traffic for you, or be a denial of service --- which is an unavoidable consequence of attcking
+the service to begin with --- so the only new thing is the ability to help you? that's the
+attack?"
