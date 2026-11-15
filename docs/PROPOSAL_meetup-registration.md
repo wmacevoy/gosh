@@ -565,3 +565,9 @@ here, briefly, so that they outlive the session; each is to be written into the 
     before a span ends passes for up to 25 seconds more; "term" used for both the 90-day signing
     period and the 360-day span.
 
+**Also from the owner, the same day, for revision 8:** "the white-black list can have expiry
+dates? so you don't have to remember to remove them after 4 years." So every whitelist and
+blacklist entry carries the date it stops applying, and an entry past its date is no longer
+matched and is removed by itself. A blacklist entry need last no longer than the longest pass it
+could match; the default is a year from when it is added.
+
