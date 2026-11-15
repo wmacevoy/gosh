@@ -7,6 +7,32 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-15 — Item 18's review said "not yet": the fix had made a connection with no other end, and then went on treating it as one
+
+- **What happened:** the first fix for the reset after a finish marked the connection as having
+  lost its other end and delivered what it held. A session given the commit then showed, with
+  the test's own harness: a segment of the other end's that arrived after its reset threw out
+  of the logic (the send buffer had been emptied under counters that still pointed into it);
+  an old acknowledgment arriving late started the retransmission timer again, which 211 s
+  later ended the connection with a reset and discarded the held bytes, the very loss the fix
+  was for; an application still writing was no longer read from and hung for ever; and where
+  the fix ended a connection with a reset "to tell the application its answer was lost", the
+  reset at the application's socket threw away what it had not yet read (shown on loopback:
+  65,536 of 2.5 MB read). It also showed the commonest way to meet all this: only the last
+  acknowledgment lost.
+- **What would have found it:** asking, of a new state, what every existing path does when it
+  meets it; the tests only walked the one path that set it. Ten of sixteen deliberate breaks of
+  the first fix failed no test.
+- **What it changed:** from the reset on the connection has no other end, in one place each:
+  nothing is sent, nothing late is looked at, no timer, further writes taken and dropped, and
+  the end is always in order. Each finding was first a failing test (eight checks red). Eight
+  breaks of the revised fix: all noticed, two after checks were added.
+- **For the owner, not done:** a closed end that did not answer a bare acknowledgment with a
+  reset would save an older peer's bytes in the commonest case. The reviewer showed it working
+  with the old logic at both ends. Its cost: an end whose peer's abort was lost, and which only
+  receives, is no longer told by its own window update and waits for its application. It
+  changes what goes on the wire.
+
 ## 2026-11-15 — The second review of the relay: accepted, with what the fixes leave open
 
 - **What happened:** a session given the security fixes, the dying-relay change and their

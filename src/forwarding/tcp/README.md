@@ -30,10 +30,20 @@ closes and forgets a connection when both finishes are acknowledged, though the 
 still hold bytes its application has not taken; anything that end then sends is answered with
 a reset. The fork believed that reset and threw the held bytes away: up to 1 MB that had been
 acknowledged, with no reordering needed, only a full buffer and a slow reader. gosh delivers
-what it holds and then ends the connection (in order; or with a reset if the other end went
-before it had all of ours). A reset before the other end's finish is believed as before.
-**Not fixed:** when the slow reader is a pf.7 end, it still believes gosh's reset; that would
-need the closed end to remember, for as long as an application may be slow.
+what it holds and then ends the connection, in order. From the reset on the connection has no
+other end: nothing is sent to it, nothing it sent earlier that turns up late is looked at, no
+timer runs, and what the application still writes is taken from it and dropped, so that it is
+not left stuck writing to nobody. In order, and not with a reset, even if some of ours was
+never acknowledged: we cannot tell whether it was lost or only its acknowledgment was (a lost
+last acknowledgment is the commonest way to meet this), and a reset given to the application's
+socket discards what the application has not yet read. A reset before the other end's finish is
+believed as before.
+**Not fixed:** when the slow reader is an older end (pf.7, or gosh before this), it still
+believes gosh's reset. A small change would help it in the commonest case (a closed end not
+answering a bare acknowledgment with a reset); it changes what gosh puts on the wire for "a
+segment for no connection", and is the owner's to take up (`docs/FINDINGS.md`, 2026-11-15).
+**Not bounded:** an application that never reads holds its connection and up to 1 MB for as
+long as it likes. That was so before, with or without a reset.
 
 ## connection (the new shape)
 

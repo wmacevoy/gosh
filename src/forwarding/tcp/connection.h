@@ -175,7 +175,6 @@ private:
     Early early; /* segments from beyond rcv_nxt, and what to say we hold (early.h) */
     bool fin_received;
     bool peer_gone;       /* after its finish, the other end said it has forgotten us (a reset) */
-    bool unsent_lost;     /* ...and it had not had all of ours */
     bool shut_wr;         /* we have passed their FIN on to the socket */
     uint32_t last_window; /* what we last said we would accept, in bytes */
 
@@ -192,7 +191,7 @@ private:
         ssthresh( 0xFFFFFFFF ), dupacks( 0 ), recovering( false ), recover( 0 ), holes( 0 ), resending( false ),
         calm_until( 0 ), local_eof( false ), fin_sent( false ), fin_was_sent( false ), fin_acked( false ), fin_seq( 0 ),
         rto_deadline( 0 ), rto( RTO_INITIAL ), retries( 0 ), rtt_timing( false ), rtt_seq( 0 ), rtt_start( 0 ),
-        round_trip(), recv_buf(), rcv_nxt( 0 ), early(), fin_received( false ), peer_gone( false ), unsent_lost( false ), shut_wr( false ), last_window( 0 ),
+        round_trip(), recv_buf(), rcv_nxt( 0 ), early(), fin_received( false ), peer_gone( false ), shut_wr( false ), last_window( 0 ),
         connect_deadline( 0 ), sack( false ), held(), rexmit_nxt( 0 )
     {}
 
@@ -365,7 +364,7 @@ private:
   {
     /* both directions closed and everything delivered */
     if ( !c.dead && c.fin_acked && c.fin_received && c.recv_buf.empty() ) {
-      out.close( c.id(), c.unsent_lost ); /* (with a reset only if the other end went before it had all of ours) */
+      out.close( c.id(), false );
       c.dead = true;
     }
   }
@@ -374,12 +373,21 @@ private:
    * A reset from an end whose finish we already have. Everything it had to send arrived, whole
    * and in order; the reset says only that it has since forgotten the connection (it closed
    * when both finishes were acknowledged, and something of ours reached it afterwards: word
-   * that our window had opened, or a segment late or twice). The fork ended the connection
-   * here and threw away what the application had not yet taken: up to 1 MB that had been
-   * acknowledged (docs/FINDINGS.md, 2026-11-14; queue item 18). So: what we hold is still
-   * delivered, and then the connection ends. Nothing more is sent to an end that is not there.
-   * If it had not acknowledged all of ours (it reset before our finish reached it), ours was
-   * lost, and the application is told by a reset once it has taken what there is.
+   * that our window had opened, our finish sent again because its acknowledgment was lost, or
+   * a segment late or twice). The fork ended the connection here and threw away what the
+   * application had not yet taken: up to 1 MB that had been acknowledged (docs/FINDINGS.md,
+   * 2026-11-14; queue item 18).
+   *
+   * So: what we hold is still delivered, and then the connection ends, in order. From here on
+   * the connection has no other end: nothing is sent to it, nothing it sent earlier that
+   * arrives late is looked at, no timer runs, and what the application still writes is taken
+   * from it and dropped, so that it is not left stuck writing to nobody.
+   *
+   * In order, and not with a reset, even if some of ours was never acknowledged. We cannot
+   * tell whether that was lost or only its acknowledgment was; and a reset given to the
+   * application's socket discards what it has not yet read, which is the loss this prevents.
+   * An application whose last words did not arrive learns as it does from any TCP: by what it
+   * does not get back, or when it next writes.
    */
   void forgotten( Conn& c, Out& out )
   {
@@ -388,17 +396,9 @@ private:
     }
     c.peer_gone = true;
     c.rto_deadline = 0;
-    if ( !c.fin_acked || !c.send_buf.empty() ) {
-      /* ours did not all arrive: deliver what we hold, then end with a reset */
-      c.send_buf.drop( c.send_buf.size() );
-      c.unsent_lost = true;
-    }
-    /* our side is over, as far as it will ever be: nothing more is to be sent or waited for */
-    c.fin_acked = true;
-    c.local_eof = true;
-    c.fin_sent = c.fin_was_sent = true;
-    flush( c, out );
-    maybe_finish( c, out );
+    c.send_buf.drop( c.send_buf.size() );
+    c.fin_acked = true; /* (as far as it ever will be: this lets the connection finish when all is delivered) */
+    maybe_finish( c, out ); /* (what is held goes to the application at the next tick, as always) */
   }
 
   /* Connecting end: the other end wants a connection. See whether the target will have it. */
@@ -444,6 +444,9 @@ private:
         }
       }
       return;
+    }
+    if ( c.peer_gone ) {
+      return; /* (something it sent before it forgot us: there is nobody to answer, and nothing to learn) */
     }
     if ( segment.has( Segment::SYN ) ) {
       emit( c, Segment::ACK, c.snd_nxt, "", out ); /* our handshake ACK was lost */
@@ -626,7 +629,7 @@ private:
   /* Send whatever the windows allow. */
   void output( Conn& c, uint64_t now, Out& out )
   {
-    if ( c.dead || c.state != ESTABLISHED ) {
+    if ( c.dead || c.state != ESTABLISHED || c.peer_gone ) {
       return;
     }
 
@@ -769,7 +772,7 @@ private:
     }
 
     /* If we had told the other end to stop, tell it that it can go on. */
-    if ( c.state == ESTABLISHED && c.last_window < c.mss && window( c ) >= 2 * c.mss ) {
+    if ( c.state == ESTABLISHED && !c.peer_gone && c.last_window < c.mss && window( c ) >= 2 * c.mss ) {
       emit( c, Segment::ACK, c.snd_nxt, "", out );
     }
   }
@@ -902,7 +905,7 @@ public:
     if ( c->dead || c->state != ESTABLISHED || c->local_eof || !space ) {
       return 0;
     }
-    return std::min<size_t>( space, READ_AT_ONCE );
+    return std::min<size_t>( space, READ_AT_ONCE ); /* (also when the other end has gone: see forgotten()) */
   }
 
   /*
@@ -914,7 +917,12 @@ public:
     link = s_link;
     Conn* c = find( id );
     if ( c && wants( id ) ) {
-      if ( length > 0 ) {
+      if ( c->peer_gone ) {
+        if ( length == 0 ) {
+          c->local_eof = true; /* (it has finished; there is nothing more to take from it) */
+        }
+        /* what it wrote is dropped: the other end has gone */
+      } else if ( length > 0 ) {
         c->send_buf.append( data, length );
       } else {
         c->local_eof = true; /* a FIN will follow the data */

@@ -23,6 +23,7 @@
  */
 
 #include <cstdio>
+#include <exception>
 #include <cstdlib>
 #include <map>
 #include <string>
@@ -553,10 +554,142 @@ static void test_reset_after_everything_arrived( void )
     p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
     check( "a reset after its finish, with our answer not yet acknowledged: nothing is closed while bytes are held",
            p.out[1].closed.empty() && p.out[1].got.empty() );
+
+    /* Something the other end sent before it forgot arrives after its reset: its finish, again. */
+    bool threw = false;
+    try {
+      p.connecting.segment( 0, p.last_from[0], p.now, p.link, p.out[1] );
+    } catch ( const std::exception& e ) {
+      threw = true;
+    }
+    check( "a segment of its that arrives after its reset changes nothing, and breaks nothing",
+           !threw && p.out[1].closed.empty() && p.connecting.count() == 1 );
+
+    /* The application has more to say. It is taken and goes nowhere, so that the application is not left stuck writing. */
+    check( "the application's further bytes are still taken from it", p.connecting.wants( id ) > 0 );
+    p.connecting.read( id, "more", 4, p.now, p.link, p.out[1] );
+    check( "and nothing is sent to the end that has gone", p.out[1].sent.empty() && p.connecting.count() == 1 );
+    const std::string much( 65536, 'w' );
+    size_t taken = 0;
+    for ( int i = 0; i < 48 && p.connecting.wants( id ); i++ ) { /* 3 MB: three times what a send buffer holds */
+      p.connecting.read( id, much.data(), std::min( much.size(), p.connecting.wants( id ) ), p.now, p.link, p.out[1] );
+      taken += much.size();
+    }
+    check( "however much it writes: 3 MB is taken, where a buffer of what could not be sent would have filled at 1 MB",
+           taken == 48 * much.size() && p.connecting.wants( id ) > 0 && p.out[1].sent.empty() );
+
     p.out[1].takes = -1;
     p.tick( 10 );
-    check( "the 5,000 bytes are delivered; and then the application is told, by a reset, that its answer was lost",
-           p.out[1].got == data && p.out[1].closed.size() == 1 && p.out[1].closed[0].second );
+    /*
+     * In order, not with a reset: a reset given to the application's socket throws away what
+     * it has not yet read, which is the loss this is here to prevent. Its unacknowledged answer
+     * is lost either way; it finds out as with any TCP, when it next writes.
+     */
+    check( "the 5,000 bytes are delivered, and the connection then closes in order",
+           p.out[1].got == data && p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+  }
+
+  /* Much of ours in flight; its reset after its finish; then an old acknowledgment of a little of ours turns up. */
+  {
+    Pair p;
+    const uint32_t id = p.open();
+    p.out[1].takes = 0;
+    const std::string data = pattern( 5000 );
+    p.write( 0, id, data );
+    p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] );
+    p.carry();
+    p.carrying = false;
+    const std::string ours = pattern( 2 * 1024 * 1024 );
+    size_t queued = 0;
+    for ( int i = 0; i < 64 && p.connecting.wants( id ); i++ ) {
+      queued += p.write( 1, id, ours.substr( queued, 65536 ) );
+    }
+    check( "(our send buffer is full: 1 MB waits, and no more is wanted from the application)",
+           queued == 1024 * 1024 && p.connecting.wants( id ) == 0 );
+    const uint32_t ours_begin = p.out[1].sent.empty() ? 0 : p.out[1].sent[0].second.seq;
+    p.out[1].sent.clear();
+    p.carrying = true;
+    TCPInUDP reset = p.last_from[0];
+    reset.flags = TCPInUDP::RST;
+    reset.seq = reset.seq + reset.payload.size() + 1;
+    reset.payload.clear();
+    p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
+    check( "the other end gone, what waited to be sent is let go, and the application is read from again",
+           p.connecting.wants( id ) > 0 );
+    TCPInUDP late = reset;
+    late.flags = TCPInUDP::ACK;
+    late.ack = ours_begin + 1000;
+    late.window = 1;
+    p.connecting.segment( 0, late, p.now, p.link, p.out[1] );
+    unsigned int sent_after = p.out[1].sent.size();
+    for ( int i = 0; i < 400; i++ ) { /* 400 s, the application reading nothing */
+      p.tick( 1000 );
+      sent_after += p.out[1].sent.size();
+      p.out[1].sent.clear();
+    }
+    check( "an old acknowledgment after the reset starts no timer: 400 s on, the bytes are still held and nothing was sent",
+           p.out[1].closed.empty() && p.connecting.count() == 1 && sent_after == 0 );
+    p.out[1].takes = -1;
+    p.tick( 10 );
+    check( "and when the application reads, it gets them", p.out[1].got == data && !p.out[1].closed.empty() && !p.out[1].closed[0].second );
+  }
+
+  /* The other end had everything and closed; only its last acknowledgment, of our finish, was lost. */
+  {
+    Pair p;
+    const uint32_t id = p.open();
+    p.out[1].takes = 0;
+    const std::string data = pattern( 5000 );
+    p.write( 0, id, data );
+    p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] );
+    p.carry();
+    p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] ); /* our finish goes... */
+    std::vector<std::pair<uint8_t, TCPInUDP> > ours;
+    ours.swap( p.out[1].sent );
+    for ( size_t i = 0; i < ours.size(); i++ ) {
+      p.listening.segment( ours[i].first, ours[i].second, p.now, p.link, p.out[0] );
+    }
+    p.out[0].sent.clear(); /* ...and the acknowledgment of it is lost */
+    check( "(the other end has everything, and has closed and forgotten; we do not know our finish arrived)",
+           p.listening.count() == 0 && p.connecting.count() == 1 );
+    for ( int i = 0; i < 5 && p.out[0].sent.empty(); i++ ) {
+      p.tick( 1000 ); /* our finish is sent again, and answered with a reset */
+      p.carry();
+    }
+    p.out[1].takes = -1;
+    p.tick( 10 );
+    p.carry();
+    check( "only the last acknowledgment lost: the bytes are delivered and the connection closes in order",
+           p.out[1].got == data && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+  }
+
+  /* A full buffer, and the reset drawn by a late copy: taking bytes then opens the window, of which nothing is said. */
+  {
+    Pair p;
+    const uint32_t id = p.open();
+    p.out[1].takes = 0;
+    const std::string data = pattern( 1024 * 1024 );
+    size_t written = 0;
+    for ( int i = 0; i < 4000 && written < data.size(); i++ ) {
+      written += p.write( 0, id, data.substr( written ) );
+      p.carry();
+      p.tick( 1 );
+    }
+    p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] );
+    p.carry();
+    p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] );
+    p.carry();
+    p.listening.segment( 0, p.last_from[1], p.now, p.link, p.out[0] );
+    p.carry(); /* the reset arrives */
+    unsigned int said = 0;
+    for ( int i = 0; i < 12; i++ ) {
+      p.out[1].takes = 100000;
+      p.tick( 10 );
+      said += p.out[1].sent.size();
+      p.out[1].sent.clear();
+    }
+    check( "told the other end has gone, a window that opens is not announced to it: nothing is sent, and all arrives",
+           said == 0 && p.out[1].got == data );
   }
 
   /* A reset while the other end has not finished is still believed: what it had to say is not all here. */
