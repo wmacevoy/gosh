@@ -106,8 +106,9 @@ simply out of their span.
 is wrong, or has been set wrong on purpose, cannot be fooled into taking a term that has ended as
 good, or one that has not begun. *(From the agent's memory: a Roughtime answer is an Ed25519
 signature over the time and a nonce the asker chose, made with a key the asker already has, so
-the TweetNaCl gosh carries can check it.)* Where the signed time comes from is a question for the
-owner (section 13).
+the TweetNaCl gosh carries can check it.)* The signed time comes from gosh-meetup itself, which
+answers Roughtime on its UDP port with a key of its own that an end learns when it enrols
+(section 13, question 3).
 
 **Making terms** is done by one tool, `gosh-meetup term`, run by whoever runs the service (by
 hand, or every day from cron; on most days it does nothing):
@@ -136,15 +137,14 @@ service name           1 byte of length, then up to 255 bytes (its address, as u
 term id                8 bytes
 U                      32 bytes
 account                1 byte of length, then up to 255 bytes: provider ":" address
-stable id              1 byte of length, then up to 255 bytes: the provider's issuer and subject
 ```
 
 *Deferred by the owner, agreed in principle: the rates and limits an account is allowed may be
 written into the pass, so that the service need not look them up (section 6.4).*
 
-An account name or stable id longer than 255 bytes is refused, never cut short. Test vectors for
+An account name longer than 255 bytes is refused, never cut short. Test vectors for
 this exact encoding are shared by both repositories ([SE1/T11](../vendor/se1/guide/06-testing.md#t11)).
-*The stable id is the agent's recommendation and the owner's to decide (section 13, question 1).*
+*No stable id beside the account name: the owner's answer (section 13, question 1).*
 
 **A voucher**: the user's signature with `U` over `"gosh end v1"`, the service name, the term id,
 `E` and `P`: "at this service, under that pass, end `E` may be passed to and from end `P`". The
@@ -154,7 +154,7 @@ user's private key. A voucher is for one pair at one service: of use only while 
 key exists, which is one session.
 
 **What an end seals to.** Everything an end sends while registering is boxed to its pass's
-term's box key, so the pass, `U`, the account and the stable id cross the network sealed.
+term's box key, so the pass, `U` and the account cross the network sealed.
 
 ## 4. Who may enrol: the whitelist and the blacklist
 
@@ -173,7 +173,7 @@ asks of that side, because both sides rely on it:
   organisation is (section 5, step 4), not only against the address's suffix.
 
 **On the UDP side**, in gosh, there is a **hook**: a function that the UDP side calls, at every
-registration and every keep, with the account name, the stable id and the user's key, and that
+registration and every keep, with the account name and the user's key, and that
 answers whether to admit them. gosh declares it and gives a default that admits everyone a valid
 pass admits. **A service's own build provides its own** (the web side's repository, linking it to
 its SQLite and its regular expressions), as gosh's seam gives the core its turns. The UDP side
@@ -273,7 +273,7 @@ Cheapest first, and where it stops:
    and kept for the answer; then the two signatures; then the hook (section 4), if it has not
    answered for this account and key since its answers last changed.
 4. Taken if: `P` is not `E`; the pass is the term's signature over this service, the term, `U`,
-   the account and the stable id; the hook admits the account and `U`; and the
+   and the account; the hook admits the account and `U`; and the
    voucher is `U`'s signature over this service, the term, `E` and `P`. It makes a
    **registration**: `E` at that address, for `P`, of that account, under that term, with a
    random `id` and a new `Kr`. An `E` registered already: an older cookie is ignored; the same
@@ -378,7 +378,7 @@ it is the user's own server.
 | Anyone with an account at the three providers | — | Enrols as themselves under the default whitelist: **most people**. A blacklisted person makes a new account in a minute. Behind a narrow whitelist, as a school writes it, neither is so |
 | A Microsoft tenant's admin who sets a user's address to someone else's | — | Refused: a Microsoft address is taken only with `xms_edov` or from a listed tenant |
 | A former member of a school who still has a verified school address on a personal account | — | Enrols as that address under `id:google:.*@school\.edu` unless `hd` is also required; the design requires it |
-| An address that was someone else's, given out again by the school | — | Is a new person: the stable id differs (if section 13, question 1, is yes); otherwise inherits the old holder's blacklist entry and limits |
+| An address that was someone else's, given out again by the school | — | To the hook, the same person: inherits the old holder's blacklist entry and limits, and the old holder's passes stay good under that name until they expire (no stable id: section 13, question 1) |
 | Someone who sends a victim an enrolment link for the attacker's own key | — | Nothing: no key travels in a link; the user pastes their own. To talk a user into pasting the attacker's key, past a page that names the user's account and words that are not their own, is phishing made harder, not impossible |
 | Someone who gives a user a pass that is not for the user's key | — | `gosh meetup-pass` refuses it: a pass is kept only for the machine's own `U`, under a term whose keys match those already known |
 | Another user of the service | Takes an end's place, if they see the pair's name | Cannot open another's messages, register as another's end, or be passed another pair's datagrams. Has their own limits; fills the service only as far as the whole service's eviction allows |
@@ -494,18 +494,17 @@ not work with the fork's releases at the other end.
   one (Roughtime), so an end may keep every key; enrolment is by pasting, in and out, and gosh
   listens on nothing; rates are deferred.
 
-## 13. Questions for the owner
+## 13. The owner's answers to revision 7 (2026-11-15)
 
-1. **A stable id in the pass**, the provider's issuer and subject, beside the account name: so
-   that an address the school gives to someone else later is not the same person, for the hook
-   and the limits. It is not shown and not matched by the lists. (You said no opaque id was
-   needed to hide the user, which is right; this is for telling two people apart.) Agreed?
-2. **A minimal record of enrolments** on the web side: when, which account, and the four words of
-   the key, kept a year. Without it, whoever runs the service can put out a whole person but not
-   one lost or phished machine, since nothing says which keys were enrolled for whom. This is
-   narrower than the log you deferred, which named who used the service. *(It is the web side's,
-   so its requirements may be the place to decide it.)*
-3. **Where the signed time comes from.** gosh-meetup can answer Roughtime itself, on its UDP
-   port: then nobody else is asked anything (`REQ1/PATH-7` stays true), and an end trusts the
-   time of the service it already trusts. Or public Roughtime servers (Cloudflare and others run
-   them), which ask a third party. I recommend the service's own.
+1. **A stable id in the pass**: "no such animal --- at least i don't know how to track that."
+   *(The agent's note, raised once: there is one, and the web side is given it free. Every
+   OpenID Connect ID token carries `iss`, the provider, and `sub`, the provider's own id for the
+   account: it does not change when the account's address changes, and an address given out again
+   later belongs to an account with a different `sub`. The web side already checks this token
+   (section 5, step 3). Until the owner says otherwise, the pass carries no stable id, and an
+   address given to someone else later is, to the hook, the same person.)*
+2. **A minimal record of enrolments** on the web side (when, which account, the key's four words,
+   kept a year): "ok". It is the web side's, in its own requirements; gosh asks nothing of it.
+3. **The signed time comes from gosh-meetup itself**, answering Roughtime on its UDP port: "ok".
+   Nobody else is asked anything (`REQ1/PATH-7` stays true), and an end trusts the time of the
+   service it already trusts.
