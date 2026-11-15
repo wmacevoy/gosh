@@ -174,6 +174,8 @@ private:
     uint32_t rcv_nxt;
     Early early; /* segments from beyond rcv_nxt, and what to say we hold (early.h) */
     bool fin_received;
+    bool peer_gone;       /* after its finish, the other end said it has forgotten us (a reset) */
+    bool unsent_lost;     /* ...and it had not had all of ours */
     bool shut_wr;         /* we have passed their FIN on to the socket */
     uint32_t last_window; /* what we last said we would accept, in bytes */
 
@@ -190,7 +192,7 @@ private:
         ssthresh( 0xFFFFFFFF ), dupacks( 0 ), recovering( false ), recover( 0 ), holes( 0 ), resending( false ),
         calm_until( 0 ), local_eof( false ), fin_sent( false ), fin_was_sent( false ), fin_acked( false ), fin_seq( 0 ),
         rto_deadline( 0 ), rto( RTO_INITIAL ), retries( 0 ), rtt_timing( false ), rtt_seq( 0 ), rtt_start( 0 ),
-        round_trip(), recv_buf(), rcv_nxt( 0 ), early(), fin_received( false ), shut_wr( false ), last_window( 0 ),
+        round_trip(), recv_buf(), rcv_nxt( 0 ), early(), fin_received( false ), peer_gone( false ), unsent_lost( false ), shut_wr( false ), last_window( 0 ),
         connect_deadline( 0 ), sack( false ), held(), rexmit_nxt( 0 )
     {}
 
@@ -363,9 +365,40 @@ private:
   {
     /* both directions closed and everything delivered */
     if ( !c.dead && c.fin_acked && c.fin_received && c.recv_buf.empty() ) {
-      out.close( c.id(), false );
+      out.close( c.id(), c.unsent_lost ); /* (with a reset only if the other end went before it had all of ours) */
       c.dead = true;
     }
+  }
+
+  /*
+   * A reset from an end whose finish we already have. Everything it had to send arrived, whole
+   * and in order; the reset says only that it has since forgotten the connection (it closed
+   * when both finishes were acknowledged, and something of ours reached it afterwards: word
+   * that our window had opened, or a segment late or twice). The fork ended the connection
+   * here and threw away what the application had not yet taken: up to 1 MB that had been
+   * acknowledged (docs/FINDINGS.md, 2026-11-14; queue item 18). So: what we hold is still
+   * delivered, and then the connection ends. Nothing more is sent to an end that is not there.
+   * If it had not acknowledged all of ours (it reset before our finish reached it), ours was
+   * lost, and the application is told by a reset once it has taken what there is.
+   */
+  void forgotten( Conn& c, Out& out )
+  {
+    if ( c.dead || c.peer_gone ) {
+      return;
+    }
+    c.peer_gone = true;
+    c.rto_deadline = 0;
+    if ( !c.fin_acked || !c.send_buf.empty() ) {
+      /* ours did not all arrive: deliver what we hold, then end with a reset */
+      c.send_buf.drop( c.send_buf.size() );
+      c.unsent_lost = true;
+    }
+    /* our side is over, as far as it will ever be: nothing more is to be sent or waited for */
+    c.fin_acked = true;
+    c.local_eof = true;
+    c.fin_sent = c.fin_was_sent = true;
+    flush( c, out );
+    maybe_finish( c, out );
   }
 
   /* Connecting end: the other end wants a connection. See whether the target will have it. */
@@ -404,7 +437,11 @@ private:
     if ( segment.has( Segment::RST ) ) {
       /* believe it only if it is where we expect the other end to be */
       if ( segment.seq - c.rcv_nxt <= 0xFFFF ) {
-        abort( c, false, out );
+        if ( c.fin_received ) {
+          forgotten( c, out );
+        } else {
+          abort( c, false, out );
+        }
       }
       return;
     }

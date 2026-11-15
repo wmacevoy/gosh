@@ -119,9 +119,16 @@ worth reading before migrating the part it concerns.
   reading when the other end closes. Loopback does neither.
 - **What would have found it:** a unit test that carries segments out of order. `Pair` in
   `connection-test.cc` can lose segments now, and cannot yet reorder them.
-- **What it changed:** nothing yet. It is a change to how the fork's TCP ends a connection, so
-  it is the owner's to take up or leave: a closed connection remembered for a short time, or a
-  reset not believed while bytes wait to be taken.
+- **What it changed** (queue item 18, taken up by the owner; 2026-11-15): made to happen first,
+  as a unit test with numbers, and it is worse than the reviewer saw. It needs no reordering:
+  a megabyte sent to a reader that has not yet taken it, both ends finished, and the reader's
+  own word that its window has opened is what brings the reset. Up to 1 MB that had been
+  acknowledged was thrown away. Now a reset that follows the other end's finish does not
+  discard what is held: it is delivered, and then the connection ends. `Pair` in
+  `connection-test.cc` can carry segments backwards and twice, and transfers under both arrive
+  whole. With selective acknowledgment off, the logic still agrees with the fork's adapter over
+  5,000 scenarios: real sockets are never slow, so that test never reached this. Not fixed: a
+  pf.7 end as the slow reader (`src/forwarding/tcp/README.md`).
 
 ## 2026-11-14 — The review of selective acknowledgment: two faults that its author's tests passed
 

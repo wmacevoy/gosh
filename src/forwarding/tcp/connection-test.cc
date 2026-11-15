@@ -99,6 +99,9 @@ struct Pair
   Gosh::Link link;
   uint64_t now;
   bool carrying; /* whether segments get from one end to the other */
+  bool backwards; /* each batch of segments arrives in the opposite order to that in which it was sent */
+  bool twice;     /* and every segment arrives twice */
+  TCPInUDP last_from[2]; /* the last segment each end sent that got there */
 
   /* What is lost on the way from end 0 to end 1, of the segments that carry data: */
   std::vector<unsigned int> lose; /* these, counted from 0 at the last reset_count(); each once */
@@ -121,7 +124,8 @@ struct Pair
   size_t beyond_edge;  /* the furthest any data from end 0 reached past that, since the last reset_count() */
 
   explicit Pair( bool sack0 = true, bool sack1 = true )
-    : listening( true, sack0 ), connecting( false, sack1 ), link(), now( 5000 ), carrying( true ), lose(),
+    : listening( true, sack0 ), connecting( false, sack1 ), link(), now( 5000 ), carrying( true ), backwards( false ),
+      twice( false ), last_from(), lose(),
       lose_in_1000( 0 ), chance( 2463534242u ), data_segments( 0 ), data_bytes( 0 ), exchanges( 0 ), said_held( 0 ), lying( false ),
       lie_known( false ), lie_from( 0 ), lie_to( 0 ), lie_from_shift( 0 ), lie_to_shift( 0 ), lose_acknowledgments( 0 ),
       last_said(), edge_known( false ), edge( 0 ), beyond_edge( 0 )
@@ -216,11 +220,15 @@ struct Pair
         if ( e == 0 && carrying && !on_their_way.empty() ) {
           exchanges++;
         }
-        for ( size_t i = 0; carrying && i < on_their_way.size(); i++ ) {
+        for ( size_t k = 0; carrying && k < on_their_way.size(); k++ ) {
+          const size_t i = backwards ? on_their_way.size() - 1 - k : k;
           if ( lost( e, on_their_way[i].second ) ) {
             continue;
           }
-          end( 1 - e ).segment( on_their_way[i].first, on_their_way[i].second, now, link, out[1 - e] );
+          last_from[e] = on_their_way[i].second;
+          for ( int copy = 0; copy < ( twice ? 2 : 1 ); copy++ ) {
+            end( 1 - e ).segment( on_their_way[i].first, on_their_way[i].second, now, link, out[1 - e] );
+          }
         }
       }
     }
@@ -451,6 +459,156 @@ static void test_slow_finish( void )
   p.carry();
   check( "once it has taken everything, it is told, and only then is the connection closed, in order",
          p.out[1].got == data && p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+}
+
+/*
+ * Queue item 18. One end has closed in order and forgotten the connection; the other still
+ * holds bytes its slow application has not taken. Anything that end now sends (it says its
+ * window has opened as the application takes bytes; or a segment of its arrives late, or twice)
+ * is answered with a reset by the end that has forgotten. Everything from that end had already
+ * arrived, in order and complete, its finish included: the reset has nothing to say about
+ * those bytes, and they are delivered.
+ */
+static void test_reset_after_everything_arrived( void )
+{
+  /* The receive buffer exactly full (1 MB), so that taking bytes opens a closed window, which is said. */
+  {
+    Pair p;
+    const uint32_t id = p.open();
+    p.out[1].takes = 0;
+    const std::string data = pattern( 1024 * 1024 );
+    size_t written = 0;
+    for ( int i = 0; i < 4000 && written < data.size(); i++ ) {
+      written += p.write( 0, id, data.substr( written ) );
+      p.carry();
+      p.tick( 1 );
+    }
+    p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] );
+    p.carry();
+    p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] );
+    p.carry();
+    check( "(1 MB sent and held; both ends finished; the sending end has closed, in order, and forgotten)",
+           written == data.size() && p.out[0].closed.size() == 1 && !p.out[0].closed[0].second && p.listening.count() == 0
+             && p.out[1].got.empty() );
+    p.out[1].takes = 100000; /* the application takes some: the window opens, and that is said */
+    p.tick( 10 );
+    p.carry();
+    unsigned int said_after = 0;
+    for ( int i = 0; i < 8; i++ ) {
+      p.out[1].takes = 100000;
+      p.tick( 10 );
+      said_after += p.out[1].sent.size();
+      p.carry();
+    }
+    p.out[1].takes = -1;
+    p.tick( 10 );
+    said_after += p.out[1].sent.size();
+    p.carry();
+    check( "told once that the other end has gone, it sends that end nothing more", said_after == 0 );
+    check( "the slow application takes bytes after the other end has gone: it gets every one of the 1 MB", p.out[1].got == data );
+    check( "and is then told it is over, and the connection closes in order, not with a reset",
+           p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second && p.connecting.count() == 0 );
+  }
+
+  /* A segment that arrives a second time, late, at the end that has forgotten. */
+  {
+    Pair p;
+    const uint32_t id = p.open();
+    p.out[1].takes = 0;
+    const std::string data = pattern( 5000 );
+    p.write( 0, id, data );
+    p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] );
+    p.carry();
+    p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] );
+    p.carry();
+    check( "(5,000 bytes held; the sending end has closed and forgotten)", p.listening.count() == 0 && p.out[1].got.empty() );
+    p.listening.segment( 0, p.last_from[1], p.now, p.link, p.out[0] ); /* the last thing it sent, again */
+    check( "(the end that has forgotten answers it with a reset)",
+           p.out[0].sent.size() == 1 && p.out[0].sent[0].second.has( TCPInUDP::RST ) );
+    p.carry();
+    p.out[1].takes = -1;
+    p.tick( 10 );
+    p.carry();
+    check( "a late copy of a segment, answered with a reset: the 5,000 bytes are delivered all the same",
+           p.out[1].got == data && p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+  }
+
+  /* The other end finished and then forgot us before it had all of ours: what we hold is delivered, then a reset. */
+  {
+    Pair p;
+    const uint32_t id = p.open();
+    p.out[1].takes = 0;
+    const std::string data = pattern( 5000 );
+    p.write( 0, id, data );
+    p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] );
+    p.carry();
+    p.carrying = false;
+    p.write( 1, id, pattern( 3000 ) ); /* the target's answer, which never gets there */
+    p.out[1].sent.clear();
+    p.carrying = true;
+    TCPInUDP reset = p.last_from[0];
+    reset.flags = TCPInUDP::RST;
+    reset.seq = reset.seq + reset.payload.size() + 1; /* (after its finish) */
+    reset.payload.clear();
+    p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
+    check( "a reset after its finish, with our answer not yet acknowledged: nothing is closed while bytes are held",
+           p.out[1].closed.empty() && p.out[1].got.empty() );
+    p.out[1].takes = -1;
+    p.tick( 10 );
+    check( "the 5,000 bytes are delivered; and then the application is told, by a reset, that its answer was lost",
+           p.out[1].got == data && p.out[1].closed.size() == 1 && p.out[1].closed[0].second );
+  }
+
+  /* A reset while the other end has not finished is still believed: what it had to say is not all here. */
+  {
+    Pair p;
+    const uint32_t id = p.open();
+    p.out[1].takes = 0;
+    p.write( 0, id, pattern( 5000 ) );
+    p.carry();
+    TCPInUDP reset = p.last_from[0];
+    reset.flags = TCPInUDP::RST;
+    reset.seq = reset.seq + reset.payload.size();
+    reset.payload.clear();
+    p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
+    check( "a reset from an end that has not finished: believed, and the connection ends with a reset",
+           p.out[1].closed.size() == 1 && p.out[1].closed[0].second && p.out[1].got.empty() );
+    (void) id;
+  }
+}
+
+/* Segments that arrive in the opposite order, and twice: everything still arrives once, whole. */
+static void test_out_of_order_and_twice( void )
+{
+  for ( int how = 0; how < 3; how++ ) {
+    Pair p;
+    p.backwards = how != 1;
+    p.twice = how != 0;
+    const uint32_t id = p.open();
+    const std::string there = pattern( 300000 ), back = pattern( 70001 );
+    size_t a = 0, b = 0;
+    for ( int i = 0; i < 20000 && ( a < there.size() || b < back.size() ); i++ ) {
+      a += p.write( 0, id, there.substr( a ) );
+      b += p.write( 1, id, back.substr( b ) );
+      p.carry();
+      p.tick( 1 );
+    }
+    for ( int i = 0; i < 2000 && ( p.out[1].got.size() < there.size() || p.out[0].got.size() < back.size() ); i++ ) {
+      p.carry();
+      p.tick( 10 );
+    }
+    p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] );
+    p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] );
+    for ( int i = 0; i < 200 && ( p.listening.count() || p.connecting.count() ); i++ ) {
+      p.carry();
+      p.tick( 10 );
+    }
+    check( how == 0 ? "every batch of segments arriving backwards: both ways whole, once, and closed in order"
+           : how == 1 ? "every segment arriving twice: likewise"
+                      : "backwards and twice: likewise",
+           p.out[1].got == there && p.out[0].got == back && p.out[0].closed.size() == 1 && !p.out[0].closed[0].second
+             && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+  }
 }
 
 /* Two connections at once are two connections. */
@@ -948,6 +1106,8 @@ int main()
   test_window();
   test_handshake_gives_up();
   test_slow_finish();
+  test_reset_after_everything_arrived();
+  test_out_of_order_and_twice();
   test_two();
   test_unexpected();
   test_target();

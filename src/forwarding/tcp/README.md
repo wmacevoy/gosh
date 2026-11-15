@@ -23,6 +23,18 @@ words for what TCP calls the SACK scoreboard and the reassembly queue. Nothing t
 the same statements, moved; with selective acknowledgment off the whole still agrees with the
 fork's adapter over 5,000 scripted scenarios (the differential test, below).
 
+**Where gosh's TCP differs from the fork's, on purpose.** Two things, both in `connection.h`:
+selective acknowledgment (below), which an end that does not know it never sees; and what
+happens to a reset that comes after the other end's finish (queue item 18, 2026-11-15). An end
+closes and forgets a connection when both finishes are acknowledged, though the other end may
+still hold bytes its application has not taken; anything that end then sends is answered with
+a reset. The fork believed that reset and threw the held bytes away: up to 1 MB that had been
+acknowledged, with no reordering needed, only a full buffer and a slow reader. gosh delivers
+what it holds and then ends the connection (in order; or with a reset if the other end went
+before it had all of ours). A reset before the other end's finish is believed as before.
+**Not fixed:** when the slow reader is a pf.7 end, it still believes gosh's reset; that would
+need the closed end to remember, for as long as an application may be slow.
+
 ## connection (the new shape)
 
 `connection.h` is gosh's TCP as **logic**: the algorithm of the fork's `AdapterPort`, statement
