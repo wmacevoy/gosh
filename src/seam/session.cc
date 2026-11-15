@@ -133,14 +133,14 @@ void Gosh::consider_relay( void )
         close( s.relay_keep_alive );
         s.relay_keep_alive = -1;
       }
-      if ( s.options.headless && s.options.stream.empty() ) {
+      if ( s.options.headless && s.options.stream.empty() && !s.ending() ) {
         fputs( "mosh: the relay through ssh has stopped; starting another.\n", stderr );
         fflush( stderr );
       }
     }
   }
   if ( s.relay_gone && relay_again( Network::timestamp(), s.relay_started_at, s.ending() ) ) {
-    s.relay_gone = false;
     engage_relay();
+    s.relay_gone = s.relay_pid <= 0; /* (if it could not be started, try again in a second) */
   }
 }

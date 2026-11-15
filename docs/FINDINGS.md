@@ -7,6 +7,23 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-15 — The second review of the relay: accepted, with what the fixes leave open
+
+- **What happened:** a session given the security fixes, the dying-relay change and their
+  claims tried to break each at the programs. Its verdict was to accept. It showed the first
+  fix working (an answer from a less likely address no longer shuts out the server) and showed
+  its limit (one from a **more** likely address still does); it read a race in the third (a
+  port the user shares can be borrowed for an instant by another user); it found that a relay
+  restart which itself fails was never tried again though the client had said "starting
+  another"; and that undoing the first, third or fourth fix where the programs apply them
+  fails no test.
+- **What it changed:** the restart is tried again each second until it holds, and nothing is
+  said of starting another while the session is ending. The limits are listed in
+  `src/relay/README.md` under "What these fixes do not close". Not done: tests that drive the
+  first, third and fourth fixes at the programs (the first is a race, the third needs a second
+  user; the fourth could be done with a relay command that prints and exits, and is worth a
+  queue item if the relay is to be relied on).
+
 ## 2026-11-15 — A relay that died was not noticed; now it is, and two limits are accepted
 
 - **What happened:** the reading of 2026-11-13 said nobody notices if the local relay dies. The

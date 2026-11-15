@@ -71,6 +71,24 @@ Of these, 2 is shown from outside; 1, 3 and 4 are tested as rules (`whose-test.c
 `paths-test.cc`) and their few lines at the edge are read, not driven by a test: 1 is a race
 to demonstrate, and 3 needs a second user.
 
+**What these fixes do not close** (the second review, 2026-11-15; each read or shown by the
+reviewer, none worse than the fork):
+
+- *1, the remote relay's ways:* someone who holds an address **more** likely than the server's
+  still shuts the server out (shown). The command starts the server on the address ssh reaches,
+  which is the likeliest, so this needs a server started by hand on another address.
+- *2, the server's address:* a server whose answers come from another address than the one the
+  client was told (several addresses, or bound to all of them) is no longer taken to be
+  answering directly once the relay is in use: the session then stays on ssh. And a sender that
+  forges the server's address still counts; the relay holds no key and cannot do better.
+- *3, the same user:* there is a moment between a datagram arriving and the list being read. If
+  the user has a UDP socket open to sharing on a port (a browser's on 5353, say), another user
+  can borrow that port for an instant and be taken for the client (read, not shown: it needs a
+  second user). And where `/proc/net/udp` can be opened but does not list the client's socket
+  (an emulated `/proc`), every datagram from the client is refused.
+- *4, the back-off:* about 2.5 KB of text from a login that then fails still looks like a frame.
+- Reverting 1, 3 or 4 where the processes apply them fails no test; only their rules are tested.
+
 **A relay that dies** (2026-11-15). The local relay is a process of its own. In the fork, if it
 died, the client went on sending to a port nobody had and never said so. gosh's client looks
 each turn (the relay is its child), says "the relay through ssh has stopped; starting another",
