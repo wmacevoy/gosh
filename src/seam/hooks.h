@@ -14,8 +14,7 @@
 
 #include "src/forwarding/forwarding.h"
 #include "src/forwarding/stream/streamchild.h"
-#include "src/seam/options.h"
-#include "src/relay/start.h"
+#include "src/seam/session.h"
 
 /*
  * The seam: what the core's two programs call, at the places the seam's patches
@@ -44,79 +43,6 @@
  */
 namespace Gosh {
 
-/* The one session of gosh's in this process. Set by gosh's main before the core's main runs. */
-struct Session
-{
-  ForwardOptions options; /* what the program was asked to forward */
-  bool client;            /* which end this is */
-  std::unique_ptr<Network::Forwarding> forwarding;
-  std::vector<int> watched; /* forwarding's descriptors, as last given to the program's loop */
-  bool announced;           /* whether a headless client has said that it is connected */
-
-  /* a stream: the process at this end (the client's; the server's is forwarding's to start) */
-  std::vector<std::string> stream_words; /* what to start; empty if the session is not for a stream */
-  pid_t stream_pid;                      /* 0 before it starts, -1 once it has ended or could not start */
-  int stream_status;                     /* how it ended, as an exit status */
-  uint64_t stream_ended;                 /* when */
-  /* the session's own state, as the client's loop cannot be handed it each pass (set by session_started) */
-  std::function<bool()> ending;         /* the session is being ended */
-  std::function<void()> end_it;         /* begin to end it */
-  bool loop_returned;                   /* the client's loop came to its end, and was not thrown out of */
-
-  /* the relay (the client's): whether, with what, to where; and whether it was started (REQ1/PATH-1) */
-  RelayMode relay_mode;
-  std::vector<std::string> relay_command; /* starts the remote relay, through ssh as a rule */
-  std::string server_ip, server_port;     /* where the server is, as the client was told */
-  bool relay_engaged;
-  int relay_keep_alive; /* the local relay runs until this closes, which it does when we exit */
-  pid_t relay_pid;      /* the local relay's process, while there is one: it is our child */
-  bool relay_gone;      /* it died, and another has not been started yet */
-  uint64_t relay_started_at;
-  uint64_t started_at;
-  std::function<uint64_t()> last_heard; /* when the server was last heard (set by session_started) */
-  std::function<void( const Network::Addr&, socklen_t )> send_elsewhere; /* send to here from now on */
-
-  Session()
-    : options(), client( false ), forwarding(), watched(), announced( false ), stream_words(), stream_pid( 0 ),
-      stream_status( 1 ), stream_ended( 0 ), ending(), end_it(), loop_returned( false ), relay_mode( RELAY_NEVER ),
-      relay_command(), server_ip(), server_port(), relay_engaged( false ), relay_keep_alive( -1 ), relay_pid( 0 ),
-      relay_gone( false ), relay_started_at( 0 ), started_at( 0 ),
-      last_heard(), send_elsewhere()
-  {}
-};
-
-Session& session( void );
-
-/* The client, for a stream: sees whether its process has ended, and ends the session when the stream is over. */
-void tend_stream( void );
-
-/* The client: starts the local relay, and talks to the server through it from now on. Once. */
-void engage_relay( void );
-
-/*
- * The client, each turn: if the server has gone quiet and there is a relay to start, starts it;
- * and if the relay it started has died, says so and starts another (start.h has both rules).
- */
-void consider_relay( void );
-
-/* Whether this program may yet start a process: a stream's, or the relay. (It must not give up the right to.) */
-inline bool may_start_processes( void )
-{
-  return !session().options.stream.empty() || session().relay_mode != RELAY_NEVER;
-}
-
-/* Whether this session is for a stream. */
-inline bool has_stream( void )
-{
-  return !session().options.stream.empty();
-}
-
-/* Whether this client has no terminal (REQ1/FWD-5). */
-inline bool headless( void )
-{
-  return session().options.headless;
-}
-
 /*
  * Starts forwarding, if any was asked for, and gives it the session's side channel.
  * Throws Network::NetworkException if a specification cannot be parsed, resolved or bound, or
@@ -129,14 +55,14 @@ void session_started( Transport& network, unsigned int verbose )
   Session& s = session();
   const bool stream = !s.options.stream.empty();
   /* (only then: the words of an empty string are one empty word, which is not "no stream") */
-  s.stream_words = stream ? Network::stream_words( s.options.stream ) : std::vector<std::string>();
+  s.stream.words = stream ? Network::stream_words( s.options.stream ) : std::vector<std::string>();
   if ( s.client ) {
     s.ending = [&network]() { return network.shutdown_in_progress(); };
     s.end_it = [&network]() { network.start_shutdown(); };
     s.last_heard = [&network]() { return network.last_heard(); };
     s.send_elsewhere = [&network]( const Network::Addr& to, socklen_t len ) { network.set_remote_addr( to, len ); };
     s.started_at = Network::timestamp();
-    if ( s.relay_mode == RELAY_ALWAYS ) {
+    if ( s.relay.mode == RELAY_ALWAYS ) {
       engage_relay();
     }
   }
@@ -147,7 +73,7 @@ void session_started( Transport& network, unsigned int verbose )
     &network, s.client, s.options.udp, s.options.tcp, s.options.tcp_remote, s.options.udp_remote, stream ) );
   if ( stream && !s.client ) {
     /* the server's end of the stream is started when the client asks for it */
-    const std::vector<std::string> words = s.stream_words;
+    const std::vector<std::string> words = s.stream.words;
     s.forwarding->set_stream_spawner( [words]() { return Network::stream_child( words, false, NULL ); } );
   }
   s.forwarding->set_verbose( verbose );
@@ -165,7 +91,7 @@ inline int wait_time( int otherwise )
   if ( !s.forwarding ) {
     return otherwise;
   }
-  if ( s.client && !s.stream_words.empty() ) {
+  if ( s.client && !s.stream.words.empty() ) {
     otherwise = std::min( 50, otherwise ); /* to see the stream's process end */
   }
   return std::min( otherwise, s.forwarding->wait_time() );
@@ -199,7 +125,7 @@ void turn( Select& sel )
     }
   }
   s.forwarding->tick();
-  if ( s.client && !s.stream_words.empty() ) {
+  if ( s.client && !s.stream.words.empty() ) {
     tend_stream();
   }
 }
@@ -217,14 +143,14 @@ void announce( Transport& network, bool still_connecting )
   if ( s.announced || still_connecting ) {
     return;
   }
-  const bool stream = !s.stream_words.empty();
+  const bool stream = !s.stream.words.empty();
   if ( stream && !network.peer_can( Network::CAPABILITY_STREAM ) ) {
     /* (REQ8/CMD-3) It has answered, and has not said that it can do what we are here for. */
     s.announced = true;
     fputs( "mosh: the server does not do this: it is a stock mosh-server, or one from before streams.\n", stderr );
     fflush( stderr );
-    s.stream_pid = -1;
-    s.stream_ended = Network::timestamp();
+    s.stream.pid = -1;
+    s.stream.ended = Network::timestamp();
     return;
   }
   if ( !stream && s.forwarding && !network.peer_can( Network::CAPABILITY_SIDECHANNEL ) ) {
@@ -247,12 +173,12 @@ void announce( Transport& network, bool still_connecting )
   if ( stream ) {
     /* The session is up: start our end of the stream, and ask the server for its end. */
     pid_t pid = 0;
-    const int fd = Network::stream_child( s.stream_words, true, &pid );
+    const int fd = Network::stream_child( s.stream.words, true, &pid );
     if ( fd < 0 ) {
-      s.stream_pid = -1;
-      s.stream_ended = Network::timestamp();
+      s.stream.pid = -1;
+      s.stream.ended = Network::timestamp();
     } else {
-      s.stream_pid = pid;
+      s.stream.pid = pid;
       s.forwarding->open_stream( fd ); /* (if it can't be, the process sees its stream end at once) */
     }
     return;
@@ -276,7 +202,7 @@ inline void loop_returned( void )
 inline int stream_exit( bool success )
 {
   Session& s = session();
-  const int status = ( s.loop_returned && s.stream_pid == -1 ) ? s.stream_status : 1;
+  const int status = ( s.loop_returned && s.stream.pid == -1 ) ? s.stream.status : 1;
   if ( status == 1 && !success ) {
     fputs( "mosh: the session ended before its work was done.\n", stderr );
   }

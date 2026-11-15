@@ -7,7 +7,7 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 # cannot hold two: the linker takes main from the one its program names.
 noinst_LIBRARIES = libgoshseam.a libgoshclientmain.a libgoshservermain.a
 
-libgoshseam_a_SOURCES = options.cc options.h session.cc hooks.h core-main.h
+libgoshseam_a_SOURCES = options.cc options.h session.cc session.h streaming.cc streaming.h relaying.cc relaying.h hooks.h core-main.h
 libgoshclientmain_a_SOURCES = client-main.cc
 libgoshservermain_a_SOURCES = server-main.cc
 

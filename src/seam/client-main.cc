@@ -82,13 +82,13 @@ int main( int argc, char* argv[] )
     }
     relay_command.push_back( word );
   }
-  Gosh::session().relay_command = relay_command;
-  Gosh::session().relay_mode = Gosh::relay_mode( getenv( "MOSH_RELAY" ) ? getenv( "MOSH_RELAY" ) : "auto", !relay_command.empty() );
+  Gosh::session().relay.command = relay_command;
+  Gosh::session().relay.mode = Gosh::relay_mode( getenv( "MOSH_RELAY" ) ? getenv( "MOSH_RELAY" ) : "auto", !relay_command.empty() );
   /* where the server is: the two words the core's own reading will take for it, wherever they stand */
   const std::vector<std::string> where = Gosh::operands( rest, "#" );
   if ( where.size() >= 2 ) {
-    Gosh::session().server_ip = where[0];
-    Gosh::session().server_port = where[1];
+    Gosh::session().relay.server_ip = where[0];
+    Gosh::session().relay.server_port = where[1];
   }
 
   return Gosh::call_core_main( mosh_client_main, name, rest );
