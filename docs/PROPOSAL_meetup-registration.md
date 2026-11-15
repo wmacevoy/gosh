@@ -32,7 +32,7 @@ From the agent's memory of Tailscale's published design, not checked against its
 
 Tailscale gets these from TLS and a public key for every node. gosh uses only the cipher mosh
 already carries (AES-OCB: a shared-key cipher that seals and proves in one pass), because
-`SHAPE-3` allows no dependency a bare machine lacks. All four are had with that cipher.
+`REQ1/SHAPE-3` allows no dependency a bare machine lacks. All four are had with that cipher.
 
 ## 3. The keys
 
@@ -159,7 +159,7 @@ In every row, nobody reads or changes what the two ends say: that is sealed by t
 - **The meetup is trusted** not to drop, and sees who talks to whom and how much.
 - **Cost.** Each relayed datagram is sealed once more by the sending end and opened once by
   the meetup. A meetup's path is the last resort after a direct path and before ssh; its speed
-  is not what `SPEED-1` measures.
+  is not what `REQ14/SPEED-1` measures.
 - **IPv4.** The meetup listens on IPv4 only, as today. The answer's address field is long
   enough for IPv6, so that carrying it later changes no format.
 
@@ -208,7 +208,7 @@ built with does not have. With a key per user available, that is not proposed.
 
 ## 10. What the requirements would say (for a v15)
 
-- **PATH-5**, reworded: *A meetup given a master answers nothing, and passes nothing on, for
+- **REQ1/PATH-5**, reworded (in a v15, which would then be the version to cite it by): *A meetup given a master answers nothing, and passes nothing on, for
   anyone who has not just shown it a user's key; what it passes for a pair goes only to that
   pair's two ends; and a datagram copied off the network is no use to whoever copied it.*
   *(judged in part: "no use" is argued in the design and tested for each case it lists.)*
