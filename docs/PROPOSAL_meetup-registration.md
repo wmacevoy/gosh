@@ -362,3 +362,21 @@ not work with the fork's releases at the other end.
 3. Attacked once more before it is built: "yes".
 
 And: "whitelist - blacklist, both a set of regular expressions" (section 2).
+
+## 12. For revision 6, decided after revision 5 went to be attacked (2026-11-15)
+
+The owner: "use sqlite regex, it's bounded and a nice place to keep the config." So:
+
+- **The whitelist, the blacklist and the service's other settings live in one SQLite database**,
+  not in files; both processes read it, the web side writes it, and the UDP side sees a change
+  by SQLite's own count of changes (`PRAGMA data_version`) rather than by a signal.
+- **Matching is SQLite's `REGEXP`**, as SQLite's own extension `ext/misc/regexp.c` provides it.
+  *(From the agent's memory, to be checked against its source: an automaton, not backtracking,
+  whose time is bounded by the length of the text times the length of the expression; no
+  case-insensitive flag, so addresses are stored and matched in lower case.)* This replaces "an
+  engine without backtracking" in section 8.
+- **How SQLite is carried** is to be decided: its public-domain amalgamation and the regexp
+  extension in `vendor/sqlite/`, as TweetNaCl is (the agent's recommendation: it keeps
+  `REQ1/SHAPE-3`, at the cost of about 9 MB of source in the repository), or the system's
+  library on the machine that runs the service.
+
