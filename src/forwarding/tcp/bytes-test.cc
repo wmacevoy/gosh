@@ -55,10 +55,38 @@ static void test_bytes( void )
   check( "the byte queue holds what a string would, through 200,000 additions and removals", agree && most > 100000 );
 }
 
+/* (from the review of 2026-11-15) Part of another string is added; and the front, once taken, is given back. */
+static void test_part_and_tidying( void )
+{
+  Gosh::Bytes queue;
+  const std::string source = pattern( 1000 );
+  queue.append( source, 100, 250 );
+  check( "part of a string is added: the 250 bytes from its 100th", queue.size() == 250 && std::string( queue.data(), queue.size() ) == source.substr( 100, 250 ) );
+  queue.append( source, 0, 0 );
+  check( "none of a string adds nothing", queue.size() == 250 );
+
+  /* 1 MB waits; it is taken from the front 1,000 bytes at a time while as much is added: what is kept stays near what waits. */
+  Gosh::Bytes steady;
+  const std::string megabyte = pattern( 1024 * 1024 );
+  steady.append( megabyte.data(), megabyte.size() );
+  bool right = true;
+  for ( int i = 0; i < 5000; i++ ) {
+    steady.drop( 1000 );
+    steady.append( megabyte.data(), 1000 );
+    right = right && steady.size() == megabyte.size();
+  }
+  check( "5 MB through a queue of 1 MB, taken and added a thousand bytes at a time: 1 MB waits throughout", right );
+  /* what waits is the end of: the megabyte, then its first thousand bytes 5,000 times; 5,000,000 bytes in, that is 424 bytes into a copy */
+  check( "and what waits is the right bytes",
+         std::string( steady.data(), 1000 ) == megabyte.substr( 424, 576 ) + megabyte.substr( 0, 424 )
+           && steady.substr( steady.size() - 1000, 1000 ) == megabyte.substr( 0, 1000 ) );
+}
+
 int main()
 {
   test_bytes();
 
+  test_part_and_tidying();
   if ( failures ) {
     printf( "FAIL REQ14/SPEED-1: %d checks of the byte queue failed\n", failures );
     return EXIT_FAILURE;

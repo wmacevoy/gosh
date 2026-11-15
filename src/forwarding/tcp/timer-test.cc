@@ -42,6 +42,14 @@ int main()
   /* the variation goes to nothing, but is counted as 10 ms at the least */
   check( "a steady 400 ms: wait 410 ms", steady.settled() == 410 );
 
+  /* (from the review of 2026-11-15: every sample above equals the one before it) */
+  Gosh::RoundTrip v;
+  v.sample( 100 ); /* estimate 100, variation 50 */
+  v.sample( 300 ); /* variation 0.75 * 50 + 0.25 * |100 - 300| = 87.5; estimate 0.875 * 100 + 0.125 * 300 = 125 */
+  check( "100 ms then 300 ms: wait 125 + 4 * 87.5 = 475 ms", v.settled() == 475 );
+  v.sample( 60 ); /* variation 0.75 * 87.5 + 0.25 * |125 - 60| = 81.875; estimate 0.875 * 125 + 0.125 * 60 = 116.875 */
+  check( "then 60 ms, less than the estimate: wait 116.875 + 4 * 81.875 = 444 ms", v.settled() == 444 );
+
   if ( failures ) {
     printf( "FAIL REQ1/FWD-1: %d checks of the round trip failed\n", failures );
     return EXIT_FAILURE;

@@ -87,6 +87,42 @@ static void test_at( uint32_t una, const char* where )
          h.below( una + 1000, 9000 ) == 5000 && h.next_gap( una + 1000, una + 1000, at, end ) && at == 0 && end == 1000 );
   h.forget( una + 4000 );
   check( "  acknowledged to 4,000, inside the range: it was never held, and is forgotten", h.empty() );
+
+
+  /* (from the review of 2026-11-15: breaks these checks did not notice) */
+  Gosh::Held g;
+  g.add( una, 2000, 3000 );
+  uint32_t exactly = una + 2000;
+  check( "  sending again from exactly where a range begins: passed over to its end", g.pass_over( una, exactly ) == 0xFFFFFFFF && exactly == una + 3000 );
+  g.add( una, 3000, 4000 ); /* touches the first: one range, 2,000 to 4,000 */
+  g.forget( una + 2500 );
+  check( "  two ranges that touch are one: acknowledged into it, the whole of it is forgotten", g.empty() );
+  Gosh::Held far;
+  far.add( una, 5000, 6000 );
+  far.forget( una + 1000 );
+  check( "  a range ahead is kept when acknowledgment moves, wherever the numbers wrap", far.below( una + 1000, 9000 ) == 1000 );
+  far.forget( una + 5000 );
+  check( "  one that begins exactly at what is now acknowledged is forgotten", far.empty() );
+  Gosh::Held behind;
+  behind.add( una + 3000, 1000, 2000 );
+  check( "  asked for a gap from before what is acknowledged: the gap begins at what is acknowledged",
+         behind.next_gap( una + 3000, una + 1000, at, end ) && at == 0 && end == 1000 );
+
+  /* options are a list; a range is taken only from a well-formed kind 5 */
+  const std::string one = says( { { una + 1000, una + 2000 } } );
+  Gosh::Held n1, n2, n3, n4, n5;
+  n1.note( std::string( "\x01\x01", 2 ) + one.substr( 2 ) + one.substr( 2 ), una, 10000 );
+  check( "  padding before the option is passed over", n1.below( una, 10000 ) == 1000 );
+  n2.note( std::string( 1, '\0' ) + one.substr( 2 ), una, 10000 );
+  check( "  after the end of the list (kind 0) nothing is read", n2.empty() );
+  n3.note( std::string( "\x09\x03x", 3 ) + one.substr( 2 ), una, 10000 );
+  check( "  an unknown kind is passed over by its length, and what follows is read", n3.below( una, 10000 ) == 1000 );
+  std::string odd = one.substr( 2 );
+  odd[1] = 11; /* a length that is not a head and whole ranges */
+  n4.note( odd + "x", una, 10000 );
+  check( "  a kind 5 whose length is not whole ranges is not read", n4.empty() );
+  n5.note( std::string( "\x09\x01", 2 ) + one.substr( 2 ), una, 10000 );
+  check( "  a length that cannot be (less than 2) ends the reading, and does not go round for ever", n5.empty() );
 }
 
 int main()

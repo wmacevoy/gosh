@@ -54,6 +54,20 @@ int main()
          four == bytes( { 1, 2, 3, 4, 255, 255, 255, 254 } ) && SegmentOptions::get32( four, 0 ) == 0x01020304
            && SegmentOptions::get32( four, 4 ) == 0xFFFFFFFE );
 
+  /* (from the review of 2026-11-15: the size was only ever first in the list, and 536 the only fallback) */
+  check( "the largest segment asked for is read from later in the list, after padding and another option",
+         SegmentOptions::mss( bytes( { 1, 3, 3, 5, 1, 2, 4, 0x05, 0x00 } ), 536 ) == 1280 );
+  check( "it is whatever the caller says when it is not there: 1,000, asked so", SegmentOptions::mss( bytes( { 3, 3, 5 } ), 1000 ) == 1000 );
+  check( "after the end of the list neither the size nor the shift is read",
+         SegmentOptions::mss( bytes( { 0, 2, 2, 4, 0x05, 0x00 } ), 536 ) == 536 && SegmentOptions::scale( bytes( { 0, 2, 3, 3, 5 } ) ) == -1 );
+  check( "a length that cannot be ends the reading of each",
+         SegmentOptions::mss( bytes( { 9, 1, 2, 4, 0x05, 0x00 } ), 536 ) == 536 && SegmentOptions::scale( bytes( { 9, 1, 3, 3, 5 } ) ) == -1 );
+  check( "the shift with the wrong length, or cut short, is not a shift",
+         SegmentOptions::scale( bytes( { 3, 4, 5, 0 } ) ) == -1 && SegmentOptions::scale( bytes( { 3, 3 } ) ) == -1 );
+  check( "the shift is read after an unknown option", SegmentOptions::scale( bytes( { 9, 3, 77, 3, 3, 7 } ) ) == 7 );
+  check( "a number whose last byte is 0xFE is read as itself, not as a negative one",
+         SegmentOptions::get32( bytes( { 0, 0, 0, 0xFE } ), 0 ) == 0x000000FE && SegmentOptions::get32( bytes( { 0, 0x80, 0x90, 0xA0 } ), 0 ) == 0x008090A0 );
+
   if ( failures ) {
     printf( "FAIL REQ1/FWD-1: %d checks of a segment's options failed\n", failures );
     return EXIT_FAILURE;

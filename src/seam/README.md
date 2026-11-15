@@ -19,12 +19,14 @@ The hooks decide nothing. They hold forwarding, hand its descriptors and timers 
 loop, say `connected; forwarding.` for a client with no terminal (`REQ1/FWD-5`), and for a stream
 (`REQ1/CP-7`) start the client's process, watch for its end, and give its status as the client's.
 
-Not here yet: relay. Each adds words to
-`options` and, where it needs a turn in the loop, a line to a hook.
+Not here yet: path-finding. A part adds words to
+`options` and, where it needs a turn in the loop, a line to a hook and a file of its own beside it.
 
 `hooks.h` held all four of these until 2026-11-15 (queue item 19): every part that needed a
 turn in the loop added its state and its functions to one header. Now a part that needs a turn
-gets a file of its own here, and `hooks.h` only calls it. These are edges (they fork, wait and
+gets a file of its own here. **Not yet as clean as that for a stream:** `hooks.h` still starts the
+client's stream process and sets its state in `announce()`, and reads it in `stream_exit()`, so
+`streaming.cc` cannot be read alone (the review of 2026-11-15). `hooks.h` otherwise only calls the parts' files. These are edges (they fork, wait and
 write to standard error) and have no unit tests of their own: the tests that drive the
 programs from outside are their tests (`forward-e2e.py`, `headless-smoke.py`, `mocp.test`,
 `relay-dies.py`).

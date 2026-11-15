@@ -91,6 +91,44 @@ static void test_at( uint32_t nxt, const char* where )
   check( "  exactly that much is", ranges_of( full.blocks( nxt, LIMIT, 4 ), nxt ).size() == 2 );
   full.clear();
   check( "  cleared, it holds nothing", full.empty() && full.blocks( nxt, LIMIT, 4 ).empty() );
+
+
+  /* (from the review of 2026-11-15: breaks these checks did not notice) */
+  full.keep( nxt + 10, std::string( LIMIT, 'z' ), nxt, LIMIT );
+  check( "  cleared, it has all its room again: a segment as long as the buffer is kept", !full.empty() );
+  Gosh::Early room;
+  room.keep( nxt + 100, std::string( LIMIT - 100, 'a' ), nxt, LIMIT );
+  uint32_t got_seq = 0;
+  std::string got_payload;
+  check( "  (a nearly full store gives up its one segment)", room.take_next( nxt + 100, LIMIT, got_seq, got_payload ) && room.empty() );
+  room.keep( nxt + LIMIT, std::string( LIMIT - 100, 'b' ), nxt + LIMIT - 100, LIMIT );
+  check( "  and what it gave up no longer counts against its room", !room.empty() );
+
+  Gosh::Early many;
+  for ( int i = 0; i < 6; i++ ) {
+    many.keep( nxt + 1000 * ( i + 1 ), hundred, nxt, LIMIT );
+  }
+  check( "  six ranges held and room for 146: four are said, and no more (the option must fit a header)",
+         ranges_of( many.blocks( nxt, LIMIT, 146 ), nxt ).size() == 4 && many.blocks( nxt, LIMIT, 146 ).size() == 36 );
+  check( "  the last to arrive began a range of its own: it is said first",
+         ranges_of( many.blocks( nxt, LIMIT, 4 ), nxt )[0] == std::make_pair<uint32_t, uint32_t>( 6000, 6100 ) );
+  Gosh::Early inside;
+  inside.keep( nxt + 1000, std::string( 500, 'c' ), nxt, LIMIT );
+  inside.keep( nxt + 1100, hundred, nxt, LIMIT ); /* wholly inside the first */
+  check( "  a segment inside another does not shorten the range said", ranges_of( inside.blocks( nxt, LIMIT, 4 ), nxt ) == Ranges( { { 1000, 1500 } } ) );
+  Gosh::Early edge;
+  edge.keep( nxt + LIMIT, hundred, nxt, LIMIT );
+  check( "  exactly as far ahead as the buffer is long: kept, and said", ranges_of( edge.blocks( nxt, LIMIT, 4 ), nxt ).size() == 1 );
+  Gosh::Early last_byte;
+  last_byte.keep( nxt + 100, hundred, nxt, LIMIT );
+  check( "  in order up to its very end (nothing of it is new): thrown away, not handed back",
+         !last_byte.take_next( nxt + 201, LIMIT, got_seq, got_payload ) && last_byte.empty() );
+  Gosh::Early two_stale;
+  two_stale.keep( nxt + 100, hundred, nxt, LIMIT );
+  two_stale.keep( nxt + 300, hundred, nxt, LIMIT );
+  two_stale.keep( nxt + 1000, hundred, nxt, LIMIT );
+  check( "  two passed altogether and a third that continues: the third is handed back, the two gone",
+         two_stale.take_next( nxt + 1000, LIMIT, got_seq, got_payload ) && got_seq == nxt + 1000 && two_stale.empty() );
 }
 
 int main()

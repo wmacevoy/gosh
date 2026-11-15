@@ -1,7 +1,6 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-/* The algorithm is the fork's (mosh-1.4.0-pf.7, src/network/udpforward.cc: UDPForwarder's flows,
-   partial datagrams and to_network). */
+/* The algorithm is the fork's (mosh-1.4.0-pf.7, src/network/udpforward.cc: UDPForwarder's flows). */
 
 /*
  * conversations: the UDP forwards of one direction, as logic (REQ1/FWD-2, REQ6/SHAPE-5).
@@ -11,6 +10,10 @@
  * arrives; the other end opens a socket to the target for it when it first hears the number.
  * A conversation not used for two minutes is forgotten, and so is the quietest when there are
  * sixty-four and another begins.
+ *
+ * This is the table: which conversation a datagram is of. A datagram on its way out goes
+ * through sending.h (one payload, or fragments); what arrives goes through receiving.h (the
+ * replay window; datagrams in pieces) and is given here whole.
  *
  * This is told what happened, with the time and what the session can do just now, and says
  * what to do through Out, which its caller supplies: the edge in the programs (udpforward.*),
@@ -23,14 +26,11 @@
  *   Out::to_target( handle, datagram )            send on that socket
  *   Out::to_application( forward, peer, datagram ) send from the forward's listener to this address
  *
- * What it does when an input is absent, late, wrong or lying:
- *   the session not ready: an application's datagram is dropped (UDP promises no more);
- *   a datagram too large for one payload: sent as fragments, with parity when asked or worth it;
- *     too large for 255 fragments: dropped, and counted;
- *   a fragment that never comes: the datagram is abandoned a second after its first fragment;
+ * What it does when an input is absent, late, wrong or lying (for what sending.h and
+ * receiving.h do with theirs, see them):
  *   a payload for a forward there is not, of another kind, or malformed: dropped;
- *   a payload seen before, or older than 1,024 behind the newest: dropped (the replay window);
- *   a reply for a conversation the listening end has forgotten: dropped.
+ *   a reply for a conversation the listening end has forgotten: dropped;
+ *   no socket to be had for a new conversation: its datagram is dropped, and no conversation kept.
  */
 
 #ifndef GOSH_CONVERSATIONS_H

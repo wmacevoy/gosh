@@ -127,6 +127,29 @@ int main()
     check( "what was not sent used no number: the next is numbered 0", out.numbers() == Numbers( { 0 } ) );
   }
 
+  /* (from the review of 2026-11-15: breaks these checks did not notice) */
+  {
+    Sending s( false );
+    Sent out;
+    s.send( 5, 0x1234, big.data(), 1000, link_of( 213, 0.004 ), out ); /* nothing set: left to decide, and at 0.4% it adds parity */
+    check( "nothing said of parity: it decides for itself (seven fragments at 0.4% loss)", out.payloads.size() == 7 );
+    bool all = true;
+    for ( size_t i = 0; i < out.payloads.size(); i++ ) {
+      uint8_t type = 0, forward = 0;
+      uint16_t id = 0;
+      uint64_t seq = 0;
+      std::string data;
+      all = all && Gosh::decode_frame( out.payloads[i], type, forward, id, seq, data ) && forward == 5 && id == 0x1234;
+    }
+    check( "every fragment is framed for its forward and conversation", all );
+    const std::string huge( 22601, 'y' );
+    Sending t( false );
+    Sent none;
+    t.set_parity_mode( Sending::PARITY_NEVER );
+    t.send( 0, 1, huge.data(), huge.size(), link_of( 13 + 4 + 100 ), none );
+    check( "a datagram dropped for its size is not counted as one sent in fragments", t.get_dropped_oversize() == 1 && t.get_fragmented() == 0 );
+  }
+
   if ( failures ) {
     printf( "FAIL REQ1/FWD-2: %d checks of sending failed\n", failures );
     return EXIT_FAILURE;

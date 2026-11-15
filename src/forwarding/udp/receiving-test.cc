@@ -120,6 +120,37 @@ int main()
     check( "the parity of the first, the 257th back: no longer remembered, and starts a datagram", r.partial_count() == 1 );
   }
 
+  /* (from the review of 2026-11-15: breaks these checks did not notice) */
+  {
+    Receiving r;
+    const std::string a = pattern( 1000, 9 );
+    const std::vector<std::string> six = pieces( a, false );
+    r.fragment( 3, 7, 900, six[0], 1000, got );
+    bool wrong_conversation = false, wrong_forward = false;
+    for ( size_t k = 1; k < six.size(); k++ ) {
+      wrong_conversation = r.fragment( 3, 8, 900 + k, six[k], 1000, got ) || wrong_conversation;
+    }
+    for ( size_t k = 1; k < six.size(); k++ ) {
+      wrong_forward = r.fragment( 4, 7, 900 + k, six[k], 1000, got ) || wrong_forward;
+    }
+    check( "all its other fragments said to be of another conversation: it is not completed", !wrong_conversation );
+    check( "all of them said to be of another forward (the first was of forward 3): nor then", !wrong_forward );
+    bool done = false;
+    for ( size_t k = 1; k < six.size(); k++ ) {
+      done = r.fragment( 3, 7, 900 + k, six[k], 1000, got ) || done;
+    }
+    check( "said truly, they complete it", done && got == a );
+
+    const std::vector<std::string> other = pieces( pattern( 1000, 10 ), false );
+    r.fragment( 0, 7, 2000, other[0], 1000, got );
+    r.fragment( 0, 7, 2000 + 9, std::string( "\x09\x02\x00\x0a" "data", 8 ), 1000, got ); /* junk that claims this datagram */
+    bool still = false;
+    for ( size_t k = 1; k < other.size(); k++ ) {
+      still = r.fragment( 0, 7, 2000 + k, other[k], 1000, got ) || still;
+    }
+    check( "junk that claims a datagram already in pieces does not lose the pieces", still );
+  }
+
   if ( failures ) {
     printf( "FAIL REQ1/FWD-2: %d checks of receiving failed\n", failures );
     return EXIT_FAILURE;
