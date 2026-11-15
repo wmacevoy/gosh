@@ -33,10 +33,16 @@ worth reading before migrating the part it concerns.
      relay's probes at addresses of its choosing.
 - **Kind:** K1 for the owner: each is a question of whether to fix before release, and a fix
   changes what the fork's relay does.
-- **What it changed:** nothing in behaviour. The agent's recommendation: 1 and 2 are worth a
-  queue item before anyone but the owner uses the relay (answer only from the server's own
-  address; count as "the server answering" only what comes from it); 3 and 4 with them; 5 is
-  item 8's.
+- **What it changed** (2026-11-15; the owner: "fix security first"): 1 to 4 are fixed in gosh's
+  relay, which now differs from the fork's on purpose in four marked places
+  (`src/relay/README.md`, `whose.h`). The second was first made to happen from outside:
+  `tests/relay-spoof.py` sends a datagram of its own to the relay's socket five times a second,
+  and against pf.7, and against gosh before the fix, a forward then carries nothing; against
+  gosh now it carries on. The first, third and fourth are tested as rules with numbers and
+  text; their lines at the edge are read and not driven (the first is a race to show; the third
+  needs a second user). The third is only as good as the kernel's list of sockets, which only
+  Linux gives: elsewhere gosh cannot tell and behaves as the fork did. The fifth cannot happen
+  while path-finding is off, and is in queue item 8's *done*.
 
 ## 2026-11-14 — The relay's review: the logic matched the fork's, and the wiring did not
 

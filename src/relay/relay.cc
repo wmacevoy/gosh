@@ -22,6 +22,7 @@
 #include "src/relay/paths.h"
 #include "src/relay/relay.h"
 #include "src/relay/settings.h"
+#include "src/relay/whose.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -329,15 +330,18 @@ int Network::relay_remote( const char* address, const char* port )
       if ( Gosh::remote_answer_by( now, through_open, stream_open && !stream_ended, stream_heard ).stream ) {
         stream_ended = !write_all( STDOUT_FILENO, relay_frame( answer ) );
       }
-      if ( sockets.size() > 1 ) {
-        /* The server is at this one.  The others can go. */
-        const int found = sockets[i];
-        for ( size_t j = 0; j < sockets.size(); j++ ) {
-          if ( sockets[j] != found ) {
-            close( sockets[j] );
-          }
+      /*
+       * (gosh) The server is at this one, for all we know: the less likely ways after it can
+       * go. The likelier ways before it are kept and still tried, so that whoever answers
+       * first from a less likely place (127.0.0.1, say, which any user of this machine may
+       * bind) does not shut out the server (whose.h).
+       */
+      const size_t keep = Gosh::remote_ways_kept( sockets.size(), i );
+      if ( keep < sockets.size() ) {
+        for ( size_t j = keep; j < sockets.size(); j++ ) {
+          close( sockets[j] );
         }
-        sockets.assign( 1, found );
+        sockets.resize( keep );
         break;
       }
     }
@@ -408,6 +412,39 @@ private:
   {
     return Gosh::relay_settings( stream_only, getenv( "MOSH_RELAY_STREAM_IDLE_MS" ), getenv( "MOSH_PUNCH" ),
                                  getenv( "MOSH_MEETUP" ), getenv( "MOSH_STUN" ), getenv( "MOSH_MEETUP_KEY" ) );
+  }
+
+  /*
+   * (gosh) Whether a datagram on the loopback socket is from our client: from where the last
+   * one came, or from a socket of this user's (whose.h). The kernel's list is read only when
+   * the datagram is from somewhere new. Where there is no list to read, it cannot be told, and
+   * the answer is yes, as it always was in the fork.
+   */
+  bool from_our_client( const Addr& from, socklen_t from_len )
+  {
+    if ( client_len && Gosh::same_udp_address( &from.sa, from_len, &client.sa, client_len ) ) {
+      return true;
+    }
+    if ( from.sa.sa_family != AF_INET ) {
+      return false; /* (the socket is an IPv4 one, on loopback) */
+    }
+    FILE* list = fopen( "/proc/net/udp", "r" );
+    if ( !list ) {
+      return true;
+    }
+    std::string sockets;
+    char part[4096];
+    size_t n;
+    while ( ( n = fread( part, 1, sizeof( part ), list ) ) > 0 ) {
+      sockets.append( part, n );
+    }
+    fclose( list );
+    const bool ours = Gosh::udp_sender_is_users( sockets, from.sin.sin_addr.s_addr, ntohs( from.sin.sin_port ), getuid() );
+    if ( !ours ) {
+      say( "a datagram on the client's socket from port %d, which is not a socket of ours: not passed on",
+           static_cast<int>( ntohs( from.sin.sin_port ) ) );
+    }
+    return ours;
   }
 
   void open_direct( void )
@@ -645,7 +682,7 @@ public:
         Addr from;
         socklen_t from_len = sizeof( from );
         ssize_t n = recvfrom( client_fd, buf, sizeof( buf ), MSG_DONTWAIT, &from.sa, &from_len );
-        if ( n >= 0 ) {
+        if ( n >= 0 && from_our_client( from, from_len ) ) {
           client = from; /* it changes its port from time to time */
           client_len = from_len;
           from_client( std::string( buf, n ), now );
@@ -653,8 +690,12 @@ public:
       }
 
       if ( direct_fd >= 0 && ( fds[2].revents & POLLIN ) ) {
-        ssize_t n = recv( direct_fd, buf, sizeof( buf ), MSG_DONTWAIT );
-        if ( n >= 0 ) {
+        /* (gosh) Only what comes from the server's own address is the server answering (whose.h). */
+        Addr from;
+        socklen_t from_len = sizeof( from );
+        memset( &from, 0, sizeof( from ) );
+        ssize_t n = recvfrom( direct_fd, buf, sizeof( buf ), MSG_DONTWAIT, &from.sa, &from_len );
+        if ( n >= 0 && Gosh::same_udp_address( &from.sa, from_len, &options.server.sa, options.server_len ) ) {
           paths.direct_answered( now );
           to_client( buf, n );
         }
@@ -663,10 +704,11 @@ public:
       if ( from_child >= 0 && fds[3].revents ) {
         ssize_t n = read( from_child, buf, sizeof( buf ) );
         if ( n > 0 ) {
-          paths.stream_answered(); /* it works */
           parser.append( buf, n );
           std::vector<std::string> words;
           while ( parser.next( datagram ) ) {
+            /* (gosh) It works when a whole frame has come: not at a byte, which a login that then fails may print. */
+            paths.stream_answered();
             if ( is_control( datagram, words ) ) {
               from_remote( words, now );
             } else {

@@ -21,6 +21,7 @@ path-finding, which are item 8's. That text is the fork's.
 | `paths.h` | every change of path the two relays make: logic (new shape); `paths-test.cc` |
 | `frame.h` | a datagram on the ssh stream (two bytes of length before it), and the relays' words to each other: logic; `frame-test.cc` (its first test is the fork's) |
 | `settings.h` | what the environment tells the relays, as one value: idle time, path-finding, whom to ask, the key; and the addresses in what ssh says of a connection: logic; `settings-test.cc` |
+| `whose.h` | whose a datagram is: only the server's address counts as the server answering; the client is a socket of this user's; the remote relay keeps its likelier ways to the server: logic; `whose-test.cc` |
 | `relay.*` | both relays as processes, their framing and their words to each other: the fork's, an edge of `paths.h` |
 
 Who calls it: the seam. gosh's client `main` reads how the relay is started (`MOSH_RELAY`,
@@ -45,6 +46,26 @@ each way. Seen red: a client that never asks `start.h` fails `blocked`.
 back-off (1, 2, 4 ... 30 s; up to 5 minutes while the stream has never worked), the remote
 relay's 3 s and its minute. It was written against the fork's rules before `relay.cc` was
 changed to ask `paths.h`; sixteen deliberate breaks of a rule are each noticed.
+
+**Where gosh's relay differs from the fork's, on purpose** (2026-11-15; `docs/FINDINGS.md`). The
+fork's relays changed where they sent things because of datagrams anyone could have sent. Four
+changes, at places marked `(gosh)` in `relay.cc`:
+
+1. The remote relay tries several addresses for the server. The fork stayed with whichever
+   answered first, so a user of the server's machine who bound the free loopback port took the
+   path. gosh gives up only the ways less likely than the one that answered.
+2. The local relay took any datagram on its direct socket for the server answering, and stopped
+   using ssh. gosh takes only one from the server's address. `tests/relay-spoof.py` is this
+   attack, from outside: red against pf.7, green against gosh.
+3. The local relay took whoever last sent to its loopback port for the client. gosh takes a new
+   sender only if the kernel's list of UDP sockets says it is a socket of the same user. **On a
+   system without `/proc/net/udp` (not Linux) it cannot tell, and behaves as the fork did.**
+4. One byte from ssh reset the wait between attempts to start it. gosh resets it when a whole
+   frame has arrived.
+
+Of these, 2 is shown from outside; 1, 3 and 4 are tested as rules (`whose-test.cc`,
+`paths-test.cc`) and their few lines in `relay.cc` are read, not driven by a test: 1 is a race
+to demonstrate, and 3 needs a second user.
 
 **Not tested:** that the edge does what `paths.h` says is tested only by the smoke test's four
 cases. Nothing in the check makes `relay.cc` try a fresh socket, back off from an ssh that
