@@ -1,6 +1,6 @@
 # Requirements — v15
 
-**Superseded by `REQUIREMENTS_v16.md`** (2026-11-15, a draft not yet accepted), in which a server with an IPv6 address alone is reached by every path (PATH-8). Kept as it was written.
+**Superseded by `REQUIREMENTS_v16.md`** (2026-11-15), in which a server with an IPv6 address alone is reached by every path (PATH-8). Kept as it was written.
 
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v16.md`); a spelling or lint fix is not. See

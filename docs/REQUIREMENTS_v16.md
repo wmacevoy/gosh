@@ -22,8 +22,8 @@ just get back to the basics ... no third party ... no new auth" (no citation of 
 mean anything else);
 **Accepted by the client on 2026-11-15: "accept v15".** v16 is the client's direction of the same
 day, "ipv6 is important for the server --- ow the server costs more for the students to run", and
-"yes draft v16, campus has ipv6", drafted by the agent; **not yet accepted.** *Tell us what is wrong
-with it.*
+"yes draft v16, campus has ipv6", drafted by the agent, with the client's two answers to it written in the same day ("1. carry the
+fix. 2. say and leave it."). **Accepted by the client on 2026-11-15: "accept v16".**
 
 **What changed from v15.** A server with an IPv6 address and no IPv4 one is a server gosh is for.
 A public IPv4 address costs money at AWS (the agent's memory, not checked: about $0.005 an hour, or
@@ -34,8 +34,9 @@ is IPv6-only.
   IPv4, and where both ends have both, both are tried (SHAPE-2).
 - **IPv6 path-finding is taken out of *Deferred*.** It was waiting for "a student whose home machine
   has IPv6 behind a firewall they cannot open"; it is wanted now for the server's cost.
-- *Scope decisions* record why; *Not yet answered* has two things it leaves open: gosh's native
-  Windows client and an IPv6 server (v10), and a home machine with no IPv6.
+- **The Windows IPv6 socket fix is carried in the seam again** (SHAPE-1's exceptions; seam patch
+  10), reversing v10, so that gosh's native Windows client can open a session to an IPv6 address.
+- **A home machine with no IPv6 is said and left** (*Scope decisions*).
 
 **What changed from v14** *(as v15 said it).*
 
@@ -283,8 +284,9 @@ makes it, in a new version.
     and proves in one pass, so there is no cheaper "prove only". And what looks like QUIC cannot
     be told from what only looks like it: after its handshake QUIC is made to look like random
     bytes, so a wrong guess would send a datagram in the clear.
-- **Exceptions:** SHAPE-1: the seam, whose first entry is headless (`-N`). *(Until v9 the Windows
-  IPv6 socket fix was listed here too; since v10 gosh does not carry it.)* SHAPE-3: none; the
+- **Exceptions:** SHAPE-1: the seam, whose first entry is headless (`-N`); and *(since v16)* the
+  Windows IPv6 socket fix (seam patch 10). *(Until v9 the fix was listed here too; v10 to v15 did
+  not carry it; v16 carries it again: "carry the fix", client, 2026-11-15.)* SHAPE-3: none; the
   Perl script is not migrated.
 
 ## The pain
@@ -551,9 +553,16 @@ Read back on 2026-11-13; answers as given.
   important for the server --- ow the server costs more for the students to run", and "campus has
   ipv6". So a student's server may have an IPv6 address and no IPv4 one, and every path to it is to
   work by IPv6 (PATH-8). It is the third exception to the freeze below.
-- The IPv6 socket fix belongs to the fork, not to gosh: it is not in gosh's seam, and a pull
-  request for it is the fork's business, made from `mosh-dev`. gosh still offers nothing upstream.
-  *(since v10; client, 2026-11-13)*
+- ~~The IPv6 socket fix belongs to the fork, not to gosh.~~ *(v10 to v15; client, 2026-11-13.)*
+  **Since v16 gosh carries it again**, as seam patch 10, the fork's lines: with IPv6-only servers
+  every Windows student in the editor would otherwise be shut out (client, 2026-11-15: "carry the
+  fix"). It goes when the pin moves past upstream's pull request 1442. gosh still offers nothing
+  upstream.
+- **A home machine with no IPv6 is not provided for** *(since v16; client, 2026-11-15: "say and
+  leave it")*: the second case, a laptop to a desktop at home through the student's server as
+  meetup, needs the desktop to reach that server, and an IPv6-only server it cannot reach if its
+  ISP gives it no IPv6. The documentation says so; the remedy is the student's (a server that
+  keeps an IPv4 address).
 - ~~The IPv6 socket fix is to be offered upstream.~~ Not offered: upstream's pull request 1442
   already makes the change. *(since v6)*
 - **The meetup's registration is the second exception to the freeze below** *(since v15; client,
@@ -642,16 +651,6 @@ Read back on 2026-11-13; answers as given.
 - Is password-only login to be supported, or is an ssh key a precondition? (first assumption
   above) — Warren.
 - Does the course server, or AWS, permit what the second assumption says? — Warren.
-- **gosh's native Windows client and an IPv6-only server** *(since v16)*. Since v10 gosh does not
-  carry the fork's Windows IPv6 socket fix, so (inferred from the fix's comment, not run) the
-  native Windows client cannot open a session to an IPv6 address until upstream has the fix, and
-  the extension on a Windows laptop uses that client. With IPv6-only servers that is every Windows
-  student in the editor. Carry the fix in the seam again, wait for upstream (pull request 1442),
-  or have Windows students' servers keep an IPv4 address? — Warren.
-- **A home machine with no IPv6** *(since v16)*. The second case, a laptop to a desktop at home
-  through the student's server as meetup, needs the desktop to reach that server: by IPv6, if the
-  server has nothing else. Some home ISPs give no IPv6. Is that case to be met for them (a server
-  that keeps an IPv4 address), or said and left? — Warren.
 ## Deferred
 
 - Not yet: a meetup's log of the registrations it takes or refuses — the client, 2026-11-15: "no -

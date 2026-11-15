@@ -1,0 +1,31 @@
+gosh seam 10: An IPv6 socket does without the IPv4 path-MTU option.
+
+For:   REQ16/PATH-8. A server with an IPv6 address alone is reached as one with IPv4 is; on
+       Windows (Cygwin and MSYS2) the IPv4 option IP_MTU_DISCOVER is refused on an IPv6 socket
+       with EINVAL, so a session to an IPv6 address could not be opened at all. Since v10 gosh
+       did not carry this; v16 carries it again (client, 2026-11-15: "carry the fix").
+What:  the option's failure is fatal only on an IPv4 socket.
+Where: Connection::Socket::Socket (network.cc).
+Kind:  one condition gains a term, and a comment. Nothing is moved.
+From:  the fork at mosh-1.4.0-pf.7, commit b60a373 ("Let an IPv6 socket do without the IPv4
+       path-MTU option"), the same lines. Upstream's pull request 1442 makes the same change; when
+       the pin moves past it, this patch goes.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+--- a/src/network/network.cc
++++ b/src/network/network.cc
+@@ -157,7 +157,13 @@
+   /* Disable path MTU discovery */
+ #ifdef HAVE_IP_MTU_DISCOVER
+   int flag = IP_PMTUDISC_DONT;
+-  if ( setsockopt( _fd, IPPROTO_IP, IP_MTU_DISCOVER, &flag, sizeof flag ) < 0 ) {
++  if ( setsockopt( _fd, IPPROTO_IP, IP_MTU_DISCOVER, &flag, sizeof flag ) < 0 && family == AF_INET ) {
++    /*
++     * This is an IPv4 option.  Linux takes it on an IPv6 socket as well,
++     * but not every system does (Cygwin and MSYS2 say EINVAL), and an
++     * IPv6 socket can do without it: we never send a datagram larger
++     * than every IPv6 path must carry.
++     */
+     throw NetworkException( "setsockopt", errno );
+   }
+ #endif
