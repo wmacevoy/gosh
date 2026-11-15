@@ -17,6 +17,8 @@ SPEED-1 (2026-11-14: "accept speed-1 change"). v13 records a refusal the client 
 ("declined."). v14 is the client's decision of that evening ("Do 2. This will haunt in other ways
 until it is done."). v15 is the client's decisions of 2026-11-15 about the meetup, written out by
 the agent from `PROPOSAL_meetup-registration.md` and the client's answers to its five questions;
+**rewritten in place the same day**, before it was accepted, to the proposal's revision 8 and the
+client's answers to the fourth attack (no citation of v15 had come to mean anything else);
 **not yet read back to him as a whole.** *Tell us what is wrong with it.*
 
 **What changed from v14.** How a meetup decides whom to pass datagrams for, and nothing else.
@@ -25,22 +27,25 @@ with the real cipher: the twelve bytes that showed a meetup's key could be copie
 by anyone who saw one datagram, and were then good for ever, from anywhere, for anything the
 meetup does. The client, 2026-11-15: "pf7 was a step to here. let it go. go for a tailscale. (or
 talescale-like if that breaks some ownership)"; then "meetup keeps a list of signature
-authorities, public keys are signed by an authority, and a blacklist. tweet it is --- it's rare."
+authorities, public keys are signed by an authority, and a blacklist. tweet it is --- it's rare.";
+then "it seems like oauth to me", and of who signs, "authority is the service".
 
 - **PATH-5 is reworded, and PATH-4 with it.** A meetup no longer has a key that its users share.
-  An **authority** signs a user's key (a **pass**); the user vouches for each end of a session
-  (a **voucher**); an end **registers** with the meetup by showing a key so vouched for; and the
-  meetup keeps a list of the authorities it trusts and a **blacklist**. The design, what it does
-  not close, and how it got there through two attempts to break it on paper are in
-  `PROPOSAL_meetup-registration.md`, revision 4.
+  It is a service, gosh-meetup, that is its own authority: a user signs in to it with an account
+  they have, and it signs the key the user's machine made (a **pass**), under one of its
+  **terms**; the user vouches for each end of a session (a **voucher**); an end **registers**
+  with the meetup by showing a key so vouched for; and the meetup asks its **hook** whom to admit.
+  The design, what it does not close, and how it got there through four attempts to break it on
+  paper are in `PROPOSAL_meetup-registration.md`, revision 8.
 - **A second exception to the freeze on new features**, for this (*Scope decisions*).
 - **TweetNaCl is carried in `vendor/`** as its authors publish it (public domain): it is source
   gosh carries, not a dependency a machine can lack, so SHAPE-3 stands as written.
-- **Glossary:** authority, pass, voucher, registration and blacklist are new; *proof* is retired;
+- **Glossary:** pass, term, voucher, registration and hook are new; *proof* is retired;
   *meetup* and *pair* are reworded.
-- The client's five answers of 2026-11-15 are in *Scope decisions* and *Deferred*: a pass does not
-  expire; no forward secrecy for registrations; a meetup with authorities does not answer the STUN
-  question; and a meetup's log does not name users (deferred).
+- The client's answers of 2026-11-15 are in *Scope decisions*, *Non-goals* and *Deferred*: a pass
+  does not expire, the term that signed it does; no forward secrecy for registrations; a meetup
+  with terms does not answer the STUN question; no time server; gosh's own hook admits nobody; and
+  a meetup's log does not name users (deferred).
 
 **What changed from v13** *(as v14 said it).* Two things, from one finding (`FINDINGS.md`, 2026-11-14: a copy over a
 stream in gosh was slower than pf.7, the measurement kept for SPEED-1 could not see it, and both
@@ -171,7 +176,7 @@ the client on 2026-11-13.
 | path-finding | the part that finds a punched path, or one across a local network, for a session on the relay *(since v7)* |
 | punched path | a direct UDP path opened through NATs by both ends sending at once (`--punch`) |
 | STUN | the question "what address do I appear to have from outside?", and a plain public server that answers it |
-| meetup | a machine with a public address, run by whoever chooses to, that for ends registered with it passes their datagrams between them by UDP, when the two can find no path to each other, for as long as they need; one started with no authorities passes nothing and only answers the STUN question (`gosh-server meetup`). *"meetup does not imply how long you will stay" (client)* *(reworded in v15)* |
+| meetup | a machine with a public address, run by whoever chooses to, that for ends registered with it passes their datagrams between them by UDP, when the two can find no path to each other, for as long as they need. Since v15 a service, gosh-meetup, that is its own authority: it signs its users' keys. One started with no terms passes nothing and only answers the STUN question (`gosh-server meetup`). *"meetup does not imply how long you will stay" (client)* *(reworded in v15)* |
 | headless | a session with no terminal (`-N`) |
 | the extension | `remote-gosh`, for VSCodium (`remote-mosh` until it is migrated) |
 | local copy | a folder on the host kept copied to the user's machine by the extension |
@@ -187,11 +192,11 @@ the client on 2026-11-13.
 | candidate | an address at which the other end might be reached *(since v11)* |
 | pair | the two ends a meetup passes datagrams between: each is registered for the other *(since v11; reworded in v15)* |
 | ~~proof~~ | *(v11 to v14: the bytes that showed a meetup that their sender held its key. Retired in v15: nothing shows a key by bytes that can be copied.)* |
-| authority | someone who decides who may use a meetup, by signing users' keys; a meetup keeps a list of the authorities it trusts *(since v15)* |
-| pass | a user's key signed by an authority: what lets that user use the meetups that trust that authority *(since v15)* |
+| pass | a user's key signed by a meetup, once the user has signed in to it with an account they have: what lets that user use that meetup. It does not expire; the term that signed it does *(since v15)* |
+| term | one of a meetup's pairs of keys that sign passes and receive registrations, made every 90 days; the passes it signs are good for 360 days from its start, so four are good at a time *(since v15)* |
 | voucher | a user's signature saying that, at one meetup, one end of a session may be passed to and from one other *(since v15)* |
 | registration | what a meetup holds for an end that has shown it a key a voucher names: where the end is, and which end it is for *(since v15)* |
-| blacklist | a meetup's list of users' keys it will not take, whatever their pass *(since v15)* |
+| hook | what a meetup asks, about every account it is shown, whether to admit it; whoever runs a meetup provides their own, and gosh's own admits nobody *(since v15)* |
 | words | the text a program is told what to do by: its arguments, and the variables it reads *(since v11)* |
 | startup message | the lines a server prints for the command: where it is, and its key *(since v11)* |
 
@@ -327,11 +332,10 @@ the client accepted them as they stand, and did not choose them.
 - **PATH-4** *(since v15)* When no punched path can be found and the user has a
   meetup and a pass it takes, the session moves from the relay to UDP through the meetup.
 - **PATH-5** *(since v15)* A meetup passes nothing on for anyone who has not just shown that they
-  hold a key which a user has vouched for at that meetup, where an authority the meetup trusts
-  has signed that user's key and the meetup has not blacklisted it. What it passes for an end
-  goes only to the end the voucher names, and only if that end is registered for it in turn. A
-  datagram copied off the network is no use to whoever copied it. And to someone who does not
-  know the meetup's own key, which is not a secret, it says nothing at all. *(judged in part:
+  hold a key which a user has vouched for at that meetup, where the meetup has signed that user's
+  key under a term still good, and its hook admits that user. What it passes for an end goes only
+  to the end the voucher names, and only if that end is registered for it in turn. A datagram
+  copied off the network is no use to whoever copied it. *(judged in part:
   "no use" is argued in the design for each kind of attacker it lists, and tested for each that
   a test can reach; the client is the judge of whether the list is the right one.)*
 - **PATH-6** *(since v1)* Two ends on one local network find each other by their
@@ -447,7 +451,7 @@ the client accepted them as they stand, and did not choose them.
 
 - **Scale:** *(inferred)* one user, one session at a time per use; up to 16 forwards of each kind,
   64 TCP connections and 64 UDP conversations each way per session; a meetup holds up to 2,048
-  registrations, 16 of them for one user (eight sessions). A course of students each with their own sessions has not been tried. Not designed for:
+  registrations, 16 of them for one user (eight sessions); a user signs in to it once a year. A course of students each with their own sessions has not been tried. Not designed for:
   a shared public meetup.
 - **Speed:** SPEED-1, relative to pf.7. *(measured, not required)* forwarded TCP at 100 ms round
   trip about 9 Mbit/s, at 300 ms about 4, with little delay 20 to 30. No absolute figure is
@@ -467,14 +471,15 @@ the client accepted them as they stand, and did not choose them.
   key exchanged over ssh; everything added is reachable only through that, except: loopback
   listeners (forwards, the local relay), the path-finding socket (which accepts only probes sealed
   with a key sent over ssh), and a STUN server's or a meetup's port (open to the Internet by
-  design; a meetup with authorities answers only those who know its key, and opens nothing it
-  is sent before checking its length). The receiving end of a copy is the part that acts on another machine's word; it is
+  design; a meetup with terms does costly work only for those it has given a cookie, and opens
+  nothing it is sent before checking its length). The receiving end of a copy is the part that acts on another machine's word; it is
   fuzzed. **No independent review of any of it has been done**; one is required before gosh is
   called trusted (*Scope decisions*).
 - **Data about people:** nothing is stored. Public STUN servers learn the IP addresses of both ends
   of a session that has fallen back to ssh (PATH-7). A meetup sees which two addresses talk, how
   much, and since v15 as which user (by the user's key; it has no names); it writes none of that
-  down (*Deferred*). An authority keeps a record of whose key it signed. The extension keeps a list of recent host names on the user's machine.
+  down (*Deferred*). A meetup's web side keeps a record of whose key it signed (when, which
+  account, the key), for a year; that is in the web side's own requirements. The extension keeps a list of recent host names on the user's machine.
 - **Law and ethics:** not examined. Open: whether a course may direct students to software that
   contacts third-party servers by default; whether running a listener on a course server is
   permitted by its operator; licensing of the bundled shpool (Apache-2.0, recorded) and of mosh
@@ -528,11 +533,25 @@ Read back on 2026-11-13; answers as given.
   2026-11-15)*: the proof it replaces could be copied by anyone who saw it. With it:
   - TweetNaCl is carried in `vendor/tweetnacl/`, unedited, with where it came from, its
     checksum and its licence (public domain): "tweet it is --- it's rare".
-  - A pass does not expire; it ends when a meetup blacklists the user's key or stops trusting the
-    authority ("yes").
-  - A registration has no forward secrecy: whoever takes a meetup's private key can read the
-    registrations they recorded, and the remedy is a new key for the meetup ("ok").
-  - A meetup with authorities does not answer the STUN question (the client: "not sure --- there
+  - A meetup is one service, gosh-meetup, at one address, that signs its own passes: "authority
+    is the service". A user signs in to it with an Apple, Google or Microsoft account ("default
+    domains are apple,google,microsoft") and pastes in the key their machine made. The part that
+    does the signing in is a web service in a repository of its own, with requirements of its
+    own; gosh holds the part that passes datagrams, and the encodings both share.
+  - A pass does not expire: "a pass does not, the key does." It is good while the term that
+    signed it is, which is 360 days, or until the meetup ends that term early, or its hook stops
+    admitting the user.
+  - Whom a meetup admits is its hook's answer, asked about every account: "hook is everywhere,
+    just most are answered --- this one can default to 'no'". gosh's own hook admits nobody, so a
+    meetup admits someone only because whoever runs it has said so.
+  - No server is asked the time ("yes drop roughtime"); a meetup decides which terms are good by
+    its own clock, and an end is told the meetup's time with each registration.
+  - An address given out again by its provider to someone else is, to a meetup, the same person:
+    nothing stable beside the address is kept ("note sub but leave it out").
+  - The first time a machine takes a pass from a meetup, it takes the meetup's identity on trust.
+  - A registration has no forward secrecy: whoever takes a meetup's private keys can read the
+    registrations they recorded, and the remedy is new keys for the meetup ("ok").
+  - A meetup with terms does not answer the STUN question (the client: "not sure --- there
     are lots of STUN servers --- but what's the harm?"; the harm is small, the gain nothing its
     own users need, and it can be turned on later with no other change).
   - A gosh meetup and the fork's relays do not understand each other, which *Non-goals* has said
@@ -579,8 +598,10 @@ Read back on 2026-11-13; answers as given.
 
 - Not building two-way file synchronisation, compression, or delta transfer in `mocp` — `rsync -e
   'mosh --stdio'` exists for that.
-- Not building a public STUN or meetup service — a meetup serves those whose keys an authority
-  it trusts has signed.
+- Not building a public STUN or meetup service — a meetup admits only those its own hook admits,
+  and gosh's own admits nobody.
+- Not building the meetup's web side (signing in, its lists) here: it is its own repository, with
+  its own requirements. *(since v15)*
 - Not supporting a Windows host from the plain `mosh` command — the extension handles Windows
   hosts, experimentally (EXT-2).
 - Not offering anything to upstream, and not keeping gosh able to be merged there. *(since v6)*
@@ -610,7 +631,7 @@ Read back on 2026-11-13; answers as given.
 
 - Not yet: a meetup's log naming the user's key and address for each registration it takes or
   refuses, so that whoever runs it has something to blacklist by — the client, 2026-11-15: "no -
-  deferred". Until then they learn it from the authority's record. Triggered by the first time
+  deferred". Until then they learn it from the web side's record of enrolments. Triggered by the first time
   someone running a meetup needs to know who is using it.
 - ~~Not yet: selective acknowledgment in forwarding's TCP.~~ **Taken up in v14** (queue item 17):
   the client, 2026-11-14, "Do 2. This will haunt in other ways until it is done." *(v1 to v12 had
