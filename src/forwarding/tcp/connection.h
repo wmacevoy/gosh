@@ -353,7 +353,7 @@ private:
     if ( c.dead ) {
       return;
     }
-    if ( tell_peer && c.state != CONNECTING ) {
+    if ( tell_peer && c.state != CONNECTING && !c.peer_gone ) { /* (there is nobody to tell, if it has gone) */
       emit( c, Segment::RST | Segment::ACK, c.snd_nxt, "", out );
     }
     out.close( c.id(), true );
@@ -378,7 +378,9 @@ private:
    * application had not yet taken: up to 1 MB that had been acknowledged (docs/FINDINGS.md,
    * 2026-11-14; queue item 18).
    *
-   * So: what we hold is still delivered, and then the connection ends, in order. From here on
+   * So: what we hold is still delivered, and then the connection ends, in order (unless the
+   * application itself goes first: then it ends as any connection does whose application has
+   * gone, and there is no one left to mind how). From here on
    * the connection has no other end: nothing is sent to it, nothing it sent earlier that
    * arrives late is looked at, no timer runs, and what the application still writes is taken
    * from it and dropped, so that it is not left stuck writing to nobody.

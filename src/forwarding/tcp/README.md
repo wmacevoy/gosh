@@ -42,8 +42,13 @@ believed as before.
 believes gosh's reset. A small change would help it in the commonest case (a closed end not
 answering a bare acknowledgment with a reset); it changes what gosh puts on the wire for "a
 segment for no connection", and is the owner's to take up (`docs/FINDINGS.md`, 2026-11-15).
-**Not bounded:** an application that never reads holds its connection and up to 1 MB for as
-long as it likes. That was so before, with or without a reset.
+(If the application itself goes while bytes are held, the connection ends as any does whose
+application has gone.)
+**Not bounded:** an application that never reads holds its connection, and up to 1 MB, for as
+long as it likes; that was so before, without any reset. What is new: one that holds unread
+bytes and only writes, after the other end has gone, is no longer stopped by the reset. Its
+writes are taken and dropped until it reads or closes, where the fork (and plain TCP) would
+have given it an error at once. It needs an application that never reads what it is sent.
 
 ## connection (the new shape)
 

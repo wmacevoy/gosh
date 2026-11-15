@@ -589,6 +589,73 @@ static void test_reset_after_everything_arrived( void )
            p.out[1].got == data && p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
   }
 
+  /* The reset comes when nothing is held: there is nothing to wait for, and the connection ends then, in order. */
+  {
+    Pair p;
+    const uint32_t id = p.open();
+    const std::string data = pattern( 5000 );
+    p.write( 0, id, data );
+    p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] );
+    p.carry();
+    p.tick( 10 ); /* the application has taken everything */
+    p.carrying = false;
+    p.write( 1, id, pattern( 3000 ) ); /* our answer, which never gets there */
+    p.out[1].sent.clear();
+    p.carrying = true;
+    TCPInUDP reset = p.last_from[0];
+    reset.flags = TCPInUDP::RST;
+    reset.seq = reset.seq + reset.payload.size() + 1;
+    reset.payload.clear();
+    check( "(everything was taken already, and the connection is still open for our answer)",
+           p.out[1].got == data && p.connecting.count() == 1 );
+    p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
+    check( "a reset after its finish with nothing held: the connection ends at once, in order",
+           p.connecting.count() == 0 && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+  }
+
+  /* The application finishes writing after the reset, while bytes are still held: it is not asked for more. */
+  {
+    Pair p;
+    const uint32_t id = p.open();
+    p.out[1].takes = 0;
+    const std::string data = pattern( 5000 );
+    p.write( 0, id, data );
+    p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] );
+    p.carry();
+    TCPInUDP reset = p.last_from[0];
+    reset.flags = TCPInUDP::RST;
+    reset.seq = reset.seq + reset.payload.size() + 1;
+    reset.payload.clear();
+    p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
+    p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] ); /* the application's end of file */
+    check( "the application finishes writing after the reset: nothing more is wanted from it, and the bytes are still held",
+           p.connecting.wants( id ) == 0 && p.connecting.count() == 1 && p.out[1].closed.empty() );
+    p.out[1].takes = -1;
+    p.tick( 10 );
+    check( "and when it reads, it gets them, and the connection closes in order",
+           p.out[1].got == data && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+  }
+
+  /* The application itself goes, after the reset, with bytes held: the connection ends, and nothing is sent to nobody. */
+  {
+    Pair p;
+    const uint32_t id = p.open();
+    p.out[1].takes = 0;
+    p.write( 0, id, pattern( 5000 ) );
+    p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] );
+    p.carry();
+    TCPInUDP reset = p.last_from[0];
+    reset.flags = TCPInUDP::RST;
+    reset.seq = reset.seq + reset.payload.size() + 1;
+    reset.payload.clear();
+    p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
+    p.out[1].gone = true;
+    p.tick( 10 );
+    check( "the application gone too: the connection ends, and no reset is sent to an end that is not there",
+           p.connecting.count() == 0 && p.out[1].closed.size() == 1 && p.out[1].sent.empty() );
+    (void) id;
+  }
+
   /* Much of ours in flight; its reset after its finish; then an old acknowledgment of a little of ours turns up. */
   {
     Pair p;
