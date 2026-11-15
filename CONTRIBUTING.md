@@ -110,7 +110,7 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   `filecopy-test.cc` for `filecopy.cc` (the owner, 2026-11-14: "thisthing-test for thisthing", so that a test is
   found from the name of what it tests). A test the fork named otherwise is renamed when it is carried. `tools/` builds and checks; `tests/` holds tests that
   drive the programs from outside.
-- **Working set:** `docs/`: `REQUIREMENTS_v15.md` (the one in force; v6 to v14 are beside it, and versions 1 to 5 are
+- **Working set:** `docs/`: `REQUIREMENTS_v16.md` (the one in force once accepted, a draft; v6 to v15 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
   and still holds the seam file by file).
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
@@ -125,4 +125,4 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
 | findings | `docs/FINDINGS.md` |
 | the check command | `tools/check.sh` |
 | the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
-| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v15.md` |
+| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v16.md` |
