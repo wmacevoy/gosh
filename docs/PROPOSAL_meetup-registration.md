@@ -571,3 +571,16 @@ blacklist entry carries the date it stops applying, and an entry past its date i
 matched and is removed by itself. A blacklist entry need last no longer than the longest pass it
 could match; the default is a year from when it is added.
 
+
+**The owner's answers on the requirements collisions, 2026-11-15, for the rewrite of v15:**
+1. Pass expiry: "a pass does not, the key does." A pass carries no date of its own; it stops
+   being taken when the term key that signed it is no longer one of the last four.
+2. REQ15/PATH-5's "says nothing at all" to strangers: "the existance says something, drop it."
+   The clause goes; that a service is there is not hidden.
+3. REQ1/PATH-7: "not sure what that is supposed to mean." Explained to the owner; open.
+4. Glossary: "agree." And "authority is the service": the word *authority* goes, the service is
+   what signs.
+5. The non-goal "a shared public meetup": "hook is everywhere, just most are answered --- this
+   one can default to 'no'." The agent's reading, to be confirmed: every service has the hook,
+   and most installations answer it; a fresh one answers "no" to everyone (an empty whitelist)
+   until its operator lists whom it admits, so nothing is public unless someone makes it so.
