@@ -620,3 +620,62 @@ asked outside a session. With Roughtime dropped, an end speaks to the service on
 path-finding runs, and path-finding runs only on a session that has fallen back to ssh (section
 6.2); enrolling is done by the user, in a browser. So REQ1/PATH-7 needs no change, and the rewrite of
 v15 leaves it alone.
+
+## 14. The attack on revision 8 (2026-11-15): findings, to be taken in revision 9
+
+A fifth session set to break it on paper. Verdict: "build with these changes", findings 1 to 5
+before anyone builds. Kept here briefly so that they outlive the session.
+
+1. **The first pin comes from text the web side writes.** A web break-in serves its own identity,
+   term list and pass; every first enrolment pins the attacker, `--now` does not undo it, and
+   "run --forget" is a ready phishing script. *Change:* the identity is pinned from the
+   operator's handout before any paste (`gosh meetup-key SERVICE WORDS`), keyed by service name;
+   `--forget` shows the old words and asks.
+2. **The append-only file is not**: rewriting at the same length blanks entries; a restart
+   reloads the doctored file; removing expired entries shortens it. *Change:* the operator's
+   entries in a file the web side cannot write; the hook keeps the length and hash of what it
+   last took, across restarts, and refuses a file whose prefix differs; expiry is filtered, never
+   removed, but by the operator compacting; a load failure keeps the last good set and alarms.
+3. **"Newer list" by made-time** lets a forward clock poison every later list, the emergency's
+   included. *Change:* order lists by a counter; define what `--clock-ok` does to the kept time.
+4. **The identity key is online daily for nothing**: no end checks a list's age. *Change:* sign
+   only when terms change or end, and let the identity key be kept offline.
+5. **REQ1/PATH-7 and REQ1/PATH-2 not squared**: `--stun=none`/`--punch=never` must stop the meetup too; and
+   whether a session through the meetup has "fallen back" (REQ1/PATH-2 closes ssh once UDP works) is
+   unsaid. Section 13 cites 6.2 for what 6.2 does not say.
+6. **NO is under-checked**: an old authentic list replayed tells the user to sign in every
+   minute, even when the list shows the pass's term good; "never record" contradicts keeping
+   ended ids and ignoring older lists. *Change:* ignore a NO whose list shows the term good;
+   record the highest list counter and the ended ids.
+7. **The clock rule makes an outage a lockout**, and invites `--clock-ok` in cron. *Change:* after
+   a forward gap do the harmless work, refuse only ending or destroying.
+8. **A changed identity fails silently** (the gate never answers). *Change:* after some unanswered
+   HELLOs, say "or the service's identity changed".
+9. **Revocation lags** up to a KEEP (about 25 s), and a whitelist entry's removal stops only new
+   enrolment. *Change:* compare the hook's counter on PASS; have the hook apply the whitelist too,
+   or say so.
+10. **KEEP's address** contradicts PASS's source check. *Change:* KEEP checks the source address.
+11. **A listed Microsoft consumer tenant** lets personal accounts with a school address pass.
+    *Change:* a domain is satisfied only by `xms_edov` or that domain's own tenant.
+12. **Numbers wrong**: the term list is about 845 bytes, the pasted text about 2,000 characters;
+    the version field is missing from the diagrams; eight ended-early slots overflow after two
+    emergencies.
+13. **No way to replace a stolen user key.** *Change:* `gosh meetup-key --new`.
+14. **Smaller**: the per-`E` key cache unbounded; small-order `U` not refused; "a PASS has had
+    nothing back" undefined; the renewal warning needs a registration (warn by the end's clock
+    too); with rates deferred, an admitted user has an unmetered relay.
+15. **Cross-references**: rates are in 6.3, the account's form in section 4; `gosh meetup-key`
+    could be read as `gosh HOST`.
+
+**Against REQUIREMENTS_v15:** REQ15/PATH-7 (finding 5); *Data about people* says a meetup has no
+names, but the UDP side reads the account; the glossary's *meetup* says `gosh-server meetup`
+signs, but the web side does; *words* is used for fingerprints and relay messages too; *identity*,
+*term list* and *span* are missing, and *term*'s 360 days is ambiguous; `gosh-meetup` is not in
+REQ15/NAME-1 or REQ15/CMD-2; *Scope decisions* cites the proposal's section 7 for section 9;
+"signs in once a year" is 270 to 360 days; the inputs table's meetup row misses a lying address
+and time; REQ15/PATH-5's "just shown" versus 25 s of lag; REQ15/PATH-4 cannot be tested with a hook
+that says no (a test hook is needed); sign-in providers are not among the people it touches.
+
+**Not decided by the attacker:** whether the largest PASS fits the cipher's 2,048-byte buffer;
+Apple's `email_verified` as a string; `xms_edov` for personal accounts; whether one machine may
+hold passes for several services.
