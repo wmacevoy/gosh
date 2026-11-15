@@ -1,0 +1,178 @@
+/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
+
+/*
+ * meetup, messages: the datagrams between an end and a meetup, as bytes (REQ15/PATH-5; the
+ * proposal, revision 10, section 4). Logic: bytes and a cipher in, bytes out; no socket, no clock.
+ *
+ *   REGISTER    mark | version | ticket id (16) | end (1) | sealed { kind, where the end believes it is }   70 bytes
+ *   REGISTERED  mark | version | ticket id (16) | end (1) | sealed { kind, where the end was seen }        70 bytes
+ *   PASS        mark | version | ticket id (16) | end (1) | sealed { kind, the datagram }      52 to 1,551 bytes
+ *   PASSED      mark | version | the datagram                                                  10 to 1,509 bytes
+ *
+ * "sealed" is mosh's cipher under the ticket's key: an 8-byte nonce, the text, a 16-byte tag. The
+ * nonce is a counter whose top two bits say who sealed it and for whom (direction, below), so that
+ * no two of the four senders under one key ever use the same nonce, and a message sealed one way
+ * cannot be taken for one sealed another. "where" is 19 bytes: a family (4), an address of 16 (an
+ * IPv4 address in the first four, most significant first; zeros after) and a port of 2.
+ *
+ * Wrong input: anything not exactly one of these lengths, with its mark and version, is not read
+ * (false); a seal that does not open, or opens to the wrong kind or direction, is refused. Lengths
+ * are checked before the cipher is called: it guards its buffers with an assert alone.
+ */
+
+#ifndef GOSH_MEETUP_MESSAGES_H
+#define GOSH_MEETUP_MESSAGES_H
+
+#include <cstdint>
+#include <cstring>
+#include <string>
+
+#include "src/crypto/crypto.h"
+
+namespace Gosh {
+
+enum MeetupKind
+{
+  MEETUP_REGISTER = 1,
+  MEETUP_REGISTERED = 2,
+  MEETUP_PASS = 3,
+  MEETUP_PASSED = 4
+};
+
+static const char MEETUP_MARKS[4][8] = { { 0, 'g', 'o', 's', 'h', 'R', 'E', 'G' },
+                                         { 0, 'g', 'o', 's', 'h', 'R', 'G', 'D' },
+                                         { 0, 'g', 'o', 's', 'h', 'P', 'A', 'S' },
+                                         { 0, 'g', 'o', 's', 'h', 'P', 'S', 'D' } };
+static const unsigned char MEETUP_VERSION = 1;
+
+static const size_t MEETUP_WHERE_LEN = 19;
+static const size_t MEETUP_HEADER = 8 + 1 + 16 + 1; /* mark, version, ticket id, end */
+static const size_t MEETUP_SEAL = 8 + 16;           /* the nonce, the tag */
+static const size_t MEETUP_ADDRESS_MESSAGE = MEETUP_HEADER + MEETUP_SEAL + 1 + MEETUP_WHERE_LEN; /* 70 */
+static const size_t MEETUP_MAX_DATAGRAM = 1500;
+static const size_t MEETUP_PASS_MIN = MEETUP_HEADER + MEETUP_SEAL + 1 + 1;
+static const size_t MEETUP_PASS_MAX = MEETUP_HEADER + MEETUP_SEAL + 1 + MEETUP_MAX_DATAGRAM;
+static const uint64_t MEETUP_COUNTER_MASK = ( uint64_t( 1 ) << 62 ) - 1;
+
+/* Who sealed a message, and for whom: the top two bits of its nonce. */
+inline uint64_t meetup_direction( int end, bool from_meetup )
+{
+  return uint64_t( ( from_meetup ? 2 : 0 ) + ( end ? 1 : 0 ) ) << 62;
+}
+
+/* An IPv4 address and port (each in host order) as "where". */
+inline std::string meetup_where_v4( uint32_t address, uint16_t port )
+{
+  std::string w( MEETUP_WHERE_LEN, '\0' );
+  w[0] = 4;
+  for ( int i = 0; i < 4; i++ ) {
+    w[1 + i] = static_cast<char>( ( address >> ( 24 - 8 * i ) ) & 0xff );
+  }
+  w[17] = static_cast<char>( port >> 8 );
+  w[18] = static_cast<char>( port & 0xff );
+  return w;
+}
+
+/* A message's header, once its length, mark and version have been found right. */
+struct MeetupHeader
+{
+  MeetupKind kind;
+  std::string ticket;  /* 16 bytes; empty for PASSED */
+  int end;             /* 0 or 1 */
+  const char* sealed;  /* the sealed part, and its length; for PASSED, the datagram */
+  size_t sealed_len;
+};
+
+/* True, and its header, if these bytes are one of the four messages at its exact length. */
+inline bool meetup_read_header( const char* data, size_t n, MeetupHeader& h )
+{
+  if ( n < 9 || static_cast<unsigned char>( data[8] ) != MEETUP_VERSION ) {
+    return false;
+  }
+  int kind = 0;
+  for ( int k = 0; k < 4; k++ ) {
+    if ( memcmp( data, MEETUP_MARKS[k], 8 ) == 0 ) {
+      kind = k + 1;
+    }
+  }
+  if ( kind == MEETUP_PASSED ) {
+    if ( n < 10 || n > 9 + MEETUP_MAX_DATAGRAM ) {
+      return false;
+    }
+    h.kind = MEETUP_PASSED;
+    h.ticket.clear();
+    h.end = 0;
+    h.sealed = data + 9;
+    h.sealed_len = n - 9;
+    return true;
+  }
+  if ( kind == 0 ) {
+    return false;
+  }
+  const bool address_message = kind == MEETUP_REGISTER || kind == MEETUP_REGISTERED;
+  if ( address_message ? n != MEETUP_ADDRESS_MESSAGE : ( n < MEETUP_PASS_MIN || n > MEETUP_PASS_MAX ) ) {
+    return false;
+  }
+  const unsigned char end = static_cast<unsigned char>( data[25] );
+  if ( end > 1 ) {
+    return false;
+  }
+  h.kind = static_cast<MeetupKind>( kind );
+  h.ticket.assign( data + 9, 16 );
+  h.end = end;
+  h.sealed = data + MEETUP_HEADER;
+  h.sealed_len = n - MEETUP_HEADER;
+  return true;
+}
+
+/* A message of this kind, sealed: counter (under 2^62) and direction make its nonce. */
+inline std::string meetup_seal( Crypto::Session& session,
+                                MeetupKind kind,
+                                const std::string& ticket,
+                                int end,
+                                bool from_meetup,
+                                uint64_t counter,
+                                const std::string& text )
+{
+  std::string out( MEETUP_MARKS[kind - 1], 8 );
+  out.push_back( static_cast<char>( MEETUP_VERSION ) );
+  out += ticket;
+  out.push_back( static_cast<char>( end ) );
+  const uint64_t nonce = meetup_direction( end, from_meetup ) | ( counter & MEETUP_COUNTER_MASK );
+  out += session.encrypt( Crypto::Message( Crypto::Nonce( nonce ), std::string( 1, static_cast<char>( kind ) ) + text ) );
+  return out;
+}
+
+/*
+ * Opens a message whose header was read: true, its counter and its text, if the seal opens under
+ * this cipher, and it was sealed as this kind, for this end, by whom it should have been.
+ */
+inline bool meetup_open( Crypto::Session& session, const MeetupHeader& h, bool from_meetup, uint64_t& counter, std::string& text )
+{
+  if ( h.kind == MEETUP_PASSED || h.sealed_len < MEETUP_SEAL + 1 ) {
+    return false;
+  }
+  try {
+    const Crypto::Message m = session.decrypt( h.sealed, h.sealed_len );
+    const uint64_t nonce = m.nonce.val();
+    if ( ( nonce & ~MEETUP_COUNTER_MASK ) != meetup_direction( h.end, from_meetup ) || m.text.empty()
+         || static_cast<unsigned char>( m.text[0] ) != h.kind ) {
+      return false;
+    }
+    counter = nonce & MEETUP_COUNTER_MASK;
+    text = m.text.substr( 1 );
+    return true;
+  } catch ( const Crypto::CryptoException& ) {
+    return false;
+  }
+}
+
+/* PASSED: what the meetup sends on. Not sealed: the datagram is the session's, sealed already. */
+inline std::string meetup_passed( const std::string& datagram )
+{
+  return std::string( MEETUP_MARKS[MEETUP_PASSED - 1], 8 ) + std::string( 1, static_cast<char>( MEETUP_VERSION ) ) + datagram;
+}
+
+}
+
+#endif

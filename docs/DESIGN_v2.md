@@ -484,25 +484,29 @@ Tests today: (u) `test_punch`; `punch_fuzzer`; (b) `relay.test` (`punched`), `na
 
 #### meetup
 
-*Since requirements v15 (2026-11-15) the table and the contracts below describe the meetup as
-the fork had it and as `src/meetup/` still is: one shared key and a proof that can be copied.
-What it is to become, the student's own server, used with a ticket given over ssh, is
-`PROPOSAL_meetup-registration.md` (revision 10), which this section gives way to when that is
-built (queue item 8).*
+*Since 2026-11-15 the meetup is built to `PROPOSAL_meetup-registration.md`, revision 10: the
+student's own server, used with a ticket given over ssh. The fork's shared key and copyable proof
+are gone from it (the proof stays only for path-finding's `punch.cc`, until that part is
+reshaped).*
 
 | Piece | Purpose | Kind | From | Serves |
 | --- | --- | --- | --- | --- |
-| **wire** | the key's proof; the pass-on header; recognising a request and writing the answer | logic | `meetup_proof`, `meetup_proof_ok`, `MEETUP_MARK`, `MEETUP_HEADER`, `punch.cc:88-115`; the answer, `:231-271` | `REQ15/PATH-5` |
-| **pairs** | which two ends a pair is; whom to pass a datagram to; forgetting; the rate limit | logic, given `now` in seconds | the `Pair` table, `punch.cc:139-222`; `PER_SECOND`, `:159,237-244` | `REQ15/PATH-4`, `REQ15/PATH-5` |
+| **ticket** | a ticket's id, its key from the master key, when it stops being good, its text | logic | written for gosh | `REQ15/PATH-5` |
+| **messages** | REGISTER, REGISTERED, PASS, PASSED at exact lengths; sealing and opening under a ticket's key | logic | written for gosh | `REQ15/PATH-5` |
+| **registrations** | who is where for each ticket; which counters are used; whom a datagram goes to; forgetting; room for 64 | logic, given `now` in seconds | written for gosh; the fork's `Pair` table (`punch.cc:139-222`) was its place | `REQ15/PATH-4`, `REQ15/PATH-5` |
+| **answer** | recognising a STUN request and writing the answer; the rate limit | logic | `punch.cc:231-271`; `PER_SECOND`, `:159,237-244` | `REQ15/PATH-4` |
+| **master** | the master key's file in gosh's directory | edge | written for gosh | `REQ15/PATH-5` |
 | **serve** | `gosh-server meetup PORT`: the socket and the loop | edge | `meetup_serve`, `punch.cc:117-138,160-170` | `REQ15/PATH-4` |
 
-Contracts and failures: without the key's proof nothing is answered and nothing passed on
-(`REQ15/PATH-5`). Absent other end → the datagram is dropped. Lying: it cannot read or alter what it
-passes; it can drop it. A replayed proof is honoured (1.3). One test writes an answer with meetup's
-`wire` and reads it with path-finding's `STUN`: the format is in two parts and this is what keeps
-them one format. With `pairs` and `wire` as logic, both can be fuzzed; today `meetup_serve` is not.
+Contracts and failures: without a ticket the meetup made, nothing but STUN is answered and
+nothing passed on (`REQ15/PATH-5`). A REGISTER is taken only from the address sealed in it, and any
+sealed message only with a counter not used, so a copied datagram moves nothing and is passed no
+second time. Absent other end → the datagram is dropped. Lying: it cannot read or alter what it
+passes; it can drop it. One test writes an answer with meetup's `answer` and reads it with
+path-finding's `STUN`: the format is in two parts and this is what keeps them one format.
 
-Tests today: (b) `nat-lab.py passed`; (u) the proof lines of `test_punch`.
+Tests today: (u) `ticket-test`, `messages-test`, `registrations-test`, `answer-test`; (b)
+`tests/meetup-tickets.py`, sealing with Python's AES-OCB, a second implementation.
 
 #### copy
 

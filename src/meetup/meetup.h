@@ -8,27 +8,21 @@
 namespace Network {
 
 /*
- * A meetup: a machine with a public address where the two ends of a
- * session, each behind its NAT, can find each other.  ("mosh-server
- * meetup PORT")  It does two things.
+ * A meetup: a machine with a public address, typically the student's own server, where the two
+ * ends of a session that cannot reach each other find where they appear to be, and through which
+ * their datagrams are passed when they can find no way to each other ("gosh-server meetup PORT";
+ * REQ15/PATH-4, REQ15/PATH-5). It does two things.
  *
- * It answers the STUN question: it says where a request came from.
- * With a key it answers only requests that show the key; and in any
- * case no more than a few hundred a second, so as to be no use to
- * anyone for anything else.
+ * It answers the STUN question, to anyone: it says where a request came from, never with more
+ * bytes than it was sent, and no more than a few hundred times a second (answer.h).
  *
- * And with a key, for two ends that can find no way to each other, it
- * passes their datagrams between them, for as long as they need.  Each
- * sends it
- *     MEETUP_MARK, twelve bytes showing the key, sixteen naming the pair, the datagram
- * and it sends the same on to whichever other address has lately sent
- * it datagrams naming that pair.  So the two still talk by UDP, though
- * through here.  It reads nothing of what it passes (which is sealed by
- * its ends), and passes nothing for anyone without the key.
+ * And for the two ends of a ticket it made (ticket.h), each registered from where it is, it passes
+ * their datagrams between them (registrations.h). It reads nothing of what it passes, which is
+ * sealed by the session, and passes nothing for anyone without a ticket.
  *
- * Runs until killed; returns an exit status if it cannot start.
+ * master: its master key (master.h). Runs until killed; returns an exit status if it cannot start.
  */
-int meetup_serve( const char* port, const std::string& key );
+int meetup_serve( const char* port, const std::string& master );
 
 }
 

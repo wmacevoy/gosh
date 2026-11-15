@@ -1,8 +1,7 @@
 # Proposal: the meetup, on the student's own server, with ssh as its only authority
 
 **A proposal, not the design in force. Revision 10, 2026-11-15.** Nothing here is built. The
-requirements it is written to are `REQUIREMENTS_v15.md` as rewritten the same day, not yet
-accepted.
+requirements it is written to are `REQUIREMENTS_v15.md`, accepted the same day.
 
 The owner, after six attacks on revisions 1 to 9: "ok, this got more complicated than it needed
 to be. ... lets just get back to the basics: any esablished connection implies relay. we already
@@ -54,10 +53,11 @@ ticket id    16 bytes: 8 random, then the instant it stops being good (UTC secon
 ticket key   16 bytes: the first 16 bytes of an HMAC, under the master key, of the ticket id
 ```
 
-`gosh-server meetup-ticket`, run over ssh on the AWS server, makes one and prints it, with the
-meetup's port. So the meetup keeps nothing per ticket: it computes the key again from the id
-whenever it needs it. *(HMAC-SHA-256, or mosh's own cipher used as a MAC, whichever the code
-already has: to be decided when it is built; nothing new is carried in.)*
+`gosh-server meetup-ticket`, run over ssh on the AWS server, makes one and prints it
+(`gosh-ticket ID KEY`); the port is the one `--meetup=HOST:PORT` names. So the meetup keeps nothing per ticket: it computes the key again from the id
+whenever it needs it. *(Built: the key is mosh's own cipher, AES-OCB, sealing the id under the
+master key with a fixed nonce, which for one block is a keyed permutation; `src/meetup/ticket.h`
+says why that is safe. Nothing new is carried in.)*
 
 1. When a session has fallen back and path-finding starts, the client end runs
    `ssh AWS gosh-server meetup-ticket` (the AWS server is the one named by `--meetup=HOST`), and
@@ -70,8 +70,8 @@ The ticket key crosses the network only inside ssh. A ticket is for one session'
 says nothing of the session's own key, which the meetup never holds.
 
 **To end every ticket at once** (a ticket key leaked; the student's laptop stolen), the student
-runs `gosh-server meetup-key --new`: a new master key, and every ticket made under the old one is
-no good. Sessions then fetch a new ticket the next time they fall back.
+runs `gosh-server meetup-key --new` and starts the meetup again: a new master key, and every
+ticket made under the old one is no good. Sessions then fetch a new ticket the next time they fall back.
 
 ## 4. Registering and passing
 

@@ -8,6 +8,7 @@
  */
 
 #include <cstdlib>
+#include <ctime>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -18,7 +19,10 @@
 #include "src/seam/options.h"
 #include "src/relay/relay.h"
 #include "src/crypto/crypto.h"
+#include "src/crypto/prng.h"
+#include "src/meetup/master.h"
 #include "src/meetup/meetup.h"
+#include "src/meetup/ticket.h"
 
 int main( int argc, char* argv[] )
 {
@@ -37,13 +41,38 @@ int main( int argc, char* argv[] )
     return Network::relay_remote( args[1].c_str(), args[2].c_str() );
   }
 
-  /* A meetup, where two ends behind NATs find each other (src/meetup), and a key for one. */
-  if ( args.size() == 2 && args[0] == "meetup" ) {
+  /*
+   * A meetup, where two ends behind NATs find each other (src/meetup); a ticket for one session
+   * to use it, given to whoever can run this here, over ssh; and a new master key, which ends
+   * every ticket made under the old one.
+   */
+  if ( !args.empty() && ( args[0] == "meetup" || args[0] == "meetup-ticket" || args[0] == "meetup-key" ) ) {
     Crypto::disable_dumping_core();
-    return Network::meetup_serve( args[1].c_str(), getenv( "MOSH_MEETUP_KEY" ) ? getenv( "MOSH_MEETUP_KEY" ) : "" );
-  }
-  if ( args.size() == 1 && args[0] == "meetup-key" ) {
-    printf( "%s\n", Crypto::Base64Key().printable_key().c_str() );
+    std::string master, error;
+    if ( args.size() == 2 && args[0] == "meetup-key" && args[1] == "--new" ) {
+      if ( !Gosh::meetup_master_new( error ) ) {
+        fprintf( stderr, "%s meetup-key: %s\n", name.c_str(), error.c_str() );
+        return 1;
+      }
+      return 0;
+    }
+    const bool serve = args.size() == 2 && args[0] == "meetup";
+    const bool ticket = args.size() == 1 && args[0] == "meetup-ticket";
+    if ( !serve && !ticket ) {
+      fprintf( stderr, "usage: %s meetup PORT | meetup-ticket | meetup-key --new\n", name.c_str() );
+      return 1;
+    }
+    if ( !Gosh::meetup_master( master, error ) ) {
+      fprintf( stderr, "%s %s: %s\n", name.c_str(), args[0].c_str(), error.c_str() );
+      return 1;
+    }
+    if ( serve ) {
+      return Network::meetup_serve( args[1].c_str(), master );
+    }
+    char random8[8];
+    PRNG().fill( random8, sizeof( random8 ) );
+    const Gosh::Ticket t = Gosh::make_ticket( master, std::string( random8, 8 ), time( NULL ) + Gosh::TICKET_LIFE );
+    printf( "%s\n", Gosh::ticket_text( t ).c_str() );
     return 0;
   }
 

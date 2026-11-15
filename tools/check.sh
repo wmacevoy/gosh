@@ -125,14 +125,13 @@ fi
 # (gosh only: pf.7 fails these two, which are the faults they were written to show. FINDINGS, 2026-11-13 to 15)
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-spoof.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-dies.py
-# The meetup, as a process (REQ15/PATH-4, REQ15/PATH-5): pf.7's first, then gosh's. (It takes the server alone.)
-for which in "$pf7/mosh-server" "$gosh/gosh-server"; do
-    if python3 tests/meetup-answers.py "$which" >.build/gosh-test.log 2>&1; then
-        echo "$which passes meetup-answers.py"
-    else
-        cat .build/gosh-test.log; stop_ours; fail "$which with tests/meetup-answers.py"
-    fi
-done
+# The meetup, as a process (REQ15/PATH-4, REQ15/PATH-5): gosh's alone, since pf.7's has no tickets. (It takes the server alone.)
+if python3 tests/meetup-tickets.py "$gosh/gosh-server" >.build/gosh-test.log 2>&1; then
+    grep "^SKIPPED" .build/gosh-test.log || true
+    echo "$gosh/gosh-server passes meetup-tickets.py"
+else
+    cat .build/gosh-test.log; stop_ours; fail "$gosh/gosh-server with tests/meetup-tickets.py"
+fi
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" copy-cut.py gocp
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" copy-liar.py
 if tests/mocp.test "$here/$gosh/gosh-client" "$here/$gosh/gosh-server" gocp gosh >.build/gosh-test.log 2>&1; then
