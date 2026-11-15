@@ -7,6 +7,24 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-15 — The meetup replaced by tickets; path-finding switched on; an oversized probe aborted the relay
+
+- **What happened:** Path-finding was switched on with its meetup half replaced by tickets
+  (`PROPOSAL_meetup-registration.md`, revision 10). The first agent's paper attack on the fork's
+  `punch.cc` had said that a probe-marked datagram of any length up to 65,528 bytes went to the
+  cipher's `decrypt`, whose 2,048-byte buffer is guarded by an `assert` alone. **Demonstrated:**
+  `punch-test.cc` sends one of 4,008 bytes to a path-finding socket; without the new length check
+  the test aborts in that assert (`crypto.cc:259`). In a relay that is anyone on the Internet
+  who can reach its port ending it. Now a probe is opened only at its one length.
+- **And:** the fork's replay of a meetup's proof (2026-11-13, below) is shown refused, turned
+  round, in `registrations-test.cc`, and through a real meetup and a second implementation of the
+  cipher (Python's AES-OCB) in `tests/meetup-tickets.py`. Six paper attacks on revisions 1 to 9
+  were spent before the owner set them aside for the simplest design ("no new auth"); what they
+  found about sign-in, keys and clocks is kept in the proposal's history.
+- **Kind:** K3 made K0: a fault believed from reading, now seen; then fixed.
+- **What changed:** `PROBE_LEN` in `punch.h`, with its test seen red; the meetup takes only
+  tickets; `tools/check.sh` runs `punched` and `relay-meetup.py` against gosh.
+
 ## 2026-11-15 — Item 18's review said "not yet": the fix had made a connection with no other end, and then went on treating it as one
 
 - **What happened:** the first fix for the reset after a finish marked the connection as having

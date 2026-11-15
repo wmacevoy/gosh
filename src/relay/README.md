@@ -28,17 +28,20 @@ Who calls it: the seam. gosh's client `main` reads how the relay is started (`MO
 the client's loop and start the local relay once; gosh's server `main` becomes the remote relay
 when its first word is `relay`.
 
-**Path-finding is off.** `local.cc` and `remote.cc` build against `src/pathfinding/punch.*`, and every use of
-it is behind a test for whether there is one. Until queue item 8 lands, both relays are started
-with `MOSH_PUNCH=never` whatever the environment says: the local one then never looks, and the
-remote one never says the `HELLO` that invites a local relay to (a pf.7 client's would,
-otherwise). So no path-finding code runs at either end and no server on the Internet is asked
-anything.
+**Path-finding is on** (since 2026-11-15; `src/pathfinding/`). Once the stream is up, the remote
+relay says `HELLO`, and the two look for a way straight through (`REQ1/PATH-3`). Where the user
+named a meetup (`--meetup`), the local relay fetches a ticket for it over ssh, once, by the command
+`MOSH_MEETUP_TICKET_COMMAND` (which the command writes), and gives it to the remote relay as
+`MEETUP` and `TICKET`; both register with the meetup, and their datagrams can go through it
+(`REQ15/PATH-4`). A way through the meetup is still fallen back: the local relay keeps the stream
+while that is the way. `--punch=never` (`MOSH_PUNCH=never`) turns all of it off. Only servers the
+user named are asked anything (`REQ1/PATH-7`): no STUN server by default.
 
 **Tested** (in `tools/check.sh`): `tests/headless-smoke.py` with the relay from the start
 (`always`), found when UDP gets no answer (`blocked`, by IPv4 and IPv6), with the server's
 address not what the relay was told (`translated`), and going back to UDP when it works again
-(`returned`); each against pf.7 and against gosh, and `always` with a gosh end and a pf.7 end
+(`returned`); each against pf.7 and against gosh; a way straight through (`punched`); and
+`tests/relay-meetup.py`, a fall-back that fetches a ticket and registers both relays with a meetup; and `always` with a gosh end and a pf.7 end
 each way. Seen red: a client that never asks `start.h` fails `blocked`.
 
 `paths-test.cc` pins the timings with numbers and no socket: 2.5 s, 10 s, a minute, the

@@ -80,9 +80,9 @@ static void say( const char* format, ... )
  *
  *   HELLO 1          remote: I know about these
  *   STUN a:p b:p     local: meetups and STUN servers to ask where you appear to be
- *   STUNKEY k        local: ...and the key to show the meetups among them
- *                    (these two words are as they were before a meetup had its name)
  *   KEY k            local: seal probes with this; start
+ *   MEETUP a.b.c.d:p local: (gosh) the meetup, found where the ticket was fetched...
+ *   TICKET id key    local: ...and the ticket for it: register as end 1 (REQ15/PATH-4)
  *   PORT n           either: the port of my end of the way through
  *   CAND a.b.c.d:p   either: where I may be reached (on my own network, or as seen from outside)
  */

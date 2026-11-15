@@ -25,8 +25,8 @@ int main()
 {
   using Gosh::relay_settings;
   Gosh::RelaySettings s = relay_settings( false, NULL, NULL, NULL, NULL, NULL );
-  check( "told nothing: the stream is let go after a minute, path-finding is on, no key",
-         s.stream_idle == 60000 && s.path_finding && s.meetup_key.empty() );
+  check( "told nothing: the stream is let go after a minute, path-finding is on, no meetup",
+         s.stream_idle == 60000 && s.path_finding && s.meetup.empty() && s.ticket_command.empty() );
   check( "and no STUN server is asked: no third party unless named (REQ1/PATH-7; v15 scope decisions)",
          s.ask.empty() );
 
@@ -42,15 +42,19 @@ int main()
   check( "MOSH_PUNCH=never: no path-finding", !relay_settings( false, NULL, "never", NULL, NULL, NULL ).path_finding );
   check( "a word that only begins like it: path-finding", relay_settings( false, NULL, "no", NULL, NULL, NULL ).path_finding
                                                             && relay_settings( false, NULL, "nevermore", NULL, NULL, NULL ).path_finding );
-  check( "a key with no meetup named is kept all the same", relay_settings( false, NULL, NULL, NULL, NULL, "k" ).meetup_key == "k" );
+  check( "a ticket's command with no meetup named is no use, and not kept",
+         relay_settings( false, NULL, NULL, NULL, NULL, "ssh\x1fhost" ).ticket_command.empty() );
   check( "any other word: path-finding", relay_settings( false, NULL, "always", NULL, NULL, NULL ).path_finding
                                            && relay_settings( false, NULL, "", NULL, NULL, NULL ).path_finding );
   check( "the stream and nothing else: no path-finding, whatever the word",
          !relay_settings( true, NULL, "always", NULL, NULL, NULL ).path_finding );
 
-  s = relay_settings( false, NULL, NULL, "meet.example:3478,other.example:1", NULL, "k3y" );
-  check( "meetups named, nothing said of STUN: the meetups alone, and their key",
-         s.ask == Words( { "meet.example:3478", "other.example:1" } ) && s.meetup_key == "k3y" );
+  s = relay_settings( false, NULL, NULL, "meet.example:3478,other.example:1", NULL, "ssh\x1f-T\x1fmeet.example\x1f--\x1fgosh-server meetup-ticket" );
+  check( "meetups named, nothing said of STUN: the meetups alone are asked",
+         s.ask == Words( { "meet.example:3478", "other.example:1" } ) );
+  check( "the first is the one used (REQ15/PATH-4), with its ticket's command in its words",
+         s.meetup == "meet.example:3478"
+           && s.ticket_command == Words( { "ssh", "-T", "meet.example", "--", "gosh-server meetup-ticket" } ) );
   s = relay_settings( false, NULL, NULL, "meet.example:3478", "stun.example:19302", NULL );
   check( "meetups and STUN servers named: the meetups first", s.ask == Words( { "meet.example:3478", "stun.example:19302" } ) );
   check( "MOSH_STUN=none, no meetup: nobody on the Internet is asked", relay_settings( false, NULL, NULL, NULL, "none", NULL ).ask.empty() );

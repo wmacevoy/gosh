@@ -69,16 +69,16 @@ int Network::relay_remote( const char* address, const char* port )
   std::string datagram;
   std::vector<struct pollfd> fds;
   std::vector<std::string> words, ask;
-  std::string meetup_key;
+  std::string meetup_at; /* (gosh) the meetup, "ip:port", and a ticket for it: from the local relay */
+  Gosh::Ticket ticket;
   std::unique_ptr<Punch> punch;
-  bool stream_open = true, was_open = false;
+  bool stream_open = true, was_open = false, was_registered = false;
   uint64_t stream_heard = 0, stream_closed = 0;
 
   /*
    * (gosh) HELLO is what invites the local relay to look for a way through; one that is not
-   * told it says nothing of the kind. While path-finding is off (MOSH_PUNCH=never, which gosh's
-   * server sets until queue item 8 lands) it is not said, so no path-finding code runs here
-   * whichever local relay is at the other end, and no server on the Internet is asked anything.
+   * told it says nothing of the kind. With MOSH_PUNCH=never it is not said, so no path-finding
+   * code runs here whichever local relay is at the other end.
    */
   if ( Gosh::relay_settings( false, NULL, getenv( "MOSH_PUNCH" ), NULL, NULL, NULL ).path_finding
        && !write_all( STDOUT_FILENO, control( "HELLO 1" ) ) ) {
@@ -120,11 +120,18 @@ int Network::relay_remote( const char* address, const char* port )
             }
           } else if ( words.size() >= 1 && words[0] == "STUN" ) {
             ask.assign( words.begin() + 1, words.end() );
-          } else if ( words.size() == 2 && words[0] == "STUNKEY" ) {
-            meetup_key = words[1];
+          } else if ( words.size() == 2 && words[0] == "MEETUP" ) {
+            meetup_at = words[1];
+          } else if ( words.size() == 3 && words[0] == "TICKET" ) {
+            if ( Gosh::parse_ticket( "gosh-ticket " + words[1] + " " + words[2], ticket ) && punch ) {
+              punch->use_meetup( meetup_at, ticket );
+            }
           } else if ( words.size() == 2 && words[0] == "KEY" ) {
             try {
-              punch.reset( new Punch( false, words[1], ask, now, meetup_key ) );
+              punch.reset( new Punch( false, words[1], ask, now ) );
+              if ( !ticket.id.empty() ) {
+                punch->use_meetup( meetup_at, ticket );
+              }
               stream_ended = stream_ended || !write_all( STDOUT_FILENO, control( "PORT " + std::to_string( punch->local_port() ) ) );
               say( "looking for a way through, from port %d", static_cast<int>( punch->local_port() ) );
             } catch ( const std::exception& e ) {
@@ -163,6 +170,10 @@ int Network::relay_remote( const char* address, const char* port )
       if ( punch->open( now ) != was_open ) {
         was_open = punch->open( now );
         say( was_open ? "a way through is open, to %s" : "the way through to %s has closed", punch->where().c_str() );
+      }
+      if ( punch->meetup_registered() != was_registered ) {
+        was_registered = punch->meetup_registered();
+        say( was_registered ? "registered with the meetup at %s" : "no longer registered with the meetup at %s", meetup_at.c_str() );
       }
     }
 

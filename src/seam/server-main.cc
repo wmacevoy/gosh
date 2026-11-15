@@ -36,8 +36,6 @@ int main( int argc, char* argv[] )
    */
   if ( args.size() == 3 && args[0] == "relay" ) {
     Crypto::disable_dumping_core(); /* (as the fork's server did before anything else) */
-    /* Path-finding is not landed (queue item 8): the remote relay does not offer it. This line goes when it lands. */
-    setenv( "MOSH_PUNCH", "never", 1 );
     return Network::relay_remote( args[1].c_str(), args[2].c_str() );
   }
 

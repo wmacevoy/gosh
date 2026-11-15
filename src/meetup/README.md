@@ -16,7 +16,8 @@ gosh-server meetup-key --new   a new master key: every ticket made under the old
 The master key is `meetup.key` in gosh's directory (`~/.config/gosh/` on Linux), its owner's
 alone; it is made the first time either of the first two runs.
 
-It calls nothing of gosh's other parts. Path-finding calls its `proof.h` (below).
+It calls nothing of gosh's other parts. Path-finding calls its `ticket.h` and `messages.h`, as
+one end of a ticket.
 
 | File | What it holds | Test |
 | --- | --- | --- |
@@ -26,7 +27,6 @@ It calls nothing of gosh's other parts. Path-finding calls its `proof.h` (below)
 | `answer.h` | the STUN question answered, no more than 200 a second. Logic | `answer-test.cc` |
 | `master.*` | the master key's file, and gosh's directory. An edge | `tests/meetup-tickets.py` |
 | `serve.cc`, `meetup.h` | the process: one UDP socket and the clock. An edge | `tests/meetup-tickets.py`, from outside, sealing with Python's AES-OCB |
-| `proof.*` | the fork's twelve-byte proof of a shared key. Kept only for path-finding's `punch.cc`, which goes on using it until that part is reshaped; the meetup no longer takes it | `proof-test.cc` |
 
 ## What was wrong, and what is not closed
 
@@ -41,7 +41,7 @@ which two addresses talk; a ticket's id and an end's counter are in the clear; I
 
 ## Not tested
 
-- The two ends' half (sealing REGISTER and PASS, reading REGISTERED and PASSED, fetching a ticket
-  over ssh): it is path-finding's, and is built when that part is reshaped (queue item 8). Until
-  then `tests/meetup-tickets.py` plays both ends.
+- Datagrams through the meetup between two relays on different machines: on one machine the
+  relays find a way straight to each other first. `src/pathfinding/punch-test.cc` passes them
+  through the meetup's logic, and `tests/relay-meetup.py` shows both relays registering.
 - If Python's `cryptography` package (AESOCB3) is missing, that test skips the exchange and says so.

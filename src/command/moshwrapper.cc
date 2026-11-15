@@ -110,11 +110,12 @@ const char USAGE[] = R"USAGE(Usage: %s [options] [--] [user@]host [command...]
                                 look for a way straight to the server by
                                 UDP through the NATs in between, and use
                                 it instead (default: auto)
-        --meetup=HOST:PORT   a meetup of your own for that (mosh-server
-                                meetup, with its key in MOSH_MEETUP_KEY):
-                                it says where each end appears to be,
-                                and passes the session on by UDP when
-                                the ends can find no way to each other
+        --meetup=[USER@]HOST:PORT  a meetup of your own for that (gosh-server
+                                meetup PORT, on a machine ssh logs you in
+                                to): it says where each end appears to be,
+                                and passes the session on by UDP when the
+                                ends can find no way to each other; its
+                                ticket is fetched over ssh
         --stun=HOST:PORT[,...]  plain STUN servers to ask where each end
                                 appears to be; "none" to ask none
                                 (default: none; a meetup answers it)
@@ -798,8 +799,17 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
     if ( s.has( "stun" ) ) {
       setenv( "MOSH_STUN", s.value( "stun" ).c_str(), 1 );
     }
+    /* (gosh) The meetup's address for UDP is its host and port; its ssh login, all before the port. */
+    std::string meetup_login;
     if ( s.has( "meetup" ) ) {
-      setenv( "MOSH_MEETUP", s.value( "meetup" ).c_str(), 1 );
+      const std::string meetup = s.value( "meetup" );
+      const size_t colon = meetup.rfind( ':' );
+      if ( colon == std::string::npos || colon == 0 ) {
+        throw Failure( name + ": --meetup needs HOST:PORT.", true );
+      }
+      meetup_login = meetup.substr( 0, colon );
+      const size_t at = meetup_login.rfind( '@' );
+      setenv( "MOSH_MEETUP", meetup.substr( at == std::string::npos ? 0 : at + 1 ).c_str(), 1 );
     }
 
     std::string predict = s.value( "predict" );
@@ -1290,6 +1300,17 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
       }
       setenv( "MOSH_RELAY_COMMAND", join( words, "\x1f" ).c_str(), 1 );
       setenv( "MOSH_RELAY", relay.c_str(), 1 );
+      /* (gosh, REQ15/PATH-4) How the local relay gets a ticket for the meetup: ssh to it, as to the server. */
+      if ( !meetup_login.empty() ) {
+        std::vector<std::string> fetch = ssh;
+        fetch.push_back( "-T" );
+        fetch.push_back( "-o" );
+        fetch.push_back( "BatchMode=yes" );
+        fetch.push_back( meetup_login );
+        fetch.push_back( "--" );
+        fetch.push_back( server + " meetup-ticket" );
+        setenv( "MOSH_MEETUP_TICKET_COMMAND", join( fetch, "\x1f" ).c_str(), 1 );
+      }
     } else {
       setenv( "MOSH_RELAY", "never", 1 );
     }

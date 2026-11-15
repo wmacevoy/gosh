@@ -44,7 +44,7 @@ tools/build.sh || fail "tools/build.sh"
 
 # The unit tests of gosh's parts, built and run inside the build's copy.
 . tools/env.sh
-for part in copy forwarding meetup relay seam command; do
+for part in copy forwarding meetup pathfinding relay seam command; do
     if make -C ".build/core/src/$part" check >.build/unit-$part.log 2>&1; then
         echo "unit tests pass: $part ($(grep -c '^PASS:' .build/unit-$part.log))"
     else
@@ -114,8 +114,10 @@ gosh=.build/bin
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" forward-e2e.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" outage.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py
-# The relay (REQ1/PATH-1, REQ1/PATH-2), with path-finding off until it lands: so not "punched".
+# The relay (REQ1/PATH-1, REQ1/PATH-2), path-finding (REQ1/PATH-3), and the meetup's ticket (REQ15/PATH-4, REQ15/PATH-5).
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 always
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 punched
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-meetup.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 blocked
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 translated
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 returned

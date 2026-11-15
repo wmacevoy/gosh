@@ -16,6 +16,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -123,21 +124,14 @@ std::string Network::format_ip_port( const Addr& addr )
  * carry meanwhile, so another process does the asking; the answers come
  * to the socket, which is still ours to read.
  */
-static void ask_stun( int sock, const std::vector<std::string>& servers, const std::string& key )
+static void ask_stun( int sock, const std::vector<std::string>& servers )
 {
   if ( servers.empty() ) {
     return;
   }
   char txid[12];
   PRNG().fill( txid, sizeof( txid ) );
-  std::string request = stun_request( txid );
-  if ( !key.empty() ) {
-    try {
-      request = stun_request( meetup_proof( key ).data() );
-    } catch ( const std::exception& e ) {
-      /* not a key: then ask as anyone would */
-    }
-  }
+  const std::string request = stun_request( txid );
 
   const pid_t pid = fork();
   if ( pid < 0 ) {
@@ -175,31 +169,14 @@ static void ask_stun( int sock, const std::vector<std::string>& servers, const s
   _exit( 0 );
 }
 
-Punch::Punch( bool s_initiator,
-              const std::string& key,
-              const std::vector<std::string>& ask,
-              uint64_t now,
-              const std::string& meetup_key )
+Punch::Punch( bool s_initiator, const std::string& key, const std::vector<std::string>& ask, uint64_t now )
   : sock( socket( AF_INET, SOCK_DGRAM, 0 ) ), initiator( s_initiator ),
     session( new Crypto::Session( Crypto::Base64Key( key ) ) ), send_seq( 0 ), heard_seq( 0 ), candidates(),
     local_new(), local_all(), peer(), peer_via( false ), locked( false ), heard( 0 ), started( now ),
-    last_probe( 0 ), last_direct_probe( 0 ), key_proof(), pair_name(), meetups()
+    last_probe( 0 ), last_direct_probe( 0 ), meetup_known( false ), meetup(), ticket(), end( s_initiator ? 0 : 1 ),
+    meetup_session(), meetup_counter( 0 ), believed(), registered( false ), registered_at( 0 ), last_register( 0 ),
+    last_meetup_stun( 0 )
 {
-  if ( !meetup_key.empty() ) {
-    /*
-     * A meetup will also pass datagrams on for us.  What
-     * shows it the key; and a name for the two of us, which is something
-     * both ends can work out and nobody else: the seal on nothing at all.
-     */
-    try {
-      key_proof = meetup_proof( meetup_key );
-      const std::string sealed = session->encrypt( Crypto::Message( Crypto::Nonce( 0 ), "" ) );
-      pair_name = sealed.substr( sealed.size() - 16 );
-    } catch ( const std::exception& e ) {
-      key_proof.clear();
-    }
-  }
-
   struct sockaddr_in any;
   memset( &any, 0, sizeof( any ) );
   any.sin_family = AF_INET;
@@ -237,7 +214,7 @@ Punch::Punch( bool s_initiator,
     freeifaddrs( interfaces );
   }
 
-  ask_stun( sock, ask, meetup_key );
+  ask_stun( sock, ask );
 }
 
 Punch::~Punch()
@@ -277,12 +254,102 @@ std::vector<std::string> Punch::take_local_candidates( void )
   return ret;
 }
 
-/* Straight to an address; or to a server there, to be passed on to the other end. */
+bool Punch::use_meetup( const std::string& ip_port, const Gosh::Ticket& t )
+{
+  Addr where;
+  if ( !parse_ip_port( ip_port, where ) || t.id.size() != Gosh::TICKET_ID_LEN || t.key.size() != Gosh::TICKET_KEY_LEN ) {
+    return false;
+  }
+  try {
+    meetup_session.reset( new Crypto::Session( Gosh::raw_key( t.key ) ) );
+  } catch ( const Crypto::CryptoException& ) {
+    return false;
+  }
+  meetup = where;
+  meetup_known = true;
+  ticket = t;
+  struct timeval tv;
+  gettimeofday( &tv, NULL );
+  meetup_counter = ( static_cast<uint64_t>( tv.tv_sec ) * 1000 + tv.tv_usec / 1000 ) << 10;
+  believed.clear();
+  registered = false;
+  last_register = last_meetup_stun = 0;
+  return true;
+}
+
+/*
+ * (gosh) Keeping our registration with the meetup: first where it sees us (its STUN answer),
+ * then REGISTER with that, sealed; again until it answers, and every REGISTER_EVERY after.
+ */
+void Punch::tend_meetup( uint64_t now )
+{
+  if ( !meetup_known ) {
+    return;
+  }
+  if ( registered && now - registered_at > REGISTER_EVERY + 3500 ) {
+    registered = false; /* not answered for a while: perhaps we have moved; ask again where we are */
+    believed.clear();
+  }
+  if ( believed.empty() ) {
+    if ( now - last_meetup_stun >= REGISTER_RETRY || !last_meetup_stun ) {
+      last_meetup_stun = now;
+      char txid[12];
+      PRNG().fill( txid, sizeof( txid ) );
+      const std::string request = stun_request( txid );
+      sendto( sock, request.data(), request.size(), 0, &meetup.sa, sizeof( meetup.sin ) );
+    }
+    return;
+  }
+  const uint64_t every = registered ? REGISTER_EVERY : REGISTER_RETRY;
+  if ( now - last_register >= every || !last_register ) {
+    last_register = now;
+    const std::string m
+      = Gosh::meetup_seal( *meetup_session, Gosh::MEETUP_REGISTER, ticket.id, end, false, meetup_counter++, believed );
+    sendto( sock, m.data(), m.size(), 0, &meetup.sa, sizeof( meetup.sin ) );
+  }
+}
+
+/*
+ * (gosh) A datagram from the meetup's address that is one of its messages: true, having dealt
+ * with it. passed: the datagram inside, if it was a PASSED; empty otherwise.
+ */
+bool Punch::from_meetup( const char* data, size_t n, uint64_t now, std::string& passed )
+{
+  passed.clear();
+  Gosh::MeetupHeader h;
+  if ( !Gosh::meetup_read_header( data, n, h ) ) {
+    return false;
+  }
+  if ( h.kind == Gosh::MEETUP_PASSED ) {
+    passed.assign( h.sealed, h.sealed_len );
+    return true;
+  }
+  uint64_t counter;
+  std::string seen;
+  if ( h.kind == Gosh::MEETUP_REGISTERED && h.ticket == ticket.id && h.end == end
+       && Gosh::meetup_open( *meetup_session, h, true, counter, seen ) ) {
+    if ( seen == believed ) {
+      registered = true;
+      registered_at = now;
+    } else {
+      believed = seen; /* it sees us elsewhere: register from there */
+      registered = false;
+      last_register = 0;
+    }
+  }
+  return true;
+}
+
+/* Straight to an address; or to the meetup, to be passed on to the other end. */
 void Punch::transmit( const std::string& packet, const Addr& to, bool via )
 {
   if ( via ) {
-    const std::string wrapped = std::string( MEETUP_MARK, sizeof( MEETUP_MARK ) ) + key_proof + pair_name + packet;
-    sendto( sock, wrapped.data(), wrapped.size(), 0, &to.sa, sizeof( to.sin ) );
+    if ( !registered ) {
+      return;
+    }
+    const std::string wrapped
+      = Gosh::meetup_seal( *meetup_session, Gosh::MEETUP_PASS, ticket.id, end, false, meetup_counter++, packet );
+    sendto( sock, wrapped.data(), wrapped.size(), 0, &meetup.sa, sizeof( meetup.sin ) );
   } else {
     sendto( sock, packet.data(), packet.size(), 0, &to.sa, sizeof( to.sin ) );
   }
@@ -298,6 +365,7 @@ void Punch::probe( char type, const Addr& to, bool via )
 
 void Punch::tick( uint64_t now )
 {
+  tend_meetup( now );
   if ( open( now ) ) {
     if ( now - last_probe >= OPEN_EVERY ) {
       last_probe = now;
@@ -319,8 +387,8 @@ void Punch::tick( uint64_t now )
     for ( size_t i = 0; i < candidates.size(); i++ ) {
       probe( '?', candidates[i], false );
     }
-    for ( size_t i = 0; i < meetups.size(); i++ ) {
-      probe( '?', meetups[i], true );
+    if ( registered ) {
+      probe( '?', meetup, true );
     }
     if ( locked && !peer_via ) {
       probe( '?', peer, false );
@@ -341,21 +409,24 @@ Punch::Got Punch::receive( uint64_t now, std::string& datagram )
     return OTHER;
   }
 
-  /* Passed on by a server, from the other end?  Then what matters is what is inside. */
+  /* Passed on by the meetup, from the other end?  Then what matters is what is inside. */
   const char* buf = whole;
   bool via = false;
-  if ( !key_proof.empty() && static_cast<size_t>( n ) >= MEETUP_HEADER
-       && memcmp( whole, MEETUP_MARK, sizeof( MEETUP_MARK ) ) == 0 ) {
-    if ( memcmp( whole + 20, pair_name.data(), 16 ) != 0 ) {
+  std::string passed;
+  if ( meetup_known && same( from, meetup ) && from_meetup( whole, n, now, passed ) ) {
+    if ( passed.empty() ) {
       return OTHER;
     }
     via = true;
-    buf = whole + MEETUP_HEADER;
-    n -= MEETUP_HEADER;
+    buf = passed.data();
+    n = passed.size();
   }
 
   if ( static_cast<size_t>( n ) > sizeof( PUNCH_MARK ) && memcmp( buf, PUNCH_MARK, sizeof( PUNCH_MARK ) ) == 0 ) {
-    /* A probe.  Only the other end can have sealed it, and only once. */
+    /* A probe.  Only the other end can have sealed it, and only once. (gosh) Opened only at its one length. */
+    if ( static_cast<size_t>( n ) != PROBE_LEN ) {
+      return OTHER;
+    }
     try {
       const Crypto::Message m = session->decrypt( buf + sizeof( PUNCH_MARK ), n - sizeof( PUNCH_MARK ) );
       const uint64_t seq = m.nonce.val();
@@ -405,16 +476,10 @@ Punch::Got Punch::receive( uint64_t now, std::string& datagram )
       local_all.push_back( text );
       local_new.push_back( text );
     }
-    /* One that took our key is a meetup, and will pass datagrams on, too. */
-    if ( !key_proof.empty() ) {
-      bool have = false;
-      for ( size_t i = 0; i < meetups.size(); i++ ) {
-        have = have || same( meetups[i], from );
-      }
-      if ( !have && meetups.size() < 4 ) {
-        meetups.push_back( from );
-        last_probe = 0;
-      }
+    /* (gosh) The meetup's answer: where to register from. */
+    if ( meetup_known && same( from, meetup ) && believed.empty() ) {
+      believed = Gosh::meetup_where_v4( ntohl( mapped.sin.sin_addr.s_addr ), ntohs( mapped.sin.sin_port ) );
+      last_register = 0;
     }
     return OTHER;
   }

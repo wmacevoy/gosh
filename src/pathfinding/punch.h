@@ -8,7 +8,8 @@
 #include <vector>
 
 #include "src/crypto/crypto.h"
-#include "src/meetup/proof.h"
+#include "src/meetup/messages.h"
+#include "src/meetup/ticket.h"
 #include "src/network/network.h"
 
 /*
@@ -30,15 +31,21 @@
  * for each destination, and then what the server saw is no use to
  * anyone else.  Nothing is lost by trying: the relay goes on carrying
  * the session over ssh until a way through is found, and again if it
- * closes.
+ * closes.  (gosh) And where the user has a meetup, and a ticket for it
+ * fetched over ssh (src/meetup/ticket.h), the two ends register with it
+ * and their datagrams can go through it (REQ15/PATH-4, REQ15/PATH-5):
+ * the second-best way, kept while a straight one is looked for.
  *
  * On the socket there are three kinds of datagram, told apart by how
  * they begin:
  *   probes   an 8-byte mark, then a sealed message: "are you there",
  *            "I am", "goodbye".  Sealed with a key the two ends share
  *            (sent over ssh), and numbered, so that only the other end
- *            can say where the other end is.
+ *            can say where the other end is.  Exactly PROBE_LEN bytes:
+ *            (gosh) anything else is not opened, since the cipher guards
+ *            its buffers with an assert alone.
  *   STUN     answers from the server asked.
+ *   meetup   (gosh) REGISTERED and PASSED from the meetup (messages.h).
  *   the rest the session's own datagrams, taken only from where the
  *            other end was last heard to be.  (They are mosh's, and
  *            sealed already.)
@@ -68,6 +75,9 @@ public:
   static const uint64_t OPEN_EVERY = 1000;  /* and this often once there is, to know that there still is */
   static const uint64_t OPEN_FOR = 3500;    /* how long without hearing before it is thought closed */
   static const size_t MAX_CANDIDATES = 16;
+  static const size_t PROBE_LEN = 8 + 8 + 1 + 16; /* the mark; the nonce, one byte, the tag */
+  static const uint64_t REGISTER_EVERY = 25000;   /* ms: registered again this often while it lasts... */
+  static const uint64_t REGISTER_RETRY = 2000;    /* ...and this often until it is answered */
 
   enum Got
   {
@@ -90,12 +100,21 @@ private:
   bool locked;
   uint64_t heard, started, last_probe, last_direct_probe;
 
-  /* meetups, which will pass datagrams on for those with their key: learnt by their answering the STUN question */
-  std::string key_proof, pair_name;
-  std::vector<Addr> meetups;
+  /* (gosh) the meetup, once there is a ticket for it: where it is, and where it saw us */
+  bool meetup_known;
+  Addr meetup;
+  Gosh::Ticket ticket;
+  int end; /* 0: the initiator; 1: the other */
+  std::unique_ptr<Crypto::Session> meetup_session;
+  uint64_t meetup_counter;
+  std::string believed; /* where we appear to be, to the meetup ("where"), from its STUN answer */
+  bool registered;
+  uint64_t registered_at, last_register, last_meetup_stun;
 
   void transmit( const std::string& packet, const Addr& to, bool via );
   void probe( char type, const Addr& to, bool via );
+  void tend_meetup( uint64_t now );
+  bool from_meetup( const char* data, size_t n, uint64_t now, std::string& passed );
 
   /* unused */
   Punch( const Punch& );
@@ -104,16 +123,19 @@ private:
 public:
   /*
    * key: as Crypto::Base64Key prints it.  The end that made it up is the
-   * initiator.  ask: "host:port" of meetups and STUN servers, asked
-   * (from another process, so as not to wait on name lookups) where we
-   * appear to be; meetup_key: for those of them that are meetups.
+   * initiator.  ask: "host:port" of STUN servers, asked (from another
+   * process, so as not to wait on name lookups) where we appear to be.
    * Throws NetworkException if there is no socket to be had.
    */
-  Punch( bool s_initiator,
-         const std::string& key,
-         const std::vector<std::string>& ask,
-         uint64_t now,
-         const std::string& meetup_key = "" );
+  Punch( bool s_initiator, const std::string& key, const std::vector<std::string>& ask, uint64_t now );
+
+  /*
+   * (gosh) Use a meetup as well: at this address ("ip:port"), with this ticket. False if the
+   * address is not one. The counter its messages are numbered by starts from the time of day,
+   * so that a ticket used again by a new Punch is not taken for an old one.
+   */
+  bool use_meetup( const std::string& ip_port, const Gosh::Ticket& t );
+  bool meetup_registered( void ) const { return registered; }
   ~Punch();
 
   int fd( void ) const { return sock; }

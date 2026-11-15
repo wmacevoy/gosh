@@ -41,13 +41,6 @@ void Gosh::engage_relay( void )
   memcpy( &options.server, res->ai_addr, res->ai_addrlen );
   freeaddrinfo( res );
 
-  /*
-   * Path-finding is not landed (queue item 8): the relay is started with it off, whatever the
-   * environment says, so that nothing untested runs and no server on the Internet is asked
-   * anything. This line goes when item 8 lands.
-   */
-  setenv( "MOSH_PUNCH", "never", 1 );
-
   pid_t pid;
   const int relay_port = Network::relay_start_local( options, s.relay.keep_alive, pid );
   if ( relay_port == 0 ) {

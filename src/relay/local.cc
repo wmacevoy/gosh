@@ -36,15 +36,28 @@ private:
   /* a way straight through to the remote relay, when both ends are behind NATs (punch.h) */
   bool punching;
   std::vector<std::string> ask; /* meetups and STUN servers: whom to ask where we appear to be */
-  std::string meetup_key; /* for a meetup, which answers only those who have it */
   std::unique_ptr<Punch> punch;
-  bool was_open;
+  bool was_open, was_registered;
+
+  /*
+   * (gosh) The meetup (REQ15/PATH-4): a ticket for it is fetched over ssh, by a child that first
+   * finds the meetup's address and prints it, and then runs the ticket's command. Once, when
+   * path-finding first starts; the ticket is good for 30 days, longer than most sessions.
+   */
+  std::string meetup;                      /* "host:port", as the user named it */
+  std::vector<std::string> ticket_command; /* ssh to it, and "gosh-server meetup-ticket" */
+  pid_t ticket_child;
+  int ticket_fd;
+  std::string ticket_out;
+  bool ticket_tried;
+  std::string meetup_at; /* its address, "ip:port", once found */
+  Gosh::Ticket ticket;   /* empty until fetched */
 
   /* (gosh) What the environment tells the relay: read here, and made sense of in settings.h. */
   static Gosh::RelaySettings told( bool stream_only )
   {
     return Gosh::relay_settings( stream_only, getenv( "MOSH_RELAY_STREAM_IDLE_MS" ), getenv( "MOSH_PUNCH" ),
-                                 getenv( "MOSH_MEETUP" ), getenv( "MOSH_STUN" ), getenv( "MOSH_MEETUP_KEY" ) );
+                                 getenv( "MOSH_MEETUP" ), getenv( "MOSH_STUN" ), getenv( "MOSH_MEETUP_TICKET_COMMAND" ) );
   }
 
   /*
@@ -122,7 +135,7 @@ private:
     paths.stream_started( false );
     /* (What we had of a way through is no use, or we would not be here.  The new relay will have a new one.) */
     punch.reset();
-    was_open = false;
+    was_open = was_registered = false;
     say( "starting the stream" );
 
     int in[2], out[2];
@@ -211,6 +224,107 @@ private:
     }
   }
 
+  /* (gosh) Starts the child that fetches a ticket for the meetup, once. */
+  void fetch_ticket( void )
+  {
+    if ( ticket_tried || ticket_command.empty() || meetup.empty() ) {
+      return;
+    }
+    ticket_tried = true;
+    int out[2];
+    if ( pipe( out ) < 0 ) {
+      return;
+    }
+    std::vector<char*> argv;
+    for ( size_t i = 0; i < ticket_command.size(); i++ ) {
+      argv.push_back( const_cast<char*>( ticket_command[i].c_str() ) );
+    }
+    argv.push_back( NULL );
+    ticket_child = fork();
+    if ( ticket_child == 0 ) {
+      own_signals();
+      dup2( out[1], STDOUT_FILENO );
+      const int null = open( "/dev/null", O_RDWR );
+      if ( null >= 0 ) {
+        dup2( null, STDIN_FILENO );
+      }
+      const long limit = sysconf( _SC_OPEN_MAX );
+      for ( int fd = 3; fd < ( limit > 0 && limit < 4096 ? limit : 4096 ); fd++ ) {
+        close( fd );
+      }
+      /* where the meetup is: looked up here, where waiting on a name costs the relay nothing */
+      const size_t colon = meetup.rfind( ':' );
+      struct addrinfo hints, *res = NULL;
+      memset( &hints, 0, sizeof( hints ) );
+      hints.ai_family = AF_INET;
+      hints.ai_socktype = SOCK_DGRAM;
+      if ( colon == std::string::npos
+           || getaddrinfo( meetup.substr( 0, colon ).c_str(), meetup.substr( colon + 1 ).c_str(), &hints, &res ) != 0 ) {
+        _exit( 2 );
+      }
+      Addr found;
+      memset( &found, 0, sizeof( found ) );
+      memcpy( &found.sin, res->ai_addr, sizeof( found.sin ) );
+      const std::string line = "MEETUP " + format_ip_port( found ) + "\n";
+      if ( write( STDOUT_FILENO, line.data(), line.size() ) != static_cast<ssize_t>( line.size() ) ) {
+        _exit( 2 );
+      }
+      execvp( argv[0], argv.data() );
+      _exit( 127 );
+    }
+    close( out[1] );
+    if ( ticket_child < 0 ) {
+      close( out[0] );
+      return;
+    }
+    ticket_fd = out[0];
+    say( "fetching a ticket for the meetup at %s", meetup.c_str() );
+  }
+
+  /* (gosh) What the ticket's child printed, once it has finished. */
+  void ticket_fetched( void )
+  {
+    close( ticket_fd );
+    ticket_fd = -1;
+    int status = 0;
+    waitpid( ticket_child, &status, 0 );
+    ticket_child = -1;
+    std::string at, text;
+    size_t start = 0;
+    while ( start < ticket_out.size() ) {
+      size_t end = ticket_out.find( '\n', start );
+      if ( end == std::string::npos ) {
+        end = ticket_out.size();
+      }
+      const std::string line = ticket_out.substr( start, end - start );
+      if ( line.compare( 0, 7, "MEETUP " ) == 0 ) {
+        at = line.substr( 7 );
+      } else if ( line.compare( 0, 12, "gosh-ticket " ) == 0 ) {
+        text = line;
+      }
+      start = end + 1;
+    }
+    ticket_out.clear();
+    Gosh::Ticket t;
+    if ( at.empty() || !Gosh::parse_ticket( text, t ) ) {
+      say( "no ticket for the meetup at %s (could ssh log in there, and run gosh-server meetup-ticket?)", meetup.c_str() );
+      return;
+    }
+    meetup_at = at;
+    ticket = t;
+    say( "a ticket for the meetup at %s", meetup_at.c_str() );
+    meet();
+  }
+
+  /* (gosh) The meetup, to our way through and the remote relay's, once both a ticket and a way through are here. */
+  void meet( void )
+  {
+    if ( !punch || ticket.id.empty() || !punch->use_meetup( meetup_at, ticket ) ) {
+      return;
+    }
+    backlog += control( "MEETUP " + meetup_at ) + control( "TICKET " + Gosh::ticket_text( ticket ).substr( 12 ) );
+  }
+
   /* Words from the remote relay (see control(), above). */
   void from_remote( const std::vector<std::string>& words, uint64_t now )
   {
@@ -218,15 +332,16 @@ private:
       /* It knows how to look for a way through.  So: a key for the two of us, and where to ask. */
       try {
         const std::string key = Crypto::Base64Key().printable_key();
-        punch.reset( new Punch( true, key, ask, now, meetup_key ) );
+        punch.reset( new Punch( true, key, ask, now ) );
         std::string servers;
         for ( size_t i = 0; i < ask.size(); i++ ) {
           servers += " " + ask[i];
         }
-        backlog += control( "STUN" + servers ) + ( meetup_key.empty() ? "" : control( "STUNKEY " + meetup_key ) )
-                   + control( "KEY " + key )
+        backlog += control( "STUN" + servers ) + control( "KEY " + key )
                    + control( "PORT " + std::to_string( punch->local_port() ) );
         say( "looking for a way through, from port %d", static_cast<int>( punch->local_port() ) );
+        meet();
+        fetch_ticket();
       } catch ( const std::exception& e ) {
         punch.reset();
       }
@@ -263,6 +378,10 @@ private:
       was_open = punch->open( now );
       say( was_open ? "a way through is open, to %s" : "the way through to %s has closed", punch->where().c_str() );
     }
+    if ( punch->meetup_registered() != was_registered ) {
+      was_registered = punch->meetup_registered();
+      say( was_registered ? "registered with the meetup at %s" : "no longer registered with the meetup at %s", meetup_at.c_str() );
+    }
   }
 
   /* unused */
@@ -274,13 +393,15 @@ public:
     : options( s_options ), client_fd( s_client_fd ), direct_fd( -1 ), alive_fd( s_alive_fd ), client(),
       client_len( 0 ), child( -1 ), to_child( -1 ), from_child( -1 ), backlog(), parser(),
       paths( s_options.stream_only, !s_options.command.empty(), told( s_options.stream_only ).stream_idle ),
-      punching( false ), ask(), meetup_key(), punch(), was_open( false )
+      punching( false ), ask(), punch(), was_open( false ), was_registered( false ), meetup(), ticket_command(), ticket_child( -1 ),
+      ticket_fd( -1 ), ticket_out(), ticket_tried( false ), meetup_at(), ticket()
   {
     open_direct();
     const Gosh::RelaySettings settings = told( options.stream_only );
     punching = settings.path_finding;
     ask = settings.ask;
-    meetup_key = settings.meetup_key;
+    meetup = settings.meetup;
+    ticket_command = settings.ticket_command;
   }
 
   void run( void )
@@ -290,13 +411,14 @@ public:
 
     while ( true ) {
       /* (poll ignores a negative descriptor, so the absent ones need no special care) */
-      struct pollfd fds[6] = { { alive_fd, POLLIN, 0 },
+      struct pollfd fds[7] = { { alive_fd, POLLIN, 0 },
                                { client_fd, POLLIN, 0 },
                                { direct_fd, POLLIN, 0 },
                                { from_child, POLLIN, 0 },
                                { backlog.empty() ? -1 : to_child, POLLOUT, 0 },
-                               { punch ? punch->fd() : -1, POLLIN, 0 } };
-      if ( poll( fds, 6, punch ? 250 : 1000 ) < 0 && errno != EINTR ) {
+                               { punch ? punch->fd() : -1, POLLIN, 0 },
+                               { ticket_fd, POLLIN, 0 } };
+      if ( poll( fds, 7, punch ? 250 : 1000 ) < 0 && errno != EINTR ) {
         break;
       }
       const uint64_t now = now_ms();
@@ -310,6 +432,15 @@ public:
       }
 
       tend_punch( now );
+
+      if ( ticket_fd >= 0 && fds[6].revents ) {
+        const ssize_t n = read( ticket_fd, buf, sizeof( buf ) );
+        if ( n > 0 && ticket_out.size() < 4096 ) {
+          ticket_out.append( buf, n );
+        } else if ( n == 0 || ( n < 0 && errno != EINTR && errno != EAGAIN ) ) {
+          ticket_fetched();
+        }
+      }
 
       if ( fds[1].revents & POLLIN ) {
         Addr from;
@@ -356,14 +487,23 @@ public:
 
       flush();
 
-      /* The direct route has been enough for a while: let the other one go. */
-      if ( paths.let_stream_go( now ) ) {
+      /*
+       * The direct route has been enough for a while: let the other one go. (gosh) But not while
+       * the way is through the meetup: that is still fallen back, and keeps its ssh connection
+       * ("meetup counts as fallen back", REQ15/PATH-4).
+       */
+      const bool through_meetup = punch && punch->open( now ) && !punch->direct();
+      if ( !through_meetup && paths.let_stream_go( now ) ) {
         say( "the stream has not been needed for a while: closing it" );
         stop_child();
       }
     }
 
     stop_child();
+    if ( ticket_child > 0 ) {
+      kill( ticket_child, SIGTERM );
+      waitpid( ticket_child, NULL, 0 );
+    }
   }
 };
 

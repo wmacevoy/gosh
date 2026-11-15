@@ -479,15 +479,20 @@ Contracts and failures:
 - To add when it lands (queue item 8, `../mosh-dev/docs/FINDINGS.md`): a change from one path to a
   better one is returned as a value, so the edge can log it and a test can wait for it.
 
-Tests today: (u) `test_punch`; `punch_fuzzer`; (b) `relay.test` (`punched`), `nat-lab.py` (`easy`,
-`moved`, `room`).
+*Since 2026-11-15 path-finding is switched on in gosh, its meetup half replaced by tickets
+(`registering`, below), and a probe opened only at its one length. The pieces above are still one
+class with its socket (`punch.*`); dividing them is the rest of queue item 8.*
+
+| **registering** | the meetup: where it sees us, REGISTER under the ticket, again every 25 s; PASS and PASSED | in `Punch` (`use_meetup`, `tend_meetup`, `from_meetup`); its bytes are meetup's `messages` | written for gosh | `REQ15/PATH-4`, `REQ15/PATH-5` |
+
+Tests today: (u) `punch-test` (straight; through a meetup; a forged ticket; an oversized probe);
+(b) `headless-smoke.py ... punched`, `relay-meetup.py`. Not yet against gosh: `nat-lab.py`.
 
 #### meetup
 
 *Since 2026-11-15 the meetup is built to `PROPOSAL_meetup-registration.md`, revision 10: the
 student's own server, used with a ticket given over ssh. The fork's shared key and copyable proof
-are gone from it (the proof stays only for path-finding's `punch.cc`, until that part is
-reshaped).*
+are gone from it, and from path-finding.*
 
 | Piece | Purpose | Kind | From | Serves |
 | --- | --- | --- | --- | --- |
@@ -582,7 +587,7 @@ checks the forms it uses. Tests today: `test/connect.test.js`, `test/shpool.test
 | the seam: the programs | the command; forwarding; relay (`options`, `start`, the local relay's start; the remote relay); meetup (`serve`); the core |
 | forwarding | the seam: side channel. From `a stream's process` only: copy (`options`, and to become one end) |
 | relay | path-finding |
-| path-finding | meetup: `wire` only |
+| path-finding | meetup: `ticket` and `messages` only |
 | meetup, copy | nothing of gosh's |
 | the command | each part's `options` piece, to write words. Nothing else |
 | any part | the core's crypto, `Addr`, byte order. Not its clock, not `Connection`, not `Transport` |
@@ -602,7 +607,7 @@ Logic pieces call only logic pieces. Edges call their own part's logic and the e
 | client ↔ local relay; remote relay ↔ server | UDP on the machine | the session's datagrams, untouched |
 | local relay ↔ remote relay | ssh, a byte stream | length (2) + datagram; `\0MOSHPCH` + words |
 | relay ↔ relay, punched | UDP | `\0MOSHPCH` + sealed probe; session datagrams, untouched |
-| an end ↔ a meetup | UDP | STUN request with the proof as its id; the answer; `\0MOSHFWD` + proof (12) + pair (16) + datagram |
+| an end ↔ a meetup | UDP | a STUN request and its answer; since 2026-11-15, REGISTER, REGISTERED, PASS and PASSED under a ticket (`src/meetup/messages.h`; the fork's `\0MOSHFWD` + proof is gone) |
 | an end → a public STUN server | UDP | a STUN request |
 | a program → a stream's process | fork; a socket pair | the stream's words; then bytes |
 | copy ↔ copy | the stream | `mocp-1` messages: type (1), length (4), body |
@@ -620,7 +625,7 @@ When gosh's programs are run under mosh's names (`REQ6/CMD-4`) they must take ex
 **Gosh's, free today, shut at its first release** ("it's just us"; no working with the fork's
 releases): the two `Instruction` field numbers and the capability bits; the frame and its seven
 types; the segment form and the window-scale option; the fragment header; relay's framing and
-words; the marks `\0MOSHPCH` and `\0MOSHFWD`; the probe; the proof; the pair name; `mocp-1` and
+words; the mark `\0MOSHPCH`; the probe; the meetup's four marks, its messages and its ticket's text; `mocp-1` and
 `.NAME.mocp-part`; the stream's words and 0x1F; the relay's and path-finding's variables; release
 names; the `stderr` lines the extension reads; the report lines.
 

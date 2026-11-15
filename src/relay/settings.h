@@ -49,8 +49,25 @@ struct RelaySettings
   uint64_t stream_idle;         /* how long the stream may go unneeded before it is let go (ms) */
   bool path_finding;            /* look for a way straight through to the other relay */
   std::vector<std::string> ask; /* meetups, then STUN servers: whom to ask where we appear to be */
-  std::string meetup_key;       /* for a meetup, which answers only those who have it */
+  std::string meetup;           /* the meetup to use, "host:port": the first named; empty if none */
+  std::vector<std::string> ticket_command; /* how to get a ticket for it, over ssh; empty if there is no meetup */
 };
+
+/* Words given as one text, separated by the character 0x1F, as the command gives them (src/command). */
+inline std::vector<std::string> unit_separated( const std::string& text )
+{
+  std::vector<std::string> words;
+  std::string word;
+  for ( size_t i = 0; i <= text.size(); i++ ) {
+    if ( i == text.size() || text[i] == '\x1f' ) {
+      words.push_back( word );
+      word.clear();
+    } else {
+      word.push_back( text[i] );
+    }
+  }
+  return words;
+}
 
 /*
  * The local relay's settings. Each text is the environment variable's value, or NULL if it is not set:
@@ -58,7 +75,8 @@ struct RelaySettings
  *   punch   MOSH_PUNCH                 "never": no path-finding
  *   meetup  MOSH_MEETUP                our own meetups
  *   stun    MOSH_STUN                  plain STUN servers, asked only if named here
- *   key     MOSH_MEETUP_KEY
+ *   ticket  MOSH_MEETUP_TICKET_COMMAND the words of the command that prints a ticket for the meetup
+ *                                      (ssh to it, and "gosh-server meetup-ticket"), separated by 0x1F
  * stream_only: told to use the stream and nothing else, so no path-finding either.
  */
 inline RelaySettings relay_settings( bool stream_only,
@@ -66,15 +84,18 @@ inline RelaySettings relay_settings( bool stream_only,
                                      const char* punch,
                                      const char* meetup,
                                      const char* stun,
-                                     const char* key )
+                                     const char* ticket )
 {
   RelaySettings settings;
   settings.stream_idle = ( idle && atol( idle ) >= 1000 ) ? atol( idle ) : RelayRules::STREAM_IDLE_MS;
   settings.path_finding = !stream_only && !( punch && strcmp( punch, "never" ) == 0 );
   settings.ask = comma_list( meetup ? meetup : "" );
-  const std::vector<std::string> plain = comma_list( stun ? stun : "" );
+  const std::vector<std::string> plain = comma_list( stun ? stun : "" ); /* (no third party unless named) */
   settings.ask.insert( settings.ask.end(), plain.begin(), plain.end() );
-  settings.meetup_key = key ? key : "";
+  settings.meetup = settings.ask.empty() ? std::string() : settings.ask[0];
+  if ( !settings.meetup.empty() && ticket && *ticket ) {
+    settings.ticket_command = unit_separated( ticket );
+  }
   return settings;
 }
 
