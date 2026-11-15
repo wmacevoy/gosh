@@ -508,3 +508,60 @@ not work with the fork's releases at the other end.
 3. **The signed time comes from gosh-meetup itself**, answering Roughtime on its UDP port: "ok".
    Nobody else is asked anything (`REQ1/PATH-7` stays true), and an end trusts the time of the
    service it already trusts.
+
+## 14. The attack on revision 7 (2026-11-15): findings, to be taken in revision 8
+
+A fourth session set to break the design on paper. Verdict: "build with these changes". Kept
+here, briefly, so that they outlive the session; each is to be written into the sections above.
+
+1. **No root of trust.** A term vouches only for itself (its span is signed by its own key), and
+   `gosh meetup-pass` takes a term "whose signing key came with it". So anyone who knows a
+   user's key (their server host does) can make terms of their own, sign a pass for that key,
+   and hand it over: it passes every check; the real service answers NO, and the end reports
+   "expired". *Change:* one long-lived **identity key** for the service, pinned on first
+   enrolment (and what the user compares, said), which signs every term's public keys and span;
+   its private half kept off both sides; a new pass never replaces a kept one until it has been
+   seen to register.
+2. **Roughtime from the service itself adds nothing**: the only party that enforces validity is
+   the UDP side, by its own clock; REGISTERED and KEPT already carry a sealed date; one server
+   that is also the key issuer proves only "the service says so". And it brings a new master key
+   that `--now` does not end, needs requests padded to 1024 bytes or it amplifies, costs a
+   signature per request on the single thread, and leaves first use undefined. *Change:* drop
+   it from the ends and the UDP port; the term tool checks its clock against outside time on the
+   operator's machine. **This reverses the owner's choice and is for him to decide.**
+3. **A wrong clock on the service ends every pass**, and the check meant to catch it compared the
+   clock with itself. *Change:* the term tool keeps a high-water mark and refuses to end or destroy
+   anything if the date jumped more than about two days or went back; a first-run mode; a UDP
+   side with no term in span blames itself and answers nothing rather than NO.
+4. **The unsealed NO** answers strangers (breaking "says nothing at all" in REQ15/PATH-5), can be
+   injected by anyone who sees the HELLO's nonce, and is wrong after an emergency, a lost key
+   directory or a clock jump. *Change:* the gate checked before NO (over the identity key); NO
+   authenticated; the end never records it, keeps retrying slowly, and says "the service did not
+   accept your pass (expired, or its keys changed)"; the server end only reports it over ssh.
+5. **Roughtime on the UDP port is an amplifier and a CPU sink** (see 2).
+6. **Requirements collisions**: REQUIREMENTS_v15 says a pass does not expire, REQ15/PATH-5 says nothing at all,
+   REQ1/PATH-7 forbids asking a server outside a session, the glossary has "authority" and not
+   "service", "term" or "hook", and a non-goal says "not building a public meetup service" while
+   the default whitelist admits most people with no rates. *Change:* a requirements diff for the
+   owner before code.
+7. **The hook** is unspecified and contradicts itself; a hook that reads SQLite or the network
+   stalls the single thread; under the default hook there is no revocation for up to 360 days;
+   and linking the UDP side to the web side's database lets a web break-in remove blacklist
+   entries. *Change:* `admit(account, U) -> admit | refuse(why)`, non-blocking, from a snapshot,
+   changes signalled by a counter, any failure is "refuse"; the account's form checked first;
+   what the UDP side reads is writable only by the operator; the enrolment record keeps the whole
+   `U`.
+8. **One term file** would let the UDP side read the signing key. *Change:* a file per side, each
+   readable only by its side; the public halves in a third; the tool runs as a third user.
+9. **"Exact lengths" undone** by variable fields. *Change:* fixed-size slots, padded.
+10. **The emergency does not reach ends**, and stolen box keys outlive it. *Change:* the identity
+    key signs a list of terms ended early, carried in COOKIE or NO.
+11. **The pasted text is unspecified**; a pass is 450 to 1,060 characters, and macOS cuts a
+    terminal line at 1,024. *Change:* `gosh-pass-v1:` and base64url, whitespace ignored, read
+    until a blank line or from a file, with test vectors.
+12. **Four words are 44 bits** (with a list of 2,048), within reach of a key grinder for someone
+    who knows the victim's key. *Change:* six to eight words, or four and a checksum.
+13. **Span boundaries loose**: days with no time zone (use UTC instants); a registration made just
+    before a span ends passes for up to 25 seconds more; "term" used for both the 90-day signing
+    period and the 360-day span.
+
