@@ -17,10 +17,6 @@ Everything in this repository except:
 
   core/         mosh, as its authors published it: see LICENSE-MOSH.
   vendor/se1/   the SE1 guide, under its own terms (vendor/se1).
-  vendor/tweetnacl/tweetnacl.c, tweetnacl.h
-                TweetNaCl, in the public domain by its authors' statement
-                (vendor/tweetnacl/README.md). The Makefile.am and the test beside
-                them are gosh's.
 
 Each file of gosh's carries one line that points here in place of a longer
 notice.

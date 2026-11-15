@@ -16,7 +16,6 @@ in `src/network/punch.cc`, with the proof beside it. Here:
 | `passing.h` | datagrams passed on between the two ends of a pair: which end, where to, how long remembered. Logic | `passing-test.cc`, numbers for time, no socket |
 | `answer.h` | the STUN question answered, and no more than 200 a second. Logic | `answer-test.cc` |
 | `serve.cc`, `meetup.h` | the process: one UDP socket and the clock. An edge | `tests/meetup-answers.py`, from outside, against pf.7's and gosh's |
-| `nacl.*` | the one thing that calls the carried TweetNaCl (`vendor/tweetnacl/`): a box, a signature, a hash, with every size checked. Logic, but for making keys and random bytes. **Built for the meetup that is proposed; nothing here uses it yet** | `nacl-test.cc` |
 
 ## What the proof does not show: a seen proof can be replayed
 

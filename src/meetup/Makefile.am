@@ -5,12 +5,11 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshmeetup.a
 
-libgoshmeetup_a_SOURCES = proof.cc proof.h passing.h answer.h serve.cc meetup.h nacl.cc nacl.h
+libgoshmeetup_a_SOURCES = proof.cc proof.h passing.h answer.h serve.cc meetup.h
 
-check_PROGRAMS = proof-test passing-test answer-test nacl-test
+check_PROGRAMS = proof-test passing-test answer-test
 TESTS = $(check_PROGRAMS)
-LDADD = libgoshmeetup.a ../tweetnacl/libtweetnacl.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+LDADD = libgoshmeetup.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 proof_test_SOURCES = proof-test.cc
 passing_test_SOURCES = passing-test.cc
 answer_test_SOURCES = answer-test.cc
-nacl_test_SOURCES = nacl-test.cc

@@ -27,8 +27,8 @@ int main()
   Gosh::RelaySettings s = relay_settings( false, NULL, NULL, NULL, NULL, NULL );
   check( "told nothing: the stream is let go after a minute, path-finding is on, no key",
          s.stream_idle == 60000 && s.path_finding && s.meetup_key.empty() );
-  check( "and two public STUN servers are asked",
-         s.ask == Words( { "stun.l.google.com:19302", "stun.cloudflare.com:3478" } ) );
+  check( "and no STUN server is asked: no third party unless named (REQ1/PATH-7; v15 scope decisions)",
+         s.ask.empty() );
 
   check( "an idle time of 3000: three seconds", relay_settings( false, "3000", NULL, NULL, NULL, NULL ).stream_idle == 3000 );
   check( "of 1000: one second", relay_settings( false, "1000", NULL, NULL, NULL, NULL ).stream_idle == 1000 );

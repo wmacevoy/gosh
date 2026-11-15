@@ -9,7 +9,8 @@
  *
  * Each input, absent or wrong: an idle time that is missing, not a number, or under a second is
  * the default (a minute); any word but "never" leaves path-finding on; with no meetup and
- * nothing said of STUN servers, two public ones are asked; "none" names no server.
+ * nothing said of STUN servers, none is asked (no third party unless named: v15's scope
+ * decisions); "none" names no server.
  */
 
 #ifndef GOSH_RELAY_SETTINGS_H
@@ -24,9 +25,6 @@
 #include "src/relay/paths.h"
 
 namespace Gosh {
-
-/* the plain STUN servers asked where we appear to be from outside, unless there is a meetup, or MOSH_STUN says otherwise */
-static const char RELAY_DEFAULT_STUN[] = "stun.l.google.com:19302,stun.cloudflare.com:3478";
 
 /* A list separated by commas; empty items and "none" name nothing. */
 inline std::vector<std::string> comma_list( const std::string& text )
@@ -59,7 +57,7 @@ struct RelaySettings
  *   idle    MOSH_RELAY_STREAM_IDLE_MS  (for tests, which cannot wait a minute to see the stream let go)
  *   punch   MOSH_PUNCH                 "never": no path-finding
  *   meetup  MOSH_MEETUP                our own meetups
- *   stun    MOSH_STUN                  plain STUN servers; or, when nothing at all is named, two public ones
+ *   stun    MOSH_STUN                  plain STUN servers, asked only if named here
  *   key     MOSH_MEETUP_KEY
  * stream_only: told to use the stream and nothing else, so no path-finding either.
  */
@@ -74,7 +72,7 @@ inline RelaySettings relay_settings( bool stream_only,
   settings.stream_idle = ( idle && atol( idle ) >= 1000 ) ? atol( idle ) : RelayRules::STREAM_IDLE_MS;
   settings.path_finding = !stream_only && !( punch && strcmp( punch, "never" ) == 0 );
   settings.ask = comma_list( meetup ? meetup : "" );
-  const std::vector<std::string> plain = comma_list( stun ? stun : ( settings.ask.empty() ? RELAY_DEFAULT_STUN : "" ) );
+  const std::vector<std::string> plain = comma_list( stun ? stun : "" );
   settings.ask.insert( settings.ask.end(), plain.begin(), plain.end() );
   settings.meetup_key = key ? key : "";
   return settings;

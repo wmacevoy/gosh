@@ -44,7 +44,7 @@ tools/build.sh || fail "tools/build.sh"
 
 # The unit tests of gosh's parts, built and run inside the build's copy.
 . tools/env.sh
-for part in tweetnacl copy forwarding meetup relay seam command; do
+for part in copy forwarding meetup relay seam command; do
     if make -C ".build/core/src/$part" check >.build/unit-$part.log 2>&1; then
         echo "unit tests pass: $part ($(grep -c '^PASS:' .build/unit-$part.log))"
     else

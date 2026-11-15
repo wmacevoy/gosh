@@ -117,8 +117,7 @@ const char USAGE[] = R"USAGE(Usage: %s [options] [--] [user@]host [command...]
                                 the ends can find no way to each other
         --stun=HOST:PORT[,...]  plain STUN servers to ask where each end
                                 appears to be; "none" to ask none
-                                (default: two public ones, unless there
-                                is a meetup)
+                                (default: none; a meetup answers it)
 
         --ssh=COMMAND        ssh command to run when setting up session
                                 (example: "ssh -p 2222")
