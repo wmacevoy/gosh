@@ -6,9 +6,11 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshpathfinding.a
 
-libgoshpathfinding_a_SOURCES = punch.cc punch.h
+libgoshpathfinding_a_SOURCES = stun.h finding.h punch.cc punch.h
 
-check_PROGRAMS = punch-test
+check_PROGRAMS = stun-test finding-test punch-test
 TESTS = $(check_PROGRAMS)
 LDADD = libgoshpathfinding.a ../meetup/libgoshmeetup.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+stun_test_SOURCES = stun-test.cc
+finding_test_SOURCES = finding-test.cc
 punch_test_SOURCES = punch-test.cc

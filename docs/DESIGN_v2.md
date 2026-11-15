@@ -480,12 +480,14 @@ Contracts and failures:
   better one is returned as a value, so the edge can log it and a test can wait for it.
 
 *Since 2026-11-15 path-finding is switched on in gosh, its meetup half replaced by tickets
-(`registering`, below), and a probe opened only at its one length. The pieces above are still one
-class with its socket (`punch.*`); dividing them is the rest of queue item 8.*
+(`registering`, below), and a probe opened only at its one length; and divided as above: **STUN**
+is `stun.h`, **punch** and **registering** are `PathFinding` in `finding.h` (logic: it returns the
+datagrams to send), and the edge is `Punch` in `punch.*`.*
 
-| **registering** | the meetup: where it sees us, REGISTER under the ticket, again every 25 s; PASS and PASSED | in `Punch` (`use_meetup`, `tend_meetup`, `from_meetup`); its bytes are meetup's `messages` | written for gosh | `REQ15/PATH-4`, `REQ15/PATH-5` |
+| **registering** | the meetup: where it sees us, REGISTER under the ticket, again every 25 s, asking again after three unanswered; PASS and PASSED | logic, in `PathFinding` (`use_meetup`, `tend_meetup`, `from_meetup`); its bytes are meetup's `messages` | written for gosh | `REQ15/PATH-4`, `REQ15/PATH-5` |
 
-Tests today: (u) `punch-test` (straight; through a meetup; a forged ticket; an oversized probe);
+Tests today: (u) `stun-test`; `finding-test` (no socket, no clock); `punch-test` (straight;
+through a meetup; a forged ticket; an oversized probe);
 (b) `headless-smoke.py ... punched`, `relay-meetup.py`. Not yet against gosh: `nat-lab.py`.
 
 #### meetup

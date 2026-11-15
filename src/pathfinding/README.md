@@ -18,10 +18,23 @@ A way straight between the two relays when both ends are behind NATs (`REQ1/PATH
   `punch-test` aborts in that assert.
 - **No STUN server unless named** (`REQ1/PATH-7`; `src/relay/settings.h`).
 
-**Tested:** `punch-test.cc`, with real sockets on loopback and the meetup's own logic in the
-same process: a way straight through; a way through a meetup when neither end knows where the
-other is; a forged ticket refused; the oversized probe. `tests/headless-smoke.py ... punched` and
-`tests/relay-meetup.py` drive it through the relays.
+**Divided** (2026-11-15), as the design's three pieces:
+
+| File | What it holds | Test |
+| --- | --- | --- |
+| `stun.h` | STUN, asking: the request, an answer read, `a.b.c.d:p` as text. Logic | `stun-test.cc`, reading an answer the meetup's `answer.h` wrote |
+| `finding.h` | `PathFinding`: candidates; probes sealed and numbered; which way is open; when to probe; the meetup registered with and passed through. Logic: the time and datagrams in, datagrams to send out | `finding-test.cc`: a network of a few lines, the meetup's own logic, time moved by the test |
+| `punch.*` | `Punch`: the socket, this machine's addresses, the time of day, the process that asks the STUN servers. An edge, around `PathFinding`, with the interface the relays had | `punch-test.cc`, real sockets on loopback |
+
+**Tested:** `finding-test.cc`: a way straight through, lost when nothing comes back for 3.5 s and
+found again; a goodbye; a way through a meetup when nothing straight gets through, a datagram
+through it, a way straight through still looked for and taken, and not turned back by a probe
+heard through the meetup as well; an end moved by its NAT registering again; one moved before it
+registers asking again where it is; a REGISTERED that names another address not taken; a forged
+ticket; the probing every 250 ms for 8 s and then every 2 s; the oversized and short probe; a
+probe copied and sent from elsewhere; a STUN answer giving a new place to be reached. Each guard
+broken on purpose and seen red. `punch-test.cc` does the same with sockets;
+`tests/headless-smoke.py ... punched` and `tests/relay-meetup.py` drive it through the relays.
 
 **Not tested:** two machines behind real NATs (the NAT lab against gosh, and two machines in one
-room); the logic is not yet divided from the sockets (queue item 8).
+room).
