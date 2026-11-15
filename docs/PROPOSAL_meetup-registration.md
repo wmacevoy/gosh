@@ -1,20 +1,20 @@
 # Proposal: a meetup that knows who it is passing for
 
-**A proposal, not the design in force. Revision 3, 2026-11-15.** Nothing here is built yet.
+**A proposal, not the design in force. Revision 4, 2026-11-15.** Nothing here is built yet.
 
 The owner's decisions it is written to:
 
 - "pf7 was a step to here. let it go. go for a tailscale. (or talescale-like if that breaks
   some ownership)"
 - "what's wrong with a signed key exchange?" (nothing: revision 2's objection was the agent's
-  mistake, section 9)
+  mistake, section 10)
 - "meetup keeps a list of signature authorities, public keys are signed by an authority, and a
   blacklist. tweet it is --- it's rare. so version 1+ --- ok?"
 
-Revision 1 was attacked on paper by a session set to break it (twelve findings); revision 2
-took them. This revision changes where the keys come from, keeps what that review established
-(section 9), and is to be attacked again before anything is built
-([SE1/W4](../vendor/se1/guide/08-work.md#w4)).
+It has been attacked on paper twice by sessions set to break it
+([SE1/W4](../vendor/se1/guide/08-work.md#w4)): revision 1 (twelve findings) and revision 3
+(eleven). Both verdicts were "build, with these changes"; this revision has them. Section 10
+says what each round changed.
 
 ## 1. What is wrong today
 
@@ -28,81 +28,112 @@ the meetup for ever and can take an end's place (`src/meetup/README.md`; `passin
 ## 2. What is taken, and from where
 
 From Tailscale's relays, as the agent remembers their published design (none of its code or
-wire format is used):
-
-1. nothing reusable crosses the wire in the clear;
-2. an end proves it holds a private key, afresh; watching gives an onlooker nothing;
-3. a datagram is passed to a key, not to whoever spoke last;
-4. no secret is shared between users, or handed out by whoever runs the relay.
+wire format is used): nothing reusable crosses the wire in the clear; an end proves it holds a
+private key, afresh; a datagram is passed to a key, not to whoever spoke last; no secret is
+shared between users or handed out by whoever runs the relay. From WireGuard, likewise from
+memory: a cheap check that a sender knows the relay's public key, before any costly work.
 
 From the owner: who may use a meetup is decided by **authorities** that sign users' keys, and
 a **blacklist**.
 
 **Code carried in: TweetNaCl** (version 20140427; Bernstein, van Gastel, Janssen, Lange,
-Schwabe, Smetsers; public domain), one C file of about 700 lines, as `vendor/tweetnacl/`, with
-where it came from, its checksum, and a test against published vectors. It gives the three
-things needed: a box (a message sealed from one key pair to another), a signature, and a hash.
-It is source gosh carries, not a library a machine can lack, so `REQ1/SHAPE-3` stands. It is
-slow beside tuned code; it is used when an end registers, never for a relayed datagram.
+Schwabe, Smetsers; public domain): one C file of about 700 lines, in `vendor/tweetnacl/`,
+unedited, with where it came from and its checksum. It gives a box (a message sealed from one
+key pair to another), a signature and a hash. It is source gosh carries, not a library a
+machine can lack, so `REQ1/SHAPE-3` stands. It is used when an end registers, never for a
+relayed datagram.
 
 ## 3. The keys
 
 | Key | Kind | Who holds the private half | Who has the public half | Made by |
 | --- | --- | --- | --- | --- |
 | an **authority's** | signature | whoever admits users (an instructor) | every meetup that trusts it, in a list | `gosh-server meetup-authority` |
-| a **user's** | signature | the user, on their own machine; it never leaves | the authority, which signs it; the signed key is the user's **pass** | `gosh meetup-key`; then the authority signs |
-| a **meetup's** | box | the meetup | its users, with its address (it is not a secret) | `gosh-server meetup-key` |
-| a **session end's** | box | one end of one session, in memory, for that session | the other end (over ssh), and the meetup | each relay, when it starts |
-| a registration's key, `Kr` | mosh's cipher | one end and the meetup | — | agreed when the end registers |
+| a **user's**, U | signature | the user, in a file only they can read; it never leaves their machine | the authority, which signs it: that signature is the user's **pass** | `gosh meetup-key`; then the authority signs |
+| a **meetup's**, M | box | the meetup | its users, with its address; it is not a secret | `gosh-server meetup-key` |
+| a **session end's**, E | box | one end of one session, in memory, for that session | the other end (over ssh), and the meetup | each relay, when it starts |
+| a registration's key, `Kr` | mosh's cipher | one end and the meetup | — | the meetup, at random, when the end registers |
 
-How they chain: an authority signs a user's key (the pass). The user's client end signs each
-of its session's two ends' keys (a **voucher**), its own and the server end's, which the
-server end sends it over ssh. So the end running on the server never holds the user's private
-key, only a voucher and the pass, both of which are public.
+**The chain.** An authority signs `("gosh user v1", U)`: the pass. The user's client end
+signs, for each of the session's two ends, `("gosh end v1", M, E, P)`: a **voucher** that says
+"at meetup M, end E may be passed to and from end P". The server end sends its E to the client
+end over ssh and gets its voucher and the pass back; it never holds the user's private key.
 
-A meetup trusts a pass if an authority on its list signed it and the user's key is not on its
-blacklist. A meetup with no authorities passes nothing for anyone, and only says where an
-asker appears to be (STUN), as an unkeyed one does today.
+**A voucher is for one meetup and one pair.** It is useful only while the other end's private
+key exists, which is one session: a lifetime with no clock in it. A host that keeps the
+vouchers of old sessions holds nothing it can use.
+
+A meetup takes a pass if an authority on its list signed it and U is not on its blacklist. A
+meetup started with no authorities passes nothing for anyone and only says where an asker
+appears to be (STUN), as an unkeyed one does today.
 
 ## 4. The protocol
 
-UDP to the meetup's one port. Six kinds of datagram, each with a mark of its own (8 bytes), a
-version byte, and one exact length (but the two that carry a datagram), checked before
-anything is opened.
+UDP to the meetup's one port. Each kind of datagram has a mark of its own (8 bytes), a version,
+and one exact length (but the two that carry a datagram). **Lengths are checked before
+anything is opened**, the cipher's included: it guards its buffer with an `assert` that some
+builds leave out.
 
-### 4.1 Registering (two round trips)
+### 4.1 Registering (two round trips, for an end the meetup does not know)
 
 ```
-end -> meetup   HELLO       mark | the end's key E (32) | nonce (24) | boxed E -> meetup: { kind, version }
-meetup -> end   COOKIE      mark | nonce (24)                        | boxed meetup -> E: { kind, version, cookie (16) }
-end -> meetup   REGISTER    mark | E (32) | nonce (24)               | boxed E -> meetup:
-                                { kind, version, cookie, the other end's key P (32),
-                                  voucher: the user's signature over ( "gosh end", E ),
-                                  pass:    the user's key U (32), the authority's signature over ( "gosh user", U ) }
-meetup -> end   REGISTERED  mark | nonce (24)                        | boxed meetup -> E:
-                                { kind, version, id (8), Kr (16),
+end -> meetup   HELLO       mark | E (32) | nonce (24) | gate (16)
+meetup -> end   COOKIE      mark | the HELLO's nonce (24) | cookie (24)
+end -> meetup   REGISTER    mark | E (32) | nonce (24) | cookie (24) | boxed E -> M:
+                                { kind, version, the cookie again,
+                                  P (32), U (32), the voucher (64), the pass (64) }
+meetup -> end   REGISTERED  mark | nonce (24) | boxed M -> E:
+                                { kind, version, the cookie again, id (8), Kr (16),
                                   where the end appears to be: family (1), address (16), port (2) }
+        or      REFUSED     mark | nonce (24) | boxed M -> E: { kind, version, the cookie again, why (1) }
 ```
 
-- A box can be opened only by its two key holders, and proves who sealed it. So a HELLO or
-  REGISTER that opens shows the sender holds E's private half; an answer that opens shows it
-  came from the meetup, and no one else can read `Kr`.
-- Nonces are 24 random bytes; the end's and the meetup's differ in one fixed bit.
-- **The cookie** (from revision 2): a number the meetup counts upward and a tag, under a
-  secret it makes afresh each start, over that number, the HELLO's source address and E. Good
-  for ten seconds at that address. It shows the end receives at the address it sends from and
-  that the REGISTER is fresh, with no clock; and the costly checks (two signatures) are done
-  only for a REGISTER that carries a good one.
-- A REGISTER is taken if the box opens, the cookie is good, the pass is signed by a listed
-  authority, U is not blacklisted, and the voucher is U's signature over E. It makes a
-  **registration**: E at that address, wanting P, with `id` and `Kr`.
-- For an E already registered: a lower cookie number is ignored; the same number is answered
-  again as before; a higher one from the same address keeps `id` and `Kr`; a higher one from
-  another address replaces it (the end moved).
-- Anything that fails gets **no answer**, so a stranger cannot tell a meetup is there. (A
-  replayed HELLO draws a cookie its replayer cannot open.)
+What the meetup does, cheapest first, and where it stops:
 
-### 4.2 Passing a datagram on
+1. **HELLO.** `gate` is the first 16 bytes of the hash of a label, M's public key, E and the
+   nonce. One hash. A sender that does not know M gets no answer and learns nothing. No state
+   is kept.
+2. **COOKIE**, in the clear: the meetup's own time since it started (never the time of day,
+   never backward) and a tag, under a secret it makes afresh each start, over that time, the
+   address the HELLO came from, and E. One hash. Good for ten seconds, at that address, for
+   that E. It shows the end receives where it sends from, and makes the REGISTER fresh,
+   with no clocks agreeing.
+3. **REGISTER.** The cookie is outside the box, and is checked first: one hash. Then a limit on
+   how many REGISTERs one address may have opened per second. Only then the box is opened (the
+   first costly step), which shows the sender holds E's private half; then the two signatures;
+   then the lists.
+4. A REGISTER is taken if all that holds, `P` is not `E`, the pass is signed by a listed
+   authority, U is not blacklisted, and the voucher is U's signature over this M, E and P. It
+   makes a **registration**: E at that address, for P, belonging to U, with a random `id` and a
+   new `Kr`. If E is registered already and this cookie is older than the one it was made with,
+   it is ignored; if it is the same cookie, the same answer is sent again.
+5. Whatever fails **after** a good cookie is answered REFUSED, with why: the pass is not one
+   this meetup takes; the user is blacklisted; the meetup is full. (The asker has had an answer
+   already; silence would hide nothing and leave nobody able to tell a blacklisted student from
+   an outage.) Whatever fails before, gets no answer.
+
+What the end does: it takes a COOKIE only if it carries the nonce of a HELLO it has
+outstanding, and a REGISTERED or REFUSED only if it carries the cookie it sent; anything else
+is ignored and it goes on waiting. Each side checks the direction bit of the nonce it receives.
+A box whose shared secret comes out all zero is refused.
+
+### 4.2 Keeping a registration (one round trip, no public-key work)
+
+```
+end -> meetup   KEEP    mark | id (8) | counter (8) | sealed under Kr: { kind, version }
+meetup -> end   KEPT    mark | counter (8)          | sealed under Kr: { kind, version, where the end appears to be }
+```
+
+- The meetup looks up U and its authority in the lists again; if either has gone it drops the
+  registration and says nothing. Otherwise the registration is good for two more minutes.
+- An end holds a registration at each meetup it is given for as long as path-finding is
+  running, direct path or no, so that the meetup is ready when it is needed. It sends KEEP
+  every 25 seconds, give or take a few.
+- **When it starts again from HELLO:** when a KEEP or a PASS it sent through the meetup has had
+  nothing back for 3.5 seconds; when KEPT shows its address has changed; when REGISTERED never
+  came. Then after 3.5 s, 7 s, 14 s, ... up to a minute, each varied a little, so that the
+  ends of a meetup that restarted do not all arrive at once.
+
+### 4.3 Passing a datagram on
 
 ```
 end -> meetup   PASS     mark | id (8) | counter (8) | the datagram, sealed under Kr with that counter
@@ -110,125 +141,167 @@ meetup -> end   PASSED   mark | the datagram
 ```
 
 - The meetup, in this order: finds `id`; checks the source address is that registration's;
-  opens the seal (mosh's cipher: fast); then marks `counter` used (a window of 1,024). Then it
-  sends PASSED to the registration whose key is the P this one asked for, **if that one asked
-  for this one's E in turn**, at its registered address, if heard within two minutes.
+  checks the length; opens the seal; then marks `counter` used (a window of 1,024). It sends
+  PASSED to the registration of the P this one is for, **if that one is for this one's E**, at
+  its address, if it has been heard within two minutes.
+- Counters under one `Kr` only go up, the end's and the meetup's told apart by one bit; a
+  registration that is replaced gets a new `Kr`.
 - An end takes a PASSED only from the address of a meetup it is registered with.
-- At most 2,032 bytes of datagram (the cipher's buffer); a session's are about 1,300.
+- At most 2,032 bytes of datagram; a session's are about 1,300.
 
-### 4.3 Keeping a registration, and losing one
+### 4.4 How many, and who is put out
 
-- An end registers again every 25 seconds, and at once when nothing has come through the
-  meetup for 3.5 seconds. The answer says where it appears to be, so a NAT that has changed
-  its port is seen and mended in one exchange.
-- The meetup forgets a registration unused for two minutes. It holds at most 2,048, and at
-  most 16 for one user's key; past either, a new one is refused.
+The meetup holds at most 2,048 registrations (about 10 MB), and 16 for one user (eight
+sessions). When a user's seventeenth arrives, **that user's registration that has gone longest
+without passing a datagram to an end that is for it** is put out. So what a user is using stays,
+and what somebody is merely holding in their name goes first. When the meetup is full, a new
+user's end is refused, and told so.
 
 ## 5. What an attacker can do
 
 | Attacker | Today | Proposed |
 | --- | --- | --- |
-| Sees traffic; holds no pass | Uses the meetup for ever; takes an end's place | Nothing. Every registration message is boxed to or from the meetup; a copy opens for nobody else and is no good from another address. A copied PASS: wrong address, or counter used |
-| Sees traffic and can forge an end's address; no pass | As above | Can replay only what the meetup did not receive (lost after they saw it): a REGISTER the end really sent, or a PASS delivered late. Cannot put their own payload in anything |
-| Another user, with a pass of their own | Takes an end's place, if they see the pair's name | Uses the meetup (allowed). Cannot open anyone else's messages, cannot register as another's end (no private key for it), cannot be passed another pair's datagrams (both ends must name each other). Fills the table only to their own 16 |
-| A user whose key is blacklisted, or whose authority is taken off the list | — | Refused at their next REGISTER, and the meetup drops the registrations they hold when it reads the new list |
-| Someone who steals a user's private key | — | Is that user, until the key is blacklisted. Cannot touch sessions already running: those ends have keys of their own |
-| Someone who steals an authority's private key | — | Can make passes, until that authority is taken off the list. Cannot touch other users' sessions |
-| The meetup, or someone who takes its private key | Sees which addresses talk and how much; can drop | The same; and sees which users. Can pose as that meetup. Learns no user's or authority's private key |
+| Knows nothing of the meetup | Gets no answer | Gets no answer |
+| Knows M (it is not a secret); holds no pass | Uses the meetup for ever with one copied datagram; takes an end's place | Gets cookies. Can make the meetup do one hash per datagram, and, from an address it really holds, a limited number of box openings a second. Can see that some key E registers, every 25 s, from where (it cannot tell whose). Cannot register, pass, or take a place |
+| Sees traffic and can forge addresses; no pass | As above | Can replay to the meetup only what it did not receive (a REGISTER the end really sent; a PASS, delivered late). Can send an end a false COOKIE or a stale REGISTERED: neither is taken (4.1), but by answering first with a false COOKIE each time it can keep an end from registering. That is a denial by someone on the path |
+| Another user, with a pass of their own | Takes an end's place, if they see the pair's name | Uses the meetup. Cannot open another's messages, register as another's end, or be passed another pair's datagrams. Spends only their own 16 |
+| A server host the user logged in to (it holds that session's server-end key, voucher and the pass) | Holds the shared key: is a user of the meetup for ever | For that session, is that session's server end, as it must be. Afterwards holds a voucher that names an end nobody is, at one meetup: it can keep that one registration alive, which is put out first when the user needs room (4.4). Cannot relay for itself, at this or any other meetup |
+| A user who is blacklisted, or whose authority is taken off the list | — | Told so at their next REGISTER; registrations they hold end at the next KEEP |
+| Someone who steals a user's private key | — | Is that user until the key is blacklisted: can use the meetup, and can crowd the user's 16 so that a session of the user's whose registration lapses (a laptop asleep two minutes) may find no room. Cannot read or join a running session |
+| Someone who steals an authority's private key | — | Can make passes until it is taken off the list; with many made-up users can fill the meetup. Taking the authority off also puts out its honest users |
+| Someone who takes the meetup's private key | Sees which addresses talk and how much; can drop | **More than the meetup itself could do before:** can open every registration message they recorded (which user, at which address, for which peer, and each `Kr`), can pose as the meetup, and can register in place of any end they recorded while its pair lives. Not the content of any session. The remedy is a new key for the meetup |
 | Anyone, with huge or malformed datagrams | (the fork never opened what it was sent) | Refused by length before anything is opened; what fails to open is caught |
 
 In every row, nobody reads or changes what the two ends say: that is sealed by the session.
 
 ## 6. Each input: absent, late, wrong, lying
 
-- **Absent.** No COOKIE or REGISTERED: the end asks again with a new nonce every few seconds
-  and goes on with its other paths. The other end not registered, or not naming this one:
-  datagrams are dropped. No pass configured: the end does not try a keyed meetup.
-- **Late.** A cookie older than ten seconds is refused; the end asks for another. An old
-  REGISTER is ignored (4.1). An old PASS is refused once 1,024 behind.
-- **Wrong.** Wrong length, mark, version or kind; a box or seal that does not open; an unknown
-  `id`; a pass no listed authority signed; a blacklisted user; a voucher that is not that
-  user's: dropped, unanswered. **Silence has many causes**, so the end's log says which request
-  went unanswered and for how long.
-- **Lying.** An end naming a P that does not name it back is passed nothing. A user can vouch
-  for any key it likes: that is what a user is allowed to do.
+- **Absent.** No COOKIE: the meetup is down, unreachable, or the user has the wrong key for it;
+  the end's log says "no answer to hello". No REGISTERED after a COOKIE: the same, said so.
+  The end goes on with its other paths, and asks again as 4.2 says. The other end not
+  registered, or not for this one: datagrams are dropped. No pass configured: the end does not
+  try a meetup that needs one.
+- **Late.** A cookie older than ten seconds is refused unanswered; the end asks for another.
+  An old PASS is refused once 1,024 behind.
+- **Wrong.** Before a good cookie: wrong length, mark, version, gate, or a cookie that is not
+  good: dropped, unanswered. After one: REFUSED with why, or (a box that does not open, a
+  voucher that is not that user's for this meetup and pair) dropped.
+- **Lying.** An end for a P that is not for it is passed nothing. A user can vouch for any
+  pair of keys: that is what a user is allowed to do, and it spends their own 16.
+- **The lists** (authorities, blacklist) are files, read at start and again on a signal. A
+  missing or unreadable file at start is a refusal to start. One that cannot be read later
+  leaves the old list in force and says so; whoever edits one writes a new file and renames
+  it. An **empty** list of authorities is not "no authorities": the meetup passes for nobody
+  and does not turn into an open STUN answerer.
 
 ## 7. What this does not close
 
+- **Whoever holds the meetup's private key** can read who registered and act as an end they
+  recorded (5). There is no forward secrecy for that. A one-time key pair on each side of the
+  handshake would give it, at one more costly step a side; not proposed. The remedy is to give
+  the meetup a new key.
+- **The meetup is trusted** not to drop, and sees who talks to whom, how much, and as which
+  user. It writes to its log, for each registration taken or refused, the user's key, the
+  address and why. That log ties a person to an address; how long it is kept is whoever runs
+  the meetup's to decide, and gosh keeps none.
 - **A PASSED proves nothing to the end that gets it.** Anyone forging the meetup's address can
   send one; the session refuses what is in it.
-- **The meetup is trusted** not to drop, and sees who talks to whom, how much, and as which
-  user.
-- **A pass does not expire.** It ends when the user's key is blacklisted or its authority is
-  taken off the list. (An expiry date would bring the meetup's clock into it; not proposed.)
-- **TweetNaCl is slow, and was written to be small and auditable, not fast.** It does a few
-  operations when an end registers. Registrations are capped per second, counted only after a
-  good cookie.
+- **An end's key E is in the clear** when it registers, so one session can be followed across
+  addresses and meetups by it. mosh's own datagrams already carry a counter in the clear.
+- **Anyone who knows M can spend the meetup's time:** a hash per datagram, and a capped
+  number of box openings from each real address. Passing shares that one thread.
+- **A NAT that changes an end's port** costs 3.5 seconds and two round trips to mend, where a
+  session of mosh's own follows a client at once.
+- **A pass does not expire, and a blacklist is each meetup's own.** An authority cannot call a
+  pass back; it tells the meetups. The authority must keep a record of whose key it signed, or
+  nobody can write a blacklist: `meetup-sign` writes one.
+- **A user's private key is a file** with no passphrase: any program running as that user can
+  vouch. **Nothing tells a user they were given the wrong key for a meetup** but silence.
+- **TweetNaCl** is small and slow; its signature check accepts some signatures in more than
+  one form, and it does not refuse a few degenerate keys. Neither matters here as long as
+  nothing is remembered by a signature's bytes (the fork remembered proofs so; this does not).
 - **Cost.** Each relayed datagram is sealed once more by the sender and opened once by the
   meetup, with mosh's cipher. This path is the last resort before ssh.
 - **IPv4.** The meetup listens on IPv4, as today; the answer's address field fits IPv6.
 
 ## 8. What changes in gosh
 
-- `vendor/tweetnacl/`: the file, where it came from, its checksum, and its licence; a unit
-  test against the published vectors for the box, the signature and the hash. It needs random
-  bytes from the system, which gosh supplies from where mosh takes its own.
+- `vendor/tweetnacl/`: the file as published, where it came from, its checksum and licence,
+  compiled as C with flags of its own (it is not edited to quiet warnings). A wrapper,
+  `src/meetup/nacl.h`, is the only thing that calls it: fixed sizes, its padding conventions
+  hidden, an all-zero shared secret refused. Random bytes come from the system; if they cannot
+  be had the program stops. Its unit test is the published vectors for the box, the signature
+  and the hash, and is run once under a checker for undefined behaviour.
 - `src/meetup/`: `proof.*` goes. New logic, each with a test of bytes and numbers and no
-  socket: `keys.h` (authorities, passes, vouchers, the blacklist: made and checked),
-  `cookie.h`, `register.h` (the four registration messages; exact lengths),
-  `registrations.h` (the table; 4.1 and 4.3), `passing.h` (PASS opened; the counter window;
-  both ends naming each other). `serve.cc` stays the edge, and reads the list of authorities
-  and the blacklist from files, again when told to.
-- Commands: `gosh-server meetup-authority` (an authority's keys), `gosh meetup-key` (a user's
-  keys), `gosh-server meetup-sign` (the authority signs a user's key: a pass),
-  `gosh-server meetup-key` (a meetup's keys). Where each key is kept is the command's to say
-  (queue item 10); a user's private key is a file only that user can read.
+  socket: `keys.h` (passes and vouchers made and checked; the lists), `cookie.h`,
+  `messages.h` (every kind made and opened; exact lengths), `registrations.h` (the table;
+  4.1, 4.2, 4.4), `passing.h` (PASS opened; the counter window; both ends for each other).
+  `serve.cc` stays the edge: the socket, the meetup's own time, the list files, the log.
+- Commands: `gosh-server meetup-authority`, `gosh meetup-key`, `gosh-server meetup-sign`
+  (which also writes the authority's record), `gosh-server meetup-key`. A user's private key
+  is created at mode 0600, never overwritten, and not used if anyone else can read it.
+- Between the two relays, over ssh: after its greeting the server end sends its E; the client
+  end answers with the meetup's address and key, the voucher and the pass. Words an old relay
+  does not know it already ignores. A server end that starts again has a new E and is vouched
+  for again.
 - `src/pathfinding/`: the end's half, as logic, when that part is reshaped (the rest of item
-  8): an end's key pair for the session, the two ends' keys exchanged over ssh, the client end
-  signing both vouchers. **Also found by the review, in the fork today:** `punch.cc` hands any
-  probe-marked datagram of up to 65,528 bytes to the cipher's `decrypt`, whose buffer is 2,048
-  bytes behind an `assert`. Path-finding is off in gosh; it is fixed before it is switched on.
-- The attack tests of 2026-11-15 stay, turned round: each thing the onlooker could do becomes
-  a check that they cannot; and a test for each row of section 5.
+  8). **Found by the first review, in the fork today:** `punch.cc` hands any probe-marked
+  datagram of up to 65,528 bytes to the cipher's `decrypt`, whose 2,048-byte buffer is guarded
+  only by an `assert`. Path-finding is off in gosh; it is fixed before it is switched on.
+- Tests: the attack tests of 2026-11-15 turned round (each thing the onlooker could do becomes
+  a check that they cannot), and one for each row of section 5 that a test can reach.
 - No private key, `Kr`, or the bytes of a registration is ever written to a log.
-- A gosh meetup and a pf.7 relay ignore each other (marks of their own). The requirements
-  already say gosh does not work with the fork's releases at the other end (*Non-goals*).
+- A gosh meetup and a pf.7 relay ignore each other. The requirements already say gosh does not
+  work with the fork's releases at the other end (*Non-goals*).
 
-## 9. How this proposal got here
-
-- **Revision 1** used one shared key and the clock. A session set to break it found twelve
-  things: among them that someone with the shared key who saw one registration kept that pair
-  for the whole session from anywhere; that an oversized datagram would abort the meetup
-  inside the cipher; that a tag over a counter alone let a payload be swapped; and that the
-  clock rule failed silently on machines with wrong clocks and reopened replays on restart.
-- **Revision 2** took them all: a key per user derived from a master, a cookie in place of the
-  clock, datagrams sealed, exact lengths, a mark per kind, rules for an existing registration
-  and for registering again. It kept to a shared-key cipher because the agent read
-  `REQ1/SHAPE-3` as ruling out public keys. **That was a mistake:** it rules out a library a
-  machine may lack, not a few hundred lines of source carried here.
-- **Revision 3** (this) replaces every shared secret with key pairs, at the owner's word, and
-  keeps from revision 2 what its review established: the cookie, sealed datagrams, the order
-  of checks, exact lengths, marks, the rules for an existing registration, when to register
-  again, the caps, the address field, no secrets in logs.
-
-## 10. What the requirements would say (for a v15)
+## 9. What the requirements would say (for a v15)
 
 - **REQ1/PATH-5**, reworded (in a v15, which would then be the version to cite it by): *A
-  meetup passes nothing on, and answers nothing, for anyone who has not just shown that they
-  hold a key vouched for by a user whose key an authority the meetup trusts has signed, and
-  which the meetup has not blacklisted; what it passes for an end goes only to the end that
-  end names, and only if that end names it back; and a datagram copied off the network is no
-  use to whoever copied it.* *(judged in part: "no use" is argued in the design and tested for
-  each case it lists.)*
+  meetup passes nothing on for anyone who has not just shown that they hold a key which a user
+  has vouched for at that meetup, where an authority the meetup trusts has signed that user's
+  key and the meetup has not blacklisted it; what it passes for an end goes only to the end
+  that voucher names, and only if that end's names it back; a datagram copied off the network
+  is no use to whoever copied it; and to someone who does not know the meetup's key it says
+  nothing at all.* *(judged in part: "no use" is argued in the design and tested for each case
+  it lists.)*
 - **Glossary:** *authority*, *pass*, *voucher*, *registration*, *blacklist*.
 - **Scope decisions:** a second exception to the freeze, for this; TweetNaCl carried in
-  `vendor/`, with its origin and licence; a pass does not expire.
-- **Security:** the meetup learns which user is behind a session, which it did not before.
+  `vendor/` with its origin and licence; a pass does not expire.
+- **Security:** the meetup learns which user is behind a session, and its log says so.
+
+## 10. How this proposal got here
+
+- **Revision 1**: one shared key and the clock. Attacked: twelve findings, among them that
+  someone with the shared key who saw one registration kept that pair for the whole session
+  from anywhere; that an oversized datagram would abort the meetup inside the cipher; that a
+  tag over a counter alone let a payload be swapped; that the clock rule failed silently and
+  reopened replays on restart.
+- **Revision 2** took them: a key per user derived from a master, a cookie for the clock,
+  sealed datagrams, exact lengths, a mark per kind. It kept to a shared-key cipher because the
+  agent read `REQ1/SHAPE-3` as ruling out public keys. **That was a mistake:** it rules out a
+  library a machine may lack, not source carried here.
+- **Revision 3**: key pairs throughout, authorities and a blacklist, at the owner's word.
+  Attacked: eleven findings. A voucher bound to nothing let a server host the user had once
+  used hold their place for ever and lock them out of every meetup; every stranger's datagram
+  cost a costly step that the cookie did not guard; answers were not tied to their requests;
+  registering again every 25 seconds with signatures would not have fitted the meetup's one
+  thread, and one rule would have fired for ever; silence for every failure left nothing
+  diagnosable; and a leaked meetup key gave more than the table said.
+- **Revision 4** (this) took those: the voucher names the meetup and the pair (3); the gate
+  and the cookie come before any costly step (4.1); answers echo their requests (4.1); keeping
+  a registration needs no public-key work, and when to start again is said (4.2); REFUSED says
+  why (4.1); who is put out when a user's room runs out (4.4); the table of claims and the
+  list of what is not closed corrected (5, 7); and the handling of the cipher, TweetNaCl and
+  the list files said (4, 6, 8).
 
 ## 11. Questions for the owner
 
-1. **No expiry on a pass**, only the blacklist and the list of authorities (section 7). Agreed?
-2. **The words**: authority, pass (a user's key signed by an authority), voucher (a session
-   end's key signed by its user). Agreed, or others?
-3. **A meetup with authorities stops answering STUN**; one with none answers STUN as today and
-   passes nothing. Agreed?
+1. **No expiry on a pass**, only each meetup's blacklist and list of authorities. Agreed?
+2. **The words**: authority, pass, voucher. Agreed, or others?
+3. **A meetup with authorities stops answering STUN**; one started with none answers STUN as
+   today and passes nothing. Agreed?
+4. **No forward secrecy for registrations** (section 7, first item): if a meetup's key leaks,
+   recorded registrations can be read, and the remedy is a new key. Accept that, or pay one
+   more costly step a side to close it?
+5. **The meetup's log names the user's key and address** for each registration. Agreed that it
+   should, so that there is something to blacklist by?
