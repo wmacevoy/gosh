@@ -30,8 +30,8 @@
  *
  * This is the edge (design v2, 2.2, path-finding's "socket, interfaces, asker"): the socket, this
  * machine's addresses, the time of day, and the process that looks names up and asks the STUN
- * servers. What it decides is finding.h's, and the bytes of STUN are stun.h's. IPv4 only: that is
- * where the NATs are.
+ * servers. What it decides is finding.h's, and the bytes of STUN are stun.h's. IPv4 and IPv6, on
+ * one socket where the system allows (REQ16/PATH-8).
  */
 
 namespace Network {
@@ -47,6 +47,7 @@ public:
 
 private:
   int sock;
+  int family; /* (gosh) AF_INET6 if the socket takes both families; AF_INET if it could not */
   PathFinding finding;
 
   void flush( void );

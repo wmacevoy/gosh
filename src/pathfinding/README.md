@@ -17,6 +17,12 @@ A way straight between the two relays when both ends are behind NATs (`REQ1/PATH
   an `assert` alone: the fifth security fault (`docs/FINDINGS.md`). Seen red: without the check,
   `punch-test` aborts in that assert.
 - **No STUN server unless named** (`REQ1/PATH-7`; `src/relay/settings.h`).
+- **IPv4 and IPv6** (`REQ16/PATH-8`). One socket takes both families where the system allows
+  (IPv4 addresses then come in IPv6's form, and `punch.cc` turns them back before the logic sees
+  them); otherwise it is IPv4 alone. STUN reads IPv6 answers; candidates and this machine's own
+  addresses are of both families (not an address of one link alone, which would need its
+  interface named). While the way is straight by IPv4, the IPv6 candidates are still probed now and
+  then, and a way by IPv6 is taken and kept while it answers: IPv6 first.
 
 **Divided** (2026-11-15), as the design's three pieces:
 
@@ -36,5 +42,6 @@ probe copied and sent from elsewhere; a STUN answer giving a new place to be rea
 broken on purpose and seen red. `punch-test.cc` does the same with sockets;
 `tests/headless-smoke.py ... punched` and `tests/relay-meetup.py` drive it through the relays.
 
-**Not tested:** two machines behind real NATs (the NAT lab against gosh, and two machines in one
-room).
+**Not tested:** two machines behind real NATs or firewalls (the NAT lab against gosh, by either
+family, and two machines in one room). The NAT lab (`tests/nat-lab.py`, the fork's) builds IPv4
+networks only, and needs root to make them.

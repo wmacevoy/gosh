@@ -50,52 +50,57 @@ std::string ticket_key_of( const std::string& id )
   return Gosh::ticket_key( MASTER, id );
 }
 
-/* A meetup, on a loopback socket of its own, served by the meetup's logic. */
+/* A meetup, on a loopback socket of its own (IPv4 or IPv6), served by the meetup's logic. */
 struct Meetup
 {
+  int family;
   int sock;
   Gosh::Registrations registrations;
   int passed;
 
-  Meetup() : sock( socket( AF_INET, SOCK_DGRAM, 0 ) ), registrations(), passed( 0 )
+  explicit Meetup( int s_family = AF_INET )
+    : family( s_family ), sock( socket( s_family, SOCK_DGRAM, 0 ) ), registrations(), passed( 0 )
   {
-    struct sockaddr_in sin;
-    memset( &sin, 0, sizeof( sin ) );
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = htonl( INADDR_LOOPBACK );
-    bind( sock, reinterpret_cast<struct sockaddr*>( &sin ), sizeof( sin ) );
+    Network::Addr a;
+    memset( &a, 0, sizeof( a ) );
+    if ( family == AF_INET6 ) {
+      a.sin6.sin6_family = AF_INET6;
+      a.sin6.sin6_addr = in6addr_loopback;
+      bind( sock, &a.sa, sizeof( a.sin6 ) );
+    } else {
+      a.sin.sin_family = AF_INET;
+      a.sin.sin_addr.s_addr = htonl( INADDR_LOOPBACK );
+      bind( sock, &a.sa, sizeof( a.sin ) );
+    }
   }
   ~Meetup() { close( sock ); }
   std::string where( void ) const
   {
-    struct sockaddr_in sin;
-    socklen_t len = sizeof( sin );
-    getsockname( sock, reinterpret_cast<struct sockaddr*>( &sin ), &len );
-    return "127.0.0.1:" + std::to_string( ntohs( sin.sin_port ) );
+    Network::Addr a;
+    socklen_t len = sizeof( a );
+    getsockname( sock, &a.sa, &len );
+    return Network::format_ip_port( a );
   }
   void serve( void )
   {
     char buf[4096];
-    struct sockaddr_in from;
+    Network::Addr from;
     socklen_t len = sizeof( from );
-    const ssize_t n = recvfrom( sock, buf, sizeof( buf ), MSG_DONTWAIT, reinterpret_cast<struct sockaddr*>( &from ), &len );
+    const ssize_t n = recvfrom( sock, buf, sizeof( buf ), MSG_DONTWAIT, &from.sa, &len );
     if ( n < 0 ) {
       return;
     }
+    const std::string w = Gosh::meetup_where_of( from );
     if ( Gosh::is_stun_request( buf, n ) ) {
-      const std::string a = Gosh::stun_answer( buf, ntohl( from.sin_addr.s_addr ), ntohs( from.sin_port ) );
-      sendto( sock, a.data(), a.size(), 0, reinterpret_cast<struct sockaddr*>( &from ), len );
+      const std::string a = Gosh::stun_answer_to( buf, w );
+      sendto( sock, a.data(), a.size(), 0, &from.sa, len );
       return;
     }
-    const Gosh::Registrations::Send s = registrations.datagram(
-      buf, n, Gosh::meetup_where_v4( ntohl( from.sin_addr.s_addr ), ntohs( from.sin_port ) ), time( NULL ), ticket_key_of );
-    if ( s.any ) {
-      struct sockaddr_in to;
-      memset( &to, 0, sizeof( to ) );
-      to.sin_family = AF_INET;
-      memcpy( &to.sin_addr.s_addr, s.to.data() + 1, 4 );
-      memcpy( &to.sin_port, s.to.data() + 17, 2 );
-      sendto( sock, s.bytes.data(), s.bytes.size(), 0, reinterpret_cast<struct sockaddr*>( &to ), sizeof( to ) );
+    const Gosh::Registrations::Send s = registrations.datagram( buf, n, w, time( NULL ), ticket_key_of );
+    Network::Addr to;
+    socklen_t to_len;
+    if ( s.any && Gosh::meetup_addr_of( s.to, to, to_len ) ) {
+      sendto( sock, s.bytes.data(), s.bytes.size(), 0, &to.sa, to_len );
       passed += s.bytes.size() != Gosh::MEETUP_ADDRESS_MESSAGE;
     }
   }
@@ -197,10 +202,50 @@ int main()
     close( s );
   }
 
+  /* REQ16/PATH-8: by IPv6, over ::1, if this machine has it. */
+  const int probe6 = socket( AF_INET6, SOCK_DGRAM, 0 );
+  Network::Addr loop6;
+  memset( &loop6, 0, sizeof( loop6 ) );
+  loop6.sin6.sin6_family = AF_INET6;
+  loop6.sin6.sin6_addr = in6addr_loopback;
+  const bool have6 = probe6 >= 0 && bind( probe6, &loop6.sa, sizeof( loop6.sin6 ) ) == 0;
+  if ( probe6 >= 0 ) {
+    close( probe6 );
+  }
+  if ( !have6 ) {
+    printf( "SKIPPED: by IPv6: this machine has no ::1\n" );
+  } else {
+    {
+      Punch a( true, key, nobody, now_ms() ), b( false, key, nobody, now_ms() );
+      a.add_candidate( "[::1]:" + std::to_string( b.local_port() ) );
+      b.add_candidate( "[::1]:" + std::to_string( a.local_port() ) );
+      const bool open = run( a, b, NULL, 3000, [&]( uint64_t now ) { return a.open( now ) && b.open( now ); } );
+      check( "over ::1, a way straight through by IPv6 (REQ16/PATH-8)", open && a.direct() && a.where().compare( 0, 5, "[::1]" ) == 0 );
+      std::string got;
+      a.send( "by IPv6" );
+      run( a, b, NULL, 1000, [&]( uint64_t ) { return !got.empty(); }, &got );
+      check( "and a datagram goes straight by it", got == "by IPv6" );
+    }
+    {
+      Meetup m( AF_INET6 );
+      const Gosh::Ticket t = Gosh::make_ticket( MASTER, "random!!", time( NULL ) + 3600 );
+      Punch a( true, key, nobody, now_ms() ), b( false, key, nobody, now_ms() );
+      a.use_meetup( m.where(), t );
+      b.use_meetup( m.where(), t );
+      const bool open = run( a, b, &m, 4000, [&]( uint64_t now ) { return a.open( now ) && b.open( now ); } );
+      check( "a meetup at ::1 alone: both register, and find each other through it",
+             open && a.meetup_registered() && b.meetup_registered() && !a.direct() );
+      std::string got;
+      a.send( "through an IPv6 meetup" );
+      run( a, b, &m, 1000, [&]( uint64_t ) { return got == "through an IPv6 meetup"; }, &got );
+      check( "and a datagram goes through it", got == "through an IPv6 meetup" );
+    }
+  }
+
   if ( failures ) {
-    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5: %d checks of path-finding failed\n", failures );
+    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: %d checks of path-finding failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5: path-finding, straight and through a meetup\n" );
+  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: path-finding, straight and through a meetup\n" );
   return 0;
 }

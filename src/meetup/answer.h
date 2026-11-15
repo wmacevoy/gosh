@@ -51,6 +51,42 @@ inline std::string stun_answer( const char* request, uint32_t address, uint16_t 
   return answer;
 }
 
+/*
+ * (REQ16/PATH-8) The answer to a request from "where" (messages.h), IPv4 or IPv6. For IPv6 the
+ * address is disguised with the cookie and the request's own id (RFC 8489, 14.2). Empty if
+ * "where" is neither.
+ */
+inline std::string stun_answer_to( const char* request, const std::string& where )
+{
+  if ( where.size() != 19 || ( where[0] != 4 && where[0] != 6 ) ) {
+    return std::string();
+  }
+  const uint16_t port = ( static_cast<unsigned char>( where[17] ) << 8 ) | static_cast<unsigned char>( where[18] );
+  if ( where[0] == 4 ) {
+    const uint32_t address = ( uint32_t( static_cast<unsigned char>( where[1] ) ) << 24 ) | ( static_cast<unsigned char>( where[2] ) << 16 )
+                             | ( static_cast<unsigned char>( where[3] ) << 8 ) | static_cast<unsigned char>( where[4] );
+    return stun_answer( request, address, port );
+  }
+  const uint16_t port_x = port ^ ( 0x2112A442 >> 16 );
+  std::string answer;
+  answer.push_back( 0x01 );
+  answer.push_back( 0x01 );
+  answer.push_back( 0x00 );
+  answer.push_back( 0x18 );
+  answer.append( request + 4, 16 );
+  const char attribute[4] = { 0x00, 0x20, 0x00, 0x14 };
+  answer.append( attribute, 4 );
+  answer.push_back( 0x00 );
+  answer.push_back( 0x02 );
+  answer.push_back( static_cast<char>( port_x >> 8 ) );
+  answer.push_back( static_cast<char>( port_x & 0xFF ) );
+  for ( int i = 0; i < 16; i++ ) {
+    /* the cookie and the id are request bytes 4 to 19 */
+    answer.push_back( static_cast<char>( where[1 + i] ^ request[4 + i] ) );
+  }
+  return answer;
+}
+
 /* No more than a few hundred answers a second, so as to be no use to anyone for anything else. */
 class AnswerRate
 {

@@ -6,8 +6,8 @@
  * and text in, bytes and addresses out. The fork's text (mosh-1.4.0-pf.7, src/network/punch.cc).
  *
  * Wrong input: an answer that is not a Binding Success Response with our cookie, or whose
- * attributes run past its end, is not read (false); text that is not "a.b.c.d:port" with a port
- * from 1 to 65535 is refused. IPv4 only: that is where the NATs are.
+ * attributes run past its end, is not read (false); text that is not "a.b.c.d:port" or
+ * "[ipv6]:port" with a port from 1 to 65535 is refused. IPv4 and IPv6 (REQ16/PATH-8).
  */
 
 #ifndef GOSH_PATHFINDING_STUN_H
@@ -63,6 +63,16 @@ inline bool stun_parse( const char* data, size_t len, Addr& mapped )
       break;
     }
     const unsigned char* v = p + at + 4;
+    /* (gosh, REQ16/PATH-8) XOR-MAPPED-ADDRESS for IPv6: disguised with the cookie and the id, bytes 4 to 19 */
+    if ( type == 0x0020 && size >= 20 && v[1] == 0x02 ) {
+      memset( &mapped, 0, sizeof( mapped ) );
+      mapped.sin6.sin6_family = AF_INET6;
+      mapped.sin6.sin6_port = htons( ( ( v[2] << 8 ) | v[3] ) ^ ( STUN_COOKIE >> 16 ) );
+      for ( int i = 0; i < 16; i++ ) {
+        mapped.sin6.sin6_addr.s6_addr[i] = v[4 + i] ^ p[4 + i];
+      }
+      found = true;
+    }
     /* XOR-MAPPED-ADDRESS, or (from servers of an older kind) MAPPED-ADDRESS; for IPv4 */
     if ( ( type == 0x0020 || type == 0x0001 ) && size >= 8 && v[1] == 0x01 && !( found && type == 0x0001 ) ) {
       uint16_t port = ( v[2] << 8 ) | v[3];
@@ -82,7 +92,7 @@ inline bool stun_parse( const char* data, size_t len, Addr& mapped )
   return found;
 }
 
-/* "1.2.3.4:567" both ways.  IPv4 only. */
+/* "1.2.3.4:567" and "[2001:db8::1]:567" both ways. */
 inline bool parse_ip_port( const std::string& text, Addr& addr )
 {
   const size_t colon = text.rfind( ':' );
@@ -92,7 +102,19 @@ inline bool parse_ip_port( const std::string& text, Addr& addr )
   }
   const long port = atol( text.c_str() + colon + 1 );
   memset( &addr, 0, sizeof( addr ) );
-  if ( port < 1 || port > 65535 || inet_pton( AF_INET, text.substr( 0, colon ).c_str(), &addr.sin.sin_addr ) != 1 ) {
+  if ( port < 1 || port > 65535 ) {
+    return false;
+  }
+  if ( text[0] == '[' ) {
+    if ( colon < 3 || text[colon - 1] != ']'
+         || inet_pton( AF_INET6, text.substr( 1, colon - 2 ).c_str(), &addr.sin6.sin6_addr ) != 1 ) {
+      return false;
+    }
+    addr.sin6.sin6_family = AF_INET6;
+    addr.sin6.sin6_port = htons( port );
+    return true;
+  }
+  if ( inet_pton( AF_INET, text.substr( 0, colon ).c_str(), &addr.sin.sin_addr ) != 1 ) {
     return false;
   }
   addr.sin.sin_family = AF_INET;
@@ -102,16 +124,25 @@ inline bool parse_ip_port( const std::string& text, Addr& addr )
 
 inline std::string format_ip_port( const Addr& addr )
 {
-  char ip[INET_ADDRSTRLEN];
-  if ( addr.sa.sa_family != AF_INET || !inet_ntop( AF_INET, &addr.sin.sin_addr, ip, sizeof( ip ) ) ) {
-    return std::string();
+  char ip[INET6_ADDRSTRLEN];
+  if ( addr.sa.sa_family == AF_INET && inet_ntop( AF_INET, &addr.sin.sin_addr, ip, sizeof( ip ) ) ) {
+    return std::string( ip ) + ":" + std::to_string( ntohs( addr.sin.sin_port ) );
   }
-  return std::string( ip ) + ":" + std::to_string( ntohs( addr.sin.sin_port ) );
+  if ( addr.sa.sa_family == AF_INET6 && inet_ntop( AF_INET6, &addr.sin6.sin6_addr, ip, sizeof( ip ) ) ) {
+    return "[" + std::string( ip ) + "]:" + std::to_string( ntohs( addr.sin6.sin6_port ) );
+  }
+  return std::string();
 }
 
-/* Whether two IPv4 addresses and ports are the same. */
+/* Whether two addresses and ports are the same: of one family, with the same address and port. */
 inline bool same_ip_port( const Addr& a, const Addr& b )
 {
+  if ( a.sa.sa_family != b.sa.sa_family ) {
+    return false;
+  }
+  if ( a.sa.sa_family == AF_INET6 ) {
+    return memcmp( &a.sin6.sin6_addr, &b.sin6.sin6_addr, 16 ) == 0 && a.sin6.sin6_port == b.sin6.sin6_port;
+  }
   return a.sin.sin_addr.s_addr == b.sin.sin_addr.s_addr && a.sin.sin_port == b.sin.sin_port;
 }
 

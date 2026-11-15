@@ -810,6 +810,11 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
       meetup_login = meetup.substr( 0, colon );
       const size_t at = meetup_login.rfind( '@' );
       setenv( "MOSH_MEETUP", meetup.substr( at == std::string::npos ? 0 : at + 1 ).c_str(), 1 );
+      /* (REQ16/PATH-8) "[2001:db8::1]:PORT": ssh takes the address without its brackets */
+      const size_t open = meetup_login.find( '[', at == std::string::npos ? 0 : at + 1 );
+      if ( open != std::string::npos && meetup_login[meetup_login.size() - 1] == ']' ) {
+        meetup_login = meetup_login.substr( 0, open ) + meetup_login.substr( open + 1, meetup_login.size() - open - 2 );
+      }
     }
 
     std::string predict = s.value( "predict" );

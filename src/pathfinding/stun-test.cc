@@ -11,6 +11,7 @@
 #include <string>
 
 #include "src/meetup/answer.h"
+#include "src/meetup/messages.h"
 #include "src/pathfinding/stun.h"
 
 static int failures = 0;
@@ -62,10 +63,31 @@ int main()
            && !parse_ip_port( "host.example:22", a ) && !parse_ip_port( ":22", a ) && !parse_ip_port( "1.2.3.4:2x", a )
            && !parse_ip_port( "1.2.3.4:", a ) );
 
+  /* REQ16/PATH-8: IPv6. */
+  unsigned char v6[16] = { 0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x12, 0x34 };
+  const std::string answer6 = Gosh::stun_answer_to( request.data(), Gosh::meetup_where_v6( v6, 7777 ) );
+  check( "an IPv6 answer is 44 bytes, the address disguised with the cookie and the id (REQ16/PATH-8)",
+         answer6.size() == 44 && answer6.find( std::string( reinterpret_cast<char*>( v6 ), 16 ) ) == std::string::npos );
+  check( "and is read: where the asker was seen, by IPv6",
+         stun_parse( answer6.data(), answer6.size(), mapped ) && format_ip_port( mapped ) == "[2001:db8::1234]:7777" );
+  check( "\"[2001:db8::1]:567\" is an address, and goes back to the same text",
+         parse_ip_port( "[2001:db8::1]:567", a ) && a.sa.sa_family == AF_INET6 && format_ip_port( a ) == "[2001:db8::1]:567" );
+  check( "an IPv6 address without its brackets, or with one, is refused",
+         !parse_ip_port( "2001:db8::1:567", a ) && !parse_ip_port( "[2001:db8::1:567", a ) && !parse_ip_port( "[]:567", a )
+           && !parse_ip_port( "[1.2.3.4]:567", a ) );
+  Addr b;
+  parse_ip_port( "[2001:db8::1]:567", a );
+  parse_ip_port( "[2001:db8::1]:568", b );
+  check( "two IPv6 addresses are the same only with the same port", same_ip_port( a, a ) && !same_ip_port( a, b ) );
+  parse_ip_port( "1.2.3.4:567", b );
+  check( "and an IPv4 one is never the same as an IPv6 one", !same_ip_port( a, b ) );
+  parse_ip_port( "0.0.0.0:567", b );
+  check( "not even 0.0.0.0, whichever is asked about first", !same_ip_port( b, a ) && !same_ip_port( a, b ) );
+
   if ( failures ) {
-    printf( "FAIL REQ1/PATH-3: %d checks of STUN failed\n", failures );
+    printf( "FAIL REQ1/PATH-3, REQ16/PATH-8: %d checks of STUN failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ1/PATH-3: STUN, asking\n" );
+  printf( "PASS REQ1/PATH-3, REQ16/PATH-8: STUN, asking\n" );
   return 0;
 }

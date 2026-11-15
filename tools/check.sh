@@ -123,6 +123,9 @@ pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 returned
 if python3 -c 'import socket; socket.socket(socket.AF_INET6, socket.SOCK_DGRAM).bind(("::1", 0))' 2>/dev/null; then
     pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py ::1 blocked
+    # REQ16/PATH-8: path-finding and the meetup by IPv6
+    pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py ::1 punched
+    pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-meetup.py ::1
 fi
 # (gosh only: pf.7 fails these two, which are the faults they were written to show. FINDINGS, 2026-11-13 to 15)
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-spoof.py

@@ -96,10 +96,17 @@ static bool is_control( const std::string& frame, std::vector<std::string>& word
   return Gosh::relay_words_of( std::string( PUNCH_MARK, sizeof( PUNCH_MARK ) ), frame, words );
 }
 
-static bool is_ipv4( const std::string& text )
+/* (gosh, REQ16/PATH-8) An address as ssh gives it, IPv4 or IPv6, with a port: "a.b.c.d:p" or "[v6]:p"; empty if it is neither. */
+static std::string with_port( const std::string& ip, const std::string& port )
 {
   Addr addr;
-  return parse_ip_port( text + ":1", addr );
+  if ( parse_ip_port( ip + ":" + port, addr ) ) {
+    return ip + ":" + port;
+  }
+  if ( parse_ip_port( "[" + ip + "]:" + port, addr ) ) {
+    return "[" + ip + "]:" + port;
+  }
+  return std::string();
 }
 
 /*

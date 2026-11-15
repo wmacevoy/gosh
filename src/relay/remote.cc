@@ -137,8 +137,8 @@ int Network::relay_remote( const char* address, const char* port )
             } catch ( const std::exception& e ) {
               punch.reset();
             }
-          } else if ( words.size() == 2 && words[0] == "PORT" && punch && is_ipv4( client_ip ) ) {
-            punch->add_candidate( client_ip + ":" + words[1] );
+          } else if ( words.size() == 2 && words[0] == "PORT" && punch && !with_port( client_ip, words[1] ).empty() ) {
+            punch->add_candidate( with_port( client_ip, words[1] ) );
           } else if ( words.size() == 2 && words[0] == "CAND" && punch ) {
             punch->add_candidate( words[1] );
           }

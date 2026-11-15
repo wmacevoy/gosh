@@ -254,17 +254,21 @@ private:
       }
       /* where the meetup is: looked up here, where waiting on a name costs the relay nothing */
       const size_t colon = meetup.rfind( ':' );
+      std::string host = colon == std::string::npos ? std::string() : meetup.substr( 0, colon );
+      if ( host.size() > 2 && host[0] == '[' && host[host.size() - 1] == ']' ) {
+        host = host.substr( 1, host.size() - 2 );
+      }
       struct addrinfo hints, *res = NULL;
       memset( &hints, 0, sizeof( hints ) );
-      hints.ai_family = AF_INET;
+      hints.ai_family = AF_UNSPEC; /* (REQ16/PATH-8: the system's own order, IPv6 first where it has it) */
       hints.ai_socktype = SOCK_DGRAM;
       if ( colon == std::string::npos
-           || getaddrinfo( meetup.substr( 0, colon ).c_str(), meetup.substr( colon + 1 ).c_str(), &hints, &res ) != 0 ) {
+           || getaddrinfo( host.c_str(), meetup.substr( colon + 1 ).c_str(), &hints, &res ) != 0 ) {
         _exit( 2 );
       }
       Addr found;
       memset( &found, 0, sizeof( found ) );
-      memcpy( &found.sin, res->ai_addr, sizeof( found.sin ) );
+      memcpy( &found, res->ai_addr, res->ai_addrlen < sizeof( found ) ? res->ai_addrlen : sizeof( found ) );
       const std::string line = "MEETUP " + format_ip_port( found ) + "\n";
       if ( write( STDOUT_FILENO, line.data(), line.size() ) != static_cast<ssize_t>( line.size() ) ) {
         _exit( 2 );
@@ -345,7 +349,8 @@ private:
       } catch ( const std::exception& e ) {
         punch.reset();
       }
-    } else if ( words.size() == 2 && words[0] == "PORT" && punch && options.server.sa.sa_family == AF_INET ) {
+    } else if ( words.size() == 2 && words[0] == "PORT" && punch
+                && ( options.server.sa.sa_family == AF_INET || options.server.sa.sa_family == AF_INET6 ) ) {
       /* at the server's own address, if nothing in between changes the port */
       const std::string server = format_ip_port( options.server );
       punch->add_candidate( server.substr( 0, server.rfind( ':' ) ) + ":" + words[1] );

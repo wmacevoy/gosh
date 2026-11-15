@@ -27,12 +27,79 @@
 using namespace Network;
 
 /*
+ * (gosh, REQ16/PATH-8) The socket takes both families where the system lets one socket do so: an
+ * IPv4 address is then written in IPv6's form for it (::ffff:a.b.c.d). The logic sees addresses
+ * as they are, IPv4 as IPv4; these two put them in the socket's form and back.
+ */
+static Addr from_socket( const Addr& a )
+{
+  if ( a.sa.sa_family != AF_INET6 ) {
+    return a;
+  }
+  const unsigned char* b = a.sin6.sin6_addr.s6_addr;
+  static const unsigned char mapped[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff };
+  if ( memcmp( b, mapped, 12 ) != 0 ) {
+    return a;
+  }
+  Addr v4;
+  memset( &v4, 0, sizeof( v4 ) );
+  v4.sin.sin_family = AF_INET;
+  v4.sin.sin_port = a.sin6.sin6_port;
+  memcpy( &v4.sin.sin_addr.s_addr, b + 12, 4 );
+  return v4;
+}
+
+static socklen_t to_socket( int family, const Addr& a, Addr& out )
+{
+  if ( family == AF_INET6 && a.sa.sa_family == AF_INET ) {
+    memset( &out, 0, sizeof( out ) );
+    out.sin6.sin6_family = AF_INET6;
+    out.sin6.sin6_port = a.sin.sin_port;
+    out.sin6.sin6_addr.s6_addr[10] = 0xff;
+    out.sin6.sin6_addr.s6_addr[11] = 0xff;
+    memcpy( out.sin6.sin6_addr.s6_addr + 12, &a.sin.sin_addr.s_addr, 4 );
+    return sizeof( out.sin6 );
+  }
+  out = a;
+  return a.sa.sa_family == AF_INET6 ? sizeof( a.sin6 ) : sizeof( a.sin );
+}
+
+/* A socket for both families if there can be one, or else for IPv4; and which it is. */
+static int both_families( int& family )
+{
+  family = AF_INET6;
+  int fd = socket( AF_INET6, SOCK_DGRAM, 0 );
+  const int only = 0;
+  if ( fd >= 0 && setsockopt( fd, IPPROTO_IPV6, IPV6_V6ONLY, &only, sizeof( only ) ) == 0 ) {
+    struct sockaddr_in6 any;
+    memset( &any, 0, sizeof( any ) );
+    any.sin6_family = AF_INET6;
+    if ( bind( fd, reinterpret_cast<struct sockaddr*>( &any ), sizeof( any ) ) == 0 ) {
+      return fd;
+    }
+  }
+  if ( fd >= 0 ) {
+    close( fd );
+  }
+  family = AF_INET;
+  fd = socket( AF_INET, SOCK_DGRAM, 0 );
+  struct sockaddr_in any;
+  memset( &any, 0, sizeof( any ) );
+  any.sin_family = AF_INET;
+  if ( fd >= 0 && bind( fd, reinterpret_cast<struct sockaddr*>( &any ), sizeof( any ) ) < 0 ) {
+    close( fd );
+    fd = -1;
+  }
+  return fd;
+}
+
+/*
  * Ask the servers where datagrams from this socket appear to come from.
  * Looking their names up can take a while, and we have datagrams to
  * carry meanwhile, so another process does the asking; the answers come
  * to the socket, which is still ours to read.
  */
-static void ask_stun( int sock, const std::vector<std::string>& servers )
+static void ask_stun( int sock, int family, const std::vector<std::string>& servers )
 {
   if ( servers.empty() ) {
     return;
@@ -61,15 +128,25 @@ static void ask_stun( int sock, const std::vector<std::string>& servers )
       if ( colon == std::string::npos ) {
         continue;
       }
+      std::string host = servers[i].substr( 0, colon );
+      if ( host.size() > 2 && host[0] == '[' && host[host.size() - 1] == ']' ) {
+        host = host.substr( 1, host.size() - 2 );
+      }
       struct addrinfo hints, *res = NULL;
       memset( &hints, 0, sizeof( hints ) );
-      hints.ai_family = AF_INET;
+      hints.ai_family = family == AF_INET6 ? AF_UNSPEC : AF_INET;
       hints.ai_socktype = SOCK_DGRAM;
-      if ( getaddrinfo( servers[i].substr( 0, colon ).c_str(), servers[i].substr( colon + 1 ).c_str(), &hints, &res )
-           != 0 ) {
+      if ( getaddrinfo( host.c_str(), servers[i].substr( colon + 1 ).c_str(), &hints, &res ) != 0 ) {
         continue;
       }
-      sendto( sock, request.data(), request.size(), 0, res->ai_addr, res->ai_addrlen );
+      /* (each address the name has, of each family: whichever we can be seen from) */
+      for ( struct addrinfo* a = res; a; a = a->ai_next ) {
+        Addr to, sent;
+        memset( &to, 0, sizeof( to ) );
+        memcpy( &to, a->ai_addr, a->ai_addrlen < sizeof( to ) ? a->ai_addrlen : sizeof( to ) );
+        const socklen_t len = to_socket( family, to, sent );
+        sendto( sock, request.data(), request.size(), 0, &sent.sa, len );
+      }
       freeaddrinfo( res );
     }
     usleep( 400000 );
@@ -78,15 +155,10 @@ static void ask_stun( int sock, const std::vector<std::string>& servers )
 }
 
 Punch::Punch( bool s_initiator, const std::string& key, const std::vector<std::string>& ask, uint64_t now )
-  : sock( socket( AF_INET, SOCK_DGRAM, 0 ) ), finding( s_initiator, key, now )
+  : sock( -1 ), family( AF_INET ), finding( s_initiator, key, now )
 {
-  struct sockaddr_in any;
-  memset( &any, 0, sizeof( any ) );
-  any.sin_family = AF_INET;
-  if ( sock < 0 || bind( sock, reinterpret_cast<struct sockaddr*>( &any ), sizeof( any ) ) < 0 ) {
-    if ( sock >= 0 ) {
-      close( sock );
-    }
+  sock = both_families( family );
+  if ( sock < 0 ) {
     throw NetworkException( "punch: socket", errno );
   }
   fcntl( sock, F_SETFL, fcntl( sock, F_GETFL ) | O_NONBLOCK );
@@ -100,20 +172,31 @@ Punch::Punch( bool s_initiator, const std::string& key, const std::vector<std::s
   struct ifaddrs* interfaces = NULL;
   if ( getifaddrs( &interfaces ) == 0 ) {
     for ( struct ifaddrs* i = interfaces; i; i = i->ifa_next ) {
-      if ( !i->ifa_addr || i->ifa_addr->sa_family != AF_INET || !( i->ifa_flags & IFF_UP )
-           || ( i->ifa_flags & IFF_LOOPBACK ) ) {
+      if ( !i->ifa_addr || !( i->ifa_flags & IFF_UP ) || ( i->ifa_flags & IFF_LOOPBACK ) ) {
         continue;
       }
       Addr mine;
       memset( &mine, 0, sizeof( mine ) );
-      memcpy( &mine.sin, i->ifa_addr, sizeof( mine.sin ) );
-      mine.sin.sin_port = htons( local_port() );
+      if ( i->ifa_addr->sa_family == AF_INET ) {
+        memcpy( &mine.sin, i->ifa_addr, sizeof( mine.sin ) );
+        mine.sin.sin_port = htons( local_port() );
+      } else if ( i->ifa_addr->sa_family == AF_INET6 && family == AF_INET6 ) {
+        memcpy( &mine.sin6, i->ifa_addr, sizeof( mine.sin6 ) );
+        /* (an address of this link alone needs its interface named to be used: not one to hand out) */
+        if ( IN6_IS_ADDR_LINKLOCAL( &mine.sin6.sin6_addr ) ) {
+          continue;
+        }
+        mine.sin6.sin6_port = htons( local_port() );
+        mine.sin6.sin6_scope_id = 0;
+      } else {
+        continue;
+      }
       finding.add_own_address( format_ip_port( mine ) );
     }
     freeifaddrs( interfaces );
   }
 
-  ask_stun( sock, ask );
+  ask_stun( sock, family, ask );
 }
 
 Punch::~Punch()
@@ -123,12 +206,12 @@ Punch::~Punch()
 
 uint16_t Punch::local_port( void ) const
 {
-  struct sockaddr_in sin;
-  socklen_t len = sizeof( sin );
-  if ( getsockname( sock, reinterpret_cast<struct sockaddr*>( &sin ), &len ) < 0 ) {
+  Addr mine;
+  socklen_t len = sizeof( mine );
+  if ( getsockname( sock, &mine.sa, &len ) < 0 ) {
     return 0;
   }
-  return ntohs( sin.sin_port );
+  return ntohs( mine.sa.sa_family == AF_INET6 ? mine.sin6.sin6_port : mine.sin.sin_port );
 }
 
 /* Sends what the logic says to send. */
@@ -136,7 +219,12 @@ void Punch::flush( void )
 {
   const std::vector<PathFinding::Outgoing> out = finding.take_outbox();
   for ( size_t i = 0; i < out.size(); i++ ) {
-    sendto( sock, out[i].bytes.data(), out[i].bytes.size(), 0, &out[i].to.sa, sizeof( out[i].to.sin ) );
+    Addr to;
+    const socklen_t len = to_socket( family, out[i].to, to );
+    if ( family == AF_INET && to.sa.sa_family != AF_INET ) {
+      continue; /* (an IPv6 address, and a socket that cannot reach one) */
+    }
+    sendto( sock, out[i].bytes.data(), out[i].bytes.size(), 0, &to.sa, len );
   }
 }
 
@@ -166,7 +254,7 @@ Punch::Got Punch::receive( uint64_t now, std::string& datagram )
   if ( n < 0 ) {
     return ( errno == EAGAIN || errno == EWOULDBLOCK ) ? NOTHING : OTHER;
   }
-  const Got got = finding.receive( now, whole, n, from, datagram );
+  const Got got = finding.receive( now, whole, n, from_socket( from ), datagram );
   flush();
   return got;
 }

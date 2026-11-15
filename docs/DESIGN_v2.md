@@ -482,7 +482,8 @@ Contracts and failures:
 *Since 2026-11-15 path-finding is switched on in gosh, its meetup half replaced by tickets
 (`registering`, below), and a probe opened only at its one length; and divided as above: **STUN**
 is `stun.h`, **punch** and **registering** are `PathFinding` in `finding.h` (logic: it returns the
-datagrams to send), and the edge is `Punch` in `punch.*`.*
+datagrams to send), and the edge is `Punch` in `punch.*`. Since requirements v16 it is IPv4 and
+IPv6 (`REQ16/PATH-8`): one socket for both where the system allows, IPv6 first.*
 
 | **registering** | the meetup: where it sees us, REGISTER under the ticket, again every 25 s, asking again after three unanswered; PASS and PASSED | logic, in `PathFinding` (`use_meetup`, `tend_meetup`, `from_meetup`); its bytes are meetup's `messages` | written for gosh | `REQ15/PATH-4`, `REQ15/PATH-5` |
 
@@ -494,7 +495,8 @@ through a meetup; a forged ticket; an oversized probe);
 
 *Since 2026-11-15 the meetup is built to `PROPOSAL_meetup-registration.md`, revision 10: the
 student's own server, used with a ticket given over ssh. The fork's shared key and copyable proof
-are gone from it, and from path-finding.*
+are gone from it, and from path-finding. Since requirements v16 it listens by IPv4 and IPv6
+(`REQ16/PATH-8`), and "where" carries either.*
 
 | Piece | Purpose | Kind | From | Serves |
 | --- | --- | --- | --- | --- |

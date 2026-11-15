@@ -50,6 +50,7 @@ struct Net
   PathFinding& a;
   PathFinding& b;
   Addr a_at, b_at;   /* where each appears to be, from outside */
+  Addr a_at6, b_at6; /* (REQ16/PATH-8) and by IPv6, if it has that too: AF_UNSPEC if not */
   Addr meetup_at;
   bool straight;     /* whether datagrams straight between the two get through */
   Gosh::Registrations meetup;
@@ -61,7 +62,7 @@ struct Net
 
   Net( PathFinding& s_a, PathFinding& s_b )
     : a( s_a ), b( s_b ), a_at( at( "203.0.113.1:4000" ) ), b_at( at( "198.51.100.2:5000" ) ),
-      meetup_at( at( "192.0.2.9:3478" ) ), straight( true ), meetup(), now( 1000 ), a_got(), b_got(),
+      a_at6(), b_at6(), meetup_at( at( "192.0.2.9:3478" ) ), straight( true ), meetup(), now( 1000 ), a_got(), b_got(),
       b_goodbyes( 0 ), meetup_passed( 0 ), straight_sent( 0 )
   {}
 
@@ -84,37 +85,39 @@ struct Net
       bool any = false;
       for ( int side = 0; side < 2; side++ ) {
         PathFinding& from = side ? b : a;
-        const Addr& from_at = side ? b_at : a_at;
         const std::vector<PathFinding::Outgoing> out = from.take_outbox();
         for ( size_t i = 0; i < out.size(); i++ ) {
           any = true;
           const Addr& to = out[i].to;
           const std::string& bytes = out[i].bytes;
+          /* (it is seen from whichever of its addresses is of the family it sends to) */
+          const Addr& from_at = to.sa.sa_family == AF_INET6 ? ( side ? b_at6 : a_at6 ) : ( side ? b_at : a_at );
+          if ( from_at.sa.sa_family != to.sa.sa_family ) {
+            continue; /* it has no address of that family: nothing goes */
+          }
           if ( Network::same_ip_port( to, meetup_at ) ) {
             if ( Gosh::is_stun_request( bytes.data(), bytes.size() ) ) {
-              const std::string answer = Gosh::stun_answer( bytes.data(), ntohl( from_at.sin.sin_addr.s_addr ),
-                                                            ntohs( from_at.sin.sin_port ) );
+              const std::string answer = Gosh::stun_answer_to( bytes.data(), Gosh::meetup_where_of( from_at ) );
               to_end( side == 0, answer, meetup_at );
               continue;
             }
-            const Gosh::Registrations::Send s = meetup.datagram(
-              bytes.data(), bytes.size(),
-              Gosh::meetup_where_v4( ntohl( from_at.sin.sin_addr.s_addr ), ntohs( from_at.sin.sin_port ) ), now / 1000,
-              key_of );
-            if ( s.any ) {
-              const Addr dest = at( Network::format_ip_port( to_addr( s.to ) ) );
+            const Gosh::Registrations::Send s
+              = meetup.datagram( bytes.data(), bytes.size(), Gosh::meetup_where_of( from_at ), now / 1000, key_of );
+            Addr dest;
+            socklen_t len;
+            if ( s.any && Gosh::meetup_addr_of( s.to, dest, len ) ) {
               if ( s.bytes.size() != Gosh::MEETUP_ADDRESS_MESSAGE ) {
                 meetup_passed++;
               }
-              if ( Network::same_ip_port( dest, a_at ) ) {
+              if ( is( dest, true ) ) {
                 to_end( true, s.bytes, meetup_at );
-              } else if ( Network::same_ip_port( dest, b_at ) ) {
+              } else if ( is( dest, false ) ) {
                 to_end( false, s.bytes, meetup_at );
               }
             }
             continue;
           }
-          const bool to_other = Network::same_ip_port( to, side ? a_at : b_at );
+          const bool to_other = is( to, side != 0 );
           if ( to_other ) {
             straight_sent++;
             if ( straight ) {
@@ -129,14 +132,10 @@ struct Net
     }
   }
 
-  static Addr to_addr( const std::string& where )
+  /* Whether an address is one of end 0's (a) or end 1's. */
+  bool is( const Addr& where, bool end_a ) const
   {
-    Addr a;
-    memset( &a, 0, sizeof( a ) );
-    a.sin.sin_family = AF_INET;
-    memcpy( &a.sin.sin_addr.s_addr, where.data() + 1, 4 );
-    memcpy( &a.sin.sin_port, where.data() + 17, 2 );
-    return a;
+    return Network::same_ip_port( where, end_a ? a_at : b_at ) || Network::same_ip_port( where, end_a ? a_at6 : b_at6 );
   }
 
   /* Time passes, in steps of 50 ms, with both ends ticking and everything delivered. */
@@ -320,10 +319,75 @@ int main()
            mine.size() == 1 && mine[0] == "203.0.113.1:7777" );
   }
 
+  /* REQ16/PATH-8: by IPv6. */
+  {
+    PathFinding a( true, key, 1000 ), b( false, key, 1000 );
+    Net net( a, b );
+    memset( &net.a_at, 0, sizeof( net.a_at ) ); /* (no IPv4 address at all) */
+    memset( &net.b_at, 0, sizeof( net.b_at ) );
+    net.a_at6 = at( "[2001:db8::a]:4000" );
+    net.b_at6 = at( "[2001:db8::b]:5000" );
+    a.add_candidate( "[2001:db8::b]:5000" );
+    b.add_candidate( "[2001:db8::a]:4000" );
+    net.pass( 1000 );
+    check( "two ends with IPv6 alone find a way straight through by it (REQ16/PATH-8)",
+           a.open( net.now ) && a.direct() && a.where() == "[2001:db8::b]:5000" );
+  }
+  {
+    PathFinding a( true, key, 1000 ), b( false, key, 1000 );
+    Net net( a, b );
+    memset( &net.a_at, 0, sizeof( net.a_at ) ); /* (no IPv4 address at all) */
+    memset( &net.b_at, 0, sizeof( net.b_at ) );
+    net.a_at6 = at( "[2001:db8::a]:4000" );
+    net.b_at6 = at( "[2001:db8::b]:5000" );
+    net.meetup_at = at( "[2001:db8::9]:3478" );
+    net.straight = false;
+    a.use_meetup( "[2001:db8::9]:3478", ticket, 1 );
+    b.use_meetup( "[2001:db8::9]:3478", ticket, 1 );
+    net.pass( 2000 );
+    check( "and, nothing straight getting through, through a meetup with an IPv6 address alone",
+           a.meetup_registered() && b.meetup_registered() && a.open( net.now ) && !a.direct()
+             && a.where() == "the meetup at [2001:db8::9]:3478" );
+    a.send( "by IPv6, through the meetup" );
+    net.deliver();
+    check( "and a datagram goes through it", net.b_got == "by IPv6, through the meetup" );
+  }
+  {
+    PathFinding a( true, key, 1000 ), b( false, key, 1000 );
+    Net net( a, b );
+    net.a_at6 = at( "[2001:db8::a]:4000" );
+    net.b_at6 = at( "[2001:db8::b]:5000" );
+    a.add_candidate( "198.51.100.2:5000" );
+    b.add_candidate( "203.0.113.1:4000" );
+    net.pass( 1000 );
+    check( "two ends with both families, told only each other's IPv4: by IPv4", a.direct() && a.where() == "198.51.100.2:5000" );
+    a.add_candidate( "[2001:db8::b]:5000" );
+    b.add_candidate( "[2001:db8::a]:4000" );
+    net.pass( 3 * PathFinding::OPEN_EVERY );
+    check( "told their IPv6 as well, both move to it, and stay (REQ16/PATH-8: IPv6 first)",
+           a.where() == "[2001:db8::b]:5000" && b.where() == "[2001:db8::a]:4000" );
+    net.pass( 5 * PathFinding::OPEN_EVERY );
+    check( "and IPv4's answers go on without taking them back to it", a.where() == "[2001:db8::b]:5000" );
+    std::string probe;
+    for ( int i = 0; i < 40 && probe.empty(); i++ ) {
+      net.now += 50;
+      b.tick( net.now );
+      const std::vector<PathFinding::Outgoing> out = b.take_outbox();
+      for ( size_t j = 0; j < out.size(); j++ ) {
+        if ( out[j].bytes.size() == PathFinding::PROBE_LEN ) {
+          probe = out[j].bytes;
+        }
+      }
+    }
+    net.to_end( true, probe, net.b_at );
+    check( "a fresh probe from the other end by IPv4 does not take it off IPv6 while that answers",
+           !probe.empty() && a.where() == "[2001:db8::b]:5000" );
+  }
+
   if ( failures ) {
-    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5: %d checks of path-finding's logic failed\n", failures );
+    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: %d checks of path-finding's logic failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5: path-finding's logic\n" );
+  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: path-finding's logic\n" );
   return 0;
 }

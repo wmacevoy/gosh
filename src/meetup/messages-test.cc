@@ -96,10 +96,33 @@ int main()
          meetup_read_header( high.data(), high.size(), h ) && meetup_open( session, h, false, counter, text )
            && counter == MEETUP_COUNTER_MASK );
 
+  /* REQ16/PATH-8: an IPv6 address as "where", and back. */
+  Network::Addr a6, back;
+  memset( &a6, 0, sizeof( a6 ) );
+  a6.sin6.sin6_family = AF_INET6;
+  a6.sin6.sin6_port = htons( 4242 );
+  a6.sin6.sin6_addr.s6_addr[0] = 0x20;
+  a6.sin6.sin6_addr.s6_addr[15] = 0x07;
+  const std::string w6 = meetup_where_of( a6 );
+  socklen_t len = 0;
+  check( "an IPv6 address as where: family 6, its 16 bytes, its port; and back (REQ16/PATH-8)",
+         w6.size() == 19 && w6[0] == 6 && w6[1] == 0x20 && w6[16] == 0x07 && meetup_addr_of( w6, back, len )
+           && back.sa.sa_family == AF_INET6 && len == sizeof( back.sin6 ) && memcmp( &back.sin6.sin6_addr, &a6.sin6.sin6_addr, 16 ) == 0
+           && back.sin6.sin6_port == a6.sin6.sin6_port );
+  Network::Addr mapped = a6;
+  memset( mapped.sin6.sin6_addr.s6_addr, 0, 16 );
+  mapped.sin6.sin6_addr.s6_addr[10] = 0xff;
+  mapped.sin6.sin6_addr.s6_addr[11] = 0xff;
+  mapped.sin6.sin6_addr.s6_addr[12] = 127;
+  mapped.sin6.sin6_addr.s6_addr[15] = 1;
+  check( "an IPv4 address written in IPv6's form is taken as the IPv4 one it is",
+         meetup_where_of( mapped ) == meetup_where_v4( 0x7F000001, 4242 ) );
+  check( "where of another family is no address", !meetup_addr_of( std::string( 19, '\x05' ), back, len ) );
+
   if ( failures ) {
-    printf( "FAIL REQ15/PATH-5: %d checks of the meetup's messages failed\n", failures );
+    printf( "FAIL REQ15/PATH-5, REQ16/PATH-8: %d checks of the meetup's messages failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ15/PATH-5: the meetup's messages\n" );
+  printf( "PASS REQ15/PATH-5, REQ16/PATH-8: the meetup's messages\n" );
   return 0;
 }

@@ -56,11 +56,21 @@ def free_port():
     return port
 
 
-def sock():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.bind(("127.0.0.1", 0))
+def sock(family=socket.AF_INET):
+    s = socket.socket(family, socket.SOCK_DGRAM)
+    s.bind(("::1" if family == socket.AF_INET6 else "127.0.0.1", 0))
     s.settimeout(1.0)
     return s
+
+
+def have_ipv6():
+    try:
+        s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        s.bind(("::1", 0))
+        s.close()
+        return True
+    except OSError:
+        return False
 
 
 def receive(s, wait=1.0):
@@ -79,6 +89,8 @@ KINDS = {"REG": 1, "RGD": 2, "PAS": 3}
 
 def where(s):
     port = s.getsockname()[1]
+    if s.family == socket.AF_INET6:
+        return bytes([6]) + socket.inet_pton(socket.AF_INET6, "::1") + struct.pack(">H", port)
     return bytes([4, 127, 0, 0, 1]) + bytes(12) + struct.pack(">H", port)
 
 
@@ -168,6 +180,27 @@ try:
         onlooker.sendto(seal(wrong, "REG", tid, 0, False, 9, where(onlooker)), meet)
         check("a REGISTER sealed without the ticket's key gets nothing", receive(onlooker, 0.5) is None)
 
+        # REQ16/PATH-8: the same, by IPv6, with a ticket of its own.
+        if not have_ipv6():
+            print("SKIPPED: the exchange by IPv6: this machine has no ::1", flush=True)
+        else:
+            text6, _ = ticket()
+            tid6 = base64.b64decode(text6[12:34] + "==")
+            key6 = base64.b64decode(text6[35:57] + "==")
+            a6, b6 = sock(socket.AF_INET6), sock(socket.AF_INET6)
+            meet6 = ("::1", port)
+            a6.sendto(seal(key6, "REG", tid6, 0, False, 0, where(a6)), meet6)
+            check("by IPv6: end 0 registers, and is told where it was seen (REQ16/PATH-8)",
+                  open_registered(key6, receive(a6), tid6, 0) == where(a6))
+            b6.sendto(seal(key6, "REG", tid6, 1, False, 0, where(b6)), meet6)
+            check("by IPv6: end 1 registers", open_registered(key6, receive(b6), tid6, 1) == where(b6))
+            a6.sendto(seal(key6, "PAS", tid6, 0, False, 1, b"by IPv6"), meet6)
+            check("by IPv6: a datagram from end 0 reaches end 1", receive(b6) == MARKS["PSD"] + b"\x01" + b"by IPv6")
+            asker6 = sock(socket.AF_INET6)
+            asker6.sendto(STUN, meet6)
+            got6 = receive(asker6)
+            check("by IPv6: the STUN question is answered, 44 bytes", got6 is not None and len(got6) == 44, repr(got6))
+
         meetup.terminate()
         meetup.wait(timeout=5)
         new = subprocess.run([server, "meetup-key", "--new"], env=env, capture_output=True, text=True, timeout=20)
@@ -196,5 +229,5 @@ finally:
     shutil.rmtree(home, ignore_errors=True)
 
 if failures:
-    sys.exit("FAIL REQ15/PATH-4, REQ15/PATH-5: %s" % "; ".join(failures))
-print("PASS REQ15/PATH-4, REQ15/PATH-5: a meetup answers the question, and passes for a ticket's two ends alone")
+    sys.exit("FAIL REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: %s" % "; ".join(failures))
+print("PASS REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: a meetup answers the question, and passes for a ticket's two ends alone")

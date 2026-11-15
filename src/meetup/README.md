@@ -37,7 +37,12 @@ is taken only from there and only with a counter it has not used; a PASS is take
 its end registered. `registrations-test.cc` shows each thing the onlooker could do refused.
 
 Not closed (the proposal, section 6): a ticket lasts 30 days, whoever holds it; the meetup sees
-which two addresses talk; a ticket's id and an end's counter are in the clear; IPv4 only.
+which two addresses talk; a ticket's id and an end's counter are in the clear.
+
+**IPv4 and IPv6** (`REQ16/PATH-8`): the meetup listens on both, each where the machine has it,
+answers STUN by both, and a ticket's two ends may be of different families. Tested by
+`registrations-test.cc` (an IPv6 end and an IPv4 one), `tests/meetup-tickets.py` (the exchange
+over `::1`) and `tests/relay-meetup.py ::1`.
 
 ## Not tested
 

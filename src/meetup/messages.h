@@ -12,8 +12,9 @@
  * "sealed" is mosh's cipher under the ticket's key: an 8-byte nonce, the text, a 16-byte tag. The
  * nonce is a counter whose top two bits say who sealed it and for whom (direction, below), so that
  * no two of the four senders under one key ever use the same nonce, and a message sealed one way
- * cannot be taken for one sealed another. "where" is 19 bytes: a family (4), an address of 16 (an
- * IPv4 address in the first four, most significant first; zeros after) and a port of 2.
+ * cannot be taken for one sealed another. "where" is 19 bytes: a family (4 or 6), an address of
+ * 16 (an IPv4 address in the first four, most significant first, zeros after; or an IPv6 address)
+ * and a port of 2 (REQ16/PATH-8).
  *
  * Wrong input: anything not exactly one of these lengths, with its mark and version, is not read
  * (false); a seal that does not open, or opens to the wrong kind or direction, is refused. Lengths
@@ -28,6 +29,7 @@
 #include <string>
 
 #include "src/crypto/crypto.h"
+#include "src/network/network.h"
 
 namespace Gosh {
 
@@ -71,6 +73,55 @@ inline std::string meetup_where_v4( uint32_t address, uint16_t port )
   w[17] = static_cast<char>( port >> 8 );
   w[18] = static_cast<char>( port & 0xff );
   return w;
+}
+
+/* An IPv6 address (16 bytes, as on the wire) and port (in host order) as "where". */
+inline std::string meetup_where_v6( const void* address, uint16_t port )
+{
+  std::string w( MEETUP_WHERE_LEN, '\0' );
+  w[0] = 6;
+  memcpy( &w[1], address, 16 );
+  w[17] = static_cast<char>( port >> 8 );
+  w[18] = static_cast<char>( port & 0xff );
+  return w;
+}
+
+/* An address as "where": IPv4, or IPv6; an IPv6 address that is an IPv4 one mapped is taken as IPv4. Empty for anything else. */
+inline std::string meetup_where_of( const Network::Addr& a )
+{
+  if ( a.sa.sa_family == AF_INET ) {
+    return meetup_where_v4( ntohl( a.sin.sin_addr.s_addr ), ntohs( a.sin.sin_port ) );
+  }
+  if ( a.sa.sa_family == AF_INET6 ) {
+    const unsigned char* b = a.sin6.sin6_addr.s6_addr;
+    static const unsigned char mapped[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff };
+    if ( memcmp( b, mapped, 12 ) == 0 ) {
+      return meetup_where_v4( ( uint32_t( b[12] ) << 24 ) | ( b[13] << 16 ) | ( b[14] << 8 ) | b[15], ntohs( a.sin6.sin6_port ) );
+    }
+    return meetup_where_v6( b, ntohs( a.sin6.sin6_port ) );
+  }
+  return std::string();
+}
+
+/* "where" back to an address to send to, and its length; false if it is not one. */
+inline bool meetup_addr_of( const std::string& w, Network::Addr& a, socklen_t& len )
+{
+  if ( w.size() != MEETUP_WHERE_LEN || ( w[0] != 4 && w[0] != 6 ) ) {
+    return false;
+  }
+  memset( &a, 0, sizeof( a ) );
+  if ( w[0] == 4 ) {
+    a.sin.sin_family = AF_INET;
+    memcpy( &a.sin.sin_addr.s_addr, w.data() + 1, 4 );
+    memcpy( &a.sin.sin_port, w.data() + 17, 2 );
+    len = sizeof( a.sin );
+  } else {
+    a.sin6.sin6_family = AF_INET6;
+    memcpy( a.sin6.sin6_addr.s6_addr, w.data() + 1, 16 );
+    memcpy( &a.sin6.sin6_port, w.data() + 17, 2 );
+    len = sizeof( a.sin6 );
+  }
+  return true;
 }
 
 /* A message's header, once its length, mark and version have been found right. */

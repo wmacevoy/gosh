@@ -275,11 +275,17 @@ public:
         last_probe = now;
         probe( '?', peer, peer_via );
       }
-      /* Through a meetup is second best: go on looking, now and then, for a way straight there. */
-      if ( peer_via && now - last_direct_probe >= SLOW_EVERY ) {
+      /*
+       * Through a meetup is second best: go on looking, now and then, for a way straight there.
+       * (gosh, REQ16/PATH-8) And straight by IPv4 is second to straight by IPv6.
+       */
+      const bool by_ipv4 = !peer_via && peer.sa.sa_family == AF_INET;
+      if ( ( peer_via || by_ipv4 ) && now - last_direct_probe >= SLOW_EVERY ) {
         last_direct_probe = now;
         for ( size_t i = 0; i < candidates.size(); i++ ) {
-          probe( '?', candidates[i], false );
+          if ( peer_via || candidates[i].sa.sa_family == AF_INET6 ) {
+            probe( '?', candidates[i], false );
+          }
         }
       }
       return;
@@ -303,7 +309,7 @@ public:
   /* A datagram has come from `from`. DATA: the session's, in datagram. Never NOTHING. */
   Got receive( uint64_t now, const char* whole, size_t n, const Addr& from, std::string& datagram )
   {
-    if ( from.sa.sa_family != AF_INET ) {
+    if ( from.sa.sa_family != AF_INET && from.sa.sa_family != AF_INET6 ) {
       return OTHER;
     }
 
@@ -336,9 +342,14 @@ public:
         /*
          * Wherever it is now, it is there: except that while there is a way
          * straight to it, hearing from it through a meetup as well is no
-         * reason to go the long way round.
+         * reason to go the long way round; (gosh, REQ16/PATH-8) and while
+         * there is one by IPv6, hearing from it by IPv4 as well is no reason
+         * to leave it.
          */
-        if ( !( via && locked && !peer_via && now - heard < OPEN_FOR ) ) {
+        const bool fresh = locked && now - heard < OPEN_FOR;
+        const bool longer_way = via && !peer_via;
+        const bool older_family = !via && !peer_via && peer.sa.sa_family == AF_INET6 && from.sa.sa_family == AF_INET;
+        if ( !( fresh && ( longer_way || older_family ) ) ) {
           peer = from;
           peer_via = via;
           locked = true;
@@ -368,7 +379,7 @@ public:
       add_local( format_ip_port( mapped ), MAX_CANDIDATES );
       /* (gosh) The meetup's answer: where to register from. */
       if ( meetup_known && same_ip_port( from, meetup ) && believed.empty() ) {
-        believed = Gosh::meetup_where_v4( ntohl( mapped.sin.sin_addr.s_addr ), ntohs( mapped.sin.sin_port ) );
+        believed = Gosh::meetup_where_of( mapped );
         last_register = 0;
       }
       return OTHER;
