@@ -24,9 +24,9 @@ Not here yet: path-finding. A part adds words to
 
 `hooks.h` held all four of these until 2026-11-15 (queue item 19): every part that needed a
 turn in the loop added its state and its functions to one header. Now a part that needs a turn
-gets a file of its own here. **Not yet as clean as that for a stream:** `hooks.h` still starts the
-client's stream process and sets its state in `announce()`, and reads it in `stream_exit()`, so
-`streaming.cc` cannot be read alone (the review of 2026-11-15). `hooks.h` otherwise only calls the parts' files. These are edges (they fork, wait and
+gets a file of its own here, and `hooks.h` only calls it: a stream's process is started, given
+up on, waited for and asked for its status in `streaming.cc` alone (since 2026-11-15; the review of
+item 19 found `hooks.h` still doing some of it). These are edges (they fork, wait and
 write to standard error) and have no unit tests of their own: the tests that drive the
 programs from outside are their tests (`forward-e2e.py`, `headless-smoke.py`, `mocp.test`,
 `relay-dies.py`).

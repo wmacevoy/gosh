@@ -29,6 +29,26 @@ struct StreamState
 /* The client, for a stream: sees whether its process has ended, and ends the session when the stream is over. */
 void tend_stream( void );
 
+/* What the stream is to start, from the words the program was given (none if it is not for a stream). */
+void take_stream_words( void );
+
+/* The server: its end of the stream is to be started when the client asks for it. */
+void serve_stream( void );
+
+/* The client, once the session is up: starts the process at its end, and asks the server for the other. */
+void start_stream( void );
+
+/* The client: the process at its end will never run (it could not be started, or the server cannot do streams). */
+void stream_never_ran( void );
+
+/*
+ * The client, for a stream: the status to exit with. We were only the means; what matters is
+ * how the process the stream was for got on: its exit status; or 1 if it never ran, or if the
+ * client's loop was thrown out of before it could be asked.
+ * success: whether the session itself ended cleanly.
+ */
+int stream_exit( bool success );
+
 }
 
 #endif

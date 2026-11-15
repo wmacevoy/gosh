@@ -13,7 +13,6 @@
 #include <sys/types.h>
 
 #include "src/forwarding/forwarding.h"
-#include "src/forwarding/stream/streamchild.h"
 #include "src/seam/session.h"
 
 /*
@@ -54,8 +53,7 @@ void session_started( Transport& network, unsigned int verbose )
 {
   Session& s = session();
   const bool stream = !s.options.stream.empty();
-  /* (only then: the words of an empty string are one empty word, which is not "no stream") */
-  s.stream.words = stream ? Network::stream_words( s.options.stream ) : std::vector<std::string>();
+  take_stream_words();
   if ( s.client ) {
     s.ending = [&network]() { return network.shutdown_in_progress(); };
     s.end_it = [&network]() { network.start_shutdown(); };
@@ -72,9 +70,7 @@ void session_started( Transport& network, unsigned int verbose )
   s.forwarding.reset( new Network::Forwarding(
     &network, s.client, s.options.udp, s.options.tcp, s.options.tcp_remote, s.options.udp_remote, stream ) );
   if ( stream && !s.client ) {
-    /* the server's end of the stream is started when the client asks for it */
-    const std::vector<std::string> words = s.stream.words;
-    s.forwarding->set_stream_spawner( [words]() { return Network::stream_child( words, false, NULL ); } );
+    serve_stream();
   }
   s.forwarding->set_verbose( verbose );
   if ( !s.forwarding->set_fragment_parity( s.options.parity ) ) {
@@ -149,8 +145,7 @@ void announce( Transport& network, bool still_connecting )
     s.announced = true;
     fputs( "mosh: the server does not do this: it is a stock mosh-server, or one from before streams.\n", stderr );
     fflush( stderr );
-    s.stream.pid = -1;
-    s.stream.ended = Network::timestamp();
+    stream_never_ran();
     return;
   }
   if ( !stream && s.forwarding && !network.peer_can( Network::CAPABILITY_SIDECHANNEL ) ) {
@@ -171,16 +166,7 @@ void announce( Transport& network, bool still_connecting )
   }
   s.announced = true;
   if ( stream ) {
-    /* The session is up: start our end of the stream, and ask the server for its end. */
-    pid_t pid = 0;
-    const int fd = Network::stream_child( s.stream.words, true, &pid );
-    if ( fd < 0 ) {
-      s.stream.pid = -1;
-      s.stream.ended = Network::timestamp();
-    } else {
-      s.stream.pid = pid;
-      s.forwarding->open_stream( fd ); /* (if it can't be, the process sees its stream end at once) */
-    }
+    start_stream(); /* the session is up: our end of the stream, and the server asked for its end */
     return;
   }
   fputs( s.forwarding ? "mosh: connected; forwarding.\n" : "mosh: connected.\n", stderr );
@@ -191,22 +177,6 @@ void announce( Transport& network, bool still_connecting )
 inline void loop_returned( void )
 {
   session().loop_returned = true;
-}
-
-/*
- * The client, for a stream: the status to exit with. We were only the means; what matters is
- * how the process the stream was for got on: its exit status; or 1 if it never ran, or if the
- * client's loop was thrown out of before it could be asked.
- * success: whether the session itself ended cleanly.
- */
-inline int stream_exit( bool success )
-{
-  Session& s = session();
-  const int status = ( s.loop_returned && s.stream.pid == -1 ) ? s.stream.status : 1;
-  if ( status == 1 && !success ) {
-    fputs( "mosh: the session ended before its work was done.\n", stderr );
-  }
-  return status;
 }
 
 /* Ends forwarding and closes its sockets. Safe to call when there is none. */
