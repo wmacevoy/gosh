@@ -201,9 +201,8 @@ In every row, nobody reads or changes what the two ends say: that is sealed by t
   handshake would give it, at one more costly step a side; not proposed. The remedy is to give
   the meetup a new key.
 - **The meetup is trusted** not to drop, and sees who talks to whom, how much, and as which
-  user. It writes to its log, for each registration taken or refused, the user's key, the
-  address and why. That log ties a person to an address; how long it is kept is whoever runs
-  the meetup's to decide, and gosh keeps none.
+  user. It writes none of that to its log (deferred by the owner, section 11), so whoever runs
+  it cannot tell from the meetup alone whom to blacklist.
 - **A PASSED proves nothing to the end that gets it.** Anyone forging the meetup's address can
   send one; the session refuses what is in it.
 - **An end's key E is in the clear** when it registers, so one session can be followed across
@@ -256,7 +255,7 @@ In every row, nobody reads or changes what the two ends say: that is sealed by t
 
 ## 9. What the requirements would say (for a v15)
 
-- **REQ1/PATH-5**, reworded (in a v15, which would then be the version to cite it by): *A
+- **REQ15/PATH-5**, as v15 now words it (this was the proposal for it): *A
   meetup passes nothing on for anyone who has not just shown that they hold a key which a user
   has vouched for at that meetup, where an authority the meetup trusts has signed that user's
   key and the meetup has not blacklisted it; what it passes for an end goes only to the end
@@ -267,7 +266,7 @@ In every row, nobody reads or changes what the two ends say: that is sealed by t
 - **Glossary:** *authority*, *pass*, *voucher*, *registration*, *blacklist*.
 - **Scope decisions:** a second exception to the freeze, for this; TweetNaCl carried in
   `vendor/` with its origin and licence; a pass does not expire.
-- **Security:** the meetup learns which user is behind a session, and its log says so.
+- **Security:** the meetup learns which user is behind a session. It does not log it.
 
 ## 10. How this proposal got here
 
@@ -294,14 +293,20 @@ In every row, nobody reads or changes what the two ends say: that is sealed by t
   list of what is not closed corrected (5, 7); and the handling of the cipher, TweetNaCl and
   the list files said (4, 6, 8).
 
-## 11. Questions for the owner
+## 11. The owner's answers (2026-11-15)
 
-1. **No expiry on a pass**, only each meetup's blacklist and list of authorities. Agreed?
-2. **The words**: authority, pass, voucher. Agreed, or others?
-3. **A meetup with authorities stops answering STUN**; one started with none answers STUN as
-   today and passes nothing. Agreed?
-4. **No forward secrecy for registrations** (section 7, first item): if a meetup's key leaks,
-   recorded registrations can be read, and the remedy is a new key. Accept that, or pay one
-   more costly step a side to close it?
-5. **The meetup's log names the user's key and address** for each registration. Agreed that it
-   should, so that there is something to blacklist by?
+1. **No expiry on a pass**, only each meetup's blacklist and list of authorities: "yes".
+2. **The words** authority, pass, voucher: "yes".
+3. **Whether a meetup with authorities still answers STUN**: "not sure --- there are lots of
+   STUN servers --- but what's the harm?" The harm is small: it would tell a stranger that a
+   meetup is there, which is the one thing the requirement says it does not tell someone who
+   does not know its key; and it would be a public STUN server for anyone to lean on, at up to
+   200 answers a second. The gain is nothing its own users need, since REGISTERED tells an end
+   where it appears to be, and, as the owner says, there are many STUN servers. **So as
+   proposed: it does not**, and turning it on later changes nothing else in this design.
+4. **No forward secrecy for registrations**; the remedy for a leaked meetup key is a new key:
+   "ok".
+5. **The meetup's log naming each user's key and address**: "no - deferred". So the meetup
+   writes no user's key or address to its log. What that leaves: whoever runs a meetup learns
+   whom to blacklist only from the authority's own record of whose key it signed, not from the
+   meetup.

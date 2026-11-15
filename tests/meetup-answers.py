@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
-"""REQ1/PATH-4, REQ1/PATH-5: a meetup says where an asker appears to be; with a key, only to those who show it.
+"""REQ15/PATH-4, REQ15/PATH-5: a meetup says where an asker appears to be; with a key, only to those who show it.
 
 usage: meetup-answers.py SERVER
 
@@ -106,5 +106,5 @@ finally:
                 m.kill()
 
 if failures:
-    sys.exit("FAIL REQ1/PATH-4, REQ1/PATH-5: %s" % "; ".join(failures))
-print("PASS REQ1/PATH-4, REQ1/PATH-5: a meetup answers the question, and with a key says nothing to a stranger")
+    sys.exit("FAIL REQ15/PATH-4, REQ15/PATH-5: %s" % "; ".join(failures))
+print("PASS REQ15/PATH-4, REQ15/PATH-5: a meetup answers the question, and with a key says nothing to a stranger")

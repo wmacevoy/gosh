@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * meetup, passing: datagrams passed on between the two ends of a pair (REQ1/PATH-5; design v2,
+ * meetup, passing: datagrams passed on between the two ends of a pair (REQ15/PATH-5; design v2,
  * 2.2). Logic: a datagram, where it came from and the time in, where to send it on out. No
  * socket, no clock. The statements are the fork's (mosh-1.4.0-pf.7, src/network/punch.cc,
  * meetup_serve), which did this between its calls to recvfrom and sendto.

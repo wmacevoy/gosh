@@ -1,8 +1,8 @@
 # meetup
 
 A machine with a public address where the two ends of a session, each behind its NAT, find
-each other; and through which, with its key, their datagrams are passed (`REQ1/PATH-4`,
-`REQ1/PATH-5`; design v2, 2.2). `gosh-server meetup PORT`, with its key in `MOSH_MEETUP_KEY`;
+each other; and through which, with its key, their datagrams are passed (`REQ15/PATH-4`,
+`REQ15/PATH-5`; design v2, 2.2). `gosh-server meetup PORT`, with its key in `MOSH_MEETUP_KEY`;
 `gosh-server meetup-key` makes one.
 
 It calls nothing of gosh's other parts. Path-finding calls its `proof.h`, to show the key.
@@ -36,12 +36,16 @@ key, can from then on, from anywhere:
    end out.
 
 They cannot read or change anything the two ends say to each other, which the ends seal.
-`REQ1/PATH-5` says a meetup "passes nothing on, for anyone who does not show the key"; a
-stranger with no proof is refused (tested), and an onlooker with a copied proof is not.
+As the requirement stood until v14, a meetup "passes nothing on, for anyone who does not show
+the key"; a stranger with no proof is refused (tested), and an onlooker with a copied proof is
+not. `REQ15/PATH-5`, reworded on 2026-11-15 because of this, asks for what this code does not
+do yet.
 
-Why it is not simply fixed: the proof is part of what goes over the wire between every relay
-and every meetup, so changing it means an old relay and a new meetup no longer understand each
-other, and features are frozen. It is the owner's decision (`docs/QUEUE.md`, item 8).
+What is to be done about it is decided (the owner, 2026-11-15: "go for a tailscale"; "meetup
+keeps a list of signature authorities, public keys are signed by an authority, and a
+blacklist"): `docs/PROPOSAL_meetup-registration.md`, revision 4, twice attacked on paper.
+It is not built. Until it is, this part is the fork's meetup, and should not be relied on by
+anyone who minds the three things above.
 
 ## Not tested
 

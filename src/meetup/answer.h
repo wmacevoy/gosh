@@ -1,8 +1,8 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * meetup, answer: the STUN question, answered: "where did this request come from?" (REQ1/PATH-4,
- * REQ1/PATH-5). Logic: a request and its sender's address in, the answer's bytes out; and how
+ * meetup, answer: the STUN question, answered: "where did this request come from?" (REQ15/PATH-4,
+ * REQ15/PATH-5). Logic: a request and its sender's address in, the answer's bytes out; and how
  * many a second. The statements are the fork's (meetup_serve).
  */
 

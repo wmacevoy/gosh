@@ -1,6 +1,6 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-/* REQ1/PATH-4: the STUN question answered (answer.h), with bytes and numbers. */
+/* REQ15/PATH-4: the STUN question answered (answer.h), with bytes and numbers. */
 
 #include <cstdio>
 #include <cstdlib>
@@ -50,9 +50,9 @@ int main()
   check( "in the next second, answering again", rate.allow( 1001 ) );
 
   if ( failures ) {
-    printf( "FAIL REQ1/PATH-4: %d checks of the STUN answer failed\n", failures );
+    printf( "FAIL REQ15/PATH-4: %d checks of the STUN answer failed\n", failures );
     return EXIT_FAILURE;
   }
-  printf( "PASS REQ1/PATH-4: the STUN question answered\n" );
+  printf( "PASS REQ15/PATH-4: the STUN question answered\n" );
   return EXIT_SUCCESS;
 }

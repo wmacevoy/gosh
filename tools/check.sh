@@ -125,7 +125,7 @@ fi
 # (gosh only: pf.7 fails these two, which are the faults they were written to show. FINDINGS, 2026-11-13 to 15)
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-spoof.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-dies.py
-# The meetup, as a process (REQ1/PATH-4, REQ1/PATH-5): pf.7's first, then gosh's. (It takes the server alone.)
+# The meetup, as a process (REQ15/PATH-4, REQ15/PATH-5): pf.7's first, then gosh's. (It takes the server alone.)
 for which in "$pf7/mosh-server" "$gosh/gosh-server"; do
     if python3 tests/meetup-answers.py "$which" >.build/gosh-test.log 2>&1; then
         echo "$which passes meetup-answers.py"

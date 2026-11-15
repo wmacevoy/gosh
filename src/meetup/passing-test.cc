@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * REQ1/PATH-5: a meetup passing datagrams on (passing.h), with numbers for time and the real
+ * REQ15/PATH-5: a meetup passing datagrams on (passing.h), with numbers for time and the real
  * proof of the key, and no socket. Its last test replays a proof it has seen and says what
  * happens (queue item 8; docs/FINDINGS.md, 2026-11-13).
  */
@@ -144,9 +144,9 @@ int main()
   test_replay();
 
   if ( failures ) {
-    printf( "FAIL REQ1/PATH-5: %d checks of a meetup's passing on failed\n", failures );
+    printf( "FAIL REQ15/PATH-5: %d checks of a meetup's passing on failed\n", failures );
     return EXIT_FAILURE;
   }
-  printf( "PASS REQ1/PATH-5: a meetup's passing on, with no socket and no clock; and a seen proof replayed\n" );
+  printf( "PASS REQ15/PATH-5: a meetup's passing on, with no socket and no clock; and a seen proof replayed\n" );
   return EXIT_SUCCESS;
 }

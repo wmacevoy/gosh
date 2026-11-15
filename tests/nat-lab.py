@@ -3,8 +3,8 @@
 """Hole punching through real NATs (Linux's own), in network namespaces.
 
 Requirements: REQ1/PATH-3 (easy, moved), REQ1/PATH-1 and REQ1/SHAPE-2 (hard:
-no way through, so the session stays on the ssh connection), REQ1/PATH-4 and
-REQ1/PATH-5 (passed), REQ1/PATH-6 (room).
+no way through, so the session stays on the ssh connection), REQ15/PATH-4 and
+REQ15/PATH-5 (passed), REQ1/PATH-6 (room).
 From the fork at mosh-1.4.0-pf.7 (src/tests/nat-lab.py), unchanged below this
 paragraph. tools/nat-lab.sh runs it. Seen red in gosh on 2026-11-14: against
 upstream's programs the lab comes up and all six checks of a session fail.

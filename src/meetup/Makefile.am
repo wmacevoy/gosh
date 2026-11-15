@@ -1,5 +1,5 @@
 # meetup (design v2, 2.2): a machine with a public address where two ends behind NATs find each
-# other, and through which, with its key, their datagrams pass (REQ1/PATH-4, REQ1/PATH-5).
+# other, and through which, with its key, their datagrams pass (REQ15/PATH-4, REQ15/PATH-5).
 AM_CPPFLAGS = -I$(top_srcdir)/ $(protobuf_CFLAGS) $(CRYPTO_CFLAGS)
 AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXFLAGS) $(CODE_COVERAGE_CXXFLAGS)
 

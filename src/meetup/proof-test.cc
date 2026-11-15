@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * REQ1/PATH-5: the proof of a meetup's key (proof.h), with the real cipher: what it shows, and
+ * REQ15/PATH-5: the proof of a meetup's key (proof.h), with the real cipher: what it shows, and
  * what it does not. The second half is the finding of 2026-11-13, said as a test so that it
  * cannot be lost: each check there passes today, and each is a thing a reader would wish false.
  */
@@ -59,9 +59,9 @@ int main()
   check( "  nothing in it is a time, a sender or a pair of ends: the same twelve bytes are all there is to it", seen == proof );
 
   if ( failures ) {
-    printf( "FAIL REQ1/PATH-5: %d checks of the proof of a meetup's key failed\n", failures );
+    printf( "FAIL REQ15/PATH-5: %d checks of the proof of a meetup's key failed\n", failures );
     return EXIT_FAILURE;
   }
-  printf( "PASS REQ1/PATH-5: the proof of a meetup's key, and what it does not show\n" );
+  printf( "PASS REQ15/PATH-5: the proof of a meetup's key, and what it does not show\n" );
   return EXIT_SUCCESS;
 }

@@ -286,7 +286,7 @@ owner (section 8, question 9).
 - `--client=PATH` is accepted and never read (`moshwrapper.cc:243`; no `value( "client" )`).
 - A meetup's proof has no freshness. Any proof once seen is good for ever (`meetup_proof_ok`,
   `punch.cc:107`; the `proofs` cache, `:154`), and it travels in clear. Whoever sees one request can
-  use the meetup. This bears on `REQ1/PATH-5`.
+  use the meetup. This bears on `REQ15/PATH-5`.
 - The receiver of a copy checks names (`safe_relative_path`) but opens and renames through whatever
   is already in the destination, a symbolic link included. This bears on `REQ1/CP-6`.
 - `tcpadapter.h:76-78` says window scaling is left out; the code does it (`WINDOW_SHIFT`).
@@ -463,7 +463,7 @@ for: every change of path, with numbers.
 | Piece | Purpose | Kind | From | Serves |
 | --- | --- | --- | --- | --- |
 | **STUN** (asking) | the request; reading an answer; `a.b.c.d:p` as text | logic | `stun_request`, `stun_parse`, `parse_ip_port`, `format_ip_port`, `punch.cc:72-86,275-341` | `REQ1/PATH-3` |
-| **punch** | candidates; probes sealed and numbered; where the other end is; when to probe; through a meetup as second best | logic: given `now`, and a datagram with where it came from; returns datagrams to send, a session datagram, goodbye, or new addresses of ours | `Punch::add_candidate`, `tick`, `receive`, `send`, `goodbye`, `punch.cc:477-661` | `REQ1/PATH-3`, `REQ1/PATH-4` (the ends' side), `REQ1/PATH-6` |
+| **punch** | candidates; probes sealed and numbered; where the other end is; when to probe; through a meetup as second best | logic: given `now`, and a datagram with where it came from; returns datagrams to send, a session datagram, goodbye, or new addresses of ours | `Punch::add_candidate`, `tick`, `receive`, `send`, `goodbye`, `punch.cc:477-661` | `REQ1/PATH-3`, `REQ15/PATH-4` (the ends' side), `REQ1/PATH-6` |
 | **socket, interfaces, asker** | the punch socket; this machine's addresses; the forked process that looks names up and sends the requests | edge | `Punch::Punch`, `ask_stun`, `punch.cc:345-465` | `REQ1/PATH-6`, `REQ1/PATH-7` |
 
 Contracts and failures:
@@ -484,14 +484,20 @@ Tests today: (u) `test_punch`; `punch_fuzzer`; (b) `relay.test` (`punched`), `na
 
 #### meetup
 
+*Since requirements v15 (2026-11-15) the table and the contracts below describe the meetup as
+the fork had it and as `src/meetup/` still is: one shared key and a proof that can be copied.
+What it is to become, authorities, passes, vouchers and registrations, is
+`PROPOSAL_meetup-registration.md` (revision 4), which this section gives way to when that is
+built (queue item 8).*
+
 | Piece | Purpose | Kind | From | Serves |
 | --- | --- | --- | --- | --- |
-| **wire** | the key's proof; the pass-on header; recognising a request and writing the answer | logic | `meetup_proof`, `meetup_proof_ok`, `MEETUP_MARK`, `MEETUP_HEADER`, `punch.cc:88-115`; the answer, `:231-271` | `REQ1/PATH-5` |
-| **pairs** | which two ends a pair is; whom to pass a datagram to; forgetting; the rate limit | logic, given `now` in seconds | the `Pair` table, `punch.cc:139-222`; `PER_SECOND`, `:159,237-244` | `REQ1/PATH-4`, `REQ1/PATH-5` |
-| **serve** | `gosh-server meetup PORT`: the socket and the loop | edge | `meetup_serve`, `punch.cc:117-138,160-170` | `REQ1/PATH-4` |
+| **wire** | the key's proof; the pass-on header; recognising a request and writing the answer | logic | `meetup_proof`, `meetup_proof_ok`, `MEETUP_MARK`, `MEETUP_HEADER`, `punch.cc:88-115`; the answer, `:231-271` | `REQ15/PATH-5` |
+| **pairs** | which two ends a pair is; whom to pass a datagram to; forgetting; the rate limit | logic, given `now` in seconds | the `Pair` table, `punch.cc:139-222`; `PER_SECOND`, `:159,237-244` | `REQ15/PATH-4`, `REQ15/PATH-5` |
+| **serve** | `gosh-server meetup PORT`: the socket and the loop | edge | `meetup_serve`, `punch.cc:117-138,160-170` | `REQ15/PATH-4` |
 
 Contracts and failures: without the key's proof nothing is answered and nothing passed on
-(`REQ1/PATH-5`). Absent other end → the datagram is dropped. Lying: it cannot read or alter what it
+(`REQ15/PATH-5`). Absent other end → the datagram is dropped. Lying: it cannot read or alter what it
 passes; it can drop it. A replayed proof is honoured (1.3). One test writes an answer with meetup's
 `wire` and reads it with path-finding's `STUN`: the format is in two parts and this is what keeps
 them one format. With `pairs` and `wire` as logic, both can be fuzzed; today `meetup_serve` is not.

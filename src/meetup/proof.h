@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * meetup, proof: the twelve bytes that show their sender holds a meetup's key (REQ1/PATH-5).
+ * meetup, proof: the twelve bytes that show their sender holds a meetup's key (REQ15/PATH-5).
  * Logic: bytes and a key in, bytes or yes/no out (the making of one draws four bytes at random).
  * The fork's text (mosh-1.4.0-pf.7, src/network/punch.{h,cc}).
  *
