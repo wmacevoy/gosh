@@ -694,3 +694,10 @@ attack?"
 And then: "attacking the service certainly is a service attack --- the real harm would be faking
 oauth2 to steal user id's & credentials. way worse than anything listed." To be the first row of
 the threat model in revision 9.
+
+On the agent's list of defences for the web side: "thats all flourish - we keep nothing like that
+and need none of that - it would be a replaced service that would do that - and there is no
+threat model for not existing and being replaced by a fake that has your private keys." So
+revision 9 says, as a scope decision: the web side keeps no tokens and nothing of the user's but
+what it signs; a service whose host or name has been taken over is a different service, an
+impostor, and the design does not defend against it. No roster option.
