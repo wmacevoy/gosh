@@ -18,6 +18,7 @@
 #include "src/seam/options.h"
 #include "src/relay/relay.h"
 #include "src/crypto/crypto.h"
+#include "src/meetup/meetup.h"
 
 int main( int argc, char* argv[] )
 {
@@ -34,6 +35,16 @@ int main( int argc, char* argv[] )
     /* Path-finding is not landed (queue item 8): the remote relay does not offer it. This line goes when it lands. */
     setenv( "MOSH_PUNCH", "never", 1 );
     return Network::relay_remote( args[1].c_str(), args[2].c_str() );
+  }
+
+  /* A meetup, where two ends behind NATs find each other (src/meetup), and a key for one. */
+  if ( args.size() == 2 && args[0] == "meetup" ) {
+    Crypto::disable_dumping_core();
+    return Network::meetup_serve( args[1].c_str(), getenv( "MOSH_MEETUP_KEY" ) ? getenv( "MOSH_MEETUP_KEY" ) : "" );
+  }
+  if ( args.size() == 1 && args[0] == "meetup-key" ) {
+    printf( "%s\n", Crypto::Base64Key().printable_key().c_str() );
+    return 0;
   }
 
   if ( !args.empty() && args[0] == "new" ) {

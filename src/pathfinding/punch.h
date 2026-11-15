@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "src/crypto/crypto.h"
+#include "src/meetup/proof.h"
 #include "src/network/network.h"
 
 /*
@@ -49,43 +50,8 @@ namespace Network {
 
 /* The mark that begins a probe, and a control message between relays (relay.h). */
 extern const char PUNCH_MARK[8];
-/* The mark that begins a datagram for a meetup to pass on, or that one has (see meetup_serve). */
-extern const char MEETUP_MARK[8];
-static const size_t MEETUP_HEADER = 8 + 12 + 16; /* the mark; proof of the key; which pair of ends */
-
 /* A STUN request for our outside address: txid is 12 bytes of anything. */
 std::string stun_request( const char* txid );
-/*
- * Twelve bytes that show their sender holds a meetup's key (meetup_serve,
- * below): four at random, and eight that only the key gives for those
- * four.  They go where a STUN request has its transaction id, and to a
- * server that knows nothing of this they are twelve bytes like any
- * others.  key: as Crypto::Base64Key prints it.
- */
-std::string meetup_proof( const std::string& key );
-bool meetup_proof_ok( const char* txid, const std::string& key );
-/*
- * A meetup: a machine with a public address where the two ends of a
- * session, each behind its NAT, can find each other.  ("mosh-server
- * meetup PORT")  It does two things.
- *
- * It answers the STUN question: it says where a request came from.
- * With a key it answers only requests that show the key; and in any
- * case no more than a few hundred a second, so as to be no use to
- * anyone for anything else.
- *
- * And with a key, for two ends that can find no way to each other, it
- * passes their datagrams between them, for as long as they need.  Each
- * sends it
- *     MEETUP_MARK, twelve bytes showing the key, sixteen naming the pair, the datagram
- * and it sends the same on to whichever other address has lately sent
- * it datagrams naming that pair.  So the two still talk by UDP, though
- * through here.  It reads nothing of what it passes (which is sealed by
- * its ends), and passes nothing for anyone without the key.
- *
- * Runs until killed; returns an exit status if it cannot start.
- */
-int meetup_serve( const char* port, const std::string& key );
 /* If this is an answer to one that says where we were seen: true, and where. */
 bool stun_parse( const char* data, size_t len, Addr& mapped );
 

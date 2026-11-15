@@ -17,12 +17,13 @@ diff --git a/configure.ac b/configure.ac
 index 75dd7d2..69c2257 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -588,6 +588,12 @@ AC_CONFIG_FILES([
+@@ -588,6 +588,13 @@ AC_CONFIG_FILES([
    src/fuzz/Makefile
    src/include/Makefile
    src/network/Makefile
 +  src/copy/Makefile
 +  src/forwarding/Makefile
++  src/meetup/Makefile
 +  src/pathfinding/Makefile
 +  src/relay/Makefile
 +  src/seam/Makefile
@@ -36,7 +37,7 @@ index 0c2e9fe..471de66 100644
 +++ b/src/Makefile.am
 @@ -1 +1 @@
 -SUBDIRS = include protobufs util crypto terminal network statesync frontend examples tests fuzz
-+SUBDIRS = include protobufs util crypto terminal network copy forwarding pathfinding relay seam command statesync frontend examples tests fuzz
++SUBDIRS = include protobufs util crypto terminal network copy forwarding meetup pathfinding relay seam command statesync frontend examples tests fuzz
 diff --git a/src/frontend/Makefile.am b/src/frontend/Makefile.am
 index c4574e9..2c306aa 100644
 --- a/src/frontend/Makefile.am
@@ -46,7 +47,7 @@ index c4574e9..2c306aa 100644
  AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXFLAGS) $(CODE_COVERAGE_CXXFLAGS)
  AM_LDFLAGS  = $(HARDEN_LDFLAGS) $(CODE_COVERAGE_LIBS)
 -LDADD = ../crypto/libmoshcrypto.a ../network/libmoshnetwork.a ../statesync/libmoshstatesync.a ../terminal/libmoshterminal.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a -lm $(TINFO_LIBS) $(protobuf_LIBS) $(CRYPTO_LIBS)
-+LDADD = ../seam/libgoshseam.a ../command/libgoshcommand.a ../forwarding/libgoshforwarding.a ../copy/libgoshcopy.a ../relay/libgoshrelay.a ../pathfinding/libgoshpathfinding.a ../crypto/libmoshcrypto.a ../network/libmoshnetwork.a ../statesync/libmoshstatesync.a ../terminal/libmoshterminal.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a -lm $(TINFO_LIBS) $(protobuf_LIBS) $(CRYPTO_LIBS)
++LDADD = ../seam/libgoshseam.a ../command/libgoshcommand.a ../forwarding/libgoshforwarding.a ../copy/libgoshcopy.a ../relay/libgoshrelay.a ../pathfinding/libgoshpathfinding.a ../meetup/libgoshmeetup.a ../crypto/libmoshcrypto.a ../network/libmoshnetwork.a ../statesync/libmoshstatesync.a ../terminal/libmoshterminal.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a -lm $(TINFO_LIBS) $(protobuf_LIBS) $(CRYPTO_LIBS)
  
 -mosh_server_LDADD = $(LDADD)
 +mosh_client_LDADD = ../seam/libgoshclientmain.a $(LDADD)

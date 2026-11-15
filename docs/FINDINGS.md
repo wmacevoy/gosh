@@ -357,6 +357,11 @@ worth reading before migrating the part it concerns.
 - **Changed:** nothing in behaviour: features are frozen and the fork is frozen. It is written
   here for the third party's review, and the proposal lists it for the owner (its question 9).
   When meetup lands (queue item 8), its test should replay a seen proof and say what happens.
+- **2026-11-15:** it does. `src/meetup/passing-test.cc` (`test_replay`) and `proof-test.cc`, with
+  the real cipher and no socket: with twelve bytes copied from one datagram, someone without the
+  key has a pair of their own passed on a day later, has a datagram delivered to an end of the
+  pair they saw, and takes that pair's other end's place. So the finding is **demonstrated**,
+  at the rule; and it is still not fixed (`src/meetup/README.md`).
 
 ## 2026-11-13 — Other things the same reading found, not checked by a second reader
 
