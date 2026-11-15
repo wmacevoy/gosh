@@ -348,3 +348,8 @@ stays from sections 3 to 9: vouchers, registrations, the cookie and the gate, pa
 keeping a registration, who is put out, and everything about lengths and the carried library.
 This **replaces the owner's earlier "yes" to a pass that does not expire.**
 
+And how a machine enrols (the owner, 2026-11-15): "the start is a local public/secret key where
+the public key url-encoded to the mosh-meetup": the user's machine makes the key pair, and its
+public half goes to the service in the address the user opens to sign in. The private half
+never leaves the machine.
+
