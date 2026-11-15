@@ -114,6 +114,8 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
   and still holds the seam file by file).
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
+- **Carried source:** `vendor/tweetnacl/`, TweetNaCl as its authors publish it (public domain). Do not edit
+  the two files; its README says where they came from, their checksums, and how to replace them.
 - **Agents:** read `AGENTS.md` and this file before acting.
 
 ## What AGENTS.md's nouns mean here
