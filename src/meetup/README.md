@@ -44,8 +44,9 @@ do yet.
 
 What is to be done about it is decided (the owner, 2026-11-15: "go for a tailscale"; "meetup
 keeps a list of signature authorities, public keys are signed by an authority, and a
-blacklist"; then "authority is the service"): `docs/PROPOSAL_meetup-registration.md`,
-revision 9, five times attacked on paper.
+blacklist"; and then, after six attacks on paper, "lets just get back to the basics ... we
+already defer to ssh, let's do it again ... no new auth"): `docs/PROPOSAL_meetup-registration.md`,
+revision 10, a ticket given over ssh.
 It is not built. Until it is, this part is the fork's meetup, and should not be relied on by
 anyone who minds the three things above.
 
