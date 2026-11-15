@@ -353,3 +353,9 @@ the public key url-encoded to the mosh-meetup": the user's machine makes the key
 public half goes to the service in the address the user opens to sign in. The private half
 never leaves the machine.
 
+Who may sign in (the owner, 2026-11-15): "default domains are apple,google,microsoft": out of
+the box, gosh-meetup takes a sign-in from Apple, Google or Microsoft accounts; whoever runs one
+may change the list. *(The agent's note: that admits anyone with such an account, which is
+most people; the blacklist, by user, is then what keeps someone out, and a service that wants
+only its own people narrows the list.)*
+
