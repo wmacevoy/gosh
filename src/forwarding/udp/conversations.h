@@ -74,6 +74,13 @@ private:
   uint32_t next_handle;
 
   Sending sending;     /* a datagram on its way out: one payload or fragments (sending.h) */
+
+  /* What sending.h may ask of the edge: to put a payload on the side channel, and nothing else. */
+  struct SideChannel
+  {
+    Out& out;
+    void send( const std::string& payload ) { out.send( payload ); }
+  };
   Receiving receiving; /* what arrives, made into whole datagrams (receiving.h) */
 
   void remove_flow( size_t index, Out& out )
@@ -213,7 +220,8 @@ public:
     }
 
     flow->last_used = now;
-    sending.send( flow->forward, flow->id, data, len, link, out );
+    SideChannel side = { out };
+    sending.send( flow->forward, flow->id, data, len, link, side );
   }
 
   /* Connecting end: a datagram came from the target on this conversation's socket. */
@@ -222,7 +230,8 @@ public:
     for ( typename std::vector<Flow>::iterator i = flows.begin(); i != flows.end(); i++ ) {
       if ( i->handle == handle ) {
         i->last_used = now;
-        sending.send( i->forward, i->id, data, len, link, out );
+        SideChannel side = { out };
+        sending.send( i->forward, i->id, data, len, link, side );
         return;
       }
     }
