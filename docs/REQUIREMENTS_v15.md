@@ -44,7 +44,7 @@ then "it seems like oauth to me", and of who signs, "authority is the service".
   *meetup* and *pair* are reworded.
 - The client's answers of 2026-11-15 are in *Scope decisions*, *Non-goals* and *Deferred*: a pass
   does not expire, the term that signed it does; no forward secrecy for registrations; a meetup
-  with terms does not answer the STUN question; no time server; gosh's own hook admits nobody; and
+  answers no STUN question at all; no time server; gosh's own hook admits nobody; and
   a meetup's log does not name users (deferred).
 
 **What changed from v13** *(as v14 said it).* Two things, from one finding (`FINDINGS.md`, 2026-11-14: a copy over a
@@ -176,7 +176,7 @@ the client on 2026-11-13.
 | path-finding | the part that finds a punched path, or one across a local network, for a session on the relay *(since v7)* |
 | punched path | a direct UDP path opened through NATs by both ends sending at once (`--punch`) |
 | STUN | the question "what address do I appear to have from outside?", and a plain public server that answers it |
-| meetup | a machine with a public address, run by whoever chooses to, that for ends registered with it passes their datagrams between them by UDP, when the two can find no path to each other, for as long as they need. Since v15 a service, gosh-meetup, that is its own authority: it signs its users' keys. One started with no terms passes nothing and only answers the STUN question (`gosh-server meetup`). *"meetup does not imply how long you will stay" (client)* *(reworded in v15)* |
+| meetup | a machine with a public address, run by whoever chooses to, that for ends registered with it passes their datagrams between them by UDP, when the two can find no path to each other, for as long as they need. Since v15 a service, gosh-meetup, that is its own authority: it signs its users' keys (`gosh-server meetup`). It answers no STUN question; path-finding asks public STUN servers. *"meetup does not imply how long you will stay" (client)* *(reworded in v15)* |
 | headless | a session with no terminal (`-N`) |
 | the extension | `remote-gosh`, for VSCodium (`remote-mosh` until it is migrated) |
 | local copy | a folder on the host kept copied to the user's machine by the extension |
@@ -470,8 +470,7 @@ the client accepted them as they stand, and did not choose them.
 - **Threat model:** *(inferred, and thin)* mosh authenticates and encrypts every datagram with a
   key exchanged over ssh; everything added is reachable only through that, except: loopback
   listeners (forwards, the local relay), the path-finding socket (which accepts only probes sealed
-  with a key sent over ssh), and a STUN server's or a meetup's port (open to the Internet by
-  design; a meetup with terms does costly work only for those it has given a cookie, and opens
+  with a key sent over ssh), and a meetup's port (open to the Internet by design; a meetup with terms does costly work only for those it has given a cookie, and opens
   nothing it is sent before checking its length). The receiving end of a copy is the part that acts on another machine's word; it is
   fuzzed. **No independent review of any of it has been done**; one is required before gosh is
   called trusted (*Scope decisions*).
@@ -551,9 +550,11 @@ Read back on 2026-11-13; answers as given.
   - The first time a machine takes a pass from a meetup, it takes the meetup's identity on trust.
   - A registration has no forward secrecy: whoever takes a meetup's private keys can read the
     registrations they recorded, and the remedy is new keys for the meetup ("ok").
-  - A meetup with terms does not answer the STUN question (the client: "not sure --- there
-    are lots of STUN servers --- but what's the harm?"; the harm is small, the gain nothing its
-    own users need, and it can be turned on later with no other change).
+  - A meetup answers no STUN question ("yes, drop it"). Its users learn where they appear to be
+    from its sealed answers when they register; path-finding asks public STUN servers; and an end
+    no longer finds a meetup by its answering STUN, since the pass names it. Punching (a gosh
+    "p2p") needs no meetup: the two ends swap addresses over the ssh connection they already
+    share (the client: "they can just be paired services in that case").
   - A gosh meetup and the fork's relays do not understand each other, which *Non-goals* has said
     of the fork's releases since v6: "pf7 was a step to here. let it go."
   - What it does not close is listed in the proposal's section 7, and is accepted with it.

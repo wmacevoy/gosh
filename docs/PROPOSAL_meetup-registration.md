@@ -91,7 +91,10 @@ costly work.
 
 **Carried in:** TweetNaCl (public domain), for the box, the signature and the hash, used when
 an end enrols or registers, never on a relayed datagram. SQLite is the web side's, not gosh's.
-**Not used:** Roughtime, or any time server (the owner, on the fourth attack; section 12).
+**Not used:** Roughtime, or any time server (the owner, on the fourth attack; section 12). **Not
+answered:** the STUN question. The fork's meetup answered it, and ends found meetups that way; now
+the pass names the service, REGISTERED and KEPT say where an end appears to be, and path-finding
+asks public STUN servers. The owner: "yes, drop it".
 
 ## 3. Keys, and terms
 
@@ -509,7 +512,7 @@ agreed key for a registration (section 6.1, step 4).*
 
 **In gosh** (C++, this repository):
 
-- `src/meetup/`: `proof.*` goes. New logic, each with a test of bytes and numbers and no socket:
+- `src/meetup/`: `proof.*` goes, and `answer.*` (the STUN answer) with it. New logic, each with a test of bytes and numbers and no socket:
   `pass.h` (the exact encodings of section 3, the pass's and the term list's, made and checked,
   with the shared test vectors), `terms.h` (which are good at an instant, which ended early, the
   pinned identity), `cookie.h`, `messages.h` (every kind; exact lengths), `registrations.h` (6.1,
@@ -604,7 +607,7 @@ not work with the fork's releases at the other end.
   is checked against what the tool last saw; NO is gated, signed by the list it carries, and never
   recorded; the hook has a contract and gosh's default says no; files per side; fixed slots; the
   pasted text and six words; UTC instants, and "term" for the keys, "span" for when their passes
-  are good; list entries that expire; `sub` noted and left out. Requirements v15 is rewritten to
+  are good; list entries that expire; `sub` noted and left out; the meetup answers no STUN question. Requirements v15 is rewritten to
   match, for the owner to accept as a whole. **Not yet attacked.**
 
 ## 13. REQ1/PATH-7 stands as written
