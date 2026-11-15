@@ -64,6 +64,9 @@ int main()
          SegmentOptions::mss( bytes( { 9, 1, 2, 4, 0x05, 0x00 } ), 536 ) == 536 && SegmentOptions::scale( bytes( { 9, 1, 3, 3, 5 } ) ) == -1 );
   check( "the shift with the wrong length, or cut short, is not a shift",
          SegmentOptions::scale( bytes( { 3, 4, 5, 0 } ) ) == -1 && SegmentOptions::scale( bytes( { 3, 3 } ) ) == -1 );
+  check( "asked twice, the first is what was asked: the size, and the shift",
+         SegmentOptions::mss( bytes( { 2, 4, 0x04, 0x00, 2, 4, 0x05, 0x00 } ), 536 ) == 1024
+           && SegmentOptions::scale( bytes( { 3, 3, 4, 3, 3, 9 } ) ) == 4 );
   check( "the shift is read after an unknown option", SegmentOptions::scale( bytes( { 9, 3, 77, 3, 3, 7 } ) ) == 7 );
   check( "a number whose last byte is 0xFE is read as itself, not as a negative one",
          SegmentOptions::get32( bytes( { 0, 0, 0, 0xFE } ), 0 ) == 0x000000FE && SegmentOptions::get32( bytes( { 0, 0x80, 0x90, 0xA0 } ), 0 ) == 0x008090A0 );

@@ -68,26 +68,11 @@ public:
    */
   void note( const std::string& options, uint32_t snd_una, uint32_t outstanding )
   {
-    for ( size_t i = 0; i < options.size(); ) {
-      const uint8_t kind = options[i];
-      if ( kind == 0 ) {
-        break;
-      }
-      if ( kind == 1 ) {
-        i++;
-        continue;
-      }
-      if ( i + 1 >= options.size() ) {
-        break;
-      }
-      const uint8_t len = options[i + 1];
-      if ( len < 2 || i + len > options.size() ) {
-        break;
-      }
-      if ( kind == 5 && ( len - 2 ) % 8 == 0 ) {
-        for ( size_t at = i + 2; at + 8 <= i + len; at += 8 ) {
-          const uint32_t from = SegmentOptions::get32( options, at ) - snd_una;
-          const uint32_t to = SegmentOptions::get32( options, at + 4 ) - snd_una;
+    SegmentOptions::walk( options, [&]( uint8_t kind, size_t at, size_t length ) {
+      if ( kind == 5 && length % 8 == 0 ) {
+        for ( size_t k = at; k + 8 <= at + length; k += 8 ) {
+          const uint32_t from = SegmentOptions::get32( options, k ) - snd_una;
+          const uint32_t to = SegmentOptions::get32( options, k + 4 ) - snd_una;
           /* (Anything else is not about what we have sent; and what begins at snd_una it would have
              acknowledged, not said it holds.) */
           if ( 0 < from && from < to && to <= outstanding ) {
@@ -95,9 +80,10 @@ public:
           }
         }
       }
-      i += len;
-    }
+      return true;
+    } );
   }
+
 
   /* snd_una has moved: forget every range that begins at or before it. */
   void forget( uint32_t snd_una )
