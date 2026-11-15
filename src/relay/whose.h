@@ -2,7 +2,7 @@
 
 /*
  * relay, whose: is a datagram from who it should be from? (REQ1/PATH-1; FINDINGS 2026-11-14,
- * "five things".) Logic: addresses and text in, yes or no out. relay.cc asks before it believes
+ * "five things".) Logic: addresses and text in, yes or no out. local.cc and remote.cc ask before it believes
  * a datagram.
  *
  * The relays pass on sealed datagrams and cannot tell a true one from a false one; the session

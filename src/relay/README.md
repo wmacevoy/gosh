@@ -4,16 +4,12 @@ The session carried over an ssh connection when UDP cannot get there (`REQ1/PATH
 `REQ1/PATH-2`; design v2, 2.2), between a local relay on the user's machine and a remote relay
 (`gosh-server relay ADDRESS PORT`) on the server's.
 
-**Carried, and being reshaped** (queue item 7). `relay.h` and `relay.cc` are the fork's at
-`mosh-1.4.0-pf.7`, from `src/network/`. Since 2026-11-14 the decisions about paths are out of
-`relay.cc` and in `paths.h`: which way a datagram goes, when the ssh stream is started, started
-again and let go, when a fresh socket is tried, and at the remote relay which way an answer
-goes back and when it leaves. `relay.cc` asks `paths.h` at the places marked `(gosh)` and does
-what it says. The framing and the relays' words are `frame.h`; what the environment tells the
-relays is made sense of in `settings.h`. What is left in `relay.cc` is the two relays as
-processes: sockets, the ssh child, the clock, `getenv` in one place for the local relay and one
-line each for the log and for what ssh says of the connection, and its dealings with
-path-finding, which are item 8's. That text is the fork's.
+**Reshaped** (queue item 7). The fork's `relay.cc` (`mosh-1.4.0-pf.7`, `src/network/`) was one
+file of 876 lines holding two processes and everything they decide. Here what they decide is
+logic, in four small files each with its test, and what is left is the two processes, a file
+each, which ask the logic at places marked `(gosh)` and do what it says. Their text is otherwise
+the fork's. `local.cc` reads the environment in one place; `remote.cc` reads what ssh says of
+the connection, and whether path-finding is off; both read the name of the log.
 
 | File | What it holds |
 | --- | --- |
@@ -22,14 +18,17 @@ path-finding, which are item 8's. That text is the fork's.
 | `frame.h` | a datagram on the ssh stream (two bytes of length before it), and the relays' words to each other: logic; `frame-test.cc` (its first test is the fork's) |
 | `settings.h` | what the environment tells the relays, as one value: idle time, path-finding, whom to ask, the key; and the addresses in what ssh says of a connection: logic; `settings-test.cc` |
 | `whose.h` | whose a datagram is: only the server's address counts as the server answering; the client is a socket of this user's; the remote relay keeps its likelier ways to the server: logic; `whose-test.cc` |
-| `relay.*` | both relays as processes, their framing and their words to each other: the fork's, an edge of `paths.h` |
+| `local.cc` | the local relay: a process on the user's machine, between the client and the server by UDP and by an ssh connection it starts. An edge |
+| `remote.cc` | the remote relay: `gosh-server relay ADDRESS PORT`, which ssh starts beside the server. An edge |
+| `process.h` | what both need as processes and decide nothing with: the log, the mark on their words, signals, the clock, a pipe, a UDP socket |
+| `relay.h` | what the seam calls: start the local relay; be the remote relay |
 
 Who calls it: the seam. gosh's client `main` reads how the relay is started (`MOSH_RELAY`,
 `MOSH_RELAY_COMMAND`, which the command writes); the seam's hooks ask `start.h` each turn of
 the client's loop and start the local relay once; gosh's server `main` becomes the remote relay
 when its first word is `relay`.
 
-**Path-finding is off.** `relay.cc` builds against `src/pathfinding/punch.*`, and every use of
+**Path-finding is off.** `local.cc` and `remote.cc` build against `src/pathfinding/punch.*`, and every use of
 it is behind a test for whether there is one. Until queue item 8 lands, both relays are started
 with `MOSH_PUNCH=never` whatever the environment says: the local one then never looks, and the
 remote one never says the `HELLO` that invites a local relay to (a pf.7 client's would,
@@ -44,12 +43,12 @@ each way. Seen red: a client that never asks `start.h` fails `blocked`.
 
 `paths-test.cc` pins the timings with numbers and no socket: 2.5 s, 10 s, a minute, the
 back-off (1, 2, 4 ... 30 s; up to 5 minutes while the stream has never worked), the remote
-relay's 3 s and its minute. It was written against the fork's rules before `relay.cc` was
+relay's 3 s and its minute. It was written against the fork's rules before the relays' code was
 changed to ask `paths.h`; sixteen deliberate breaks of a rule are each noticed.
 
 **Where gosh's relay differs from the fork's, on purpose** (2026-11-15; `docs/FINDINGS.md`). The
 fork's relays changed where they sent things because of datagrams anyone could have sent. Four
-changes, at places marked `(gosh)` in `relay.cc`:
+changes, at places marked `(gosh)` in `local.cc` and `remote.cc`:
 
 1. The remote relay tries several addresses for the server. The fork stayed with whichever
    answered first, so a user of the server's machine who bound the free loopback port took the
@@ -64,11 +63,11 @@ changes, at places marked `(gosh)` in `relay.cc`:
    frame has arrived.
 
 Of these, 2 is shown from outside; 1, 3 and 4 are tested as rules (`whose-test.cc`,
-`paths-test.cc`) and their few lines in `relay.cc` are read, not driven by a test: 1 is a race
+`paths-test.cc`) and their few lines at the edge are read, not driven by a test: 1 is a race
 to demonstrate, and 3 needs a second user.
 
 **Not tested:** that the edge does what `paths.h` says is tested only by the smoke test's four
-cases. Nothing in the check makes `relay.cc` try a fresh socket, back off from an ssh that
+cases. Nothing in the check makes the local relay try a fresh socket, back off from an ssh that
 fails or asks for a password, stop a real ssh (the remote relay is run directly), fill its
 backlog, or be killed outright; `MOSH_RELAY=never` with a command is tested only as a rule. That the local relay dying is noticed (`docs/FINDINGS.md`, 2026-11-13: it is not); OpenBSD,
 where the client must keep the right to start a process.

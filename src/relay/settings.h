@@ -4,8 +4,8 @@
 
 /*
  * relay, settings: what the relays are told through the environment, read once into one value
- * (REQ1/PATH-1, REQ1/PATH-7; design v2, 2.2 "options"). Logic: text in, a value out; relay.cc
- * is the one place that calls getenv, and hands the text here.
+ * (REQ1/PATH-1, REQ1/PATH-7; design v2, 2.2 "options"). Logic: text in, a value out; local.cc and remote.cc
+ * are the places that call getenv, and hand the text here.
  *
  * Each input, absent or wrong: an idle time that is missing, not a number, or under a second is
  * the default (a minute); any word but "never" leaves path-finding on; with no meetup and

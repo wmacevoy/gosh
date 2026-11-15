@@ -3,7 +3,7 @@
 /*
  * REQ1/PATH-1, REQ1/PATH-2: every change of path the relays make (paths.h), with numbers for
  * time and no socket, process or sleep. The numbers are the fork's rules at mosh-1.4.0-pf.7,
- * written here before relay.cc was made to ask paths.h, so that the rules are pinned by
+ * written here before the relays' code was made to ask paths.h, so that the rules are pinned by
  * something other than the code that has them (design v2, 6.2, step 5; queue item 7).
  */
 

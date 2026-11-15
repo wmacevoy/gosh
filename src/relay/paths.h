@@ -7,8 +7,8 @@
  * relay, paths: which way a datagram goes, and when the ssh connection is started, started
  * again, and let go (REQ1/PATH-1, REQ1/PATH-2, REQ1/SHAPE-2; design v2, 2.2 and 7.1, 2).
  *
- * Logic: times in milliseconds in, decisions out. No socket, no clock, no process. relay.cc
- * is its edge and does what it says.
+ * Logic: times in milliseconds in, decisions out. No socket, no clock, no process. local.cc and remote.cc
+ * are its edge and do what it says.
  *
  * The local relay sends everything from the client straight to the server by UDP, always
  * (unless told to use nothing but the stream). While answers come straight back, that is all.

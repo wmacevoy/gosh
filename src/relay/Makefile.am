@@ -4,7 +4,7 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshrelay.a
 
-libgoshrelay_a_SOURCES = relay.cc relay.h start.h paths.h frame.h settings.h whose.h
+libgoshrelay_a_SOURCES = local.cc remote.cc process.h relay.h start.h paths.h frame.h settings.h whose.h
 
 check_PROGRAMS = start-test paths-test frame-test settings-test whose-test
 TESTS = $(check_PROGRAMS)
