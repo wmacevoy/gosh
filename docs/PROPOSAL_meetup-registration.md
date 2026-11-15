@@ -310,3 +310,41 @@ In every row, nobody reads or changes what the two ends say: that is sealed by t
    writes no user's key or address to its log. What that leaves: whoever runs a meetup learns
    whom to blacklist only from the authority's own record of whose key it signed, not from the
    meetup.
+
+## 12. Where a pass comes from: the owner's direction for revision 5 (2026-11-15, not yet written in)
+
+Sections 3 to 9 above have an **authority** apart from the meetup that signs users' keys, by
+hand. The owner, the same day, on how a user would actually get a signed key:
+
+> "it seems like oauth to me ... i want to connect from a machine, i use oauth on the meetup
+> server and it generates a (user_id,user_pub/user_sec) and passes
+> meetup_pub,meetup_sign(user_id,user_pub). the meetup_pub could roll on 90 days, and only the
+> last 4 are valid (re-auth 1/year for a new key), and a blacklist for recent keys? ... it
+> leaves very little state the meetup service has to remember (a few signing keys created every
+> 90 days, and a db of blacklist ids, kept for 1 year)."
+
+and, to the agent's five suggested changes:
+
+1. The user's machine makes its key pair, and sends only the public half: "agree (no reason
+   to keep the private key, but no reason to make it there either)".
+2. A separate authority that signs, apart from the meetup: **no.** "that's just more state, all
+   we need to check later is if one of the meetup(time) keys (at most 4) sign the message, no
+   other state." The meetup signs with its own keys.
+3. Keeping only the newest key's private half: **no.** "you still need to check the older keys,
+   so no, you need the last 4." (And since what an end later sends is sealed to the public half
+   of the key it enrolled under, the meetup needs the private halves of all four to open it.)
+4. An opaque user id: **not needed.** "the sent message (for the actual meetup later) is
+   encrypted by the meetup(time) public key, so it's opaque already. no pki --- that's just
+   another layer to figure out."
+5. Handing out the meetup's address: **not needed.** "the meetup address is the service, no
+   hand-out, you already found it. gosh-meetup is a service."
+
+So, for revision 5: **one service, gosh-meetup.** A user signs in to it (OAuth) and it signs
+`(user_id, user_pub)` with its current key; every 90 days it makes a new key, and the last four
+are good, so a pass lasts nine months to a year and is renewed by signing in again; it keeps a
+blacklist for a year. There are no authorities apart from the meetup, and no list of them. An
+end's later messages are sealed to the public half of the key its pass was signed under. What
+stays from sections 3 to 9: vouchers, registrations, the cookie and the gate, passing to a key,
+keeping a registration, who is put out, and everything about lengths and the carried library.
+This **replaces the owner's earlier "yes" to a pass that does not expire.**
+
