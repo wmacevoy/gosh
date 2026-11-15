@@ -487,7 +487,7 @@ Tests today: (u) `test_punch`; `punch_fuzzer`; (b) `relay.test` (`punched`), `na
 *Since requirements v15 (2026-11-15) the table and the contracts below describe the meetup as
 the fork had it and as `src/meetup/` still is: one shared key and a proof that can be copied.
 What it is to become, a service that signs its users' keys (passes) under terms, vouchers,
-registrations and a hook, is `PROPOSAL_meetup-registration.md` (revision 8), which this section gives way to when that is
+registrations and a hook, is `PROPOSAL_meetup-registration.md` (revision 9), which this section gives way to when that is
 built (queue item 8).*
 
 | Piece | Purpose | Kind | From | Serves |
