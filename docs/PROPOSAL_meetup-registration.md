@@ -690,3 +690,7 @@ words, why?" And the picture changed: "attacking a meetup allows an attacker to 
 traffic for you, or be a denial of service --- which is an unavoidable consequence of attcking
 the service to begin with --- so the only new thing is the ability to help you? that's the
 attack?"
+
+And then: "attacking the service certainly is a service attack --- the real harm would be faking
+oauth2 to steal user id's & credentials. way worse than anything listed." To be the first row of
+the threat model in revision 9.
