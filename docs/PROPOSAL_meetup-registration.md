@@ -24,6 +24,9 @@ The owner's decisions it is written to, in his words:
 - "the start is a local public/secret key where the public key url-encoded to the
   mosh-meetup."
 - "default domains are apple,google,microsoft".
+- On the three questions of revision 5: two processes, "yes"; the web side in a repository of
+  its own, "yes"; attack it once more before building, "yes". And: "whitelist - blacklist, both a
+  set of regular expressions."
 - No forward secrecy for registrations ("ok"); the meetup's log naming users deferred ("no -
   deferred").
 
@@ -52,8 +55,18 @@ the meetup for ever and can take an end's place (`src/meetup/README.md`; `passin
   It is what `gosh-server meetup` is today, grown.
 
 It remembers almost nothing: its **term keys** (a new one every 90 days; the last four are
-good) and a **blacklist** kept for a year. It keeps no list of users and no database of
+good), a **whitelist** and a **blacklist**. It keeps no list of users and no database of
 passes: a pass is checked by its signature alone.
+
+**Whitelist and blacklist** are each a set of regular expressions, written by whoever runs the
+service, matched against an account's name, `provider:address` (for example
+`google:alice@school.edu`). An account may enrol if some whitelist expression matches it and no
+blacklist expression does. The whitelist out of the box is `^(apple|google|microsoft):`. The
+blacklist is checked again at every registration and every keep, so an account put on it stops
+at once; a blacklist expression can also match a user's key, written as text
+(`key:<U, base64url>`), to put out one lost machine and not the person. An entry need stay no
+longer than the longest pass it could match, a year; the service does not forget entries by
+itself.
 
 From Tailscale's relays, as the agent remembers their published design (none of its code or
 wire format is used): nothing reusable crosses the wire in the clear; an end proves it holds a
@@ -79,8 +92,8 @@ begins, so they live 360 days. The service holds terms `t - 3` to `t`. Which ter
 service's own business: no other clock is asked to agree with it.
 
 **The pass**: the service's signature, with term `t`'s signing key, over `("gosh pass v1", t,
-U, user_id)`, where `user_id` is the account it signed in with (for example
-`google:1234567890`). A pass is good while term `t` is among the last four, and while neither
+U, user_id)`, where `user_id` is the account it signed in with, as `provider:address`, the
+address being the one the provider vouches for. A pass is good while term `t` is among the last four, and while neither
 `U` nor `user_id` is on the blacklist: nine months to a year, by when it was signed in its term.
 
 **A voucher**: the user's signature with `U`, over `("gosh end v1", t, E, P)`: "under the pass
@@ -104,8 +117,8 @@ gosh meetup-login meetup.example.org
    user can read (created anew, never overwritten, refused if anyone else can read it).
 2. It opens, in the user's browser, the service's address with the public half in it:
    `https://meetup.example.org/enrol?key=<U, base64url>&back=<a port on 127.0.0.1>`.
-3. The user signs in (Apple, Google or Microsoft, by default; whoever runs the service may
-   change the list).
+3. The user signs in (Apple, Google or Microsoft, by default). The service signs only if the
+   account matches the whitelist and not the blacklist; otherwise it says so on the page.
 4. The service signs the pass and sends the browser back to `http://127.0.0.1:<port>/`, with
    the pass and the four term keys' public halves in the address. `gosh meetup-login` is
    listening there, for this one request, and writes them to a file beside the user's key.
@@ -159,7 +172,7 @@ Cheapest first, and where it stops:
    costly step), which shows the sender holds `E`'s private half; then the two signatures; then
    the blacklist.
 4. It is taken if: `P` is not `E`; the pass is term `t`'s signature over `t`, `U` and
-   `user_id`; neither `U` nor `user_id` is blacklisted; and the voucher is `U`'s signature over
+   `user_id`; no blacklist expression matches `user_id` or `U`; and the voucher is `U`'s signature over
    `t`, `E` and `P`. It makes a **registration**: `E` at that address, for `P`, of `U` and
    `user_id`, under term `t`, with a random `id` and a new `Kr`. An `E` registered already: an
    older cookie is ignored; the same cookie gets the same answer again.
@@ -179,8 +192,9 @@ end -> meetup   KEEP    mark | id (8) | counter (8) | sealed under Kr: { kind, v
 meetup -> end   KEPT    mark | counter (8)          | sealed under Kr: { kind, version, where the end appears to be }
 ```
 
-- The service looks at the blacklist and at the term again; if the user is on the one, or the
-  term has passed, it drops the registration and says nothing. Otherwise it is good for two
+- The service looks at the term and the blacklist again (a registration remembers whether the
+  blacklist matched it, and is looked at afresh only when the blacklist is read again); if the
+  term has passed or the blacklist now matches, it drops the registration and says nothing. Otherwise it is good for two
   more minutes.
 - An end holds a registration for as long as path-finding is running, direct path or no, and
   sends KEEP every 25 seconds, give or take a few.
@@ -219,7 +233,7 @@ their name goes first. When the service is full, a new user's end is refused, an
 | Knows nothing of the service | Gets no answer | Gets no answer by UDP. (The web side is a web page.) |
 | Knows a term's public key; holds no pass | Uses the meetup for ever with one copied datagram; takes an end's place | Gets cookies; can make the service do one hash per datagram, and from an address it really holds, a limited number of box openings a second; can see that some key `E` registers every 25 s, from where (not whose). Cannot register, pass, or take a place |
 | Sees traffic and can forge addresses; no pass | As above | Can replay to the service only what it did not receive (delivered late). Can answer an end first with a false COOKIE each time and so keep it from registering: a denial by someone on the path |
-| Anyone with an Apple, Google or Microsoft account | — | Can enrol, and use the service, as themselves. **That is most people.** The blacklist is what keeps someone out; a service for only its own people narrows the list of providers |
+| Anyone with an Apple, Google or Microsoft account | — | Can enrol, and use the service, as themselves, under the default whitelist. **That is most people.** A service for only its own people writes a narrower whitelist (`^google:.*@school\.edu$`) |
 | Another user | Takes an end's place, if they see the pair's name | Uses the service. Cannot open another's messages, register as another's end, or be passed another pair's datagrams. Spends only their own 16 |
 | A server host the user logged in to | Holds the shared key: a user of the meetup for ever | For that session, is that session's server end, as it must be. Afterwards holds a voucher that names an end nobody is: it can keep that registration alive until it is put out first (5.4). Cannot relay for itself |
 | Someone who steals a user's private key | — | Is that user, until `U` or the account is blacklisted, or the pass's term passes. Cannot read or join a running session |
@@ -243,7 +257,7 @@ In every row, nobody reads or changes what the two ends say: that is sealed by t
   (a box that does not open, a voucher that is not that user's for this term and pair) dropped.
 - **Lying.** An end for a `P` that is not for it is passed nothing. A user can vouch for any
   pair of keys: that is what a user is allowed to do, and it spends their own 16.
-- **The service's own state** (the four terms' keys, the blacklist) is files, read at start and
+- **The service's own state** (the four terms' keys, the whitelist, the blacklist) is files, read at start and
   again on a signal. Missing or unreadable at start: it does not start. Unreadable later: the
   old state stays, and it says so. Whoever edits the blacklist writes a new file and renames it.
 
@@ -258,7 +272,15 @@ In every row, nobody reads or changes what the two ends say: that is sealed by t
 - **The service is trusted** not to drop, and sees who talks to whom, how much, and as which
   user. It writes none of that to its log (deferred by the owner), so whoever runs it cannot
   tell from it whom to blacklist; the sign-in pages know who enrolled.
-- **The default sign-in providers admit almost anyone** (6).
+- **The default whitelist admits almost anyone** (6).
+- **Regular expressions written by whoever runs it** are matched by both sides. A careless one
+  can admit more than was meant (an unanchored `school.edu` matches `myschool.edu.example`),
+  and some expressions take a very long time on some inputs. The web side matches them with an
+  engine that takes time in proportion to the input (no backtracking); the UDP side matches only
+  at registration and when the list is read again, never on a datagram.
+- **An address is the provider's word.** Apple lets a user hide their address behind one it makes
+  up, which no whitelist of domains will match; such a user enrols only where the whitelist
+  admits `apple:` as a whole. An address that changes at the provider is a new account here.
 - **A PASSED proves nothing to the end that gets it.** Anyone forging the service's address can
   send one; the session refuses what is in it.
 - **An end's key `E` is in the clear** when it registers, so one session can be followed across
@@ -333,10 +355,10 @@ not work with the fork's releases at the other end.
   enrol with an account they have, from a key their machine made. Everything revision 4 took
   from the attacks is kept.
 
-## 11. Questions for the owner
+## 11. The owner's answers to revision 5 (2026-11-15)
 
-1. **Two processes**, a web side and a UDP side, sharing the key files (section 8, first item):
-   agreed?
-2. **The web side in a repository of its own** (section 9): agreed?
-3. **Attack revision 5 once more** before building, as revisions 1 and 3 were: agreed? (It
-   changes the keys, which is where the last two attacks found the most.)
+1. A web side and a UDP side, two processes sharing the key files: "yes".
+2. The web side in a repository of its own: "yes".
+3. Attacked once more before it is built: "yes".
+
+And: "whitelist - blacklist, both a set of regular expressions" (section 2).
