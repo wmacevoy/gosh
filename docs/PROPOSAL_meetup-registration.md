@@ -584,3 +584,8 @@ could match; the default is a year from when it is added.
    one can default to 'no'." The agent's reading, to be confirmed: every service has the hook,
    and most installations answer it; a fresh one answers "no" to everyone (an empty whitelist)
    until its operator lists whom it admits, so nothing is public unless someone makes it so.
+   **Corrected by the owner:** "my hook comment was about every domain in the problem." So: the
+   hook is asked about every account, whatever its domain; most installations answer it with
+   their own lists; and gosh's own default answer, for a build that gives none, is "no".
+6. Roughtime: "yes drop roughtime."
+7. `sub`: "note sub but leave it out."
