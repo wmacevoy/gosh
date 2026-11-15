@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 """How fast a forward carries bytes, end to end, on this machine.
 
 REQ14/SPEED-1: the figure a part of gosh is held to. A forward in gosh carries

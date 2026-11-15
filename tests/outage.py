@@ -19,8 +19,7 @@ Written for gosh on 2026-11-14, and seen red that day: with the gate never
 opened again, the last two checks fail. It stops only the processes it started, by
 process id, and asks nothing of any server on the Internet.
 
-Copyright 2026 Warren D. MacEvoy. Part of gosh, under the GNU General Public
-License, version 3 or later (COPYING).
+Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 """
 import os
 import re

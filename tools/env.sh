@@ -1,3 +1,4 @@
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 # Sourced by the other tools: where things are, and the build dependencies.
 #
 # The core needs protobuf and ncurses headers to build. Where the system has

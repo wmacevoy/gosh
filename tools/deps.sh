@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 # Fetches what the core needs to build into .deps/, without root: Debian and
 # Ubuntu only (it uses apt-get download). Not needed where these are
 # installed: protobuf-compiler libprotobuf-dev libncurses-dev zlib1g-dev.

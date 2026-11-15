@@ -1,0 +1,44 @@
+gosh
+Copyright 2026 Warren D. MacEvoy
+
+gosh is free software: you can redistribute it and/or modify it under the terms
+of the GNU General Public License as published by the Free Software Foundation,
+either version 3 of the License, or (at your option) any later version.
+
+gosh is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+The text of the License is in the file COPYING.
+
+What this covers
+----------------
+Everything in this repository except:
+
+  core/         mosh, as its authors published it: see LICENSE-MOSH.
+  vendor/se1/   the SE1 guide, under its own terms (vendor/se1).
+
+Each file of gosh's carries one line that points here in place of a longer
+notice.
+
+Where gosh's files came from
+----------------------------
+gosh is the fork wmacevoy/mosh (at its tag mosh-1.4.0-pf.7) migrated into
+named, tested parts. Many of its files were first written for that fork, in
+2026, by the same copyright holder. In the fork they began with the notice mosh
+puts on its own files ("Copyright 2012 Keith Winstein"), because they were
+added to mosh's tree; none of them exists in mosh as its authors published it
+(checked against mosh at commit decd9b705eb81626f694335b8d5940538beb06da, which
+is what core/ is). The owner of gosh, 2026-11-14: "only core is old code".
+
+Two things in gosh do rest on mosh's own text, and LICENSE-MOSH applies to
+that text:
+
+  seam/*.patch          changes to mosh's files; the lines they keep and
+                        replace are mosh's.
+  src/command/moshwrapper.*
+                        does what mosh's scripts/mosh.pl does, and uses some of
+                        its words.
+
+gosh is built on mosh and links with it; the combination is distributed under
+the GNU General Public License, version 3 or later.

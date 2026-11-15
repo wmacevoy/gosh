@@ -1,14 +1,4 @@
-/*
-    Copyright 2026 Warren D. MacEvoy
-
-    This file is part of gosh, which is free software under the GNU General
-    Public License, version 3 or later (see COPYING). gosh carries mosh's code
-    and is not the mosh project's work.
-
-    The socket calls here, and their order, are those of AdapterPort in
-    wmacevoy/mosh at mosh-1.4.0-pf.7 (src/network/tcpadapter.cc), which did
-    them in the middle of its TCP. The TCP is now in connection.h.
-*/
+/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 #ifndef TCPADAPTER_HPP
 #define TCPADAPTER_HPP

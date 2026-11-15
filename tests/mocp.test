@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 
 #
 # mocp, and the stream it rides on, with real programs: files copied to

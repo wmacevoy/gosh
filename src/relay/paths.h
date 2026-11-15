@@ -1,12 +1,7 @@
-/*
-    Copyright 2026 Warren D. MacEvoy
+/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-    This file is part of gosh, which is free software under the GNU General
-    Public License, version 3 or later (see COPYING).
-
-    The rules are the fork's (mosh-1.4.0-pf.7, src/network/relay.cc: LocalRelay's
-    from_client, start_child and run, and relay_remote), under the same license.
-*/
+/* The rules are the fork's (mosh-1.4.0-pf.7, src/network/relay.cc: LocalRelay's from_client,
+   start_child and run, and relay_remote). */
 
 /*
  * relay, paths: which way a datagram goes, and when the ssh connection is started, started

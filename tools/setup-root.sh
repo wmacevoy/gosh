@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 # The one thing gosh's development needs that needs root on this machine: a
 # profiler, for the profile of pf.7 that queue item 4 asks for (design v2,
 # question 7). Run it once, as root:

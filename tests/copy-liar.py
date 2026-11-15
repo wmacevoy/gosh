@@ -28,8 +28,7 @@ check made to accept anything, a part of a file is written outside the
 destination for each lying name. It stops only the server it started, by the
 process id that server reported.
 
-Copyright 2026 Warren D. MacEvoy. Part of gosh, under the GNU General Public
-License, version 3 or later (COPYING).
+Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 """
 import os
 import re

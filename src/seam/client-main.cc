@@ -1,9 +1,4 @@
-/*
-    Copyright 2026 Warren D. MacEvoy
-
-    This file is part of gosh, which is free software under the GNU General
-    Public License, version 3 or later (see COPYING).
-*/
+/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
  * gosh-client's main (design v2, 4.2). gosh-client is several programs under one name:

@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 # Builds gosh in .build/: a copy of the core at its pinned commit, built there,
 # and the two programs under gosh's names in .build/bin (REQ6/NAME-1).
 #

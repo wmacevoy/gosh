@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 """Hole punching through real NATs (Linux's own), in network namespaces.
 
 Requirements: REQ1/PATH-3 (easy, moved), REQ1/PATH-1 and REQ1/SHAPE-2 (hard:

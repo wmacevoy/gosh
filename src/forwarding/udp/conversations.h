@@ -1,13 +1,7 @@
-/*
-    Copyright 2026 Warren D. MacEvoy
+/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-    This file is part of gosh, which is free software under the GNU General
-    Public License, version 3 or later (see COPYING).
-
-    The algorithm is the fork's (mosh-1.4.0-pf.7, src/network/udpforward.cc:
-    UDPForwarder's flows, partial datagrams and to_network), which is
-    Copyright 2012 Keith Winstein and the fork's authors, under the same license.
-*/
+/* The algorithm is the fork's (mosh-1.4.0-pf.7, src/network/udpforward.cc: UDPForwarder's flows,
+   partial datagrams and to_network). */
 
 /*
  * conversations: the UDP forwards of one direction, as logic (REQ1/FWD-2, REQ6/SHAPE-5).

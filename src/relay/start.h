@@ -1,13 +1,7 @@
-/*
-    Copyright 2026 Warren D. MacEvoy
+/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-    This file is part of gosh, which is free software under the GNU General
-    Public License, version 3 or later (see COPYING).
-
-    The rule is the fork's (mosh-1.4.0-pf.7, src/frontend/stmclient.cc,
-    STMClient::consider_relay and set_relay; and src/frontend/mosh-client.cc, where
-    "never" was dropped before set_relay), under the same license.
-*/
+/* The rule is the fork's (mosh-1.4.0-pf.7, src/frontend/stmclient.cc, STMClient::consider_relay
+   and set_relay; and src/frontend/mosh-client.cc, where "never" was dropped before set_relay). */
 
 /*
  * relay, start: should the client start its relay now? (REQ1/PATH-1; design v2, 2.2.)

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 
 """End-to-end test of port forwarding.
 

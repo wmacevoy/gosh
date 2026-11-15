@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 # Builds the fork at mosh-1.4.0-pf.7 in .build/pf7: the programs gosh is measured
 # against (requirements: "the fork ... is what gosh is measured against").
 #

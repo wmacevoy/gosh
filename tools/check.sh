@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 # The full check: the one command a person, an agent and CI all run (SE1/O3).
 # Prints PASS and exits 0, or says what failed and exits 1. In order:
 #   1. the repository is sound (se --doctor);

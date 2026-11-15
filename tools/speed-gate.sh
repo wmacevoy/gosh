@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 # The speed gate (REQ14/SPEED-1): a forward in gosh carries bytes at not more than 10% under
 # the fastest version benchmarked so far: a TCP forward by UDP, a copy over a stream, and a
 # TCP forward by the relay.

@@ -11,7 +11,7 @@ and `gocp` copies files (`tools/check.sh`). The ssh fallback and NAT traversal a
 what it will not, is `docs/REQUIREMENTS_v14.md`; what is being worked is `docs/QUEUE.md`.
 
 gosh is not mosh and is not the mosh project's work. It carries mosh's code under the GNU General
-Public License, version 3 (`COPYING`), and keeps its authors' notices. **It has not been
+Public License, version 3 (`COPYING`), and keeps its authors' notice (`LICENSE-MOSH`; gosh's own is `LICENSE-GOSH`). **It has not been
 independently reviewed**; a review by a third party is required before a class uses it.
 
 The editor extension is `../remote-gosh`. Its requirements and queue are here.

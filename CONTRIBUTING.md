@@ -73,10 +73,13 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   the design. A change that reshapes the core's code says where the code came from and why
   (`REQ10/SHAPE-1`, `REQ6/UP-2`).
 - **Code and tests name the requirements they serve**, by versioned ID (`REQ1/CP-2`).
-- **Every file that came from mosh or the fork keeps its copyright notice.** gosh is GPL-3. A file
-  written for gosh begins "Copyright 2026 Warren D. MacEvoy" (the year it was written) and says
-  it is part of gosh under the GPL, version 3 or later: the owner holds the copyright in what an
-  agent writes here (owner, 2026-11-14).
+- **One line of copyright in each file, and the rest in two files.** Every source, test and tool
+  of gosh's begins (after `#!`, where there is one) with: "Copyright 2026 Warren D. MacEvoy.
+  GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH." Nothing longer:
+  `LICENSE-GOSH` holds the notice, what it covers and where the files came from; `LICENSE-MOSH`
+  holds mosh's own notice, for `core/` and for the text of mosh that the seam's patches change
+  (the owner, 2026-11-14: "only core is old code", "a one-liner with a reference"). The owner
+  holds the copyright in what an agent writes for gosh. `core/` and `vendor/` are never touched.
 - **Never stop a process by name.** The machine this is developed on is also the owner's live mosh
   host and runs their private meetup. Stop what you started by process id.
 - **Never run a test against the installed programs.** The fork's `nat-lab.py` ends by stopping

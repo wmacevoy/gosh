@@ -1,12 +1,6 @@
-/*
-    Copyright 2026 Warren D. MacEvoy
+/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-    This file is part of gosh, which is free software under the GNU General
-    Public License, version 3 or later (see COPYING).
-
-    The first test is the fork's (mosh-1.4.0-pf.7, src/tests/udp-forward.cc,
-    test_relay_frames), under the same license.
-*/
+/* The first test is the fork's (mosh-1.4.0-pf.7, src/tests/udp-forward.cc, test_relay_frames). */
 
 /* REQ1/PATH-1: datagrams on the ssh stream, and the relays' words to each other (frame.h). */
 

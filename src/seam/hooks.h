@@ -1,12 +1,4 @@
-/*
-    Copyright 2026 Warren D. MacEvoy
-
-    This file is part of gosh, which is free software under the GNU General
-    Public License, version 3 or later (see COPYING). gosh carries mosh's code
-    and is not the mosh project's work. What these hooks do, and the messages
-    they print, are those of wmacevoy/mosh at mosh-1.4.0-pf.7, where the same
-    lines stood inside the core's two programs.
-*/
+/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 #ifndef GOSH_SEAM_HOOKS_HPP
 #define GOSH_SEAM_HOOKS_HPP

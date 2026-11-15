@@ -28,8 +28,7 @@ but the last (it writes nothing on standard output either).
 On its way out it stops the servers that appeared while it ran: by process id,
 and only ones running SERVER's own file that carry this run's mark.
 
-Copyright 2026 Warren D. MacEvoy. Part of gosh, under the GNU General Public
-License, version 3 or later (COPYING).
+Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 """
 import fcntl
 import os

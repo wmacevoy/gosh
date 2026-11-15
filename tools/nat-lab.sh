@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 # The NAT lab: tests/nat-lab.py, each way asked for, against the programs in a
 # directory. Two NATs (Linux's own), a client behind one and a server behind
 # the other, in network namespaces of this run's own.
