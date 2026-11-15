@@ -707,3 +707,11 @@ decisions; REQ15/PATH-5's "just shown" against a registration that lives on `Kr`
 
 **Not decided by the attacker:** a REGISTER's cost in TweetNaCl; which Roughtime servers live;
 SQLite's regexp bound; NATs with 30-second timeouts; 2,048 cipher sessions in 10 MB.
+
+## 15. Back to basics (the owner, 2026-11-15, after the sixth attack)
+
+"ok, this got more complicated than it needed to be. ... lets just get back to the basics: any
+esablished connection implies relay. we already defer to ssh, let's do it again, the server
+supports stun and meetup, no third party. the point was to have students install their own on an
+aws account. no new auth." Revisions 5 to 9 (sign-in, passes, terms, the web side, the hook) are
+set aside; what follows them is to be written from this.
