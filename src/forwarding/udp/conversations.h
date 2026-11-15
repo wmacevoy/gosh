@@ -43,36 +43,12 @@
 #include <string>
 #include <vector>
 
-#include "src/forwarding/udp/fragments.h"
 #include "src/forwarding/frame.h"
+#include "src/forwarding/udp/receiving.h"
+#include "src/forwarding/udp/rules.h"
+#include "src/forwarding/udp/sending.h"
 
 namespace Gosh {
-
-/* What the session can do just now, read by the edge each time. */
-struct DatagramLink
-{
-  bool ready;         /* the other end forwards, and we are connected */
-  size_t max_payload; /* the most one side-channel payload may be */
-  double loss;        /* the share of datagrams the session is losing, 0 to 1 */
-};
-
-struct ConversationRules
-{
-  enum ParityMode
-  {
-    PARITY_AUTO, /* when the measured loss makes it worthwhile */
-    PARITY_ALWAYS,
-    PARITY_NEVER
-  };
-
-  /* Datagrams being put back together: how many at once, and for how long. */
-  static constexpr size_t MAX_PARTIALS = 64;
-  static constexpr uint64_t REASSEMBLY_TIMEOUT = 1000; /* ms */
-  static constexpr size_t MAX_REMEMBERED = 256;
-
-  static constexpr size_t MAX_FLOWS = 64;
-  static constexpr uint64_t FLOW_IDLE_TIMEOUT = 120000; /* ms */
-};
 
 template<class Out>
 class Conversations : public ConversationRules
@@ -89,37 +65,16 @@ private:
     Flow() : forward( 0 ), id( 0 ), handle( 0 ), peer(), last_used( 0 ) {}
   };
 
-  struct Partial
-  {
-    DatagramAssembly assembly;
-    uint8_t forward;
-    uint16_t flow_id;
-    uint64_t started;
-
-    Partial() : assembly(), forward( 0 ), flow_id( 0 ), started( 0 ) {}
-  };
-
   bool listening;
   uint8_t data_type, fragment_type;
   size_t forwards;
-  ParityMode parity_mode;
 
   std::vector<Flow> flows;
   uint16_t next_flow_id;
   uint32_t next_handle;
 
-  uint64_t next_seq;
-  ReplayWindow replay;
-
-  /*
-   * Fragments of a datagram are sent with consecutive sequence numbers, so the first one's
-   * number (a fragment's own, less its index) names the datagram.
-   */
-  std::map<uint64_t, Partial> partials;
-  std::deque<uint64_t> finished; /* recently rebuilt, so stragglers don't start them again */
-
-  uint64_t dropped_oversize;
-  uint64_t fragmented, with_parity, reassembled, recovered, abandoned;
+  Sending sending;     /* a datagram on its way out: one payload or fragments (sending.h) */
+  Receiving receiving; /* what arrives, made into whole datagrams (receiving.h) */
 
   void remove_flow( size_t index, Out& out )
   {
@@ -179,105 +134,6 @@ private:
     return &flows.back();
   }
 
-  void to_network( const Flow& flow, const char* data, size_t len, const DatagramLink& link, Out& out )
-  {
-    if ( !link.ready ) {
-      return; /* peer doesn't (yet) support forwarding, or we're not connected */
-    }
-
-    const size_t limit = link.max_payload;
-    const std::string datagram( data, len );
-
-    if ( FRAME_HEADER_LEN + len <= limit ) {
-      out.send( encode_frame( data_type, flow.forward, flow.id, next_seq++, datagram ) );
-      return;
-    }
-
-    /* Too big to go in one piece.  Is it worth protecting the pieces? */
-    std::vector<std::string> fragments;
-    bool parity = false;
-    if ( limit > FRAME_HEADER_LEN ) {
-      const unsigned int count = DatagramAssembly::piece_count( len, limit - FRAME_HEADER_LEN );
-      parity = parity_mode == PARITY_ALWAYS || ( parity_mode == PARITY_AUTO && parity_worthwhile( link.loss, count ) );
-      fragments = DatagramAssembly::split( datagram, limit - FRAME_HEADER_LEN, parity );
-    }
-    if ( fragments.empty() ) {
-      dropped_oversize++;
-      return;
-    }
-
-    /* The receiver relies on these sequence numbers being consecutive. */
-    for ( std::vector<std::string>::const_iterator i = fragments.begin(); i != fragments.end(); i++ ) {
-      out.send( encode_frame( fragment_type, flow.forward, flow.id, next_seq++, *i ) );
-    }
-    fragmented++;
-    with_parity += parity ? 1 : 0;
-  }
-
-  void expire_partials( uint64_t now )
-  {
-    for ( typename std::map<uint64_t, Partial>::iterator i = partials.begin(); i != partials.end(); ) {
-      if ( now - i->second.started > REASSEMBLY_TIMEOUT ) {
-        partials.erase( i++ ); /* a fragment was lost, and with it the datagram */
-        abandoned++;
-      } else {
-        i++;
-      }
-    }
-  }
-
-  void fragment_recv( uint8_t forward, uint16_t flow_id, uint64_t seq, const std::string& fragment, uint64_t now, Out& out )
-  {
-    unsigned int index;
-    if ( !DatagramAssembly::index_of( fragment, index ) ) {
-      return;
-    }
-    const uint64_t first_seq = seq - index;
-
-    if ( std::find( finished.begin(), finished.end(), first_seq ) != finished.end() ) {
-      return; /* already rebuilt without this one (typically, parity that wasn't needed) */
-    }
-
-    expire_partials( now );
-
-    typename std::map<uint64_t, Partial>::iterator i = partials.find( first_seq );
-    if ( i == partials.end() ) {
-      if ( partials.size() >= MAX_PARTIALS ) {
-        partials.erase( partials.begin() ); /* the oldest */
-        abandoned++;
-      }
-      Partial fresh;
-      fresh.forward = forward;
-      fresh.flow_id = flow_id;
-      fresh.started = now;
-      i = partials.insert( std::make_pair( first_seq, fresh ) ).first;
-    } else if ( i->second.forward != forward || i->second.flow_id != flow_id ) {
-      return;
-    }
-
-    std::string datagram;
-    bool used_parity = false;
-    switch ( i->second.assembly.add( fragment, datagram, used_parity ) ) {
-      case DatagramAssembly::COMPLETE:
-        partials.erase( i );
-        finished.push_back( first_seq );
-        if ( finished.size() > MAX_REMEMBERED ) {
-          finished.pop_front();
-        }
-        reassembled++;
-        recovered += used_parity ? 1 : 0;
-        deliver( forward, flow_id, datagram, now, out );
-        break;
-      case DatagramAssembly::REJECTED:
-        if ( i->second.assembly.empty() ) {
-          partials.erase( i ); /* don't let junk hold a place */
-        }
-        break;
-      case DatagramAssembly::INCOMPLETE:
-        break;
-    }
-  }
-
   /* A whole datagram from the other end: pass it on. */
   void deliver( uint8_t forward, uint16_t flow_id, const std::string& datagram, uint64_t now, Out& out )
   {
@@ -316,13 +172,11 @@ public:
   Conversations( bool s_listening, bool reverse, size_t s_forwards )
     : listening( s_listening ), data_type( reverse ? TYPE_UDP_REVERSE_DATA : TYPE_UDP_DATA ),
       fragment_type( reverse ? TYPE_UDP_REVERSE_FRAGMENT : TYPE_UDP_FRAGMENT ), forwards( s_forwards ),
-      parity_mode( PARITY_AUTO ), flows(), next_flow_id( 0 ), next_handle( 0 ), next_seq( 0 ), replay(), partials(),
-      finished(), dropped_oversize( 0 ), fragmented( 0 ), with_parity( 0 ), reassembled( 0 ), recovered( 0 ),
-      abandoned( 0 )
+      flows(), next_flow_id( 0 ), next_handle( 0 ), sending( reverse ), receiving()
   {}
 
   /* When to add parity to the datagrams we fragment. (What we receive may have it regardless.) */
-  void set_parity_mode( ParityMode s_mode ) { parity_mode = s_mode; }
+  void set_parity_mode( ParityMode s_mode ) { sending.set_parity_mode( s_mode ); }
 
   /* Listening end: a datagram came to this forward's listener from this address (any bytes that name it). */
   void from_application( uint8_t forward,
@@ -359,7 +213,7 @@ public:
     }
 
     flow->last_used = now;
-    to_network( *flow, data, len, link, out );
+    sending.send( flow->forward, flow->id, data, len, link, out );
   }
 
   /* Connecting end: a datagram came from the target on this conversation's socket. */
@@ -368,7 +222,7 @@ public:
     for ( typename std::vector<Flow>::iterator i = flows.begin(); i != flows.end(); i++ ) {
       if ( i->handle == handle ) {
         i->last_used = now;
-        to_network( *i, data, len, link, out );
+        sending.send( i->forward, i->id, data, len, link, out );
         return;
       }
     }
@@ -389,27 +243,30 @@ public:
 
     /* The session authenticates every datagram but does not stop an old
        one from being replayed, so that is up to us. */
-    if ( !replay.accept( seq ) ) {
+    if ( !receiving.fresh( seq ) ) {
       return;
     }
 
     if ( type == fragment_type ) {
-      fragment_recv( forward, flow_id, seq, data, now, out );
+      std::string datagram;
+      if ( receiving.fragment( forward, flow_id, seq, data, now, datagram ) ) {
+        deliver( forward, flow_id, datagram, now, out );
+      }
     } else {
       deliver( forward, flow_id, data, now, out );
     }
   }
 
   size_t flow_count( void ) const { return flows.size(); }
-  uint64_t get_dropped_oversize( void ) const { return dropped_oversize; }
+  uint64_t get_dropped_oversize( void ) const { return sending.get_dropped_oversize(); }
 
   /* Datagrams we sent in fragments; and of those received so: rebuilt, rebuilt using parity, given up on. */
-  uint64_t get_fragmented( void ) const { return fragmented; }
-  uint64_t get_with_parity( void ) const { return with_parity; }
-  uint64_t get_reassembled( void ) const { return reassembled; }
-  uint64_t get_recovered( void ) const { return recovered; }
-  uint64_t get_abandoned( void ) const { return abandoned; }
-  size_t partial_count( void ) const { return partials.size(); }
+  uint64_t get_fragmented( void ) const { return sending.get_fragmented(); }
+  uint64_t get_with_parity( void ) const { return sending.get_with_parity(); }
+  uint64_t get_reassembled( void ) const { return receiving.get_reassembled(); }
+  uint64_t get_recovered( void ) const { return receiving.get_recovered(); }
+  uint64_t get_abandoned( void ) const { return receiving.get_abandoned(); }
+  size_t partial_count( void ) const { return receiving.partial_count(); }
 };
 
 }

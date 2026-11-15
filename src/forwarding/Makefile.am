@@ -12,13 +12,13 @@ noinst_LIBRARIES = libgoshforwarding.a
 
 libgoshforwarding_a_SOURCES = forwarding.h forward.cc forward.h frame.cc frame.h \
   tcp/bytes.h tcp/connection.h tcp/early.h tcp/held.h tcp/options.h tcp/timer.h tcp/tcpadapter.cc tcp/tcpadapter.h tcp/tcpforward.cc tcp/tcpforward.h tcp/tcpinudp.cc tcp/tcpinudp.h \
-  udp/conversations.h udp/fragments.cc udp/fragments.h udp/udpforward.cc udp/udpforward.h \
+  udp/conversations.h udp/rules.h udp/sending.h udp/receiving.h udp/fragments.cc udp/fragments.h udp/udpforward.cc udp/udpforward.h \
   stream/stream.h stream/streamchild.cc stream/streamchild.h
 
 # A unit test is named for the file it tests, with -test. Those of tcpforward, tcpinudp and
 # udpforward are the fork's, which drive the classes on real sockets; the others are logic
 # alone, with no socket and no clock.
-check_PROGRAMS = tcp/bytes-test tcp/options-test tcp/held-test tcp/early-test tcp/timer-test tcp/connection-test tcp/tcpforward-test tcp/tcpinudp-test udp/conversations-test udp/udpforward-test stream/stream-test
+check_PROGRAMS = tcp/bytes-test tcp/options-test tcp/held-test tcp/early-test tcp/timer-test tcp/connection-test tcp/tcpforward-test tcp/tcpinudp-test udp/sending-test udp/receiving-test udp/conversations-test udp/udpforward-test stream/stream-test
 TESTS = $(check_PROGRAMS)
 LDADD = libgoshforwarding.a ../copy/libgoshcopy.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 tcp_bytes_test_SOURCES = tcp/bytes-test.cc
@@ -29,6 +29,8 @@ tcp_timer_test_SOURCES = tcp/timer-test.cc
 tcp_connection_test_SOURCES = tcp/connection-test.cc
 tcp_tcpforward_test_SOURCES = tcp/tcpforward-test.cc
 tcp_tcpinudp_test_SOURCES = tcp/tcpinudp-test.cc
+udp_sending_test_SOURCES = udp/sending-test.cc
+udp_receiving_test_SOURCES = udp/receiving-test.cc
 udp_conversations_test_SOURCES = udp/conversations-test.cc
 udp_udpforward_test_SOURCES = udp/udpforward-test.cc
 stream_stream_test_SOURCES = stream/stream-test.cc

@@ -101,6 +101,7 @@ private:
 
   /* What the logic asks of its edge (conversations.h). */
   friend class Gosh::Conversations<UDPForwarder>;
+  friend class Gosh::Sending;
   void send( const std::string& payload ) { link->sidechannel_send( payload ); }
   bool open( uint32_t handle, uint8_t forward, uint16_t id );
   void close( uint32_t handle );

@@ -4,13 +4,18 @@
 they do not fit. Part of forwarding (`../README.md`); it uses forwarding's `forward` and
 `frame`, and nothing of `../tcp/` or `../stream/`.
 
-| File | What it holds |
-| --- | --- |
-| `fragments.*` | a datagram cut into pieces with parity, and rebuilt; whether parity is worth it: logic (likewise) |
-| `conversations.h` | UDP forwards as logic: which conversation a datagram is of, its number, fragments on the way out and in, replay, and forgetting (new shape); `conversations-test.cc` |
-| `udpforward.*` | the sockets of UDP forwards: listeners and targets, an edge (new shape; the class keeps the fork's name and public face) |
+| File | What it holds | Test |
+| --- | --- | --- |
+| `conversations.h` | which conversation a datagram is of: the table, its numbers, forgetting, pushing out the quietest. Logic | `conversations-test.cc` |
+| `sending.h` | a datagram on its way out: one payload, or fragments with parity when asked or worth it. Logic | `sending-test.cc` |
+| `receiving.h` | what arrives, made into whole datagrams: the replay window, datagrams in pieces, the ones already rebuilt. Logic | `receiving-test.cc` |
+| `rules.h` | the numbers and words the three share | — |
+| `fragments.*` | a datagram cut into pieces with parity, and rebuilt; whether parity is worth it. Logic (the fork's text) | `udpforward-test.cc` |
+| `udpforward.*` | the sockets of UDP forwards: listeners and targets. An edge (the class keeps the fork's name and public face) | `udpforward-test.cc` (the fork's, on real sockets) |
 
-Unit tests: `conversations-test.cc` (logic alone), `udpforward-test.cc` (the fork's, on real sockets).
+`conversations.h` was one file of 423 lines until 2026-11-15 (the owner: "too much to digest").
+Sending and receiving share nothing but the frame, so each is a file; the table is what ties a
+datagram to a socket. The same statements, moved; the tests that were there pass unchanged.
 
 ## conversations (the new shape)
 
