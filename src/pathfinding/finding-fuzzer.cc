@@ -57,10 +57,14 @@ const char* const B_AT = "10.0.0.2:2000";
 const char* const MEETUP_AT = "10.0.0.9:3478";
 const char* const FROM[] = { B_AT, MEETUP_AT, "10.0.0.66:666", "[2001:db8::2]:2000", "[2001:db8::66]:666" };
 
-/* DATA only from where its way is: the other end's address, or the meetup's when the way is through it. */
-bool taken_from_its_way( const PathFinding& end, const std::string& datagram, const Addr& from )
+/*
+ * DATA only from where its way is: the other end's address, or the meetup's when the way is
+ * through it. (Its bytes may be anything, even none: they are the session's to open, and it
+ * refuses what it did not seal.)
+ */
+bool taken_from_its_way( const PathFinding& end, const Addr& from )
 {
-  return !datagram.empty() && end.where() == ( end.direct() ? "" : "the meetup at " ) + format_ip_port( from );
+  return end.where() == ( end.direct() ? "" : "the meetup at " ) + format_ip_port( from );
 }
 
 uint8_t byte_at( const std::string& s, size_t i )
@@ -96,7 +100,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         std::string bytes = body.size() > 2 ? body.substr( 2 ) : std::string();
         bytes += std::string( byte_at( body, 1 ) * 40, 'p' );
         if ( a.receive( now, bytes.data(), bytes.size(), from, datagram ) == PathFinding::DATA ) {
-          require( taken_from_its_way( a, datagram, from ) );
+          require( taken_from_its_way( a, from ) );
         }
         break;
       }
@@ -109,7 +113,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
           }
           const Addr from = at( ( byte_at( body, 1 ) & 2 ) ? "10.0.0.66:666" : B_AT );
           if ( a.receive( now, bytes.data(), bytes.size(), from, datagram ) == PathFinding::DATA ) {
-            require( taken_from_its_way( a, datagram, from ) );
+            require( taken_from_its_way( a, from ) );
           }
         }
         break;
