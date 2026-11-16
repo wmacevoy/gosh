@@ -560,6 +560,9 @@ owner wants it kept as accepted-and-ignored (question 9).
 
 Tests today: (b) `wrapper.test`, its built-in half. The three logic pieces get unit tests with
 plain strings: none exists today beyond `shell_words`, `shell_quote`, `remote_place`.
+*(Done 2026-11-16: `src/command/` is now `options`, `words` (what was asked), `startup`, `login`
+and `proxy`, the three logic pieces each with its test; `src/command/README.md`. The variables
+for the client stay variables: the core's client and the relays read them.)*
 
 #### install
 
