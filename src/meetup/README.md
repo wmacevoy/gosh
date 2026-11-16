@@ -50,3 +50,15 @@ over `::1`) and `tests/relay-meetup.py ::1`.
   relays find a way straight to each other first. `src/pathfinding/punch-test.cc` passes them
   through the meetup's logic, and `tests/relay-meetup.py` shows both relays registering.
 - If Python's `cryptography` package (AESOCB3) is missing, that test skips the exchange and says so.
+
+**Fuzzed** (queue item 21): `registrations-fuzzer.cc`, new (the fork's meetup was fuzzed by
+nothing), with `registrations-fuzzer-corpus/`. Anything from anyone, messages sealed under two
+tickets by either end from anywhere with any counter, messages sent again, STUN requests; held to
+`REQ15/PATH-5` by a model of what the meetup's own answers have shown: answered only where a
+REGISTER was sealed and came from; passed only from where an end registered, only to the other end
+of its ticket where that registered. `make check` replays the corpus and 200 seeded changes of each
+input; CI runs it under libFuzzer (`tools/fuzz.sh`). Seen red with a PASS taken from anywhere
+(`registrations.h`).
+
+It does not check "never with more bytes than it was sent" (requirements, threat model): a STUN
+request of 20 bytes gets an answer of 32 (IPv4) or 44 (IPv6), so that sentence is untrue today.

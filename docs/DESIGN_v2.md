@@ -544,7 +544,9 @@ Tests today: (u) `file-copy`, `file_copy_fuzzer`; (b) `mocp.test`, the `-X @copy
 `names.h`, `checksum.h` and `decisions.h`, each with its test, and `filecopy.cc` the two
 procedures, with `HOME` read once in `run` and the clock passed in. Every format is pf.7's; the
 fork's `file-copy` is `filecopy-test.cc`, now the edge's test. The fork's `file_copy_fuzzer` was
-not carried into gosh. `src/copy/README.md`.*
+not carried into gosh. `src/copy/README.md`.* *(2026-11-16, queue item 21: it is now, as
+`filecopy-fuzzer.cc`, with the fork's other fuzzers and two new ones, path-finding's logic and the
+meetup's; `make check` replays each corpus, and CI runs each under libFuzzer, `tools/fuzz.sh`.)*
 
 #### the command
 

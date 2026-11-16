@@ -7,7 +7,7 @@
  * from where the sender says it is or from somewhere else, with any counter; earlier messages
  * again, from anywhere; and STUN requests.
  *
- * Besides looking for crashes, it holds the meetup to PATH-5, keeping a model of what the
+ * Besides looking for crashes, it holds the meetup to REQ15/PATH-5, keeping a model of what the
  * meetup's own answers have shown:
  *   - an end is registered at an address once the meetup has answered its REGISTER there;
  *   - REGISTERED goes only to where the REGISTER came from, and only if it was sealed there;
@@ -128,7 +128,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   std::map<int, std::string> registered; /* ticket * 2 + end: where the meetup's answer showed it registered */
   Sealed last;                           /* the last message sealed, to be sent again */
 
-  /* What the meetup sent, if anything, for this sealed message from this address: held to PATH-5. */
+  /* What the meetup sent, if anything, for this sealed message from this address: held to REQ15/PATH-5. */
   auto held = [&]( const Sealed& m, const std::string& from, const Registrations::Send& s ) {
     if ( !s.any ) {
       return;

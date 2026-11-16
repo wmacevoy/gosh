@@ -36,3 +36,8 @@ broken; their tests notice that only under AddressSanitizer.
 renames through whatever is already at the destination, a symbolic link included
 (`docs/FINDINGS.md`, 2026-11-13; bears on `REQ1/CP-6`). The edge's own lines (progress, the
 `--auto` wait, `umask`) are tested only through `filecopy-test.cc` and the outside tests.
+
+**Fuzzed** (queue item 21): `filecopy-fuzzer.cc`, the fork's fuzzer of the receiving end, with its
+corpus (`filecopy-fuzzer-corpus/`): whatever the sending end says, a file beside the destination is
+untouched. `make check` replays the corpus and 200 seeded changes of each input; CI runs it under
+libFuzzer (`tools/fuzz.sh`). Seen red: with `..` allowed in a name (`names.h`), it aborts.

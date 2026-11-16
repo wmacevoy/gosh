@@ -14,6 +14,7 @@ Every place gosh's code meets the core (`REQ10/SHAPE-1`; design v2, section 4). 
 | `session.*` | edge | the process's one session of gosh's: what was asked for, forwarding, and the state below |
 | `streaming.*` | edge | a stream: what the client keeps of the process at its end, and the look it takes at it each turn |
 | `relaying.*` | edge | the relay: what the client keeps of its local relay; starting it, and starting another if it dies (when is `src/relay/start.h`'s to say) |
+| `fuzz-replay.h` | test | every part's fuzzer's `main` for the ordinary compiler: replays its corpus, and 200 changes of each input from a seeded generator, so `make check` fuzzes a little without clang; keeps an input that crashes. Here because the build copies only `src/`'s directories into the core's tree (queue item 21) |
 
 The hooks decide nothing. They hold forwarding, hand its descriptors and timers to the program's
 loop, say `connected; forwarding.` for a client with no terminal (`REQ1/FWD-5`), and for a stream

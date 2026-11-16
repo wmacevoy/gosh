@@ -32,3 +32,15 @@ three include nothing of each other; each uses only `forward` and `frame` here, 
 `forwarding.h` is the one place that knows all three. Divided this way on 2026-11-14 at the
 owner's word ("forwarding seems a little too pooled"): subdirectories and not parts, so that
 forwarding stays the one part the requirements' glossary names. It builds as one library.
+
+**Fuzzed** (queue item 21), each with its corpus beside it (`NAME-fuzzer-corpus/`); `make check`
+replays each corpus and 200 seeded changes of each input, and CI runs them under libFuzzer
+(`tools/fuzz.sh`). The fork's four, carried; `fuzz.h` is the fork's `forward_fuzz.h`. Each seen red
+with a guard broken on purpose:
+
+| Fuzzer | What it holds forwarding to | Seen red with |
+| --- | --- | --- |
+| `frame-fuzzer.cc` | frames, reassembly with parity, the replay window | the window taking a number it has seen (`frame.cc`). A frame too short for its header (the guard in `decode_frame`) was not found by the replay's small search: libFuzzer's to find |
+| `tcp/tcpinudp-fuzzer.cc` | a segment read in each form is written back the same | options longer than the segment (`tcpinudp.cc`): an exception, then abort. Breaking the first length check alone shows nothing: the header-length check after it refuses the same inputs |
+| `tcp/tcpadapter-fuzzer.cc` | the adapter, both roles, sends no segment larger than the link takes | the segment's header left out of what fits (`connection.h`'s `local_mss`). The fork's corpus never filled a segment; `connect-full-segments` does (2026-11-16). Breaking the clamp in either of its two places alone shows nothing |
+| `udp/udpforward-fuzzer.cc` | the forwarder sends nothing larger than the link takes, and holds no more conversations or reassemblies than its limits | a datagram too big to go whole sent whole (`udp/sending.h`). The limit of 64 reassemblies is beyond what its inputs reach |
