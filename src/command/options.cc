@@ -231,7 +231,17 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
   if ( s.has( "meetup" ) ) {
     const std::string meetup = s.value( "meetup" );
     const size_t colon = meetup.rfind( ':' );
-    if ( colon == std::string::npos || colon == 0 ) {
+    /* (REQ16/PATH-8) HOST is a name, an IPv4 address, or an IPv6 one in brackets; PORT is 1 to 65535 */
+    const size_t user = meetup.rfind( '@', colon == std::string::npos ? std::string::npos : colon );
+    const std::string host = colon == std::string::npos ? std::string()
+                                                        : meetup.substr( user == std::string::npos ? 0 : user + 1,
+                                                                         colon - ( user == std::string::npos ? 0 : user + 1 ) );
+    const std::string port = colon == std::string::npos ? std::string() : meetup.substr( colon + 1 );
+    const bool bracketed = host.size() > 2 && host[0] == '[' && host[host.size() - 1] == ']'
+                           && host.find_first_of( "[]", 1 ) == host.size() - 1;
+    const bool plain = !host.empty() && host.find_first_of( ":[]" ) == std::string::npos;
+    if ( !( bracketed || plain ) || port.size() > 5 || port.find_first_not_of( "0123456789" ) != std::string::npos
+         || atol( port.c_str() ) < 1 || atol( port.c_str() ) > 65535 ) {
       throw Failure( name + ": --meetup needs HOST:PORT.", true );
     }
     c.meetup_login = meetup.substr( 0, colon );

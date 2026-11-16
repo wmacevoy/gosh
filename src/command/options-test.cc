@@ -147,6 +147,13 @@ int main()
   check( "and with no user", choose( s, "gosh", NULL ).meetup_login == "2001:db8::1" );
   check( "a meetup with no port is refused", refused( { "--meetup=meet.example", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
   check( "nor with nothing before its port", refused( { "--meetup=:3478", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
+  /* (REQ16/PATH-8; found by review, 2026-11-16: these were taken, and made an ssh login of "[2001:db8:") */
+  check( "an IPv6 meetup with no port is refused", refused( { "--meetup=[2001:db8::1]", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
+  check( "nor an IPv6 address without its brackets", refused( { "--meetup=2001:db8::1", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
+  check( "nor with a user and no port", refused( { "--meetup=me@[2001:db8::1]", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
+  check( "nor with an empty port", refused( { "--meetup=[2001:db8::1]:", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
+  check( "nor a port that is not one", refused( { "--meetup=meet.example:99999", "h" } ) == "!+gosh: --meetup needs HOST:PORT."
+                                         && refused( { "--meetup=meet.example:x1", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
 
   /* ---- the server's port, or range */
   check( "a port, and a range, are taken", refused( { "-p", "60001", "h" } ).empty() && refused( { "-p", "60001:60010", "h" } ).empty()
