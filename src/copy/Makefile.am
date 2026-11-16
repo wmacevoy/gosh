@@ -10,7 +10,7 @@ libgoshcopy_a_SOURCES = filecopy.cc filecopy.h options.h messages.h names.h chec
 
 # A test for each piece of logic, with plain values; and filecopy-test, the fork's test of the
 # two ends joined by a socket pair, which now tests the edge.
-check_PROGRAMS = options-test messages-test names-test checksum-test decisions-test filecopy-test
+check_PROGRAMS = options-test messages-test names-test checksum-test decisions-test filecopy-test filecopy-fuzzer
 TESTS = $(check_PROGRAMS)
 options_test_SOURCES = options-test.cc
 messages_test_SOURCES = messages-test.cc
@@ -19,3 +19,9 @@ checksum_test_SOURCES = checksum-test.cc
 decisions_test_SOURCES = decisions-test.cc
 filecopy_test_SOURCES = filecopy-test.cc
 filecopy_test_LDADD = libgoshcopy.a
+
+# Fuzzers (queue item 21): each is built twice. Here, with the ordinary compiler, it replays its
+# corpus (the directory beside it named for it, with -corpus after), so an input that once broke
+# the part breaks the check. In CI, with clang and -DGOSH_LIBFUZZER, libFuzzer runs it.
+filecopy_fuzzer_SOURCES = filecopy-fuzzer.cc
+filecopy_fuzzer_LDADD = libgoshcopy.a
