@@ -38,6 +38,7 @@ private:
   std::vector<std::string> ask; /* meetups and STUN servers: whom to ask where we appear to be */
   std::unique_ptr<Punch> punch;
   bool was_open, was_registered;
+  std::string was_where; /* (gosh) where the way through was, last we said */
 
   /*
    * (gosh) The meetup (REQ15/PATH-4): a ticket for it is fetched over ssh, by a child that first
@@ -382,7 +383,10 @@ private:
     if ( punch->open( now ) != was_open ) {
       was_open = punch->open( now );
       say( was_open ? "a way through is open, to %s" : "the way through to %s has closed", punch->where().c_str() );
+    } else if ( was_open && punch->where() != was_where ) {
+      say( "the way through is now to %s", punch->where().c_str() ); /* (gosh, REQ16/PATH-8: as by IPv6, from IPv4) */
     }
+    was_where = punch->where();
     if ( punch->meetup_registered() != was_registered ) {
       was_registered = punch->meetup_registered();
       say( was_registered ? "registered with the meetup at %s" : "no longer registered with the meetup at %s", meetup_at.c_str() );
@@ -398,7 +402,7 @@ public:
     : options( s_options ), client_fd( s_client_fd ), direct_fd( -1 ), alive_fd( s_alive_fd ), client(),
       client_len( 0 ), child( -1 ), to_child( -1 ), from_child( -1 ), backlog(), parser(),
       paths( s_options.stream_only, !s_options.command.empty(), told( s_options.stream_only ).stream_idle ),
-      punching( false ), ask(), punch(), was_open( false ), was_registered( false ), meetup(), ticket_command(), ticket_child( -1 ),
+      punching( false ), ask(), punch(), was_open( false ), was_registered( false ), was_where(), meetup(), ticket_command(), ticket_child( -1 ),
       ticket_fd( -1 ), ticket_out(), ticket_tried( false ), meetup_at(), ticket()
   {
     open_direct();

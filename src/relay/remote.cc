@@ -73,6 +73,7 @@ int Network::relay_remote( const char* address, const char* port )
   Gosh::Ticket ticket;
   std::unique_ptr<Punch> punch;
   bool stream_open = true, was_open = false, was_registered = false;
+  std::string was_where; /* (gosh) where the way through was, last we said */
   uint64_t stream_heard = 0, stream_closed = 0;
 
   /*
@@ -170,7 +171,10 @@ int Network::relay_remote( const char* address, const char* port )
       if ( punch->open( now ) != was_open ) {
         was_open = punch->open( now );
         say( was_open ? "a way through is open, to %s" : "the way through to %s has closed", punch->where().c_str() );
+      } else if ( was_open && punch->where() != was_where ) {
+        say( "the way through is now to %s", punch->where().c_str() ); /* (gosh, REQ16/PATH-8: as by IPv6, from IPv4) */
       }
+      was_where = punch->where();
       if ( punch->meetup_registered() != was_registered ) {
         was_registered = punch->meetup_registered();
         say( was_registered ? "registered with the meetup at %s" : "no longer registered with the meetup at %s", meetup_at.c_str() );

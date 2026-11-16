@@ -53,6 +53,7 @@ struct Net
   Addr a_at6, b_at6; /* (REQ16/PATH-8) and by IPv6, if it has that too: AF_UNSPEC if not */
   Addr meetup_at;
   bool straight;     /* whether datagrams straight between the two get through */
+  bool a_to_b4_lost, a_to_b6_lost; /* (REQ16/PATH-8) one way only: what a sends straight to b's IPv4, or IPv6, address is lost */
   Gosh::Registrations meetup;
   uint64_t now;      /* ms */
   std::string a_got, b_got;
@@ -62,7 +63,8 @@ struct Net
 
   Net( PathFinding& s_a, PathFinding& s_b )
     : a( s_a ), b( s_b ), a_at( at( "203.0.113.1:4000" ) ), b_at( at( "198.51.100.2:5000" ) ),
-      a_at6(), b_at6(), meetup_at( at( "192.0.2.9:3478" ) ), straight( true ), meetup(), now( 1000 ), a_got(), b_got(),
+      a_at6(), b_at6(), meetup_at( at( "192.0.2.9:3478" ) ), straight( true ), a_to_b4_lost( false ), a_to_b6_lost( false ),
+      meetup(), now( 1000 ), a_got(), b_got(),
       b_goodbyes( 0 ), meetup_passed( 0 ), straight_sent( 0 )
   {}
 
@@ -118,6 +120,9 @@ struct Net
             continue;
           }
           const bool to_other = is( to, side != 0 );
+          if ( side == 0 && ( ( a_to_b4_lost && Network::same_ip_port( to, b_at ) ) || ( a_to_b6_lost && Network::same_ip_port( to, b_at6 ) ) ) ) {
+            continue;
+          }
           if ( to_other ) {
             straight_sent++;
             if ( straight ) {
@@ -379,9 +384,61 @@ int main()
         }
       }
     }
+    a.take_outbox();
     net.to_end( true, probe, net.b_at );
     check( "a fresh probe from the other end by IPv4 does not take it off IPv6 while that answers",
            !probe.empty() && a.where() == "[2001:db8::b]:5000" );
+    check( "and it is answered, and not asked back (two ends asking each other back would never stop)",
+           a.take_outbox().size() == 1 );
+  }
+
+  /* REQ16/PATH-8: IPv6 that works one way only (found by review, 2026-11-16: both ends said the
+     way was open and nothing went either way, for good) */
+  {
+    PathFinding a( true, key, 1000 ), b( false, key, 1000 );
+    Net net( a, b );
+    net.a_at6 = at( "[2001:db8::a]:4000" );
+    net.b_at6 = at( "[2001:db8::b]:5000" );
+    net.a_to_b6_lost = true;
+    a.add_candidate( "198.51.100.2:5000" );
+    a.add_candidate( "[2001:db8::b]:5000" );
+    b.add_candidate( "203.0.113.1:4000" );
+    b.add_candidate( "[2001:db8::a]:4000" );
+    net.pass( 20000 );
+    check( "IPv6 one way only: both ends take IPv4, which works both ways",
+           a.open( net.now ) && b.open( net.now ) && a.where() == "198.51.100.2:5000" && b.where() == "203.0.113.1:4000" );
+    net.a_got.clear();
+    net.b_got.clear();
+    a.send( "from a" );
+    b.send( "from b" );
+    net.deliver();
+    check( "and datagrams arrive both ways", net.b_got == "from a" && net.a_got == "from b" );
+  }
+  {
+    PathFinding a( true, key, 1000 ), b( false, key, 1000 );
+    Net net( a, b );
+    a.add_candidate( "198.51.100.2:5000" );
+    b.add_candidate( "203.0.113.1:4000" );
+    net.pass( 1000 );
+    const bool opened = a.open( net.now ) && b.open( net.now );
+    net.a_to_b4_lost = true; /* from now, what a sends is lost; what b sends still arrives */
+    net.pass( 2 * PathFinding::OPEN_FOR + 4 * PathFinding::OPEN_EVERY );
+    check( "a way that goes one way only, once open, is thought closed at the end it cannot send from",
+           opened && !a.open( net.now ) );
+  }
+  {
+    /* An end moved to where the other was never told it might be: its probes come from there, and
+       only an answer moves the way, so the other end asks back (REQ1/PATH-3: "when either end's
+       address changes it finds another"). */
+    PathFinding a( true, key, 1000 ), b( false, key, 1000 );
+    Net net( a, b );
+    a.add_candidate( "198.51.100.2:5000" );
+    b.add_candidate( "203.0.113.1:4000" );
+    net.pass( 1000 );
+    net.a_at = at( "203.0.113.77:4444" );
+    net.pass( 2 * PathFinding::OPEN_FOR );
+    check( "an end moved to a place the other was not told of is found there, both ways",
+           b.open( net.now ) && b.where() == "203.0.113.77:4444" && a.open( net.now ) );
   }
 
   if ( failures ) {
