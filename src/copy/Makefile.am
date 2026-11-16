@@ -10,7 +10,7 @@ libgoshcopy_a_SOURCES = filecopy.cc filecopy.h options.h messages.h names.h chec
 
 # A test for each piece of logic, with plain values; and filecopy-test, the fork's test of the
 # two ends joined by a socket pair, which now tests the edge.
-check_PROGRAMS = options-test messages-test names-test checksum-test decisions-test filecopy-test filecopy-fuzzer
+check_PROGRAMS = options-test messages-test names-test checksum-test decisions-test filecopy-test filecopy-fuzzer sender-fuzzer
 TESTS = $(check_PROGRAMS)
 options_test_SOURCES = options-test.cc
 messages_test_SOURCES = messages-test.cc
@@ -25,3 +25,5 @@ filecopy_test_LDADD = libgoshcopy.a
 # the part breaks the check. In CI, with clang and -DGOSH_LIBFUZZER, libFuzzer runs it.
 filecopy_fuzzer_SOURCES = filecopy-fuzzer.cc
 filecopy_fuzzer_LDADD = libgoshcopy.a
+sender_fuzzer_SOURCES = sender-fuzzer.cc
+sender_fuzzer_LDADD = libgoshcopy.a
