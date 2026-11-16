@@ -88,7 +88,12 @@ spec = "%d:127.0.0.1:%d" % (forward_port, target.getsockname()[1])
 home = tempfile.mkdtemp(prefix="gosh-relay-meetup-")
 handle, relay_log = tempfile.mkstemp(prefix="gosh-relay-log-")
 os.close(handle)
-env = both(dict(os.environ, LC_ALL="C.UTF-8", HOME=home, XDG_CONFIG_HOME=os.path.join(home, "config"), MOSH_STUN="none"))
+env = both(dict(os.environ, LC_ALL="C.UTF-8", HOME=home, XDG_CONFIG_HOME=os.path.join(home, "config")))
+# No STUN=none here: it would keep the session off the meetup too (REQ15/PATH-4), which is what this
+# tests. Nothing on the Internet is asked all the same: gosh asks only servers it is told of (since
+# v15), and the one it is told of is the meetup on loopback.
+for name in ("MOSH_STUN", "GOSH_STUN"):
+    env.pop(name, None)
 started = []
 session_pid = None
 try:
