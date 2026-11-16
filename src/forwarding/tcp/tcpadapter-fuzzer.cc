@@ -30,6 +30,8 @@ using namespace ForwardFuzz;
 
 namespace {
 
+const uint32_t FIRST_SEQUENCE = 0x10000000; /* the adapter counts from here (count_sequences_from) */
+
 class Sink : public SegmentSink
 {
 public:
@@ -48,6 +50,10 @@ public:
   {
     /* whatever it sends must be a sound segment that fits */
     require( segment.to_datagram().size() <= limit );
+    /* and a connection's first number is counted, not drawn, so that a run can be had again */
+    if ( segment.has( TCPInUDP::SYN ) ) {
+      require( segment.seq - FIRST_SEQUENCE < 1024 );
+    }
     any = true;
     last = segment;
     count++;
@@ -91,14 +97,22 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
 
   {
     AdapterPort adapter( &sink, listening );
+    /* (review of item 21: the same input, the same run; not a sequence number drawn at random) */
+    adapter.count_sequences_from( FIRST_SEQUENCE );
 
     if ( listening ) {
-      char spec[64];
-      snprintf( spec, sizeof( spec ), "%d:127.0.0.1:1", adapter_port );
-      try {
-        adapter.add_listener( 0, Gosh::ForwardSpec( spec ) );
-      } catch ( const NetworkException& ) {
-        return 0; /* the port was taken in the meantime; nothing to learn from that */
+      /* the port, chosen free, may have been taken since: another, a few times; then a failure, not a pass */
+      for ( int tries = 0;; tries++ ) {
+        char spec[64];
+        snprintf( spec, sizeof( spec ), "%d:127.0.0.1:1", adapter_port );
+        try {
+          adapter.add_listener( 0, Gosh::ForwardSpec( spec ) );
+          break;
+        } catch ( const NetworkException& ) {
+          require( tries < 5 );
+          struct sockaddr_in unused;
+          close( loopback_socket( SOCK_STREAM, adapter_port, unused ) );
+        }
       }
 
       /* an application connects, and the adapter opens a connection through the tunnel */

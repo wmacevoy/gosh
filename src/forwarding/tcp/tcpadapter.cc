@@ -57,7 +57,7 @@ static void close_with_reset( int fd )
 }
 
 AdapterPort::AdapterPort( SegmentSink* s_sink, bool s_client )
-  : sink( s_sink ), listeners(), targets(), sockets(), prng(), logic( s_client )
+  : sink( s_sink ), listeners(), targets(), sockets(), prng(), counted( false ), next_sequence( 0 ), logic( s_client )
 {}
 
 AdapterPort::~AdapterPort()
@@ -253,7 +253,7 @@ void AdapterPort::send( uint8_t forward, const TCPInUDP& segment )
 
 uint32_t AdapterPort::fresh_sequence( void )
 {
-  return prng.uint32();
+  return counted ? next_sequence++ : prng.uint32();
 }
 
 /* Connecting end: the other end wants a connection. See whether the target will have it. */
