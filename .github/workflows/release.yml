@@ -117,7 +117,7 @@ jobs:
         run: |
           sed "s/@VERSION@/${GITHUB_REF_NAME#v}/" tools/install.sh > dist/install.sh
           cd dist
-          sha256sum gosh-* > SHA256SUMS
+          sha256sum gosh-* install.sh > SHA256SUMS # (install.sh too: the extension checks it before it runs it)
           cat SHA256SUMS
       - name: Publish, beside the notes the release already has, or as a new pre-release
         env:
