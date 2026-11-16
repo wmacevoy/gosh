@@ -21,8 +21,16 @@ A way straight between the two relays when both ends are behind NATs (`REQ1/PATH
   (IPv4 addresses then come in IPv6's form, and `punch.cc` turns them back before the logic sees
   them); otherwise it is IPv4 alone. STUN reads IPv6 answers; candidates and this machine's own
   addresses are of both families (not an address of one link alone, which would need its
-  interface named). While the way is straight by IPv4, the IPv6 candidates are still probed now and
-  then, and a way by IPv6 is taken and kept while it answers: IPv6 first.
+  interface named; nor, as text, `[fe80::...]`, which is refused). `[::ffff:a.b.c.d]:p` is the
+  IPv4 address it is. While the way is straight by IPv4, the IPv6 candidates are still probed now
+  and then, and a way by IPv6 is taken and kept while it answers: IPv6 first.
+- **A way must work both ways** (2026-11-16, found by review: IPv6 that went one way only left
+  both ends saying the way was open while nothing went either way, for good). Only an answer
+  (`!`) to a probe of ours takes or moves the way; a question (`?`) from a new place is answered
+  and asked back, so that its answer can; and a way by which our probes have gone unanswered for
+  `ANSWERED_FOR` (7 s) is thought closed, whatever comes in by it. `finding-test.cc` has IPv6 one
+  way only, a way that turns one-way once open, and an end moved where the other was not told.
+  The relays say "the way through is now to ..." when it moves while open.
 
 **Divided** (2026-11-15), as the design's three pieces:
 

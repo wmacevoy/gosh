@@ -44,6 +44,19 @@ answers STUN by both, and a ticket's two ends may be of different families. Test
 `registrations-test.cc` (an IPv6 end and an IPv4 one), `tests/meetup-tickets.py` (the exchange
 over `::1`) and `tests/relay-meetup.py ::1`.
 
+**It answers from the address it was asked at** (2026-11-16, found by review). Its sockets are
+bound to every address, and an end takes the meetup's datagrams only from the address it knows the
+meetup by; a machine with several (common with IPv6) would otherwise answer from whichever the
+system picked, and no end would ever register. `serve.cc` reads where each datagram came to
+(`IP_PKTINFO`, `IPV6_PKTINFO`) and sends its answer from there; a datagram passed on goes from the
+address its receiver last sent to (kept only for ends whose message was taken, at most
+4 × `MAX_TICKETS`). Tested by `tests/relay-meetup.py 127.0.0.1 127.0.0.2`: the meetup named by
+another of the machine's addresses; red before. The passing-on half is read, not driven: on one
+machine the relays find a way straight to each other first.
+
+A meetup's name is looked up and its first address used (`src/relay/local.cc`): a meetup with
+both families whose IPv6 does not work is not tried by IPv4. Name it by its IPv4 address then.
+
 ## Not tested
 
 - Datagrams through the meetup between two relays on different machines: on one machine the

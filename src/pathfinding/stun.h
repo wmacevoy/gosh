@@ -7,7 +7,8 @@
  *
  * Wrong input: an answer that is not a Binding Success Response with our cookie, or whose
  * attributes run past its end, is not read (false); text that is not "a.b.c.d:port" or
- * "[ipv6]:port" with a port from 1 to 65535 is refused. IPv4 and IPv6 (REQ16/PATH-8).
+ * "[ipv6]:port" with a port from 1 to 65535 is refused, and so is an IPv6 address of one link
+ * alone (fe80::/10); "[::ffff:a.b.c.d]:port" is the IPv4 address. IPv4 and IPv6 (REQ16/PATH-8).
  */
 
 #ifndef GOSH_PATHFINDING_STUN_H
@@ -109,6 +110,19 @@ inline bool parse_ip_port( const std::string& text, Addr& addr )
     if ( colon < 3 || text[colon - 1] != ']'
          || inet_pton( AF_INET6, text.substr( 1, colon - 2 ).c_str(), &addr.sin6.sin6_addr ) != 1 ) {
       return false;
+    }
+    if ( IN6_IS_ADDR_LINKLOCAL( &addr.sin6.sin6_addr ) ) {
+      return false; /* (gosh) of one link alone: no use without naming the link, which text here never does */
+    }
+    if ( IN6_IS_ADDR_V4MAPPED( &addr.sin6.sin6_addr ) ) {
+      /* (gosh) an IPv4 address in IPv6's form is the IPv4 one, as the socket reports where datagrams come from */
+      uint32_t v4;
+      memcpy( &v4, addr.sin6.sin6_addr.s6_addr + 12, 4 );
+      memset( &addr, 0, sizeof( addr ) );
+      addr.sin.sin_family = AF_INET;
+      addr.sin.sin_addr.s_addr = v4;
+      addr.sin.sin_port = htons( port );
+      return true;
     }
     addr.sin6.sin6_family = AF_INET6;
     addr.sin6.sin6_port = htons( port );
