@@ -71,11 +71,11 @@ inline std::vector<std::string> unit_separated( const std::string& text )
 
 /*
  * The local relay's settings. Each text is the environment variable's value, or NULL if it is not set:
- *   idle    MOSH_RELAY_STREAM_IDLE_MS  (for tests, which cannot wait a minute to see the stream let go)
- *   punch   MOSH_PUNCH                 "never": no path-finding
- *   meetup  MOSH_MEETUP                our own meetups
- *   stun    MOSH_STUN                  plain STUN servers, asked only if named here
- *   ticket  MOSH_MEETUP_TICKET_COMMAND the words of the command that prints a ticket for the meetup
+ *   idle    GOSH_RELAY_STREAM_IDLE_MS  (for tests, which cannot wait a minute to see the stream let go)
+ *   punch   GOSH_PUNCH                 "never": no path-finding
+ *   meetup  GOSH_MEETUP                our own meetups
+ *   stun    GOSH_STUN                  plain STUN servers, asked only if named here
+ *   ticket  GOSH_MEETUP_TICKET_COMMAND the words of the command that prints a ticket for the meetup
  *                                      (ssh to it, and "gosh-server meetup-ticket"), separated by 0x1F
  * stream_only: told to use the stream and nothing else, so no path-finding either.
  */

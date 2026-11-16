@@ -39,6 +39,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+from variables import both
 
 PATIENCE = 30  # how long anything may take before the test gives up waiting
 
@@ -110,7 +111,7 @@ def offered(server, client, work, name, lying):
     report = os.path.join(work, "report")
     if os.path.exists(report):
         os.remove(report)
-    env = dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none")
+    env = both(dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none"))
 
     receiver = "\x1f".join(["@copy", "receive", "-q", "--", dest])
     started = subprocess.run([server, "new", "-i", "127.0.0.1", "-X", receiver, "--", "/bin/sh", "-c",

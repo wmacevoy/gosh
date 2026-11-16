@@ -130,15 +130,15 @@ int main()
   parse_options( { "--punch=never", "--stun=none" }, false, s = Settings() );
   const Choices r = choose( s, "gosh", NULL );
   check( "--punch and --stun, when given, are told to the relays, in that order",
-         r.relays_read.size() == 2 && r.relays_read[0] == std::make_pair( std::string( "MOSH_PUNCH" ), std::string( "never" ) )
-           && r.relays_read[1] == std::make_pair( std::string( "MOSH_STUN" ), std::string( "none" ) ) );
+         r.relays_read.size() == 2 && r.relays_read[0] == std::make_pair( std::string( "GOSH_PUNCH" ), std::string( "never" ) )
+           && r.relays_read[1] == std::make_pair( std::string( "GOSH_STUN" ), std::string( "none" ) ) );
 
   /* ---- the meetup (REQ15/PATH-4, REQ16/PATH-8) */
   parse_options( { "--meetup=me@meet.example:3478" }, false, s = Settings() );
   Choices m = choose( s, "gosh", NULL );
   check( "--meetup: the relays get HOST:PORT, ssh gets USER@HOST",
          m.meetup_login == "me@meet.example" && m.relays_read.size() == 1
-           && m.relays_read[0].first == "MOSH_MEETUP" && m.relays_read[0].second == "meet.example:3478" );
+           && m.relays_read[0].first == "GOSH_MEETUP" && m.relays_read[0].second == "meet.example:3478" );
   parse_options( { "--meetup=me@[2001:db8::1]:3478" }, false, s = Settings() );
   m = choose( s, "gosh", NULL );
   check( "an IPv6 meetup: the relays get [ADDRESS]:PORT, ssh the address without its brackets",

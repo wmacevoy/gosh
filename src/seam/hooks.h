@@ -143,7 +143,7 @@ void announce( Transport& network, bool still_connecting )
   if ( stream && !network.peer_can( Network::CAPABILITY_STREAM ) ) {
     /* (REQ8/CMD-3) It has answered, and has not said that it can do what we are here for. */
     s.announced = true;
-    fputs( "mosh: the server does not do this: it is a stock mosh-server, or one from before streams.\n", stderr );
+    fputs( "gosh: the server does not do this: it is a stock mosh-server, or one from before streams.\n", stderr );
     fflush( stderr );
     stream_never_ran();
     return;
@@ -155,7 +155,7 @@ void announce( Transport& network, bool still_connecting )
      * waits for "connected; forwarding" would otherwise wait for ever.
      */
     s.announced = true;
-    fputs( "mosh: connected, but the server does not forward: it is a stock mosh-server, or was not given\n"
+    fputs( "gosh: connected, but the server does not forward: it is a stock mosh-server, or was not given\n"
            "      these forwards. None of them will be done.\n",
            stderr );
     fflush( stderr );
@@ -169,7 +169,7 @@ void announce( Transport& network, bool still_connecting )
     start_stream(); /* the session is up: our end of the stream, and the server asked for its end */
     return;
   }
-  fputs( s.forwarding ? "mosh: connected; forwarding.\n" : "mosh: connected.\n", stderr );
+  fputs( s.forwarding ? "gosh: connected; forwarding.\n" : "gosh: connected.\n", stderr );
   fflush( stderr );
 }
 

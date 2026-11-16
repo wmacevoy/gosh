@@ -60,7 +60,7 @@ python3 tests/stock-session.py "$stock_client" .build/bin/gosh-server || fail "a
 tools/build-pf7.sh || fail "tools/build-pf7.sh"
 pf7=.build/pf7/src/frontend
 # Tests ask servers on the Internet nothing: a session that falls back asks only whom it is told to.
-MOSH_STUN=none; LC_ALL=C.UTF-8; export MOSH_STUN LC_ALL
+MOSH_STUN=none; GOSH_STUN=none; LC_ALL=C.UTF-8; export MOSH_STUN GOSH_STUN LC_ALL
 reference() { # NAME ARGS...: one of the fork's tests, against pf.7's programs
     name=$1; shift
     if python3 "tests/$name" "$pf7/mosh-server" "$pf7/mosh-client" "$@" >.build/reference.log 2>&1; then
@@ -148,21 +148,22 @@ fi
 pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-command.py
 # (and this one the stock server last: a host with gosh-server, with only mosh-server, with neither)
 pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-stock.py "$stock_server"
+# The command's own test, from the fork, under gosh's names (REQ1/CMD-1, REQ6/NAME-1)
+if tests/wrapper.test "$here/$gosh/gosh-client" "$here/$gosh/gosh-server" "$here/.build/core/src/tests/inpty" gosh gocp \
+    >.build/gosh-test.log 2>&1; then
+    echo "gosh passes wrapper.test"
+else
+    cat .build/gosh-test.log; stop_ours; fail "gosh with tests/wrapper.test"
+fi
 # The installer (REQ1/CMD-2, REQ6/CMD-4), from a release made of these programs, into the test's own home.
 if python3 tests/install.py tools/install.sh "$gosh/gosh-client" "$gosh/gosh-server" >.build/gosh-test.log 2>&1; then
     echo "tools/install.sh passes install.py"
 else
     cat .build/gosh-test.log; fail "tools/install.sh with tests/install.py"
 fi
-pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" forward-e2e.py
-pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" forward-e2e.py
-# (with no relay mode this test ends with a file copied each way over a stream)
-pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" headless-smoke.py
-pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" headless-smoke.py
-# (a copy cut off and carried on from its part, the two ends' copy code from each: REQ1/CP-2 across them)
-pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" copy-cut.py gocp
-pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" copy-cut.py mocp
-# (the remote relay is the server's program: each of these has one end's relay from each)
-pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" headless-smoke.py 127.0.0.1 always
-pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 always
+# A gosh end and a pf.7 end held a forward, a copy and the relay between them until 2026-11-16,
+# when the two Instruction fields moved to gosh's own numbers (design v2, question 5; seam
+# patches 01 and 02). Since then each takes the other for a stock mosh: the terminal works and
+# nothing more is asked (REQ8/CMD-3), which stock-session.py and gosh-stock.py test. pf.7 is
+# still run against itself above, as the reference.
 echo "PASS"

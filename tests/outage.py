@@ -30,6 +30,7 @@ import subprocess
 import sys
 import threading
 import time
+from variables import both
 
 OUTAGE = 25      # seconds with nothing getting through; contact counts as lost after 10
 PATIENCE = 30    # how long anything else may take before the test gives up waiting
@@ -77,8 +78,9 @@ threading.Thread(target=echo, daemon=True).start()
 listen_port = free_port()
 spec = "%d:127.0.0.1:%d" % (listen_port, target.getsockname()[1])
 # No fallback to ssh and nobody asked where we are: the outage is to be waited out, not gone around.
-env = dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", MOSH_PUNCH="never", MOSH_RELAY="never")
+env = both(dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", MOSH_PUNCH="never", MOSH_RELAY="never"))
 env.pop("MOSH_RELAY_COMMAND", None)
+env.pop("GOSH_RELAY_COMMAND", None)
 
 started = subprocess.run(
     [server_path, "new", "-i", "127.0.0.1", "-L", spec, "--", "/bin/sh", "-c", "while :; do sleep 1000; done"],

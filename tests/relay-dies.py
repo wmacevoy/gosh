@@ -28,6 +28,7 @@ import subprocess
 import sys
 import threading
 import time
+from variables import both
 
 if len(sys.argv) != 3:
     sys.exit(__doc__)
@@ -75,7 +76,7 @@ port = probe.getsockname()[1]
 probe.close()
 spec = "%d:127.0.0.1:%d" % (port, target.getsockname()[1])
 
-env = dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", MOSH_PUNCH="never")
+env = both(dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", MOSH_PUNCH="never"))
 started = subprocess.run([server_path, "new", "-i", "127.0.0.1", "-L", spec, "--", "/bin/sh", "-c",
                           "while :; do sleep 1000; done"],
                          env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
@@ -87,7 +88,7 @@ if not match or not server_pid:
 client_env = dict(env, MOSH_KEY=match.group(2), MOSH_RELAY="always",
                   MOSH_RELAY_COMMAND="\x1f".join([server_path, "relay", "127.0.0.1", match.group(1)]))
 client = subprocess.Popen([client_path, "-N", "-L", spec, "127.0.0.1", match.group(1)],
-                          env=client_env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                          env=both(client_env), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 said = []
 threading.Thread(target=lambda: said.extend(l.decode("latin-1") for l in client.stderr), daemon=True).start()
 

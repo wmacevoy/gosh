@@ -70,7 +70,7 @@ int main( int argc, char* argv[] )
    * needed or from the start. The command writes both (src/command).
    */
   std::vector<std::string> relay_command;
-  if ( const char* command = getenv( "MOSH_RELAY_COMMAND" ) ) {
+  if ( const char* command = getenv( "GOSH_RELAY_COMMAND" ) ) {
     std::string word;
     for ( const char* c = command; *c; c++ ) {
       if ( *c == '\x1f' ) {
@@ -83,7 +83,7 @@ int main( int argc, char* argv[] )
     relay_command.push_back( word );
   }
   Gosh::session().relay.command = relay_command;
-  Gosh::session().relay.mode = Gosh::relay_mode( getenv( "MOSH_RELAY" ) ? getenv( "MOSH_RELAY" ) : "auto", !relay_command.empty() );
+  Gosh::session().relay.mode = Gosh::relay_mode( getenv( "GOSH_RELAY" ) ? getenv( "GOSH_RELAY" ) : "auto", !relay_command.empty() );
   /* where the server is: the two words the core's own reading will take for it, wherever they stand */
   const std::vector<std::string> where = Gosh::operands( rest, "#" );
   if ( where.size() >= 2 ) {

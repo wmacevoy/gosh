@@ -77,10 +77,10 @@ int Network::relay_remote( const char* address, const char* port )
 
   /*
    * (gosh) HELLO is what invites the local relay to look for a way through; one that is not
-   * told it says nothing of the kind. With MOSH_PUNCH=never it is not said, so no path-finding
+   * told it says nothing of the kind. With GOSH_PUNCH=never it is not said, so no path-finding
    * code runs here whichever local relay is at the other end.
    */
-  if ( Gosh::relay_settings( false, NULL, getenv( "MOSH_PUNCH" ), NULL, NULL, NULL ).path_finding
+  if ( Gosh::relay_settings( false, NULL, getenv( "GOSH_PUNCH" ), NULL, NULL, NULL ).path_finding
        && !write_all( STDOUT_FILENO, control( "HELLO 1" ) ) ) {
     return 0;
   }

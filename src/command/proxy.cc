@@ -163,7 +163,7 @@ int MoshWrapper::fake_proxy( const std::string& family, const std::string& host,
     }
   }
   if ( sock < 0 ) {
-    fprintf( stderr, "mosh: Could not connect to %s, last tried %s: %s\n", host.c_str(), tried.c_str(), why.c_str() );
+    fprintf( stderr, "gosh: Could not connect to %s, last tried %s: %s\n", host.c_str(), tried.c_str(), why.c_str() );
     return 1;
   }
   fprintf( stderr, "MOSH IP %s\n", tried.c_str() );

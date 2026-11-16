@@ -23,18 +23,18 @@ the connection, and whether path-finding is off; both read the name of the log.
 | `process.h` | what both need as processes and decide nothing with: the log, the mark on their words, signals, the clock, a pipe, a UDP socket |
 | `relay.h` | what the seam calls: start the local relay; be the remote relay |
 
-Who calls it: the seam. gosh's client `main` reads how the relay is started (`MOSH_RELAY`,
-`MOSH_RELAY_COMMAND`, which the command writes); the seam's hooks ask `start.h` each turn of
+Who calls it: the seam. gosh's client `main` reads how the relay is started (`GOSH_RELAY`,
+`GOSH_RELAY_COMMAND`, which the command writes); the seam's hooks ask `start.h` each turn of
 the client's loop and start the local relay once; gosh's server `main` becomes the remote relay
 when its first word is `relay`.
 
 **Path-finding is on** (since 2026-11-15; `src/pathfinding/`). Once the stream is up, the remote
 relay says `HELLO`, and the two look for a way straight through (`REQ1/PATH-3`). Where the user
 named a meetup (`--meetup`), the local relay fetches a ticket for it over ssh, once, by the command
-`MOSH_MEETUP_TICKET_COMMAND` (which the command writes), and gives it to the remote relay as
+`GOSH_MEETUP_TICKET_COMMAND` (which the command writes), and gives it to the remote relay as
 `MEETUP` and `TICKET`; both register with the meetup, and their datagrams can go through it
 (`REQ15/PATH-4`). A way through the meetup is still fallen back: the local relay keeps the stream
-while that is the way. `--punch=never` (`MOSH_PUNCH=never`) turns all of it off. Only servers the
+while that is the way. `--punch=never` (`GOSH_PUNCH=never`) turns all of it off. Only servers the
 user named are asked anything (`REQ1/PATH-7`): no STUN server by default.
 
 **Tested** (in `tools/check.sh`): `tests/headless-smoke.py` with the relay from the start
@@ -101,7 +101,7 @@ relay twice and sends bytes through a forward after each: red against pf.7, gree
 **Not tested:** that the edge does what `paths.h` says is tested only by the smoke test's four
 cases. Nothing in the check makes the local relay try a fresh socket, back off from an ssh that
 fails or asks for a password, stop a real ssh (the remote relay is run directly), fill its
-backlog, or be killed outright; `MOSH_RELAY=never` with a command is tested only as a rule. "Killed outright" is now tested
+backlog, or be killed outright; `GOSH_RELAY=never` with a command is tested only as a rule. "Killed outright" is now tested
 for the local relay (above), not for the ssh it runs or the remote relay. OpenBSD, where the
 client must keep the right to start a process: the line for it is read and has never run
 (*accepted by the owner, 2026-11-15: "accept untested bsd"*). No BSD or macOS machine has run

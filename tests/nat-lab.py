@@ -36,6 +36,7 @@ Everything it starts is stopped by process id, or by being a program from BINDIR
 never by name (there may be other mosh sessions on this machine, and they are not ours).
 """
 import os, re, signal, socket, struct, subprocess, sys, tempfile, threading, time
+from variables import both
 bindir, nft, kind = os.path.realpath(sys.argv[1]), sys.argv[2], (sys.argv[3] if len(sys.argv) > 3 else "easy")
 
 def sh(cmd, **kw):
@@ -105,7 +106,7 @@ time.sleep(0.3)
 
 work = tempfile.mkdtemp(prefix="natlab-")
 log = work + "/relay.log"; open(log, "w").close()
-env = dict(os.environ, LC_ALL="C.UTF-8", MOSH_RELAY_LOG=log, HOME=work)
+env = both(dict(os.environ, LC_ALL="C.UTF-8", MOSH_RELAY_LOG=log, HOME=work))
 echo = "import socket,threading\ns=socket.socket();s.setsockopt(1,2,1);s.bind(('127.0.0.1',7777));s.listen(5)\ndef e(c):\n while True:\n  d=c.recv(65536)\n  if not d: break\n  c.sendall(d)\nwhile True:\n c,_=s.accept();threading.Thread(target=e,args=(c,),daemon=True).start()\n"
 target = subprocess.Popen(["ip", "netns", "exec", where, "python3", "-c", echo])
 time.sleep(0.5)
@@ -119,7 +120,7 @@ cenv = dict(env, MOSH_KEY=key, MOSH_RELAY="auto", MOSH_MEETUP="203.0.113.1:3478"
             **({"MOSH_MEETUP_KEY": meetup_key} if keyed else {}),
             MOSH_RELAY_COMMAND="\x1f".join(["ip", "netns", "exec", where, bindir + "/mosh-server", "relay", server_ip, port]))
 client = subprocess.Popen(["ip", "netns", "exec", "client", bindir + "/mosh-client", "-N", "-L", "8888:127.0.0.1:7777", "198.51.100.9", port],
-                          env=cenv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                          env=both(cenv), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 said = []
 threading.Thread(target=lambda: said.extend(l.decode() for l in client.stderr), daemon=True).start()
 

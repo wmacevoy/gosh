@@ -39,6 +39,14 @@ int main( int argc, char* argv[] )
     return Network::relay_remote( args[1].c_str(), args[2].c_str() );
   }
 
+  /* The fork's name for a meetup, dropped with no alias (requirements v16, Scope decisions): refused
+     and named, not taken for the address of a server to start. */
+  if ( !args.empty() && ( args[0] == "stun" || args[0] == "stun-key" ) ) {
+    fprintf( stderr, "%s: \"%s\" is no longer a word of gosh's: a meetup is \"%s meetup PORT\".\n", name.c_str(),
+             args[0].c_str(), name.c_str() );
+    return 1;
+  }
+
   /*
    * A meetup, where two ends behind NATs find each other (src/meetup); a ticket for one session
    * to use it, given to whoever can run this here, over ssh; and a new master key, which ends

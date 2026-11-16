@@ -3,7 +3,7 @@ gosh seam 01: Each end says what it can do, in mosh's own instruction.
 For:   REQ10/SHAPE-1, REQ8/CMD-3. A stock mosh must never be sent anything it would misread, and a
        user must be told what the other end cannot do. So before gosh sends anything of its own it
        has to know the other end is a gosh; this is how it is told.
-What:  an optional field, capabilities, in Instruction (field 8; an end that does not know the
+What:  an optional field, capabilities, in Instruction (field 1001; an end that does not know the
        field ignores it). The sender holds the value and puts it in each instruction when it is
        not zero; a change in it makes a new instruction; the receiver keeps what the peer said
        (peer_can). Nothing sets it yet, so with this patch alone nothing on the wire changes.
@@ -137,5 +137,5 @@ index b08e7b0..d4ed2f2 100644
 +
 +  /* Optional features this end supports (see src/network/sidechannel.h).
 +     Unknown to, and ignored by, older peers. */
-+  optional uint32 capabilities = 8;
++  optional uint32 capabilities = 1001;
  }

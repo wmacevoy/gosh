@@ -68,6 +68,8 @@ import sys
 import tempfile
 import threading
 import time
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests"))
+from variables import both  # noqa: E402
 
 argv = sys.argv[1:]
 ways = ("udp", "stream", "relay")
@@ -112,7 +114,7 @@ def cpu_seconds(server_path, client_path):
 def stream_run(server_path, client_path):
     """one_run, for a copy of a file over a stream: the time is from starting the client to its exit."""
     work = tempfile.mkdtemp(prefix="gosh-speed-")
-    env = dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", MOSH_PUNCH="never", MOSH_RELAY="never")
+    env = both(dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", MOSH_PUNCH="never", MOSH_RELAY="never"))
     server_pid = None
     try:
         source = os.path.join(work, "source")
@@ -171,7 +173,7 @@ def one_run(way, server_path, client_path):
     port = probe.getsockname()[1]
     probe.close()
     spec = "%d:127.0.0.1:%d" % (port, sink.getsockname()[1])
-    env = dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", MOSH_PUNCH="never")
+    env = both(dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", MOSH_PUNCH="never"))
 
     started = subprocess.run([server_path, "new", "-i", "127.0.0.1", "-L", spec, "--", "/bin/sh", "-c", "while :; do sleep 1000; done"],
                              env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
@@ -184,7 +186,7 @@ def one_run(way, server_path, client_path):
         client_env["MOSH_RELAY"] = "always"
         client_env["MOSH_RELAY_COMMAND"] = "\x1f".join([server_path, "relay", "127.0.0.1", match.group(1)])
     client = subprocess.Popen([client_path, "-N", "-L", spec, "127.0.0.1", match.group(1)],
-                              env=client_env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                              env=both(client_env), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     try:
         by_relay = False
         for line in client.stderr:

@@ -89,7 +89,7 @@ int main()
   check( "with no MOSH IP that is the address, and the user is told",
          remote.ip == "10.0.0.1" && note == "gosh: Using remote IP address 10.0.0.1 from $SSH_CONNECTION for hostname me@h", note );
   check( "and without a MOSH CONNECT: no startup message",
-         failed( key, remote ) == "!gosh: Did not find mosh server startup message. (Have you installed mosh on your server?)" );
+         failed( key, remote ) == "!gosh: Did not find the server's startup message. (Is gosh installed there? https://wmacevoy.github.io/gosh/USING.html)" );
   check( "with neither address: refused",
          failed( address, Startup() ) == "!gosh: Did not find remote IP address (is SSH ProxyCommand disabled?)." );
 

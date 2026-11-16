@@ -53,6 +53,7 @@ import sys
 import tempfile
 import threading
 import time
+from variables import both
 
 server_path, client_path = sys.argv[1], sys.argv[2]
 address = sys.argv[3] if len(sys.argv) > 3 else "127.0.0.1"
@@ -192,7 +193,7 @@ if relay:
         client_port = str(nobody.getsockname()[1])  # bound and never read: datagrams sent here vanish
 
 client = subprocess.Popen([client_path, "-N", "-L", spec, address, client_port],
-                          env=client_env,
+                          env=both(client_env),
                           stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 said = []
 threading.Thread(target=lambda: said.extend(l.decode("latin-1") for l in client.stderr), daemon=True).start()

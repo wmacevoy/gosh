@@ -12,9 +12,11 @@
 # REQ1/CP-1 (mocp there and back), REQ1/PATH-1 (--relay=always: the relay
 # started the way ssh starts it).
 #
-# usage: wrapper.test CLIENT SERVER INPTY
+# usage: wrapper.test CLIENT SERVER INPTY [COMMAND COPY]
 #   the two programs, and upstream's test helper that runs a command on a
-#   terminal of its own (src/tests/inpty in a build of the core), by absolute path
+#   terminal of its own (src/tests/inpty in a build of the core), by absolute path;
+#   and the command's two names: mosh and mocp for pf.7 (the default), gosh and
+#   gocp for gosh (REQ6/NAME-1)
 #
 # From the fork at mosh-1.4.0-pf.7 (src/tests/wrapper.test). Changed here: the
 # programs and the helper are arguments; the locale is set and not searched
@@ -27,10 +29,12 @@
 # part of it that gosh's names will not change), and all 14 fail there.
 #
 
-[ $# -eq 3 ] || { printf 'usage: wrapper.test CLIENT SERVER INPTY\n' >&2; exit 2; }
+[ $# -eq 3 ] || [ $# -eq 5 ] || { printf 'usage: wrapper.test CLIENT SERVER INPTY [COMMAND COPY]\n' >&2; exit 2; }
 client=$1
 server=$2
 inpty=$3
+command=${4:-mosh}
+copy=${5:-mocp}
 LC_ALL=C.UTF-8
 export LC_ALL
 ssh="python3 $(cd "$(dirname "$0")" && pwd)/fake-ssh.py"
@@ -52,8 +56,8 @@ check() {
 }
 
 for which in built-in; do
-    mosh="$client mosh"
-    mocp="$client mocp"
+    mosh="$client $command"
+    mocp="$client $copy"
 
     for how in proxy remote local; do
         said=$(TERM=xterm "$inpty" $mosh --ssh="$ssh" --server="$server" --experimental-remote-ip=$how \
@@ -84,21 +88,23 @@ done
 said=$("$server" stun 60000 2>&1 </dev/null)
 check "the old name for a meetup is refused, and says the new one" \
     "$([ $? -eq 1 ] && printf '%s\n' "$said" | grep -q meetup && echo ok)"
-said=$(MOSH_STUN_KEY=x "$client" mosh --version 2>&1)
-check "a dropped variable still set is remarked on" "$(printf '%s\n' "$said" | grep -q MOSH_MEETUP_KEY && echo ok)"
-said=$("$client" mosh --punch=sometimes localhost 2>&1)
+if [ "$command" = mosh ]; then # (pf.7's: it remarks on its own earlier names; gosh never had them)
+    said=$(MOSH_STUN_KEY=x "$client" mosh --version 2>&1)
+    check "a dropped variable still set is remarked on" "$(printf '%s\n' "$said" | grep -q MOSH_MEETUP_KEY && echo ok)"
+fi
+said=$("$client" "$command" --punch=sometimes localhost 2>&1)
 check "an unknown --punch is refused, and says so" "$([ $? -eq 1 ] && printf '%s\n' "$said" | grep -q 'punch mode "sometimes"' && echo ok)"
-ln -s "$client" "$work/mosh"
-ln -s "$client" "$work/mocp"
-check "under the name mosh it is mosh" "$("$work/mosh" --help | grep -q '^Usage: mosh ' && echo ok)"
-check "under the name mocp it is mocp" "$("$work/mocp" --help | grep -q '^Usage: mocp ' && echo ok)"
-said=$("$work/mosh" --no-such-option localhost 2>&1)
+ln -s "$client" "$work/$command"
+ln -s "$client" "$work/$copy"
+check "under the name $command it is $command" "$("$work/$command" --help | grep -q "^Usage: $command " && echo ok)"
+check "under the name $copy it is $copy" "$("$work/$copy" --help | grep -q "^Usage: $copy " && echo ok)"
+said=$("$work/$command" --no-such-option localhost 2>&1)
 check "an option it does not know is refused, by name" "$([ $? -eq 1 ] && printf '%s\n' "$said" | grep -q 'no-such-option' && echo ok)"
-said=$("$work/mocp" "$work/file" "$work/elsewhere" 2>&1)
+said=$("$work/$copy" "$work/file" "$work/elsewhere" 2>&1)
 check "a copy with no other machine in it is refused, and says why" \
     "$([ $? -eq 1 ] && [ ! -e "$work/elsewhere" ] && printf '%s\n' "$said" | grep -q 'has to be another machine' && echo ok)"
-said=$("$work/mosh" --ssh="$ssh" --server=/nonexistent/mosh-server localhost 2>&1)
+said=$("$work/$command" --ssh="$ssh" --server=/nonexistent/mosh-server localhost 2>&1)
 check "no server at the other end is an error, not a hang, and says so" \
-    "$([ $? -eq 1 ] && printf '%s\n' "$said" | grep -q 'Did not find mosh server startup message' && echo ok)"
+    "$([ $? -eq 1 ] && printf '%s\n' "$said" | grep -q 'startup message' && echo ok)"
 
 exit $status

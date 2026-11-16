@@ -27,7 +27,7 @@ index 132dba8..a85507c 100644
    }
  
 +  if ( Gosh::headless() ) {
-+    fputs( "mosh: exiting.\n", stderr ); /* (standard output is not ours to write on) */
++    fputs( "gosh: exiting.\n", stderr ); /* (standard output is not ours to write on) */
 +  } else {
    printf( "[mosh is exiting.]\n" );
 +  }

@@ -57,7 +57,7 @@ def stop(pid):
 
 
 def screen_shows_answer(client, port, key, env):
-    """Runs the client on a new terminal, types a line, and says whether the answer was drawn."""
+    """Runs the client on a new terminal, types a line: whether the answer was drawn, what was, and whether it typed."""
     pid, terminal = pty.fork()
     if pid == 0:
         os.execve(client, [client, "127.0.0.1", port], dict(env, MOSH_KEY=key))
@@ -76,7 +76,7 @@ def screen_shows_answer(client, port, key, env):
             if seen and not typed:  # it has drawn something, so it is reading keys
                 os.write(terminal, TYPED)
                 typed = True
-        return ANSWER in seen
+        return ANSWER in seen, seen, typed
     finally:
         stop(pid)
         os.waitpid(pid, 0)
@@ -95,12 +95,14 @@ def main():
     env.pop("MOSH_KEY", None)
     port, key, server_pid = start_server(server, env)
     try:
-        ok = screen_shows_answer(client, port, key, env)
+        ok, seen, typed = screen_shows_answer(client, port, key, env)
     finally:
         stop(server_pid)
     what = "%s with %s" % (client, server)
     if not ok:
-        sys.exit("FAIL REQ10/SHAPE-1: no terminal session: %s" % what)
+        # (what the client drew, and whether it was typed to: so that a failure says whether the
+        # session never came up or the line was lost; seen once at random in the check, 2026-11-16)
+        sys.exit("FAIL REQ10/SHAPE-1: no terminal session: %s\n  typed: %s; drawn (last 400 bytes): %r" % (what, typed, seen[-400:]))
     print("PASS REQ10/SHAPE-1: a terminal session: %s" % what)
 
 

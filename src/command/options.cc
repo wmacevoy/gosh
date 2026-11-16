@@ -222,10 +222,10 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
   }
   /* (the relays read these for themselves: see src/relay/settings.h) */
   if ( s.has( "punch" ) ) {
-    c.relays_read.push_back( std::make_pair( "MOSH_PUNCH", c.punch ) );
+    c.relays_read.push_back( std::make_pair( "GOSH_PUNCH", c.punch ) );
   }
   if ( s.has( "stun" ) ) {
-    c.relays_read.push_back( std::make_pair( "MOSH_STUN", s.value( "stun" ) ) );
+    c.relays_read.push_back( std::make_pair( "GOSH_STUN", s.value( "stun" ) ) );
   }
   /* (gosh) The meetup's address for UDP is its host and port; its ssh login, all before the port. */
   if ( s.has( "meetup" ) ) {
@@ -236,7 +236,7 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
     }
     c.meetup_login = meetup.substr( 0, colon );
     const size_t at = c.meetup_login.rfind( '@' );
-    c.relays_read.push_back( std::make_pair( "MOSH_MEETUP", meetup.substr( at == std::string::npos ? 0 : at + 1 ) ) );
+    c.relays_read.push_back( std::make_pair( "GOSH_MEETUP", meetup.substr( at == std::string::npos ? 0 : at + 1 ) ) );
     /* (REQ16/PATH-8) "[2001:db8::1]:PORT": ssh takes the address without its brackets */
     const size_t open = c.meetup_login.find( '[', at == std::string::npos ? 0 : at + 1 );
     if ( open != std::string::npos && c.meetup_login[c.meetup_login.size() - 1] == ']' ) {

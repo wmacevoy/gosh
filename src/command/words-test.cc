@@ -201,11 +201,11 @@ int main()
   Choices meet = choose( settings( { "--meetup=me@meet:3478", "h" } ), "gosh", NULL );
   Variables rv = relay_variables( meet, false, { "ssh", "h" }, { "ssh", "meet" } );
   check( "the relay's variables: its command joined by character 31, its mode, the ticket's command",
-         rv.size() == 3 && rv[0].first == "MOSH_RELAY_COMMAND" && rv[0].second == "ssh\x1fh" && rv[1].first == "MOSH_RELAY"
-           && rv[1].second == "auto" && rv[2].first == "MOSH_MEETUP_TICKET_COMMAND" && rv[2].second == "ssh\x1fmeet" );
+         rv.size() == 3 && rv[0].first == "GOSH_RELAY_COMMAND" && rv[0].second == "ssh\x1fh" && rv[1].first == "GOSH_RELAY"
+           && rv[1].second == "auto" && rv[2].first == "GOSH_MEETUP_TICKET_COMMAND" && rv[2].second == "ssh\x1fmeet" );
   check( "no meetup, no ticket's command", relay_variables( proxy, false, { "ssh" }, { "ssh" } ).size() == 2 );
   rv = relay_variables( meet, true, { "ssh" }, { "ssh" } );
-  check( "a stock server: no relay (REQ8/CMD-3)", rv.size() == 1 && rv[0].first == "MOSH_RELAY" && rv[0].second == "never" );
+  check( "a stock server: no relay (REQ8/CMD-3)", rv.size() == 1 && rv[0].first == "GOSH_RELAY" && rv[0].second == "never" );
   rv = relay_variables( choose( settings( { "--relay=never", "h" } ), "gosh", NULL ), false, { "ssh" }, { "ssh" } );
   check( "--relay=never: none", rv.size() == 1 && rv[0].second == "never" );
 

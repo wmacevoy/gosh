@@ -384,14 +384,14 @@ Gosh::Command::Variables Gosh::Command::relay_variables( const Choices& choices,
    * running a relay on the server. (gosh, REQ8/CMD-3) A stock server has no relay to start.
    */
   if ( choices.relay != "never" && !stock ) {
-    v.push_back( std::make_pair( "MOSH_RELAY_COMMAND", join( relay, "\x1f" ) ) );
-    v.push_back( std::make_pair( "MOSH_RELAY", choices.relay ) );
+    v.push_back( std::make_pair( "GOSH_RELAY_COMMAND", join( relay, "\x1f" ) ) );
+    v.push_back( std::make_pair( "GOSH_RELAY", choices.relay ) );
     /* (gosh, REQ15/PATH-4) How the local relay gets a ticket for the meetup: ssh to it, as to the server. */
     if ( !choices.meetup_login.empty() ) {
-      v.push_back( std::make_pair( "MOSH_MEETUP_TICKET_COMMAND", join( ticket, "\x1f" ) ) );
+      v.push_back( std::make_pair( "GOSH_MEETUP_TICKET_COMMAND", join( ticket, "\x1f" ) ) );
     }
   } else {
-    v.push_back( std::make_pair( "MOSH_RELAY", "never" ) );
+    v.push_back( std::make_pair( "GOSH_RELAY", "never" ) );
   }
   return v;
 }

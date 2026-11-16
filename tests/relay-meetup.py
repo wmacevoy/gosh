@@ -30,6 +30,7 @@ import sys
 import tempfile
 import threading
 import time
+from variables import both
 
 server, client_path = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
 address = sys.argv[3] if len(sys.argv) > 3 else "127.0.0.1"
@@ -84,7 +85,7 @@ spec = "%d:127.0.0.1:%d" % (forward_port, target.getsockname()[1])
 home = tempfile.mkdtemp(prefix="gosh-relay-meetup-")
 handle, relay_log = tempfile.mkstemp(prefix="gosh-relay-log-")
 os.close(handle)
-env = dict(os.environ, LC_ALL="C.UTF-8", HOME=home, XDG_CONFIG_HOME=os.path.join(home, "config"), MOSH_STUN="none")
+env = both(dict(os.environ, LC_ALL="C.UTF-8", HOME=home, XDG_CONFIG_HOME=os.path.join(home, "config"), MOSH_STUN="none"))
 started = []
 session_pid = None
 try:
@@ -109,7 +110,7 @@ try:
                       MOSH_MEETUP="%s:%d" % (meetup_text, meetup_port),
                       MOSH_MEETUP_TICKET_COMMAND="\x1f".join([server, "meetup-ticket"]))
     client = subprocess.Popen([client_path, "-N", "-L", spec, address, str(nobody.getsockname()[1])],
-                              env=client_env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                              env=both(client_env), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                               stderr=subprocess.PIPE)
     started.append(client)
     said = []

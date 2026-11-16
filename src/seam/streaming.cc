@@ -81,7 +81,7 @@ int Gosh::stream_exit( bool success )
   Session& s = session();
   const int status = ( s.loop_returned && s.stream.pid == -1 ) ? s.stream.status : 1;
   if ( status == 1 && !success ) {
-    fputs( "mosh: the session ended before its work was done.\n", stderr );
+    fputs( "gosh: the session ended before its work was done.\n", stderr );
   }
   return status;
 }

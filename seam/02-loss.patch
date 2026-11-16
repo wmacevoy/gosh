@@ -5,7 +5,7 @@ For:   REQ1/FWD-2. A UDP datagram too large for one frame is sent in fragments, 
        so the receiver can count the ones missing; only the sender can use the answer.
 What:  Connection counts, from the sequence numbers it already reads in recv_one, the share of
        the peer's datagrams that did not arrive (measure_loss; get_recv_loss). The sender reports
-       it in a second optional field, recv_loss (field 9), only alongside capabilities, so a
+       it in a second optional field, recv_loss (field 1002), only alongside capabilities, so a
        stock mosh is never sent it. The receiver keeps what the peer reported (sidechannel_loss).
 Where: Connection (two constructors, recv_one, and a new function beside port());
        transportinstruction.proto; TransportSender::send_in_fragments; Fragmenter::make_fragments;
@@ -215,9 +215,9 @@ index d4ed2f2..903afcd 100644
 @@ -19,4 +19,8 @@ message Instruction {
    /* Optional features this end supports (see src/network/sidechannel.h).
       Unknown to, and ignored by, older peers. */
-   optional uint32 capabilities = 8;
+   optional uint32 capabilities = 1001;
 +
 +  /* Share of the datagrams sent to this end that did not arrive, lately,
 +     in parts per 10000.  Only sent along with capabilities. */
-+  optional uint32 recv_loss = 9;
++  optional uint32 recv_loss = 1002;
  }

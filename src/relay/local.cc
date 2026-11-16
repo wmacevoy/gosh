@@ -56,8 +56,8 @@ private:
   /* (gosh) What the environment tells the relay: read here, and made sense of in settings.h. */
   static Gosh::RelaySettings told( bool stream_only )
   {
-    return Gosh::relay_settings( stream_only, getenv( "MOSH_RELAY_STREAM_IDLE_MS" ), getenv( "MOSH_PUNCH" ),
-                                 getenv( "MOSH_MEETUP" ), getenv( "MOSH_STUN" ), getenv( "MOSH_MEETUP_TICKET_COMMAND" ) );
+    return Gosh::relay_settings( stream_only, getenv( "GOSH_RELAY_STREAM_IDLE_MS" ), getenv( "GOSH_PUNCH" ),
+                                 getenv( "GOSH_MEETUP" ), getenv( "GOSH_STUN" ), getenv( "GOSH_MEETUP_TICKET_COMMAND" ) );
   }
 
   /*

@@ -64,6 +64,6 @@ void Gosh::Command::startup_key( const Startup& st, const std::string& name )
     if ( st.bad_port ) {
       throw Failure( name + ": Server does not support UDP port range option." );
     }
-    throw Failure( name + ": Did not find mosh server startup message. (Have you installed mosh on your server?)" );
+    throw Failure( name + ": Did not find the server's startup message. (Is gosh installed there? https://wmacevoy.github.io/gosh/USING.html)" );
   }
 }

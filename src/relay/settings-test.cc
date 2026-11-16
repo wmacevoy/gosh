@@ -39,7 +39,7 @@ int main()
            && relay_settings( false, "", NULL, NULL, NULL, NULL ).stream_idle == 60000
            && relay_settings( false, "soon", NULL, NULL, NULL, NULL ).stream_idle == 60000 );
 
-  check( "MOSH_PUNCH=never: no path-finding", !relay_settings( false, NULL, "never", NULL, NULL, NULL ).path_finding );
+  check( "GOSH_PUNCH=never: no path-finding", !relay_settings( false, NULL, "never", NULL, NULL, NULL ).path_finding );
   check( "a word that only begins like it: path-finding", relay_settings( false, NULL, "no", NULL, NULL, NULL ).path_finding
                                                             && relay_settings( false, NULL, "nevermore", NULL, NULL, NULL ).path_finding );
   check( "a ticket's command with no meetup named is no use, and not kept",
@@ -57,8 +57,8 @@ int main()
            && s.ticket_command == Words( { "ssh", "-T", "meet.example", "--", "gosh-server meetup-ticket" } ) );
   s = relay_settings( false, NULL, NULL, "meet.example:3478", "stun.example:19302", NULL );
   check( "meetups and STUN servers named: the meetups first", s.ask == Words( { "meet.example:3478", "stun.example:19302" } ) );
-  check( "MOSH_STUN=none, no meetup: nobody on the Internet is asked", relay_settings( false, NULL, NULL, NULL, "none", NULL ).ask.empty() );
-  check( "MOSH_STUN empty: likewise", relay_settings( false, NULL, NULL, NULL, "", NULL ).ask.empty() );
+  check( "GOSH_STUN=none, no meetup: nobody on the Internet is asked", relay_settings( false, NULL, NULL, NULL, "none", NULL ).ask.empty() );
+  check( "GOSH_STUN empty: likewise", relay_settings( false, NULL, NULL, NULL, "", NULL ).ask.empty() );
   check( "empty items and \"none\" in a list name nothing", Gosh::comma_list( ",a,,none,b," ) == Words( { "a", "b" } ) );
 
   std::string address = "unset";

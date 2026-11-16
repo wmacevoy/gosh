@@ -42,6 +42,7 @@ import tempfile
 import termios
 import threading
 import time
+from variables import both
 
 PATIENCE = 30  # how long anything may take before the test gives up waiting
 
@@ -75,7 +76,7 @@ def host(servers):
     os.makedirs(os.path.join(home, ".local", "bin"))
     for name, path in servers.items():
         os.symlink(path, os.path.join(home, ".local", "bin", name))
-    return dict(os.environ, HOME=home, PATH=tools, LC_ALL="C.UTF-8", TERM="xterm", MOSH_STUN="none")
+    return both(dict(os.environ, HOME=home, PATH=tools, LC_ALL="C.UTF-8", TERM="xterm", MOSH_STUN="none"))
 
 
 def echo_target():
@@ -210,12 +211,12 @@ try:
     stock_host = host({"mosh-server": stock_server})
     target, port = echo_target(), free_port()
     spec = "%d:127.0.0.1:%d" % (port, target.getsockname()[1])
-    process, said = headless(stock_host, spec, b"mosh: connected.")
+    process, said = headless(stock_host, spec, b"gosh: connected.")
     wanted = ("gosh: localhost has no gosh-server, so its mosh-server is used. "
               "That one cannot do these, and is not asked to: -L %s." % spec).encode()
     check("a stock host: it says which server it got, and the forward not done", wanted in said, repr(said[-400:]))
     check("a stock host: it says so once", said.count(NOTICE) == 1, repr(said[-400:]))
-    check("a stock host: the session comes up all the same", b"mosh: connected." in said, repr(said[-400:]))
+    check("a stock host: the session comes up all the same", b"gosh: connected." in said, repr(said[-400:]))
     check("a stock host: nothing listens for the forward", through(port, b"x") is None)
     out = stop(process)
     # A stock server given a word it does not know says "invalid option" and prints its usage, which the
@@ -247,7 +248,7 @@ try:
                           env=host({}), stdin=subprocess.DEVNULL, capture_output=True, timeout=PATIENCE * 2)
     check("a host with no server: gosh stops with status 1", done.returncode == 1, repr(done.returncode))
     check("a host with no server: and says that it found none",
-          b"Did not find mosh server startup message" in done.stderr, repr(done.stderr[-300:]))
+          b"startup message" in done.stderr, repr(done.stderr[-300:]))
 finally:
     shutil.rmtree(work, ignore_errors=True)
 

@@ -24,7 +24,7 @@ enum RelayMode
 };
 
 /*
- * The mode for a word (MOSH_RELAY): "never"; "always"; anything else is auto. And never, whatever
+ * The mode for a word (GOSH_RELAY): "never"; "always"; anything else is auto. And never, whatever
  * the word, if there is no command to start one with. (The fork's mosh-client.cc dropped "never"
  * before set_relay saw it; the two rules are one here.)
  */

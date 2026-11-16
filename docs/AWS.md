@@ -135,7 +135,7 @@ laptop's relay fetches a ticket from the meetup by ssh, once, and hands it to th
 both register with the meetup and look for a way straight to each other; if they find one they
 take it, and if not their datagrams go through the meetup by UDP. Through the meetup is still
 "fallen back": the ssh connection stays open in case the meetup stops answering. The relay's log
-(`MOSH_RELAY_LOG=FILE`) says each step: "a ticket for the meetup at ...", "registered with the
+(`GOSH_RELAY_LOG=FILE`) says each step: "a ticket for the meetup at ...", "registered with the
 meetup at ...".
 
 **Not tried yet:** this case between real machines, with the tunnel above (queue item 8, "two

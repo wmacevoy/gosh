@@ -43,6 +43,7 @@ import sys
 import termios
 import threading
 import time
+from variables import both
 
 PATIENCE = 30  # how long anything may take before the test gives up waiting
 
@@ -54,7 +55,7 @@ ssh = "python3 " + os.path.join(here, "fake-ssh.py")
 # This run's mark, in the environment of everything it starts, so that what it stops on its way
 # out is its own: another run may be using the same programs at the same time.
 MARK = "GOSH_TEST_RUN=" + os.environ.get("GOSH_TEST_RUN", "test.%d" % os.getpid())
-env = dict(os.environ, LC_ALL="C.UTF-8", TERM="xterm", MOSH_STUN="none", GOSH_TEST_RUN=MARK.split("=", 1)[1])
+env = both(dict(os.environ, LC_ALL="C.UTF-8", TERM="xterm", MOSH_STUN="none", GOSH_TEST_RUN=MARK.split("=", 1)[1]))
 failures = []
 
 

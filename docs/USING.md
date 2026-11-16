@@ -60,7 +60,7 @@ across editor windows, while gosh carries the connection.
 Said as plainly as what is (`REQ1/SHAPE-4`):
 
 - **No one-line install** (`REQ1/CMD-2`, queue item 10). You build from source, below.
-- **Messages and variables still say `mosh`** in places (`mosh:`, `MOSH_RELAY`, the usage text):
+- **Messages and variables still say `mosh`** in places (`mosh:`, `GOSH_RELAY`, the usage text):
   the change to gosh's names (`REQ6/NAME-1`) is queue item 10.
 - **The editor extension** (`remote-gosh`) is not migrated yet (queue item 11); `remote-mosh`
   with the fork is what a class uses meanwhile.

@@ -37,6 +37,7 @@ import sys
 import tempfile
 import threading
 import time
+from variables import both
 
 SIZE = 40 * 1000 * 1000   # large enough that a copy on loopback takes several seconds
 CUT_AT = 4 * 1000 * 1000  # kill the copy once this much has arrived
@@ -49,7 +50,7 @@ server_path, client_path = os.path.realpath(sys.argv[1]), os.path.realpath(sys.a
 # This run's mark, in the environment of everything it starts, so that what it stops on its way
 # out is its own: another run may be using the same programs at the same time.
 MARK = "GOSH_TEST_RUN=" + os.environ.get("GOSH_TEST_RUN", "test.%d" % os.getpid())
-env = dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", GOSH_TEST_RUN=MARK.split("=", 1)[1])
+env = both(dict(os.environ, LC_ALL="C.UTF-8", MOSH_STUN="none", GOSH_TEST_RUN=MARK.split("=", 1)[1]))
 failures = []
 
 

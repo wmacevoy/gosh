@@ -291,7 +291,7 @@ protected:
     }
     if ( options.local ) {
       if ( error || !options.quiet ) {
-        print( "mocp: " + text );
+        print( "gocp: " + text );
       }
     } else {
       channel.send( NOTE, note_body( error, text ) );
@@ -307,7 +307,7 @@ protected:
       errors++;
     }
     if ( options.local && ( error || !options.quiet ) ) {
-      print( "mocp: " + text );
+      print( "gocp: " + text );
     }
   }
 
@@ -382,7 +382,7 @@ public:
   {
     errors++;
     if ( options.local ) {
-      print( "mocp: " + why );
+      print( "gocp: " + why );
     }
   }
 };
@@ -533,7 +533,7 @@ private:
         } else {
           errors++;
           if ( options.local && !why.empty() ) {
-            print( "mocp: " + entries[index].path + ": " + why );
+            print( "gocp: " + entries[index].path + ": " + why );
           }
         }
         break;
@@ -689,10 +689,10 @@ public:
         one_round();
         if ( round == 0 && options.local && !options.quiet ) {
           if ( copied == 0 && errors == 0 ) {
-            print( "mocp: everything is up to date already." );
+            print( "gocp: everything is up to date already." );
           }
           if ( options.automatic ) {
-            print( "mocp: watching for changes. Interrupt (Ctrl-C) to stop." );
+            print( "gocp: watching for changes. Interrupt (Ctrl-C) to stop." );
           }
         }
         round++;
@@ -739,7 +739,7 @@ private:
     } else {
       errors++;
       if ( options.local && !why.empty() ) {
-        print( "mocp: " + plans[which].target + ": " + why );
+        print( "gocp: " + plans[which].target + ": " + why );
       }
     }
     channel.send( RESULT, result_body( which, good, why ) );
@@ -1013,10 +1013,10 @@ public:
           clear_progress();
           if ( round == 0 && options.local && !options.quiet ) {
             if ( copied == 0 && errors == 0 ) {
-              print( "mocp: everything is up to date already." );
+              print( "gocp: everything is up to date already." );
             }
             if ( options.automatic ) {
-              print( "mocp: watching for changes. Interrupt (Ctrl-C) to stop." );
+              print( "gocp: watching for changes. Interrupt (Ctrl-C) to stop." );
             }
           }
           round++;
@@ -1057,7 +1057,7 @@ int FileCopy::run( const Options& options, int in_fd, int out_fd )
     status = end->status();
   } catch ( const std::exception& e ) {
     if ( options.local ) {
-      fprintf( stderr, "mocp: %s\n", e.what() );
+      fprintf( stderr, "gocp: %s\n", e.what() );
     }
   }
   delete end;

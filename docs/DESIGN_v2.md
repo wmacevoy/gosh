@@ -644,10 +644,17 @@ names; the `stderr` lines the extension reads; the report lines.
 
 **Recommended to change, and nothing else:**
 1. The `Instruction` field numbers (decided: DESIGN_v1, question 2). **But last, not first**
-   (question 5).
+   (question 5). *Done 2026-11-16: `capabilities` is field **1001** and `recv_loss` field **1002**
+   (seam patches 01 and 02), clear of upstream's 1 to 7 and in the range left by custom for
+   extensions; each costs one byte more per datagram than 8 and 9 did. A one-way door from gosh's
+   first release that carries it. From then a gosh end and a pf.7 end take each other for stock.*
 2. Names `REQ6/NAME-1` requires: `GOSH_` variables, `gosh:` messages, with the extension in step.
+   *Done 2026-11-16, in the same change: `GOSH_RELAY`, `GOSH_RELAY_COMMAND`, `GOSH_RELAY_LOG`,
+   `GOSH_RELAY_STREAM_IDLE_MS`, `GOSH_PUNCH`, `GOSH_STUN`, `GOSH_MEETUP`,
+   `GOSH_MEETUP_TICKET_COMMAND`; mosh's own (`MOSH_KEY` and the rest above) keep their names.*
 3. Relay's words `STUN` and `STUNKEY`, which still carry the dropped vocabulary
-   (`relay.cc:113-115`), become meetup's words.
+   (`relay.cc:113-115`), become meetup's words. *Done with the tickets (2026-11-15): `STUNKEY` went;
+   `MEETUP` and `TICKET` came; `STUN` names plain STUN servers again, the glossary's word since v15.*
 
 Every other format stays byte for byte what pf.7 writes. Not because it is good, but because then
 pf.7 is a second implementation to test against while parts are reshaped (section 6), and because

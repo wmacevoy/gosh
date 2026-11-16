@@ -56,8 +56,8 @@ void Gosh::engage_relay( void )
   s.send_elsewhere( relay, sizeof( relay.sin ) );
 
   if ( s.options.headless && s.options.stream.empty() ) {
-    fputs( s.relay.mode == RELAY_ALWAYS ? "mosh: connecting through ssh.\n"
-                                        : "mosh: no answer by UDP; trying through ssh as well.\n",
+    fputs( s.relay.mode == RELAY_ALWAYS ? "gosh: connecting through ssh.\n"
+                                        : "gosh: no answer by UDP; trying through ssh as well.\n",
            stderr );
     fflush( stderr );
   }
@@ -87,7 +87,7 @@ void Gosh::consider_relay( void )
         s.relay.keep_alive = -1;
       }
       if ( s.options.headless && s.options.stream.empty() && !s.ending() ) {
-        fputs( "mosh: the relay through ssh has stopped; starting another.\n", stderr );
+        fputs( "gosh: the relay through ssh has stopped; starting another.\n", stderr );
         fflush( stderr );
       }
     }

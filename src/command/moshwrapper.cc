@@ -31,10 +31,11 @@ using namespace Gosh::Command;
 namespace {
 
 const char USAGE[] = R"USAGE(Usage: %s [options] [--] [user@]host [command...]
-        --client=PATH        mosh client on local machine
-                                (default: "mosh-client")
-        --server=COMMAND     mosh server on remote machine
-                                (default: "mosh-server")
+        --client=PATH        the client on this machine (accepted, and not used:
+                                this program is the client)
+        --server=COMMAND     the server on the remote machine
+                                (default: gosh-server, or mosh-server where
+                                there is none; looked for in ~/.local/bin too)
 
         --predict=adaptive      local echo for slower links [default]
 -a      --predict=always        use local echo even on fast links
@@ -93,7 +94,7 @@ const char USAGE[] = R"USAGE(Usage: %s [options] [--] [user@]host [command...]
                                 with its input and output here, as
                                 "ssh host command" does
 
-        --copy               copy files: see "mocp --help"
+        --copy               copy files: see "gocp --help"
 
         --relay={auto|always|never}
                              carry the session over ssh when UDP cannot
@@ -122,53 +123,29 @@ const char USAGE[] = R"USAGE(Usage: %s [options] [--] [user@]host [command...]
 
         --no-init            do not send terminal initialization string
 
-        --local              run mosh-server locally without using ssh
+        --local              run the server on this machine, without ssh
 
         --experimental-remote-ip=(local|remote|proxy)  select the method for
-                             discovering the remote IP address to use for mosh
+                             discovering the remote IP address to use
                              (default: "proxy")
 
         --help               this message
         --version            version and copyright information
 
-This is mosh with experimental port forwarding (https://wmacevoy.github.io/mosh/).
-Please report bugs in it at https://github.com/wmacevoy/mosh/issues,
-not to the mosh project.  Mosh home page: https://mosh.org\n};
-
-my $copy_usage =
-qq{Usage: mocp [options] SOURCE... DESTINATION
-
-Copies files to or from another machine through a mosh session, so that the
-copy survives losing the network, changing networks, and sleep, and carries
-on where it left off. Exactly one end is remote: [user@]host:path
-
-  mocp report.pdf server:docs/         to the server
-  mocp -r server:build/out .           from it, with what is inside
-  mocp --auto -r server:build/out .    and then keep ./out up to date
-
--r                  directories, and everything in them
-        --auto      when the copy is done, stay, and copy again whatever
-                       changes at the source (until interrupted)
-        --delete    also remove from the destination what is no longer
-                       at the source (within the directories copied)
-        --interval=SECONDS
-                    how often --auto looks for changes (default: 2)
--q                  say only what goes wrong
-
-A file is replaced only when the whole of it has arrived. Files that are
-already the same (by size and time) are not sent again. Options of mosh
-that concern the connection (--ssh, --relay, -p, --server, ...) work here.
+gosh: mosh's session, with forwards, copies, the relay over ssh and path-finding
+beside it. Not independently reviewed. https://wmacevoy.github.io/gosh/
+Not the mosh project's work: report problems at https://github.com/wmacevoy/gosh/issues.
 )USAGE";
 
-const char COPY_USAGE[] = R"USAGE(Usage: mocp [options] SOURCE... DESTINATION
+const char COPY_USAGE[] = R"USAGE(Usage: gocp [options] SOURCE... DESTINATION
 
-Copies files to or from another machine through a mosh session, so that the
+Copies files to or from another machine through a gosh session, so that the
 copy survives losing the network, changing networks, and sleep, and carries
 on where it left off. Exactly one end is remote: [user@]host:path
 
-  mocp report.pdf server:docs/         to the server
-  mocp -r server:build/out .           from it, with what is inside
-  mocp --auto -r server:build/out .    and then keep ./out up to date
+  gocp report.pdf server:docs/         to the server
+  gocp -r server:build/out .           from it, with what is inside
+  gocp --auto -r server:build/out .    and then keep ./out up to date
 
 -r                  directories, and everything in them
         --auto      when the copy is done, stay, and copy again whatever
@@ -180,7 +157,7 @@ on where it left off. Exactly one end is remote: [user@]host:path
 -q                  say only what goes wrong
 
 A file is replaced only when the whole of it has arrived. Files that are
-already the same (by size and time) are not sent again. Options of mosh
+already the same (by size and time) are not sent again. Options of gosh
 that concern the connection (--ssh, --relay, -p, --server, ...) work here.
 )USAGE";
 
