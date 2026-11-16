@@ -9,7 +9,8 @@ gocp \- copy files over a gosh session, carrying on where a copy left off
 .B gocp
 copies files to or from another machine, as \fBscp\fR(1) does, through a \fBgosh\fR(1) session: the
 copy survives losing the network, changing networks, and sleep. Exactly one end is remote:
-[\fIuser\fB@\fR]\fIhost\fB:\fIpath\fR.
+[\fIuser\fB@\fR]\fIhost\fB:\fIpath\fR, or for an IPv6 address
+[\fIuser\fB@\fR]\fB[\fIaddress\fB]:\fIpath\fR. A host may not begin with \fB\-\fR.
 .PP
 A copy cut off and run again sends only what had not arrived, after checking that what had
 arrived is the start of the same file. A file appears under its own name only when the whole of it

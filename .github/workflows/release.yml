@@ -7,9 +7,13 @@
 #   gosh-VERSION-linux-aarch64.tar.gz       22.04 so that they run on anything newer
 #   gosh-VERSION-macos-universal.tar.gz   if it builds: no gosh part has been built on macOS before
 #   install.sh                            tools/install.sh, knowing its version
-#   SHA256SUMS
+#   SHA256SUMS                            of each of these, install.sh included
 #
-# Started by hand it builds everything and publishes nothing: a rehearsal.
+# It publishes nothing unless ci.yml's whole check passed on the same commit, and refuses a Linux
+# program that needs a glibc newer than 2.34 (REQ1/CMD-2). The packaged programs themselves are
+# run only by headless-smoke.py here (a session, a forward, the relay); the rest of the check runs
+# on CI's ordinary build of the same commit. Started by hand it builds everything and publishes
+# nothing: a rehearsal.
 # Carried from the fork's release.yml (mosh-1.4.0-pf.7). Its Windows build is not carried yet
 # (queue item 11, the extension, is what needs it).
 name: release
@@ -44,11 +48,16 @@ jobs:
           python3 tests/headless-smoke.py .build/bin/gosh-server .build/bin/gosh-client 127.0.0.1 blocked
       - name: Package
         run: tools/package-release.sh "${GITHUB_REF_NAME#v}" dist
-      - name: What the programs need from the system
+      - name: What the programs need from the system, refused above glibc 2.34 (REQ1/CMD-2)
         run: |
           for program in .build/bin/gosh-client .build/bin/gosh-server; do
             file "$program"
-            echo "$program needs up to $(objdump -T "$program" | grep -o 'GLIBC_[0-9.]*' | sort -V | tail -n 1)"
+            newest=$(objdump -T "$program" | grep -o 'GLIBC_[0-9.]*' | sort -V | tail -n 1)
+            echo "$program needs up to $newest"
+            if [ "$(printf '%s\n%s\n' "$newest" GLIBC_2.34 | sort -V | tail -n 1)" != GLIBC_2.34 ]; then
+              echo "::error::$program needs $newest, newer than the glibc 2.34 REQ1/CMD-2 promises"
+              exit 1
+            fi
           done
       - uses: actions/upload-artifact@v4
         with:
@@ -94,12 +103,26 @@ jobs:
           GOSH_CONFIGURE="--disable-dependency-tracking CXXFLAGS='-g -O2 $ARCHS' CFLAGS='-g -O2 $ARCHS' LDFLAGS='$ARCHS'" tools/build.sh
       - name: The programs hold a session and a forward
         run: python3 tests/headless-smoke.py .build/bin/gosh-server .build/bin/gosh-client
+      - name: The Intel half, under Rosetta if this machine has it (what it found goes into the release's notes)
+        run: |
+          mkdir -p notes
+          if arch -x86_64 .build/bin/gosh-client --version >/dev/null 2>&1 \
+             && arch -x86_64 .build/bin/gosh-server --version >/dev/null 2>&1; then
+            echo "macOS: built for Apple Silicon and Intel; both halves started." > notes/macos.txt
+          else
+            echo "macOS: built for Apple Silicon and Intel; the Intel half was not run (no Rosetta on the machine that built it)." > notes/macos.txt
+          fi
+          cat notes/macos.txt
       - name: Package
         run: tools/package-release.sh "${GITHUB_REF_NAME#v}" dist
       - uses: actions/upload-artifact@v4
         with:
           name: macos-universal
           path: dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notes-macos
+          path: notes/
 
   publish:
     if: always() && github.ref_type == 'tag' && needs.linux.result == 'success'
@@ -107,17 +130,46 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
+      # (the review of item 10, 2026-11-16) A release is only of a commit whose whole check passed:
+      # ci.yml's run on this commit, waited for if it is still going (up to 90 minutes).
+      - name: The check passed on this commit (ci.yml)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 180); do
+            state=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --limit 1 --json status,conclusion \
+                    --jq '.[0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)
+            case "$state" in
+              "completed success") echo "ci.yml passed on $GITHUB_SHA"; exit 0 ;;
+              completed*) echo "::error::ci.yml did not pass on $GITHUB_SHA ($state): nothing is published"; exit 1 ;;
+            esac
+            sleep 30
+          done
+          echo "::error::no finished ci.yml run on $GITHUB_SHA: nothing is published"
+          exit 1
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-      - name: Installer and checksums
+      - name: Installer, notes and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          mkdir -p notes
+          mv dist/macos.txt notes/ 2>/dev/null || true
           sed "s/@VERSION@/${GITHUB_REF_NAME#v}/" tools/install.sh > dist/install.sh
+          # (published again: what was published before and is not replaced keeps its line)
+          gh release download "$GITHUB_REF_NAME" -p SHA256SUMS -D old 2>/dev/null || true
           cd dist
           sha256sum gosh-* install.sh > SHA256SUMS # (install.sh too: the extension checks it before it runs it)
+          if [ -f ../old/SHA256SUMS ]; then
+            while read -r sum name; do
+              [ -e "$name" ] || [ -e "${name#\*}" ] || echo "$sum  $name" >> SHA256SUMS
+            done < ../old/SHA256SUMS
+          fi
           cat SHA256SUMS
       - name: Publish, beside the notes the release already has, or as a new pre-release
         env:
@@ -126,6 +178,7 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/* --clobber
           else
+            macos=$(cat notes/macos.txt 2>/dev/null || echo "macOS: did not build; not in this release.")
             gh release create "$GITHUB_REF_NAME" dist/* --prerelease --title "gosh ${GITHUB_REF_NAME#v}" \
-              --notes "Not independently reviewed. macOS: $([ -e dist/gosh-*-macos-universal.tar.gz ] && echo built || echo 'did not build; not in this release')."
+              --notes "Not independently reviewed. $macos"
           fi

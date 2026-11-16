@@ -125,6 +125,18 @@ std::string Gosh::Command::self_path( const std::string& argv0 )
   return argv0;
 }
 
+namespace {
+/* ssh reads %h, %p and the like in a ProxyCommand: a % of the path's own is written %% (the review of item 10) */
+std::string percents_doubled( const std::string& s )
+{
+  std::string out;
+  for ( size_t i = 0; i < s.size(); i++ ) {
+    out += s[i] == '%' ? "%%" : std::string( 1, s[i] );
+  }
+  return out;
+}
+}
+
 std::string Gosh::Command::proxy_command( const std::string& self, const std::string& family )
 {
 #ifdef __CYGWIN__
@@ -134,9 +146,9 @@ std::string Gosh::Command::proxy_command( const std::string& self, const std::st
   if ( cygwin_conv_path( CCP_POSIX_TO_WIN_A | CCP_ABSOLUTE, self.c_str(), windows, sizeof( windows ) ) == 0 ) {
     path = windows;
   }
-  return "\"" + path + "\" --mosh-fake-proxy " + family + " %h %p";
+  return "\"" + percents_doubled( path ) + "\" --mosh-fake-proxy " + family + " %h %p";
 #else
-  return shell_quote( std::vector<std::string>( 1, self ) ) + " --mosh-fake-proxy " + family + " %h %p";
+  return percents_doubled( shell_quote( std::vector<std::string>( 1, self ) ) ) + " --mosh-fake-proxy " + family + " %h %p";
 #endif
 }
 
@@ -144,7 +156,7 @@ int MoshWrapper::fake_proxy( const std::string& family, const std::string& host,
 {
   std::vector<Gosh::Command::Address> addresses;
   try {
-    addresses = Gosh::Command::resolve( host, port, family, "mosh" );
+    addresses = Gosh::Command::resolve( host, port, family, "gosh" ); /* (run as gosh-client: the command's name is not known here) */
   } catch ( const Gosh::Command::Failure& f ) {
     fprintf( stderr, "%s\n", f.message.c_str() );
     return 1;

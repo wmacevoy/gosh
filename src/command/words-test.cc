@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "src/command/options.h"
+#include "src/command/proxy.h"
 #include "src/command/words.h"
 
 using namespace Gosh::Command;
@@ -68,7 +69,13 @@ int main()
   check( "not one: a colon after a slash", !remote_place( "./a:b", host, path ) );
   check( "not one: a Windows drive", !remote_place( "C:\\x", host, path ) );
   check( "not one: no colon", !remote_place( "file", host, path ) );
-  check( "not one: a one-letter host is taken for a drive", !remote_place( "x:a", host, path ) );
+  /* (the review of item 10, 2026-11-16) gosh has no Windows drives to mind: a one-letter host is a host */
+  check( "a one-letter host is a host", remote_place( "x:a", host, path ) && host == "x" && path == "a" );
+  check( "an IPv6 address in brackets, with a user: ssh gets it without its brackets (REQ16/PATH-8)",
+         remote_place( "me@[2001:db8::1]:docs/a", host, path ) && host == "me@2001:db8::1" && path == "docs/a" );
+  check( "and without one", remote_place( "[::1]:/tmp/x", host, path ) && host == "::1" && path == "/tmp/x" );
+  check( "not one: brackets with nothing in them, or no colon after them",
+         !remote_place( "[]:a", host, path ) && !remote_place( "[::1]a", host, path ) );
 
   /* ---- a copy (REQ1/CP-1, REQ1/CP-5) */
   Asked s;
@@ -93,7 +100,35 @@ int main()
   check( "a name with the character 31 in it", asked( { std::string( "a\x1f" ), "x:b" }, true, s )
                                                   == "!gocp: a file name cannot contain the character with code 31." );
   check( "an interval under a tenth of a second", asked( { "--interval=0.05", "a", "x:b" }, true, s )
-                                                     == "!gocp: --interval must be at least 0.1 (seconds)." );
+                                                     == "!gocp: --interval must be from 0.1 to 2147483 (seconds)." );
+  check( "an interval that is no number, no end, or too large to send (the review of item 10)",
+         asked( { "--interval=nan", "a", "x:b" }, true, s ) == "!gocp: --interval must be from 0.1 to 2147483 (seconds)."
+           && asked( { "--interval=inf", "a", "x:b" }, true, s ) == "!gocp: --interval must be from 0.1 to 2147483 (seconds)."
+           && asked( { "--interval=3e9", "a", "x:b" }, true, s ) == "!gocp: --interval must be from 0.1 to 2147483 (seconds)."
+           && asked( { "--interval=2x", "a", "x:b" }, true, s ) == "!gocp: --interval must be from 0.1 to 2147483 (seconds)." );
+  check( "the largest interval is sent as it fits", asked( { "--auto", "--interval=2147483", "a", "x:b" }, true, s ).empty()
+                                                        && joined( s.stream_local ).find( "--interval=2147483000" )
+                                                             != std::string::npos );
+
+  /* ---- no word that ssh would take for an option (the review of item 10, 2026-11-16) */
+  check( "a host beginning with - is refused, not given to ssh",
+         asked( { "-oProxyCommand=evil", "x" }, false, s ).substr( 0, 1 ) == "!" );
+  check( "after --, too", asked( { "--", "-oProxyCommand=evil" }, false, s ).substr( 0, 1 ) == "!" );
+  check( "a copy's remote end beginning with - (after --, where it is not an option of gocp's)",
+         asked( { "--", "f", "-oX=y:path" }, true, s ) == "!gocp: a host cannot begin with \"-\": -oX=y" );
+  check( "a user beginning with - (by -l)", asked( { "-l", "-oX=y", "srv" }, false, s ).substr( 0, 1 ) == "!" );
+  check( "the message says why", asked( { "--", "-oX" }, false, s ) == "!gocp: a host cannot begin with \"-\": -oX" );
+
+  /* ---- ssh's ProxyCommand: ssh reads %h and %p in it, so a % in this program's own path is doubled */
+  const std::string proxy_line = proxy_command( "/opt/50%off/gosh-client", "inet" );
+  check( "the ProxyCommand: this program's path quoted, its % doubled, then %h %p for ssh (the review of item 10)",
+         proxy_line == "'/opt/50%%off/gosh-client' --mosh-fake-proxy inet %h %p", proxy_line );
+
+  /* ---- -l without --stdio (the review of item 10) */
+  check( "-l USER without --stdio: the user is the login's", asked( { "-l", "bob", "srv" }, false, s ).empty()
+                                                             && s.host == "bob@srv" );
+  check( "and does not replace a user already given", asked( { "-l", "bob", "you@srv" }, false, s ).empty()
+                                                      && s.host == "you@srv" );
 
   /* ---- --stdio (REQ1/CP-7) */
   check( "--stdio: the command's words joined for the shell there; -l becomes the user",
@@ -102,6 +137,13 @@ int main()
          s.host + " / " + joined( s.stream_remote ) );
   check( "--stdio: a -- before the command is not the command's",
          asked( { "--stdio", "srv", "--", "cat" }, false, s ).empty() && joined( s.stream_remote ) == "@sh|cat" );
+  check( "--stdio -- host command: the -- before the host is not the host (the review of item 10)",
+         asked( { "--stdio", "--", "srv", "echo", "hi" }, false, s ).empty() && s.host == "srv"
+           && joined( s.stream_remote ) == "@sh|echo hi",
+         s.host + " / " + joined( s.stream_remote ) );
+  check( "--std, a shortening of --stdio, reads in order as --stdio does",
+         asked( { "--std", "srv", "ls", "-l" }, false, s ).empty() && joined( s.stream_remote ) == "@sh|ls -l",
+         joined( s.stream_remote ) );
   check( "--stdio: -l does not replace a user already given",
          asked( { "--stdio", "-l", "me", "you@srv", "cat" }, false, s ).empty() && s.host == "you@srv" );
   check( "--stdio with no command: refused, with the usage",

@@ -39,6 +39,12 @@ int main()
                  " That one cannot do these, and is not asked to: -R 1:a:1; the ssh fallback (--relay).",
          said );
 
+  said = Gosh::stock_notice( "gosh", "host", Words(), false, { "--meetup=me@m.example:3478", "--stun=s.example:3478" } );
+  check( "and the meetup and STUN servers asked for, which a stock server's session never uses (the review of item 10)",
+         said == "gosh: host has no gosh-server, so its mosh-server is used."
+                 " That one cannot do these, and is not asked to: --meetup=me@m.example:3478; --stun=s.example:3478.",
+         said );
+
   const std::string line = Gosh::server_command( "'new' '-L' '1:a:1'", "'new'" );
   check( "the host's line is one word for sh -c", line.compare( 0, 7, "sh -c '" ) == 0 && line[line.size() - 1] == '\'', line );
   check( "it tries gosh-server first, with all the words",

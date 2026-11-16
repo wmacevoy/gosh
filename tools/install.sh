@@ -7,9 +7,9 @@
 #
 # Run it on your own machine and on each machine you log in to. It puts gosh-client, gosh-server,
 # gosh and gocp in ~/.local/bin, after checking the download against the release's SHA256SUMS.
-# And, each only where no program of that name is found on your PATH, mosh-client and mosh-server
-# as links to gosh's, so that a stock mosh finds a server here (REQ6/CMD-4); a mosh you already
-# have is never shadowed.
+# And, each only where no program of that name is on your PATH or already in ~/.local/bin,
+# mosh-client and mosh-server as links to gosh's, so that a stock mosh finds a server here
+# (REQ6/CMD-4). A program of yours there (a mosh, or another gosh) is never replaced: it says so.
 #
 # Environment:
 #     GOSH_VERSION   the release to install, e.g. 0.2 [the one this script came with, or the newest]
@@ -29,6 +29,7 @@ set -eu
 repo="wmacevoy/gosh"
 version="${GOSH_VERSION:-@VERSION@}"
 prefix="${PREFIX:-$HOME/.local}"
+while [ "$prefix" != / ] && [ "${prefix%/}" != "$prefix" ]; do prefix=${prefix%/}; done # (no trailing slash)
 releases="${GOSH_RELEASES:-https://github.com/$repo/releases/download}"
 
 say() { printf '%s\n' "$*"; }
@@ -57,7 +58,8 @@ esac
 [ "$os" = macos ] && arch=universal
 
 tmp=$(mktemp -d 2>/dev/null || mktemp -d -t gosh-install)
-trap 'rm -rf "$tmp"' EXIT INT TERM
+# (and what was staged in $prefix/bin, if it stopped before that was renamed into place)
+trap 'rm -rf "$tmp"; rm -f "$prefix/bin/.gosh-client.new" "$prefix/bin/.gosh-server.new"' EXIT INT TERM
 
 case "$version" in
     @*)
@@ -88,41 +90,67 @@ fi
 [ "$want" = "$have" ] || fail "$name.tar.gz is not what SHA256SUMS says (expected $want, got $have)"
 
 tar -xzf "$tmp/$name.tar.gz" -C "$tmp"
-"$tmp/$name/bin/gosh-client" --version >/dev/null 2>&1 \
-    || fail "the downloaded gosh-client does not run here; build from source: https://wmacevoy.github.io/gosh/USING.html"
+for f in gosh-client gosh-server; do
+    "$tmp/$name/bin/$f" --version >/dev/null 2>&1 \
+        || fail "the downloaded $f does not run here; build from source: https://wmacevoy.github.io/gosh/USING.html"
+done
 
-# Is a program of this name found on the PATH, other than a link of ours in $prefix/bin?
-elsewhere() {
+# REQ6/CMD-4: a name in $prefix/bin is gosh's to replace only when nothing is there or it is
+# gosh's own, a link to gosh-client or gosh-server. Anything else there is the user's: never replaced.
+ours() { # NAME
+    [ ! -e "$prefix/bin/$1" ] && [ ! -L "$prefix/bin/$1" ] && return 0
+    case "$(readlink "$prefix/bin/$1" 2>/dev/null)" in
+        gosh-client | gosh-server) return 0 ;;
+    esac
+    return 1
+}
+# A program of this name on the PATH that is not one of ours in $prefix/bin?
+elsewhere() { # NAME
     found=$(command -v "$1" 2>/dev/null) || return 1
-    [ "$found" = "$prefix/bin/$1" ] && [ "$(readlink "$found" 2>/dev/null)" = gosh-client ] && return 1
-    [ "$found" = "$prefix/bin/$1" ] && [ "$(readlink "$found" 2>/dev/null)" = gosh-server ] && return 1
+    [ "$found" = "$prefix/bin/$1" ] && ours "$1" && return 1
     return 0
 }
+link_gosh=yes
+link_gocp=yes
 link_mosh_client=yes
 link_mosh_server=yes
-elsewhere mosh-client && link_mosh_client=no
-elsewhere mosh-server && link_mosh_server=no
+ours gosh || link_gosh=no
+ours gocp || link_gocp=no
+{ ours mosh-client && ! elsewhere mosh-client; } || link_mosh_client=no
+{ ours mosh-server && ! elsewhere mosh-server; } || link_mosh_server=no
 
 mkdir -p "$prefix/bin" "$prefix/share/man/man1"
-# Replace each file, never write into it: a server may be running from the old one.
+# Both programs staged before either takes its name, so a copy that fails leaves the old pair as it
+# was; then each replaced by rename, never written into: a server may be running from the old one.
 for f in gosh-client gosh-server; do
     cp "$tmp/$name/bin/$f" "$prefix/bin/.$f.new"
     chmod 755 "$prefix/bin/.$f.new"
+done
+for f in gosh-client gosh-server; do
     mv -f "$prefix/bin/.$f.new" "$prefix/bin/$f"
 done
 link() { # TARGET NAME
     ln -sf "$1" "$prefix/bin/.$2.new"
     mv -f "$prefix/bin/.$2.new" "$prefix/bin/$2"
 }
-link gosh-client gosh
-link gosh-client gocp
+[ "$link_gosh" = yes ] && link gosh-client gosh
+[ "$link_gocp" = yes ] && link gosh-client gocp
 [ "$link_mosh_client" = yes ] && link gosh-client mosh-client
 [ "$link_mosh_server" = yes ] && link gosh-server mosh-server
 cp "$tmp/$name"/share/man/man1/*.1 "$prefix/share/man/man1/" 2>/dev/null || true
 
 say "Installed $("$prefix/bin/gosh-client" --version | head -n 1) in $prefix/bin"
-[ "$link_mosh_client" = no ] && say "(mosh-client: yours at $(command -v mosh-client) is left as it is)"
-[ "$link_mosh_server" = no ] && say "(mosh-server: yours at $(command -v mosh-server) is left as it is)"
+left() { # NAME: whose it is that was left
+    if ours "$1"; then
+        say "($1: yours at $(command -v "$1") is left as it is)"
+    else
+        say "($1: yours at $prefix/bin/$1 is left as it is)"
+    fi
+}
+[ "$link_mosh_client" = no ] && left mosh-client
+[ "$link_mosh_server" = no ] && left mosh-server
+[ "$link_gosh" = no ] && say "(gosh: $prefix/bin/gosh is another program, left as it is; run gosh as \"gosh-client gosh ...\")"
+[ "$link_gocp" = no ] && say "(gocp: $prefix/bin/gocp is another program, left as it is; run gocp as \"gosh-client gocp ...\")"
 say "Not independently reviewed: see https://wmacevoy.github.io/gosh/USING.html"
 
 case ":$PATH:" in

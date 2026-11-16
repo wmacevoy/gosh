@@ -59,6 +59,12 @@ int main()
   check( "meetups and STUN servers named: the meetups first", s.ask == Words( { "meet.example:3478", "stun.example:19302" } ) );
   check( "GOSH_STUN=none, no meetup: nobody on the Internet is asked", relay_settings( false, NULL, NULL, NULL, "none", NULL ).ask.empty() );
   check( "GOSH_STUN empty: likewise", relay_settings( false, NULL, NULL, NULL, "", NULL ).ask.empty() );
+  s = relay_settings( false, NULL, NULL, "meet.example:3478", "none", "ssh\x1fmeet.example" );
+  check( "GOSH_STUN=none with a meetup named: the meetup is not asked or used either (REQ15/PATH-4, REQ1/PATH-7)",
+         s.ask.empty() && s.meetup.empty() && s.ticket_command.empty() );
+  s = relay_settings( false, NULL, NULL, NULL, "stun.example:19302", "ssh\x1fhost" );
+  check( "a plain STUN server is asked, and never taken for a meetup", s.ask == Words( { "stun.example:19302" } )
+                                                                           && s.meetup.empty() && s.ticket_command.empty() );
   check( "empty items and \"none\" in a list name nothing", Gosh::comma_list( ",a,,none,b," ) == Words( { "a", "b" } ) );
 
   std::string address = "unset";

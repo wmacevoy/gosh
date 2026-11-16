@@ -298,8 +298,19 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
         throw Failure( name + ": " + session.host + " has no gosh-server, and its mosh-server cannot do this ("
                        + ( copy ? "copying files" : "--stdio" ) + ")." );
       }
+      Words paths; /* what only gosh's relay does, asked for in words the user wrote */
+      if ( !choices.meetup_login.empty() ) {
+        paths.push_back( "--meetup=" + s.value( "meetup" ) );
+      }
+      if ( s.has( "stun" ) && s.value( "stun" ) != "none" ) {
+        paths.push_back( "--stun=" + s.value( "stun" ) );
+      }
+      if ( s.has( "punch" ) && choices.punch != "never" ) {
+        paths.push_back( "--punch=" + choices.punch );
+      }
       fprintf( stderr, "%s\n",
-               stock_notice( name, session.host, server_args.forwards, s.has( "relay" ) && choices.relay != "never" )
+               stock_notice( name, session.host, server_args.forwards, s.has( "relay" ) && choices.relay != "never",
+                             paths )
                  .c_str() );
       server_args.forwards.clear();
     }

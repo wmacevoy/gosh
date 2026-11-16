@@ -578,7 +578,7 @@ for the client stay variables: the core's client and the relays read them.)*
 `package-release.sh` (refuses a program that needs a library the system does not ship), the release
 workflow. `REQ1/CMD-2`, `REQ6/CMD-4`, `REQ1/SHAPE-3`, `REQ6/NAME-1`. Scripts are edge; there is no
 logic piece worth separating. What it lacks is a test: `install.sh` already takes where releases
-come from (`MOSH_RELEASES`) and where to put them (`PREFIX`), so a test can install a locally
+come from (`GOSH_RELEASES`) and where to put them (`PREFIX`), so a test can install a locally
 packaged release into a temporary home and check the links both ways. Fails: wrong checksum,
 a client that does not run, no `curl` or `wget`: each refused with a message **(read)**.
 

@@ -66,8 +66,21 @@ std::string Gosh::Command::shell_quote( const Words& words )
 
 bool Gosh::Command::remote_place( const std::string& word, std::string& host, std::string& path )
 {
+  /* (REQ16/PATH-8) [user@][ADDRESS]:path, an IPv6 address in brackets: ssh takes it without them */
+  const size_t open = word.find( '[' );
+  if ( open != std::string::npos && word.find_first_of( ":/" ) > open && ( open == 0 || word[open - 1] == '@' ) ) {
+    const size_t close = word.find( ']', open );
+    if ( close == std::string::npos || close == open + 1 || close + 1 >= word.size() || word[close + 1] != ':' ) {
+      return false;
+    }
+    host = word.substr( 0, open ) + word.substr( open + 1, close - open - 1 );
+    path = word.substr( close + 2 );
+    return true;
+  }
+  /* (a one-letter host is a host, as scp has it: gosh has no Windows drive letters to mind) */
   const size_t colon = word.find( ':' );
-  if ( colon == std::string::npos || colon < 2 || word.find( '/' ) < colon ) {
+  if ( colon == std::string::npos || colon == 0 || word.find( '/' ) < colon
+       || ( colon == 1 && colon + 1 < word.size() && word[colon + 1] == '\\' ) ) {
     return false;
   }
   host = word.substr( 0, colon );
@@ -98,9 +111,12 @@ Gosh::Command::Asked Gosh::Command::what_was_asked( const Settings& s, bool copy
       flags.push_back( "--delete" );
     }
     if ( s.has( "interval" ) ) {
-      const double seconds = atof( s.value( "interval" ).c_str() );
-      if ( seconds < 0.1 ) {
-        throw Failure( name + ": --interval must be at least 0.1 (seconds)." );
+      /* a number, all of it, that fits in the milliseconds sent (an int): no nan, inf or 3e9 */
+      const std::string text = s.value( "interval" );
+      char* end = NULL;
+      const double seconds = strtod( text.c_str(), &end );
+      if ( text.empty() || *end != '\0' || !( seconds >= 0.1 && seconds <= 2147483.0 ) ) {
+        throw Failure( name + ": --interval must be from 0.1 to 2147483 (seconds)." );
       }
       char word[40];
       snprintf( word, sizeof( word ), "--interval=%d", static_cast<int>( seconds * 1000 ) );
@@ -170,7 +186,10 @@ Gosh::Command::Asked Gosh::Command::what_was_asked( const Settings& s, bool copy
     rest.assign( 1, host );
     session.headless = true;
   } else if ( stdio ) {
-    /* (the command may be set off with "--") */
+    /* ("--" may come before the host, as the usage has it; and the command may be set off with "--") */
+    if ( !rest.empty() && rest[0] == "--" ) {
+      rest.erase( rest.begin() );
+    }
     if ( rest.size() > 1 && rest[1] == "--" ) {
       rest.erase( rest.begin() + 1 );
     }
@@ -181,9 +200,6 @@ Gosh::Command::Asked Gosh::Command::what_was_asked( const Settings& s, bool copy
     session.stream_remote.push_back( "@sh" );
     session.stream_remote.push_back( join( Words( rest.begin() + 1, rest.end() ), " " ) );
     session.stream_local.push_back( "@stdio" );
-    if ( s.has( "l" ) && rest[0].find( '@' ) == std::string::npos ) {
-      rest[0] = s.value( "l" ) + "@" + rest[0];
-    }
     rest.resize( 1 );
     session.headless = true;
   }
@@ -192,6 +208,14 @@ Gosh::Command::Asked Gosh::Command::what_was_asked( const Settings& s, bool copy
     throw Failure( "", true );
   }
   session.host = rest[0];
+  /* -l USER, as ssh has it, whether or not with --stdio; never over a user already given */
+  if ( s.has( "l" ) && session.host.find( '@' ) == std::string::npos ) {
+    session.host = s.value( "l" ) + "@" + session.host;
+  }
+  /* A word ssh would take for an option is never given it as the host (as OpenSSH 9.6 refuses it too) */
+  if ( !session.host.empty() && session.host[0] == '-' ) {
+    throw Failure( name + ": a host cannot begin with \"-\": " + session.host );
+  }
   session.command.assign( rest.begin() + 1, rest.end() );
   /* No terminal, so nothing to run in it: so, unless told, something that waits. */
   if ( session.headless && session.command.empty() ) {
