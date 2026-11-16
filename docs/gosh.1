@@ -62,8 +62,8 @@ Plain STUN servers to ask where each end appears to be; \fBnone\fR to ask none (
 server on the Internet is asked anything unless you name it).
 .TP
 \fB\-4\fR, \fB\-6\fR, \fB\-\-family\fR=\fIfamily\fR
-IPv4 only, IPv6 only, or one of auto, all, prefer-inet, prefer-inet6 (the default: IPv6 first,
-then IPv4 if that does not answer).
+IPv4 only, IPv6 only, or one of auto, all, prefer-inet (the default: IPv4 first), prefer-inet6.
+With more than one address, one that has not answered in 3 seconds gives way to the next.
 .TP
 \fB\-p\fR \fIport\fR[\fB:\fIport2\fR], \fB\-\-port\fR=...
 The server's UDP port or range.

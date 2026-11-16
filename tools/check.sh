@@ -155,6 +155,12 @@ else
 fi
 # (this one takes the command first: gosh-client under the name gosh)
 pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-command.py
+# The proxy gives up on an address that does not answer when there is another (REQ17/PATH-8)
+if python3 tests/proxy-wait.py "$gosh/gosh" >.build/gosh-test.log 2>&1; then
+    grep "^SKIPPED" .build/gosh-test.log || echo "gosh passes proxy-wait.py"
+else
+    cat .build/gosh-test.log; stop_ours; fail "gosh with tests/proxy-wait.py"
+fi
 # (and this one the stock server last: a host with gosh-server, with only mosh-server, with neither)
 pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-stock.py "$stock_server"
 # The command's own test, from the fork, under gosh's names (REQ1/CMD-1, REQ6/NAME-1)

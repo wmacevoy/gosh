@@ -13,7 +13,9 @@
 
 #include <netdb.h>
 #include <netinet/in.h>
+#include <fcntl.h>
 #include <poll.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -152,6 +154,51 @@ std::string Gosh::Command::proxy_command( const std::string& self, const std::st
 #endif
 }
 
+/*
+ * connect(), giving up after limit_ms (-1: as long as the system waits). Returns 0, or -1 with
+ * errno set. The socket is left blocking either way.
+ */
+static int connect_within( int sock, const struct sockaddr* addr, socklen_t len, int limit_ms )
+{
+  if ( limit_ms < 0 ) {
+    return connect( sock, addr, len );
+  }
+  const int flags = fcntl( sock, F_GETFL );
+  if ( flags < 0 || fcntl( sock, F_SETFL, flags | O_NONBLOCK ) < 0 ) {
+    return -1;
+  }
+  int result = connect( sock, addr, len );
+  if ( result < 0 && errno == EINPROGRESS ) {
+    struct pollfd fd = { sock, POLLOUT, 0 };
+    int ready;
+    do {
+      ready = poll( &fd, 1, limit_ms );
+    } while ( ready < 0 && errno == EINTR ); /* (restarts the limit: a signal here is rare) */
+    if ( ready == 0 ) {
+      errno = ETIMEDOUT;
+      result = -1;
+    } else if ( ready > 0 ) {
+      int error = 0;
+      socklen_t size = sizeof( error );
+      if ( getsockopt( sock, SOL_SOCKET, SO_ERROR, &error, &size ) == 0 && error == 0 ) {
+        result = 0;
+      } else {
+        errno = error ? error : errno;
+        result = -1;
+      }
+    }
+  }
+  const int saved = errno;
+  fcntl( sock, F_SETFL, flags );
+  errno = saved;
+  return result;
+}
+
+/* How long an address may take to answer when there is another to try after it (REQ17/PATH-8):
+ * as long as the session waits by UDP before it tries ssh. The last address gets the system's own
+ * wait, so a host on a slow network is not given up on early. */
+static const int GIVE_WAY_MS = 3000;
+
 int MoshWrapper::fake_proxy( const std::string& family, const std::string& host, const std::string& port )
 {
   std::vector<Gosh::Command::Address> addresses;
@@ -168,7 +215,11 @@ int MoshWrapper::fake_proxy( const std::string& family, const std::string& host,
     tried = addresses[i].text;
     sock = socket( addresses[i].family, SOCK_STREAM, IPPROTO_TCP );
     if ( sock >= 0
-         && connect( sock, reinterpret_cast<const struct sockaddr*>( &addresses[i].addr ), addresses[i].len ) < 0 ) {
+         && connect_within( sock,
+                            reinterpret_cast<const struct sockaddr*>( &addresses[i].addr ),
+                            addresses[i].len,
+                            i + 1 < addresses.size() ? GIVE_WAY_MS : -1 )
+              < 0 ) {
       why = strerror( errno );
       close( sock );
       sock = -1;

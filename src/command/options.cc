@@ -282,7 +282,7 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
     throw Failure( "Unknown parameter " + c.remote_ip );
   }
 
-  c.family = lower( s.value( "family", "prefer-inet6" ) ); /* IPv6 first, the session's own first try too (REQ17/PATH-8) */
+  c.family = lower( s.value( "family", "prefer-inet" ) ); /* the first try by IPv4 (REQ17/PATH-8) */
   if ( s.flag( "4" ) ) {
     c.family = "inet";
   }

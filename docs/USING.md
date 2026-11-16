@@ -25,7 +25,7 @@ beside it.
 | When UDP is blocked: the session carried over ssh, and back to UDP when it can be | no: "Connecting..." forever | yes, by itself (`REQ1/PATH-1`, `PATH-2`) |
 | Both ends behind NATs: a way straight through found while on ssh | no | yes (`REQ1/PATH-3`) |
 | Neither way works: datagrams passed through your own server (a *meetup*) | no | yes, with a ticket fetched over ssh (`REQ15/PATH-4`, `PATH-5`) |
-| All of the above by IPv6, IPv6 first when both work | direct UDP only | yes (`REQ17/PATH-8`) |
+| All of the above by IPv6; with both, IPv4 first and the other if one does not answer | direct UDP only | yes (`REQ17/PATH-8`) |
 | The command needs Perl | yes | no: it is C++ (`REQ1/CMD-1`) |
 | Works with a stock mosh at the other end | — | the terminal does; gosh says what it cannot do there (`REQ8/CMD-3`) |
 

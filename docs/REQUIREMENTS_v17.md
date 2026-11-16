@@ -25,13 +25,20 @@ day, "ipv6 is important for the server --- ow the server costs more for the stud
 "yes draft v16, campus has ipv6", drafted by the agent, with the client's two answers to it written in the same day ("1. carry the
 fix. 2. say and leave it."). **Accepted by the client on 2026-11-15: "accept v16".** v17 is the client's answers of 2026-11-16
 to three questions the work raised, written out by the agent: "1. yes. 2. yes. 3. drop in
-requirement." **Not yet accepted.**
+requirement."; and, after the three were argued again the same day, "ok do all three, full range"
+(PATH-8 below, rewritten in place before v17 was accepted). **Not yet accepted.**
 
 **What changed from v16.**
 
-- **PATH-8: IPv6 first covers the session's own first try.** The question: "Should 'IPv6 first'
-  also cover the session's own first attempt?" (until v16 the command tried a host's IPv4 address
-  first, as mosh does, and only path-finding put IPv6 first). Answer: "yes".
+- **PATH-8: the session's first try is by IPv4, and an address that does not answer gives way.**
+  The question: "Should 'IPv6 first' also cover the session's own first attempt?" The first answer
+  was "yes"; argued again the same day, the client's case was "if you have an ipv4 is it likely to
+  work (or both v4 and v6 will fail)", and the agent found that the command waited as long as the
+  system does on an IPv6 address that does not answer before trying IPv4 (about two minutes by
+  Linux's default of six retries; seen still waiting at 12 s).
+  Answer: "ok do all three": the first try by IPv4, as mosh does; an address that has not answered
+  in 3 seconds gives way to the next; and the guide's firewall opens UDP to IPv4 too when the server
+  has an IPv4 address ("full range": 60000 to 61000). Racing the two families is deferred.
 - **CMD-4: the link stays, and that a stock `mosh` often does not find it is said.** The question:
   should the `mosh-server` link in `~/.local/bin` stay, given that a command run by ssh often does
   not look there, so a stock `mosh` client does not find it (`FINDINGS.md`, 2026-11-16)? Answer:
@@ -378,9 +385,10 @@ the client accepted them as they stand, and did not choose them.
 - **PATH-8** *(since v17)* A server with an IPv6 address alone is reached as one with IPv4 is: a
   session by UDP, the ssh fallback (PATH-1, PATH-2), a punched path (PATH-3), and a meetup with an
   IPv6 address (PATH-4, PATH-5) each work by IPv6 as by IPv4. Where both ends have both, both are
-  tried and the one that answers is used, IPv6 first when both do (SHAPE-2), the session's own
-  first try included: the command asks for the host's IPv6 address before its IPv4 one *(since
-  v17; client, 2026-11-16: "yes")*. An end that has no
+  tried and the one that answers is used (SHAPE-2). The session's first try is by IPv4, and an
+  address that has not answered in 3 seconds gives way to the next; once a session has fallen back
+  to ssh, path-finding takes a way by IPv6 when it answers *(since v17; client, 2026-11-16: "if you
+  have an ipv4 is it likely to work", "ok do all three")*. An end that has no
   IPv6 at all cannot reach an IPv6-only server, by gosh or by ssh; that is said, not mended.
 
 **Copying**
@@ -685,6 +693,9 @@ Read back on 2026-11-13; answers as given.
 - ~~Not yet: IPv6 path-finding (a STUN server and punching over IPv6).~~ **Taken up in v16**
   (PATH-8): wanted for the server's cost, before the student with a firewalled IPv6 home machine
   it was waiting for.
+- Not yet: racing a host's IPv4 and IPv6 addresses (as browsers do, "Happy Eyeballs") — the first
+  try is by IPv4, and an address that does not answer gives way after 3 seconds (PATH-8). Triggered
+  by a network where IPv4 is the one that does not answer. *(since v17; client, 2026-11-16)*
 - Not yet: `--exclude` for `mocp` — triggered by the first student who mirrors a project folder
   with its dependencies in it.
 - Not yet: local copies for Windows hosts in the extension — `remote-mosh` issue 2.

@@ -26,8 +26,8 @@ more").
 
 The cost of that: **only machines with IPv6 can reach it.** Campus has IPv6. A laptop on a home or
 café network without IPv6 cannot reach the server at all, by gosh or by ssh, and nothing in gosh
-can mend that (`REQ17/PATH-8`). If that matters to you, give the server an IPv4 address as well;
-gosh then uses whichever works, IPv6 first.
+can mend that (`REQ17/PATH-8`). If that matters to you, give the server an IPv4 address as well,
+and open its ports to IPv4 too (below); gosh then tries IPv4 first and IPv6 if that does not answer.
 
 ## 1. The server
 
@@ -46,6 +46,12 @@ In the EC2 console (or the CLI), once:
    | TCP | 22 | ssh: logging in, starting each session, and the relay when UDP cannot get through |
    | UDP | 60000–61000 | sessions straight to this server (case 1) |
    | UDP | 3478 | the meetup (case 2), or whatever port you give it |
+
+   If you gave the server an IPv4 address as well, add the same three from `0.0.0.0/0`: a session's
+   first try is by IPv4, and with UDP closed to IPv4 it would start through ssh, more slowly.
+   These ports are open to anyone, but only a datagram sealed with the session's key, which is
+   made for each session and passed inside ssh, is acted on; a port is in use only while a session
+   holds it.
 
    With only TCP 22 open, case 1 still works, through the relay over ssh, more slowly.
 4. **A name.** Put the server's IPv6 address in DNS as an `AAAA` record (`myserver.example.org`),

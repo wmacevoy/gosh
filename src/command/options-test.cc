@@ -101,9 +101,9 @@ int main()
   Settings plain;
   parse_options( { "h" }, false, plain );
   const Choices d = choose( plain, "gosh", NULL );
-  check( "the defaults: relay and punch auto, prediction adaptive, ip by proxy, family prefer-inet6 (REQ17/PATH-8: IPv6 first, the session's own first try too)",
+  check( "the defaults: relay and punch auto, prediction adaptive, ip by proxy, family prefer-inet (REQ17/PATH-8: the session's first try is by IPv4)",
          d.relay == "auto" && d.punch == "auto" && d.predict == "adaptive" && d.remote_ip == "proxy"
-           && d.family == "prefer-inet6" && d.fragment_parity.empty() && d.meetup_login.empty() && d.relays_read.empty() );
+           && d.family == "prefer-inet" && d.fragment_parity.empty() && d.meetup_login.empty() && d.relays_read.empty() );
   check( "prediction from MOSH_PREDICTION_DISPLAY when no option says", choose( plain, "gosh", "never" ).predict == "never" );
   check( "and refused when that is not a mode, even empty", refused( { "h" }, "" ) == "!+gosh: Unknown mode \"\"." );
   parse_options( { "-a", "--predict=never" }, false, s = Settings() );
