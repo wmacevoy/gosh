@@ -15,11 +15,18 @@
  * the fault it missed, an oversized probe that reached the cipher's assert (FINDINGS, 2026-11-15),
  * is in this one's corpus ("long-probe").
  *
+ * Both ends use a meetup at MEETUP_AT with one ticket, and the harness plays it with the meetup's
+ * own logic (registrations.h, answer.h): what an end sends there is answered or passed on as a
+ * meetup would, so that a way through the meetup is found, and datagrams and goodbyes go by it.
+ * (Until the review of item 21, 2026-11-16, B had no meetup and A's datagrams to it went to B, so
+ * none of finding.h's meetup branches was reached.)
+ *
  * Input: records of a kind byte, a length byte and that many bytes of body:
  *   0  a datagram to A: body[0] says from whom, body[1] how many bytes of padding it gets (x40)
- *   1  B's datagrams to A, maybe one with a byte changed (body[0] which byte; body[1] & 1)
- *      and maybe from a stranger's address (body[1] & 2)
- *   2  A's datagrams to B, so that B answers
+ *   1  B's datagrams: to the meetup, played; to A, maybe one with a byte changed (body[0] which
+ *      byte; body[1] & 1), maybe from a stranger's address (body[1] & 2), or lost (body[1] & 4);
+ *      and first, B sends a datagram of the session (body[1] & 8) or says goodbye (body[1] & 16)
+ *   2  A's datagrams: to the meetup, played; to B, or lost (body[0] & 4)
  *   3  time passes (body[0] x 50 ms), and both ends' timers run
  */
 
@@ -29,6 +36,9 @@
 #include <string>
 #include <vector>
 
+#include "src/meetup/answer.h"
+#include "src/meetup/messages.h"
+#include "src/meetup/registrations.h"
 #include "src/meetup/ticket.h"
 #include "src/pathfinding/finding.h"
 #include "src/pathfinding/stun.h"
@@ -72,6 +82,20 @@ uint8_t byte_at( const std::string& s, size_t i )
   return i < s.size() ? static_cast<uint8_t>( s[i] ) : 0;
 }
 
+const std::string MASTER = "0123456789abcdef";
+
+struct KeyOf
+{
+  std::string operator()( const std::string& id ) const
+  {
+    try {
+      return Gosh::ticket_key( MASTER, id );
+    } catch ( ... ) {
+      return std::string();
+    }
+  }
+};
+
 }
 
 extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
@@ -83,8 +107,39 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   a.add_candidate( B_AT );
   a.add_candidate( "[2001:db8::2]:2000" );
   b.add_candidate( A_AT );
-  const Gosh::Ticket ticket = Gosh::make_ticket( "0123456789abcdef", "random!!", 4000000000ULL );
+  const Gosh::Ticket ticket = Gosh::make_ticket( MASTER, "random!!", 4000000000ULL );
   a.use_meetup( MEETUP_AT, ticket, 1700000000000ULL );
+  b.use_meetup( MEETUP_AT, ticket, 1700000000000ULL );
+  Gosh::Registrations meetup;
+  const Addr meetup_at = at( MEETUP_AT );
+
+  /* A datagram an end sent to the meetup, from its address there: answered or passed on as the meetup would. */
+  auto to_meetup = [&]( bool from_a, const std::string& bytes ) {
+    const std::string from = Gosh::meetup_where_of( at( from_a ? A_AT : B_AT ) );
+    std::string got, reply;
+    Addr dest;
+    socklen_t len;
+    bool to_a;
+    if ( Gosh::is_stun_request( bytes.data(), bytes.size() ) ) {
+      reply = Gosh::stun_answer_to( bytes.data(), from );
+      to_a = from_a;
+    } else {
+      const Gosh::Registrations::Send s = meetup.datagram( bytes.data(), bytes.size(), from, now / 1000, KeyOf() );
+      if ( !s.any || !Gosh::meetup_addr_of( s.to, dest, len ) ) {
+        return;
+      }
+      reply = s.bytes;
+      to_a = same_ip_port( dest, at( A_AT ) );
+      require( to_a || same_ip_port( dest, at( B_AT ) ) );
+    }
+    if ( to_a ) {
+      if ( a.receive( now, reply.data(), reply.size(), meetup_at, got ) == PathFinding::DATA ) {
+        require( taken_from_its_way( a, meetup_at ) );
+      }
+    } else {
+      b.receive( now, reply.data(), reply.size(), meetup_at, got );
+    }
+  };
 
   size_t i = 0;
   while ( i + 2 <= size ) {
@@ -104,9 +159,22 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         }
         break;
       }
-      case 1: { /* B's probes to A */
+      case 1: { /* B's datagrams: to the meetup, or to A */
+        if ( byte_at( body, 1 ) & 8 ) {
+          b.send( "a datagram of the session" );
+        }
+        if ( byte_at( body, 1 ) & 16 ) {
+          b.goodbye();
+        }
         const std::vector<PathFinding::Outgoing> out = b.take_outbox();
         for ( size_t k = 0; k < out.size(); k++ ) {
+          if ( same_ip_port( out[k].to, meetup_at ) ) {
+            to_meetup( false, out[k].bytes );
+            continue;
+          }
+          if ( byte_at( body, 1 ) & 4 ) {
+            continue; /* lost on the way */
+          }
           std::string bytes = out[k].bytes;
           if ( ( byte_at( body, 1 ) & 1 ) && !bytes.empty() ) {
             bytes[byte_at( body, 0 ) % bytes.size()] ^= 0x5A;
@@ -118,11 +186,15 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         }
         break;
       }
-      case 2: { /* A's to B */
+      case 2: { /* A's datagrams: to the meetup, or to B */
         const std::vector<PathFinding::Outgoing> out = a.take_outbox();
         const Addr from = at( A_AT );
         for ( size_t k = 0; k < out.size(); k++ ) {
-          b.receive( now, out[k].bytes.data(), out[k].bytes.size(), from, datagram );
+          if ( same_ip_port( out[k].to, meetup_at ) ) {
+            to_meetup( true, out[k].bytes );
+          } else if ( !( byte_at( body, 0 ) & 4 ) ) {
+            b.receive( now, out[k].bytes.data(), out[k].bytes.size(), from, datagram );
+          }
         }
         break;
       }
