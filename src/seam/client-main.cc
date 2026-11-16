@@ -20,6 +20,7 @@
 #include "src/command/moshwrapper.h"
 #include "src/forwarding/stream/streamchild.h"
 #include "src/seam/core-main.h"
+#include "src/seam/gosh-version.h"
 #include "src/seam/hooks.h"
 #include "src/seam/options.h"
 
@@ -44,6 +45,11 @@ int main( int argc, char* argv[] )
       return status; /* it has said why, or has done all that was asked (--help, --version) */
     }
     args.assign( client_words.begin() + ( client_words.empty() ? 0 : 1 ), client_words.end() );
+  }
+
+  /* (REQ1/CMD-2) Which gosh this is, before the core says which mosh. */
+  if ( role == Gosh::THE_CLIENT && args.size() == 1 && args[0] == "--version" ) {
+    printf( "gosh-client, of gosh %s\n", GOSH_VERSION );
   }
 
   Gosh::ForwardOptions options;

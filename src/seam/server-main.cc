@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include "src/seam/gosh-version.h"
+
 #include "src/forwarding/stream/streamchild.h"
 #include "src/seam/core-main.h"
 #include "src/seam/hooks.h"
@@ -37,6 +39,11 @@ int main( int argc, char* argv[] )
   if ( args.size() == 3 && args[0] == "relay" ) {
     Crypto::disable_dumping_core(); /* (as the fork's server did before anything else) */
     return Network::relay_remote( args[1].c_str(), args[2].c_str() );
+  }
+
+  /* (REQ1/CMD-2) Which gosh this is, before the core says which mosh. */
+  if ( args.size() == 1 && args[0] == "--version" ) {
+    printf( "gosh-server, of gosh %s\n", GOSH_VERSION );
   }
 
   /* The fork's name for a meetup, dropped with no alias (requirements v16, Scope decisions): refused

@@ -120,7 +120,7 @@ link gosh-client gocp
 [ "$link_mosh_server" = yes ] && link gosh-server mosh-server
 cp "$tmp/$name"/share/man/man1/*.1 "$prefix/share/man/man1/" 2>/dev/null || true
 
-say "Installed $("$prefix/bin/gosh-client" --version | head -n 1) as gosh in $prefix/bin"
+say "Installed $("$prefix/bin/gosh-client" --version | head -n 1) in $prefix/bin"
 [ "$link_mosh_client" = no ] && say "(mosh-client: yours at $(command -v mosh-client) is left as it is)"
 [ "$link_mosh_server" = no ] && say "(mosh-server: yours at $(command -v mosh-server) is left as it is)"
 say "Not independently reviewed: see https://wmacevoy.github.io/gosh/USING.html"

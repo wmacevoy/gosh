@@ -20,6 +20,7 @@ is installed anywhere but the test's directory, and nothing is asked of the Inte
 import hashlib
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -126,6 +127,11 @@ try:
           link(home, "mosh-client") == "gosh-client" and link(home, "mosh-server") == "gosh-server")
     ran = subprocess.run([os.path.join(home, ".local", "bin", "gosh-server"), "--version"], capture_output=True, text=True)
     check("no mosh: the installed server runs", ran.returncode == 0 and "mosh" in ran.stdout, ran.stdout + ran.stderr)
+    check("no mosh: the installed server says which gosh it is, then which mosh",
+          re.match(r"gosh-server, of gosh [^\s(]+\n", ran.stdout) is not None and "unknown" not in ran.stdout.split("\n")[0],
+          ran.stdout)
+    check("no mosh: and so does what it says it installed", re.search(r"Installed gosh-client, of gosh \S+ in ", done.stdout) is not None,
+          done.stdout)
     check("no mosh: the man page is installed", os.path.isfile(os.path.join(home, ".local", "share", "man", "man1", "gosh.1")))
     check("no mosh: it says it is not independently reviewed", "Not independently reviewed" in done.stdout, done.stdout)
 

@@ -35,6 +35,9 @@ for part in "$GOSH"/src/*/; do
     [ -d "$part" ] || continue
     cp -R "${part%/}" "$BUILD/core/src/" # (no trailing slash: BSD cp would copy only what is inside)
 done
+# Which gosh this is, for --version (src/seam/gosh-version.h): a release's tag, or the commit.
+gosh_version=$(git -C "$GOSH" describe --tags --always --dirty 2>/dev/null || echo unknown)
+printf '#define GOSH_VERSION "%s"\n' "$gosh_version" > "$BUILD/core/src/seam/gosh-version.h"
 ./autogen.sh >../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED at autogen (log: $BUILD/build.log)"; exit 1; }
 eval ./configure $CONFIGURE_DEPS ${GOSH_CONFIGURE:-} >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED at configure (log: $BUILD/build.log)"; exit 1; }
 make -j"$(nproc 2>/dev/null || echo 2)" >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED (log: $BUILD/build.log)"; exit 1; }
