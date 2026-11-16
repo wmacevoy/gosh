@@ -72,8 +72,8 @@ check "files are copied from the server, by pattern" \
 $mocp -q src/a.txt "127.0.0.1:$work/there/renamed" && $mocp -q "127.0.0.1:$work/there/renamed" again.txt
 check "one file takes the name it is given, each way" "$(yes_if cmp src/a.txt again.txt)"
 
-$mocp -q "127.0.0.1:$work/nothing-here" back 2>/dev/null
-check "a missing file is an error, reported here" "$([ $? -eq 1 ] && echo ok)"
+said=$($mocp -q "127.0.0.1:$work/nothing-here" back 2>&1)
+check "a missing file is an error, reported here, by name" "$([ $? -eq 1 ] && printf '%s\n' "$said" | grep -q nothing-here && echo ok)"
 
 # kept up to date
 $mocp -q -r --auto --delete --interval=0.2 "127.0.0.1:$work/src/." "$work/mirror" &

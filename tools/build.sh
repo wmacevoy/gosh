@@ -35,7 +35,7 @@ for part in "$GOSH"/src/*/; do
     [ -d "$part" ] || continue
     cp -r "$part" "$BUILD/core/src/"
 done
-./autogen.sh >../build.log 2>&1
+./autogen.sh >../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED at autogen (log: $BUILD/build.log)"; exit 1; }
 eval ./configure $CONFIGURE_DEPS ${GOSH_CONFIGURE:-} >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED at configure (log: $BUILD/build.log)"; exit 1; }
 make -j"$(nproc 2>/dev/null || echo 2)" >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED (log: $BUILD/build.log)"; exit 1; }
 cp src/frontend/mosh-client "$BUILD/bin/gosh-client"

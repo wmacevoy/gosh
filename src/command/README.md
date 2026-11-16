@@ -24,9 +24,10 @@ set as variables, not handed over as a value, because the client and its relay a
 `mosh-client` main and the relay's processes, which read them so; and a stock `mosh` script, or
 the extension, starts `gosh-client` the same way.
 
-Tested from outside, in `tools/check.sh`: `tests/wrapper.test` (its built-in half, with
-`fake-ssh.py`), `tests/gosh-command.py`, `tests/gosh-stock.py`, `tests/mocp.test`, and
-`copy-cut.py` with `gocp`.
+Tested from outside, in `tools/check.sh`: `tests/gosh-command.py`, `tests/gosh-stock.py`,
+`tests/mocp.test`, and `copy-cut.py` with `gocp`. `tests/wrapper.test` is run against pf.7's
+command only, since it calls the command `mosh` and `mocp`; it is to run against gosh's once the
+names change.
 
 The remote relay and the meetup's ticket are `gosh-server`'s, from `~/.local/bin` first
 (`stock.h`'s `helper_command`), unless the user names the server. Until 2026-11-16 they ran
