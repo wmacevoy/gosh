@@ -94,11 +94,20 @@ with open(broken_client, "w") as f:
     f.write("#!/bin/sh\nexit 1\n")
 os.chmod(broken_client, 0o755)
 broken = release(os.path.join(work, "broken"), {"gosh-client": broken_client, "gosh-server": server})
+broken_server = release(os.path.join(work, "broken-server"), {"gosh-client": client, "gosh-server": broken_client})
+# a later release, as far as the installer can tell: the same client with bytes after its end (it still runs)
+later_client = os.path.join(work, "later-client")
+with open(later_client, "wb") as f:
+    f.write(open(client, "rb").read() + b"\0later release\0")
+os.chmod(later_client, 0o755)
+later = release(os.path.join(work, "later"), {"gosh-client": later_client, "gosh-server": server})
 
 
-def install(releases, path, home=None):
+def install(releases, path, home=None, prefix=None):
     home = home or tempfile.mkdtemp(prefix="home-", dir=work)
     env = {"HOME": home, "PATH": path, "GOSH_VERSION": VERSION, "GOSH_RELEASES": releases, "LC_ALL": "C"}
+    if prefix is not None:
+        env["PREFIX"] = prefix
     done = subprocess.run(["sh", install_sh], env=env, capture_output=True, text=True, timeout=120)
     return done, home
 
@@ -151,7 +160,56 @@ try:
     check("a mosh on the PATH: it says whose is left",
           ("mosh-server: yours at %s/mosh-server is left as it is" % a_mosh) in done.stdout, done.stdout)
 
+    # ---- the user's own programs in ~/.local/bin, which is not on the PATH (the usual case on a host
+    # reached by ssh): never replaced (REQ6/CMD-4; the review of item 10, 2026-11-16)
+    home = tempfile.mkdtemp(prefix="home-", dir=work)
+    own = os.path.join(home, ".local", "bin")
+    os.makedirs(own)
+    for name in ("mosh-client", "mosh-server", "gosh"):
+        with open(os.path.join(own, name), "w") as f:
+            f.write("#!/bin/sh\necho the user's own %s\n" % name)
+        os.chmod(os.path.join(own, name), 0o755)
+    done, _ = install(good, tools, home=home)
+    kept = all(open(os.path.join(own, n), "rb").read() == ("#!/bin/sh\necho the user's own %s\n" % n).encode()
+               for n in ("mosh-client", "mosh-server", "gosh"))
+    check("the user's own in ~/.local/bin, off the PATH: status 0, and none of them replaced",
+          done.returncode == 0 and kept and link(home, "gocp") == "gosh-client", done.stdout + done.stderr)
+    check("and it says whose each is", all(("%s: yours at %s/%s is left as it is" % (n, own, n)) in done.stdout
+                                           for n in ("mosh-client", "mosh-server")), done.stdout)
+    check("and how to run gosh when gosh is another program's",
+          'gosh: %s/gosh is another program, left as it is; run gosh as "gosh-client gosh ..."' % own in done.stdout,
+          done.stdout)
+
+    # ---- PREFIX with a trailing slash, installed again, with its bin on the PATH
+    home = tempfile.mkdtemp(prefix="home-", dir=work)
+    install(good, tools, home=home)
+    again, _ = install(good, os.path.join(home, ".local", "bin") + ":" + tools, home=home,
+                       prefix=os.path.join(home, ".local") + "/")
+    check("PREFIX ending in a slash: its own links kept, and not taken for the user's",
+          again.returncode == 0 and link(home, "mosh-server") == "gosh-server" and "is left as it is" not in again.stdout,
+          again.stdout + again.stderr)
+    check("PREFIX ending in a slash: its bin is known to be on the PATH", "is not on your PATH" not in again.stdout,
+          again.stdout)
+
+    # ---- a copy that fails midway: the old pair is left as it was, with nothing staged left behind
+    home = tempfile.mkdtemp(prefix="home-", dir=work)
+    install(good, tools, home=home)
+    bin_dir = os.path.join(home, ".local", "bin")
+    before = open(os.path.join(bin_dir, "gosh-client"), "rb").read()
+    blocker = os.path.join(bin_dir, ".gosh-server.new")
+    os.mkdir(blocker)
+    os.chmod(blocker, 0o500)  # gosh-server cannot be staged here
+    done, _ = install(later, tools, home=home)
+    os.chmod(blocker, 0o700)
+    os.rmdir(blocker)
+    check("a copy that fails midway: status not 0, gosh-client not replaced alone, nothing staged left",
+          done.returncode != 0 and open(os.path.join(bin_dir, "gosh-client"), "rb").read() == before
+          and not os.path.exists(os.path.join(bin_dir, ".gosh-client.new")), done.stdout + done.stderr)
+
     # ---- refusals
+    done, home = install(broken_server, tools)
+    check("a server that does not run: refused, status 1, nothing installed",
+          done.returncode == 1 and "gosh-server does not run here" in done.stderr and binned(home) == [], done.stderr)
     done, home = install(bad_sums, tools)
     check("a wrong checksum: refused, status 1, nothing installed",
           done.returncode == 1 and "is not what SHA256SUMS says" in done.stderr and binned(home) == [], done.stderr)
