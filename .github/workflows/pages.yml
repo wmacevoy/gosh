@@ -1,0 +1,42 @@
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
+# The public site: the README and the two pages for users, and nothing else. The repository is
+# private, and a Pages site is public, so the requirements, queue, findings and design stay out
+# (the owner, 2026-11-16: "user pages only"). A page added here is published to everyone.
+name: pages
+on:
+  push:
+    branches: [main]
+    paths: [README.md, docs/USING.md, docs/AWS.md, .github/workflows/pages.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: The pages, at the site's root, with the README's links made the site's
+        run: |
+          mkdir site
+          sed 's#(docs/USING\.md)#(USING.md)#; s#(docs/AWS\.md)#(AWS.md)#' README.md > site/index.md
+          cp docs/USING.md docs/AWS.md site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/jekyll-build-pages@v1
+        with:
+          source: site
+          destination: _site
+      - uses: actions/upload-pages-artifact@v3
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

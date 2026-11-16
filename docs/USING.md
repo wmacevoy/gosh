@@ -1,9 +1,9 @@
 # Using gosh
 
 What gosh gives you, how it compares with mosh and with shpool, and how to set it up today. For your own server on AWS, by IPv6, and the
-meetup on it, see [`AWS.md`](AWS.md). What gosh must do is
-[`REQUIREMENTS_v16.md`](REQUIREMENTS_v16.md). This page says what works and what does not; the
-requirements are the authority.
+meetup on it, see [`AWS.md`](AWS.md). What gosh must do is `docs/REQUIREMENTS_v16.md` in the
+repository. This page says what works and what does not; the requirements are the authority.
+(The `REQn/ID` marks below name a requirement there, and the tests that check it.)
 
 **Not independently reviewed.** No third party has reviewed gosh yet, and one is required before a
 class uses it (requirements, *Scope decisions*). Until then, treat it as a tool its author tests,

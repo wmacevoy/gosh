@@ -152,4 +152,4 @@ it").
 It never holds a session's key, so it cannot read or change what it passes; it can drop it, which
 stops the session moving through it, and the session stays on ssh. It sees which two addresses
 talk, and how much, and writes none of it down. A ticket is good for 30 days, for whoever holds
-it. The design and what it leaves open: [`PROPOSAL_meetup-registration.md`](PROPOSAL_meetup-registration.md).
+it. The design and what it leaves open: `docs/PROPOSAL_meetup-registration.md` in the repository.
