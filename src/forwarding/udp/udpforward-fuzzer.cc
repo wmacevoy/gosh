@@ -16,6 +16,7 @@
  * numbers are frame.h's now, and reassembly fragments.h's. Its corpus is the fork's.
  */
 
+#include <algorithm>
 #include <cstdio>
 #include <map>
 #include <set>
@@ -93,6 +94,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
                                        : mode == 1 ? UDPForwarder::PARITY_ALWAYS : UDPForwarder::PARITY_NEVER );
 
   uint64_t seq = 1000;
+  uint64_t highest = seq; /* the highest frame number used so far */
   char buf[65536];
 
   /* What may reach the target, and what has: by mark. */
@@ -142,7 +144,8 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         break;
 
       case 1: { /* a frame that at least looks like one */
-        seq += static_cast<int8_t>( at( body, 3 ) );
+        seq += static_cast<int8_t>( at( body, 3 ) ); /* (it may go back: frame numbers used again test the replay check) */
+        highest = std::max( highest, seq );
         const uint8_t type = at( body, 0 ) % 7, forward = at( body, 1 ) % 3;
         const std::string payload = mark( 'S', seq ) + body.substr( body.size() < 4 ? body.size() : 4 );
         /* a whole datagram for a forward there is: what its number may bring, if it is the first so */
@@ -156,6 +159,11 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
       }
 
       case 2: { /* a whole datagram, cut into fragments as a real sender would (and maybe short of one) */
+        /* At numbers never used before, as a real sender's are (they only rise, and are sealed): at a number
+           another datagram had left unused, a fragment would join that one's pieces, which only the other
+           end, holding the key, could cause, and it may send any datagram it likes (found by libFuzzer,
+           2026-11-16: the harness, not the forwarder). */
+        seq = highest + 1;
         const std::string datagram = mark( 'W', record ) + body + std::string( at( body, 0 ) * 16, 'd' );
         whole_sent[record] = datagram;
         const std::vector<std::string> fragments
@@ -168,6 +176,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
           forwarder.sidechannel_recv( Gosh::encode_frame(
             Gosh::TYPE_UDP_FRAGMENT, 0, at( body, 3 ) % 4, seq++, fragments[i] ) );
         }
+        highest = std::max( highest, seq );
         break;
       }
 
