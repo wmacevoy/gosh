@@ -47,6 +47,14 @@ int main()
          line.find( "\"GOSH SERVER mosh-server\"; exec mosh-server '\\''new'\\'''" ) != std::string::npos, line );
   check( "the stock line is what the host is told to print", std::string( Gosh::STOCK_SERVER_LINE ) == "GOSH SERVER mosh-server" );
 
+  const std::string helper = Gosh::helper_command( "relay '1.2.3.4' '60001'" );
+  check( "a helper's line (REQ1/PATH-1, REQ15/PATH-4): one word for sh -c, ~/.local/bin first",
+         helper.compare( 0, 7, "sh -c '" ) == 0 && helper.find( "$HOME/.local/bin:$PATH" ) != std::string::npos, helper );
+  check( "and it runs gosh-server, never mosh-server, with the words",
+         helper.find( "exec gosh-server relay '\\''1.2.3.4'\\'' '\\''60001'\\'''" ) != std::string::npos
+           && helper.find( "mosh-server" ) == std::string::npos,
+         helper );
+
   if ( failures ) {
     printf( "FAIL REQ8/CMD-3: %d checks failed\n", failures );
     return EXIT_FAILURE;

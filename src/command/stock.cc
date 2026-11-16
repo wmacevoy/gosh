@@ -29,6 +29,11 @@ std::string server_command( const std::string& gosh_words, const std::string& st
   return "sh -c " + quoted( script );
 }
 
+std::string helper_command( const std::string& words )
+{
+  return "sh -c " + quoted( "PATH=\"$HOME/.local/bin:$PATH\"; export PATH; exec gosh-server " + words );
+}
+
 std::string stock_notice( const std::string& name, const std::string& host, const std::vector<std::string>& forwards,
                           bool relay )
 {

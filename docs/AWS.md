@@ -71,7 +71,7 @@ The packages the build needs (`USING.md`, step 1) come from the distribution's a
 costs more than the IPv4 address you saved; the simpler one is a server with an IPv4 address for
 the hour it takes to set up.
 
-Then put the programs in `~/.local/bin` and on ssh's `PATH`, as `USING.md` step 2 says.
+Then put the programs in `~/.local/bin`, as `USING.md` step 2 says.
 
 ## 2. Case 1: working on the server
 

@@ -99,10 +99,10 @@ ln -sf gosh-client ~/.local/bin/gosh
 ln -sf gosh-client ~/.local/bin/gocp
 ```
 
-Do this on both machines. ssh runs `gosh-server` on the server without a login shell, so
-`~/.local/bin` must be on the `PATH` that a plain `ssh host gosh-server --version` sees. If it is
-not (Ubuntu adds it only for login shells), either add it at the top of `~/.bashrc` on the
-server, or tell gosh where it is: `--server=.local/bin/gosh-server`.
+Do this on both machines. `gosh` looks in `~/.local/bin` on the server itself, so nothing more
+is needed. (A command that ssh runs does not usually see `~/.local/bin`: Debian's and Ubuntu's
+shell files add it only for a login. That matters only to other programs, such as a stock
+`mosh`, asking for `gosh-server` or `mosh-server` there.)
 
 ### 3. Let ssh log in without asking
 

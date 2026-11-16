@@ -1287,8 +1287,10 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
      * for anything, because the terminal will be the session's by then.
      */
     if ( relay != "never" && !stock ) { /* (gosh, REQ8/CMD-3) a stock server has no relay to start */
-      const std::string remote = server + " relay " + shell_quote( std::vector<std::string>( 1, ip ) ) + " "
-                                 + shell_quote( std::vector<std::string>( 1, port ) );
+      /* (gosh, REQ1/PATH-1) gosh-server's relay, unless the user named the server: never mosh-server by name */
+      const std::string relay_words = "relay " + shell_quote( std::vector<std::string>( 1, ip ) ) + " "
+                                      + shell_quote( std::vector<std::string>( 1, port ) );
+      const std::string remote = pick_server ? Gosh::helper_command( relay_words ) : server + " " + relay_words;
       std::vector<std::string> words;
       if ( local ) {
         words.push_back( "sh" );
@@ -1313,7 +1315,7 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
         fetch.push_back( "BatchMode=yes" );
         fetch.push_back( meetup_login );
         fetch.push_back( "--" );
-        fetch.push_back( server + " meetup-ticket" );
+        fetch.push_back( pick_server ? Gosh::helper_command( "meetup-ticket" ) : server + " meetup-ticket" );
         setenv( "MOSH_MEETUP_TICKET_COMMAND", join( fetch, "\x1f" ).c_str(), 1 );
       }
     } else {

@@ -7,6 +7,36 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-16 — CI red for a day unseen; the relay ran a stock server; ~/.local/bin is not where ssh looks
+
+- **What happened (1):** CI failed on every commit from `53075c3` (2026-11-14 23:20) to `9048b1a`:
+  `bytes-test.cc` used `uint32_t` without `<cstdint>`, which this machine's GCC 12 brings in
+  through `<string>` and Ubuntu 24.04's GCC 13 does not. The check stops at the first failing
+  part, so the relay, path-finding, the meetup and IPv6 were never run by CI. Every commit was
+  gated on the local check, which passed. Found when making v0.1.
+- **What happened (2):** the command's remote relay and meetup ticket ran `mosh-server relay` and
+  `mosh-server meetup-ticket` by name. On a host with gosh in `~/.local/bin` and a stock mosh in
+  `/usr/bin`, where `REQ6/CMD-4` makes no `mosh-server` link, that is the stock server: the session
+  came up by UDP but the ssh fallback never did. The tests gave the relay its command directly,
+  so none went through the command's line. Shown from outside first (`tests/gosh-stock.py`, "a
+  host with both, over ssh": red, then green); now `stock.h`'s `helper_command` runs gosh-server.
+- **What happened (3), the trial queue item 10 asked for:** a home made from Debian 12's
+  `/etc/skel`, and bash run as sshd runs a command (`bash -c`, `SSH_CLIENT` set, sshd's default
+  `PATH`): `~/.local/bin` is not on the `PATH`, because `.bashrc` returns at once when not
+  interactive and only `.profile`, for a login, adds it. *Simulated, not through a real sshd*:
+  there is no sshd login and no container on this machine. gosh's own command adds `~/.local/bin`
+  itself, so it is not affected. **A stock `mosh` is**: it asks for `mosh-server` by name, and
+  `REQ6/CMD-4`'s link in `~/.local/bin` is not found. So CMD-4 as written gives a stock client
+  nothing on such a host unless its user passes `--server=.local/bin/mosh-server`.
+- **Kind:** (1) K3: "the check passed" was read as "CI passes". (2) K2. (3) K1, inferred on
+  2026-11-13 and now shown, by simulation.
+- **Findable by:** (1) looking at CI's result after each push; (2) a test that goes through the
+  command's own line on a host with both servers; (3) the trial.
+- **Changed:** (1) the include, and the habit: CI's result is read before a commit is reported.
+  (2) the fix and its test. (3) a question for the owner on `REQ6/CMD-4`'s next version (the
+  install could put the line in `~/.bashrc` above its guard, which edits a user's file; or the
+  link could stay with the documented `--server`; or the requirement could go).
+
 ## 2026-11-15 — The meetup replaced by tickets; path-finding switched on; an oversized probe aborted the relay
 
 - **What happened:** Path-finding was switched on with its meetup half replaced by tickets

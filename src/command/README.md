@@ -16,4 +16,7 @@ and what is said when it is a stock mosh's. For the rest:
   (`docs/FINDINGS.md`, 2026-11-13); the names change in one go with queue item 10;
 - it writes words for relay (`--relay`) that gosh's programs do not take yet. A terminal session,
   the forwards, `--stdio` and copies (`gocp`) work through it;
-- its ssh fallback still names `mosh-server` on the host (`--relay`; relay is queue item 7).
+- the remote relay and the meetup's ticket are `gosh-server`'s, from `~/.local/bin` first
+  (`stock.h`'s `helper_command`), unless the user names the server. Until 2026-11-16 they ran
+  `mosh-server` by name, which on a host with a stock mosh as well is the stock one; the fallback
+  then never came up (`tests/gosh-stock.py`, "a host with both, over ssh").

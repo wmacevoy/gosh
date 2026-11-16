@@ -195,6 +195,17 @@ try:
     check("a host with gosh-server: nothing is said of a stock server", NOTICE not in said, repr(said[-300:]))
     check("a host with gosh-server: -N writes nothing on standard output", stop(process) == b"")
 
+    # ---- the same host, the session over ssh from the start: the remote relay must be gosh-server's too,
+    # though a stock mosh-server is also there (REQ1/PATH-1; found 2026-11-16: it ran mosh-server by name)
+    target, port = echo_target(), free_port()
+    spec = "%d:127.0.0.1:%d" % (port, target.getsockname()[1])
+    process, said = headless(host({"gosh-server": gosh_server, "mosh-server": stock_server}), spec,
+                             b"connected; forwarding", more=["--relay=always"])
+    check("a host with both, over ssh: the forward comes up", b"connected; forwarding" in said, repr(said[-300:]))
+    check("a host with both, over ssh: and carries bytes, through gosh-server's relay",
+          through(port, b"through the relay") == b"through the relay")
+    stop(process)
+
     # ---- a host with only a stock mosh-server
     stock_host = host({"mosh-server": stock_server})
     target, port = echo_target(), free_port()

@@ -33,6 +33,15 @@ extern const char STOCK_SERVER_LINE[];
 std::string server_command( const std::string& gosh_words, const std::string& stock_words );
 
 /*
+ * The command line, for a host's shell, that runs gosh-server with these words (already quoted for
+ * a shell), looking in ~/.local/bin first: for what only gosh-server does, the remote relay
+ * (REQ1/PATH-1) and a meetup's ticket (REQ15/PATH-4). Never mosh-server, which on a host with a
+ * stock mosh as well is a stock one (found 2026-11-16). If the host has no gosh-server, the shell
+ * says so and the command fails.
+ */
+std::string helper_command( const std::string& words );
+
+/*
  * What gosh says, once, when the server it got is a stock mosh's: which it got, and each thing
  * the user asked for that will therefore not be done.
  *
