@@ -46,13 +46,18 @@ tools/build.sh || fail "tools/build.sh"
 # which replay their corpora and a seeded search around them (queue item 21; tools/fuzz.sh runs
 # them under libFuzzer where there is clang).
 . tools/env.sh
-for part in copy forwarding meetup pathfinding relay seam command; do
+# (every part there is: the directories of src/, as tools/fuzz.sh and tools/asan-replay.sh find their fuzzers)
+for part in $(cd src && ls -d */ | tr -d /); do
     if make -C ".build/core/src/$part" check >.build/unit-$part.log 2>&1; then
         echo "unit tests pass: $part ($(grep -c '^PASS:' .build/unit-$part.log))"
     else
         grep -E '^(FAIL|ERROR):|error' .build/unit-$part.log | head -10; fail "unit tests of $part (log: .build/unit-$part.log)"
     fi
 done
+# The same fuzzers again under AddressSanitizer, in a build of their own (.build/asan): a read past
+# a buffer's end that happens not to crash passes the replay above (the review of item 21). About
+# a minute and a half.
+tools/asan-replay.sh || fail "the fuzzers under AddressSanitizer (tools/asan-replay.sh)"
 
 stock_client=${STOCK_CLIENT:-/usr/bin/mosh-client}
 stock_server=${STOCK_SERVER:-/usr/bin/mosh-server}

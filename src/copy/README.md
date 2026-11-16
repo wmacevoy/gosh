@@ -61,7 +61,19 @@ that cannot be opened is tested by a directory closed to writing, not by running
 descriptors. The review's lesser points are left: a sender may list without limit (memory), and a
 stall of a whole interval at one point of the `--auto` wait could make it wait for ever.
 
-**Fuzzed** (queue item 21): `filecopy-fuzzer.cc`, the fork's fuzzer of the receiving end, with its
-corpus (`filecopy-fuzzer-corpus/`): whatever the sending end says, a file beside the destination is
-untouched. `make check` replays the corpus and 200 seeded changes of each input; CI runs it under
-libFuzzer (`tools/fuzz.sh`). Seen red: with `..` allowed in a name (`names.h`), it aborts.
+**Fuzzed** (queue item 21; strengthened after its review, 2026-11-16). `make check` replays each
+corpus and 200 seeded changes of each input, `tools/asan-replay.sh` (in the check) does the same
+under AddressSanitizer, and CI runs them under libFuzzer (`tools/fuzz.sh`). Scratch is under
+`TMPDIR`, and a crash leaves none behind.
+
+- `filecopy-fuzzer.cc`, the fork's fuzzer of the receiving end, changed: the destination sits
+  twelve directories down a tree of the fuzzer's own with a file at every level, and the whole
+  tree outside the destination (names, kinds, sizes, times, contents, links) is the same after
+  each input (`REQ1/CP-6`). Until the review it saw only one file beside the destination keep its
+  size, so `../saix` passed. Seen red: with `..` allowed in a name (`names.h`), `climb` and the
+  reviewer's `climb-elsewhere` each abort it (the old fuzzer passed `climb-elsewhere`). A climb of
+  more than twelve, out of the tree, is not seen.
+- `sender-fuzzer.cc`, new: the sending end, with the fuzzer as a lying receiver (what it wants,
+  from where, what became of it): it writes nothing where it reads from, and says only whole
+  messages of the thirteen kinds. Seen red under AddressSanitizer with its check on a RESULT's
+  index removed (`result-past-list`).

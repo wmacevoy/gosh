@@ -69,6 +69,8 @@ private:
   std::vector<Target> targets; /* by forward index */
   std::map<Id, int> sockets;   /* each connection's socket */
   PRNG prng;
+  bool counted;          /* (tests and fuzzers only) sequence numbers counted from next_sequence, not drawn */
+  uint32_t next_sequence;
   Logic logic;
 
   /* What the session can do just now, for the logic. */
@@ -118,6 +120,14 @@ public:
   void from_network( uint8_t forward, const TCPInUDP& segment );
 
   size_t connection_count( void ) const { return logic.count(); }
+
+  /* For tests and fuzzers only: each connection's first sequence number is first, first + 1, ...,
+     not drawn at random, so that a run can be had again. Never called by gosh's programs. */
+  void count_sequences_from( uint32_t first )
+  {
+    counted = true;
+    next_sequence = first;
+  }
 };
 
 }

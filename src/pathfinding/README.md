@@ -65,4 +65,11 @@ and CI runs them under libFuzzer (`tools/fuzz.sh`):
   meetup, strangers, by IPv4 and IPv6) and real probes from a second end, as sent, changed or from
   elsewhere; it takes the session's datagrams only from where its way is. Seen red with a probe
   opened at any length: the corpus's `long-probe` reaches the cipher's assert, the fifth fault
-  (FINDINGS, 2026-11-15).
+  (FINDINGS, 2026-11-15). Since the review of item 21 (2026-11-16) both ends use a meetup, which
+  the fuzzer plays with the meetup's own logic, so that the way through it is reached: by gcov of
+  the corpus's replay, a REGISTERED taken 0 times before and 1,333 after, a GOODBYE 0 and 178,
+  DATA through the meetup 0 and 164 (`through-meetup`).
+
+The check also replays both under AddressSanitizer (`tools/asan-replay.sh`). Seen: with `stun.h`
+letting an attribute run 8 bytes past the body, the plain replay passes and that one stops on a
+heap-buffer-overflow (the reviewer's input, `attr-past-body`).

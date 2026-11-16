@@ -25,6 +25,18 @@
 
 extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size );
 
+namespace GoshFuzzReplay {
+/* What a fuzzer wants done before a crash ends it, such as removing its scratch directory: set by
+   the fuzzer, called by the replay's crash handler. (Under libFuzzer nothing calls it: a fuzzer
+   that keeps scratch also clears what earlier runs left.) */
+typedef void ( *Hook )( void );
+inline Hook& on_crash( void )
+{
+  static Hook hook = 0;
+  return hook;
+}
+}
+
 #ifndef GOSH_LIBFUZZER
 
 #include <algorithm>
@@ -81,6 +93,9 @@ inline void say( const char* s, size_t n )
 
 inline void keep_and_die( int signal )
 {
+  if ( on_crash() ) {
+    on_crash()();
+  }
   if ( trying ) {
     const int fd = open( kept, O_WRONLY | O_CREAT | O_TRUNC, 0600 );
     if ( fd >= 0 ) {

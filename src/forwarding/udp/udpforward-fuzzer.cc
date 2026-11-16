@@ -6,13 +6,19 @@
  * replays, junk), and replies of every size from the forwarding target, which it must fragment
  * to send back.
  *
- * It uses real sockets on the loopback interface, since the forwarder does. Nothing reads what it
- * sends to the "target", which is fine.
+ * It uses real sockets on the loopback interface, since the forwarder does. What reaches the
+ * target is held to REQ1/FWD-2 (review of item 21, 2026-11-16; before, nothing read it): each
+ * datagram the harness sends is marked with where it came from, and a mark arrives at most once
+ * (a frame's number brings at most one datagram: the replay check), carrying what was sent with it
+ * first. What arrives after the junk of kind 0 is not judged: the harness cannot know what it says.
  *
  * (gosh) The fork's src/fuzz/udp_forward_fuzzer.cc (mosh-1.4.0-pf.7); the frame's functions and
  * numbers are frame.h's now, and reassembly fragments.h's. Its corpus is the fork's.
  */
 
+#include <cstdio>
+#include <map>
+#include <set>
 #include <vector>
 
 #include "src/forwarding/frame.h"
@@ -55,6 +61,14 @@ int target = -1;
 uint16_t target_port;
 struct sockaddr_in target_addr;
 
+/* A mark at the head of each datagram the harness sends: which frame's number, or which whole datagram. */
+std::string mark( char kind, uint64_t n )
+{
+  char m[24];
+  snprintf( m, sizeof( m ), "%c%016llx|", kind, static_cast<unsigned long long>( n ) );
+  return m;
+}
+
 }
 
 extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
@@ -81,24 +95,69 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   uint64_t seq = 1000;
   char buf[65536];
 
+  /* What may reach the target, and what has: by mark. */
+  std::map<uint64_t, std::string> first_sent;   /* a frame's number: the datagram first sent whole with it */
+  std::set<uint64_t> numbers_arrived;          /* frame numbers whose datagram has arrived */
+  std::map<uint64_t, std::string> whole_sent;   /* kind 2's datagrams, by record */
+  std::set<uint64_t> wholes_arrived;
+  uint64_t record = 0;
+  bool mixed = false; /* a kind-1 frame of a fragment's type was sent: wholes may be made of anyone's pieces */
+  struct sockaddr_in last_from;
+  socklen_t last_len = 0;
+  /* Everything at the target now: held to the marks, unless what came before it was junk. */
+  auto arrived = [&]( bool judge ) {
+    for ( ;; ) {
+      struct sockaddr_in from;
+      socklen_t len = sizeof( from );
+      const ssize_t n = recvfrom( target, buf, sizeof( buf ), 0, reinterpret_cast<struct sockaddr*>( &from ), &len );
+      if ( n < 0 ) {
+        return;
+      }
+      last_from = from;
+      last_len = len;
+      if ( !judge ) {
+        continue;
+      }
+      const std::string got( buf, n );
+      const uint64_t which = got.size() >= 18 ? strtoull( got.substr( 1, 16 ).c_str(), NULL, 16 ) : 0;
+      if ( got[0] == 'S' && first_sent.count( which ) && got == first_sent[which] ) {
+        require( numbers_arrived.insert( which ).second ); /* one frame number, one datagram */
+      } else if ( got[0] == 'W' && whole_sent.count( which ) && got == whole_sent[which] ) {
+        require( wholes_arrived.insert( which ).second );
+      } else {
+        /* none of the harness's: only if pieces of its own were sent that a whole could be made of */
+        require( mixed );
+      }
+    }
+  };
+
   unsigned int kind;
   std::string body;
   while ( in.record( kind, body ) ) {
+    record++;
     switch ( kind ) {
       case 0: /* anything at all */
         forwarder.sidechannel_recv( body );
+        arrived( false );
         break;
 
       case 1: { /* a frame that at least looks like one */
         seq += static_cast<int8_t>( at( body, 3 ) );
-        const std::string payload = body.substr( body.size() < 4 ? body.size() : 4 );
-        forwarder.sidechannel_recv(
-          Gosh::encode_frame( at( body, 0 ) % 7, at( body, 1 ) % 3, at( body, 2 ) % 80, seq, payload ) );
+        const uint8_t type = at( body, 0 ) % 7, forward = at( body, 1 ) % 3;
+        const std::string payload = mark( 'S', seq ) + body.substr( body.size() < 4 ? body.size() : 4 );
+        /* a whole datagram for a forward there is: what its number may bring, if it is the first so */
+        if ( type == Gosh::TYPE_UDP_DATA && forward < 2 && !first_sent.count( seq ) ) {
+          first_sent[seq] = payload;
+        }
+        mixed = mixed || type == Gosh::TYPE_UDP_FRAGMENT || type == Gosh::TYPE_UDP_REVERSE_DATA
+                || type == Gosh::TYPE_UDP_REVERSE_FRAGMENT;
+        forwarder.sidechannel_recv( Gosh::encode_frame( type, forward, at( body, 2 ) % 80, seq, payload ) );
         break;
       }
 
       case 2: { /* a whole datagram, cut into fragments as a real sender would (and maybe short of one) */
-        const std::string datagram = body + std::string( at( body, 0 ) * 16, 'd' );
+        const std::string datagram = mark( 'W', record ) + body + std::string( at( body, 0 ) * 16, 'd' );
+        whole_sent[record] = datagram;
         const std::vector<std::string> fragments
           = Gosh::DatagramAssembly::split( datagram, link.limit - Gosh::FRAME_HEADER_LEN, at( body, 1 ) & 1 );
         for ( size_t i = 0; i < fragments.size(); i++ ) {
@@ -113,11 +172,9 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
       }
 
       case 3: { /* the target answers whoever last sent to it, and the forwarder relays the answer */
-        struct sockaddr_in from;
-        socklen_t len = sizeof( from );
-        if ( recvfrom( target, buf, sizeof( buf ), 0, reinterpret_cast<struct sockaddr*>( &from ), &len ) >= 0 ) {
+        if ( last_len > 0 ) {
           const std::string reply( at( body, 0 ) * 40 + at( body, 1 ), 'r' );
-          sendto( target, reply.data(), reply.size(), 0, reinterpret_cast<struct sockaddr*>( &from ), len );
+          sendto( target, reply.data(), reply.size(), 0, reinterpret_cast<struct sockaddr*>( &last_from ), last_len );
         }
         const std::vector<int> fds = forwarder.fds();
         for ( size_t i = 0; i < fds.size(); i++ ) {
@@ -125,6 +182,9 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         }
         break;
       }
+    }
+    if ( kind != 0 ) {
+      arrived( true );
     }
     require( forwarder.flow_count() <= UDPForwarder::MAX_FLOWS );
     require( forwarder.partial_count() <= UDPForwarder::MAX_PARTIALS );
