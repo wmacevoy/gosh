@@ -10,17 +10,19 @@
 # and "$0" is then no longer a path from where it stands.)
 GOSH=${GOSH:-$(cd "$(dirname "$0")/.." && pwd)}
 DEPS=$GOSH/.deps/usr
-BUILD=$GOSH/.build
+BUILD=${GOSH_BUILD_DIR:-$GOSH/.build} # (another, for a build with other flags: tools/asan-replay.sh)
 
 if [ -d "$DEPS/include/google/protobuf" ]; then
     arch=$(gcc -print-multiarch 2>/dev/null || echo x86_64-linux-gnu)
     PATH=$DEPS/bin:$PATH
     LD_LIBRARY_PATH=$DEPS/lib/$arch${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
     export PATH LD_LIBRARY_PATH
-    CONFIGURE_DEPS="CPPFLAGS=-isystem\ $DEPS/include LDFLAGS=-L$DEPS/lib/$arch protobuf_CFLAGS=-isystem\ $DEPS/include protobuf_LIBS=-L$DEPS/lib/$arch\ -lprotobuf TINFO_CFLAGS=\  TINFO_LIBS=-ltinfo"
+    CONFIGURE_DEPS="CPPFLAGS=-isystem\ $DEPS/include LDFLAGS=-L$DEPS/lib/$arch${GOSH_LDFLAGS:+\\ $GOSH_LDFLAGS} protobuf_CFLAGS=-isystem\ $DEPS/include protobuf_LIBS=-L$DEPS/lib/$arch\ -lprotobuf TINFO_CFLAGS=\  TINFO_LIBS=-ltinfo"
 else
-    CONFIGURE_DEPS=
+    CONFIGURE_DEPS="${GOSH_LDFLAGS:+LDFLAGS=$GOSH_LDFLAGS}"
 fi
+# (GOSH_LDFLAGS: one more word for the linker, for a build with other flags, which must not take
+# the place of the one above: tools/asan-replay.sh)
 
 # Stops the programs this run started and left running. A test that fails can leave its
 # server behind. "This run's" means both: its program file is under .build/, and it was
