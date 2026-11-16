@@ -10,13 +10,14 @@
 # build: that is how a moved pin says what the seam costs.
 #
 # SEAM_UPTO=N applies only the first N patches, to check that each stage of the
-# series builds and works by itself.
+# series builds and works by itself. GOSH_CONFIGURE adds words to configure's, as a
+# release does: "--enable-static-libraries --without-utempter" (tools/package-release.sh).
 set -eu
 . "$(dirname "$0")/env.sh"
 [ -f "$GOSH/core/configure.ac" ] || { echo "build: core/ is empty: git submodule update --init"; exit 1; }
 chmod -R u+w "$BUILD/core" 2>/dev/null || true
 rm -rf "$BUILD/core" "$BUILD/bin" && mkdir -p "$BUILD/core" "$BUILD/bin"
-(cd "$GOSH/core" && git ls-files -z | xargs -0 cp --parents -t "$BUILD/core")
+(cd "$GOSH/core" && git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$BUILD/core")
 cd "$BUILD/core"
 applied=0
 for patch in "$GOSH"/seam/*.patch; do
@@ -35,7 +36,7 @@ for part in "$GOSH"/src/*/; do
     cp -r "$part" "$BUILD/core/src/"
 done
 ./autogen.sh >../build.log 2>&1
-eval ./configure $CONFIGURE_DEPS >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED at configure (log: $BUILD/build.log)"; exit 1; }
+eval ./configure $CONFIGURE_DEPS ${GOSH_CONFIGURE:-} >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED at configure (log: $BUILD/build.log)"; exit 1; }
 make -j"$(nproc 2>/dev/null || echo 2)" >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED (log: $BUILD/build.log)"; exit 1; }
 cp src/frontend/mosh-client "$BUILD/bin/gosh-client"
 cp src/frontend/mosh-server "$BUILD/bin/gosh-server"

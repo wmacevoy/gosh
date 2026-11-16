@@ -1,0 +1,131 @@
+# Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
+#
+# Builds what a release of gosh consists of (REQ1/CMD-2), and on a tag vVERSION publishes it as
+# a GitHub pre-release:
+#
+#   gosh-VERSION-linux-x86_64.tar.gz      programs needing only the C library, built on Ubuntu
+#   gosh-VERSION-linux-aarch64.tar.gz       22.04 so that they run on anything newer
+#   gosh-VERSION-macos-universal.tar.gz   if it builds: no gosh part has been built on macOS before
+#   install.sh                            tools/install.sh, knowing its version
+#   SHA256SUMS
+#
+# Started by hand it builds everything and publishes nothing: a rehearsal.
+# Carried from the fork's release.yml (mosh-1.4.0-pf.7). Its Windows build is not carried yet
+# (queue item 11, the extension, is what needs it).
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: What the core needs to build
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q autoconf automake pkg-config protobuf-compiler libprotobuf-dev libncurses-dev libssl-dev zlib1g-dev python3 file binutils
+      - name: Build, with every library but the C library linked in
+        run: GOSH_CONFIGURE="--enable-static-libraries --without-utempter" tools/build.sh
+      - name: The packaged programs hold a session and a forward, each way through the relay too
+        run: |
+          python3 tests/headless-smoke.py .build/bin/gosh-server .build/bin/gosh-client
+          python3 tests/headless-smoke.py .build/bin/gosh-server .build/bin/gosh-client 127.0.0.1 blocked
+      - name: Package
+        run: tools/package-release.sh "${GITHUB_REF_NAME#v}" dist
+      - name: What the programs need from the system
+        run: |
+          for program in .build/bin/gosh-client .build/bin/gosh-server; do
+            file "$program"
+            echo "$program needs up to $(objdump -T "$program" | grep -o 'GLIBC_[0-9.]*' | sort -V | tail -n 1)"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: dist/
+
+  # One build for Apple Silicon and Intel, as the fork's: Protocol Buffers built here and linked
+  # in; the rest ships with macOS. Allowed to fail: a release goes out without it, and says so.
+  macos:
+    runs-on: macos-latest
+    continue-on-error: true
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+      PROTOBUF_VERSION: "21.12"
+      ARCHS: -arch arm64 -arch x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: What the core needs to build
+        run: brew install automake autoconf pkg-config || true
+      - name: Cache Protocol Buffers
+        id: protobuf
+        uses: actions/cache@v4
+        with:
+          path: protobuf
+          key: protobuf-${{ env.PROTOBUF_VERSION }}-macos-universal-${{ env.MACOSX_DEPLOYMENT_TARGET }}-1
+      - name: Build Protocol Buffers, statically, for both architectures
+        if: steps.protobuf.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL -o protobuf.tar.gz \
+            "https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOBUF_VERSION/protobuf-cpp-3.$PROTOBUF_VERSION.tar.gz"
+          mkdir protobuf-src && tar -xzf protobuf.tar.gz -C protobuf-src --strip-components 1
+          cmake -S protobuf-src -B protobuf-build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
+            -DCMAKE_CXX_STANDARD=17 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="$PWD/protobuf" \
+            -Dprotobuf_BUILD_SHARED_LIBS=OFF -Dprotobuf_BUILD_TESTS=OFF
+          cmake --build protobuf-build -j 4
+          cmake --install protobuf-build
+      - name: Build
+        run: |
+          export PATH="$PWD/protobuf/bin:$PATH" PKG_CONFIG_PATH="$PWD/protobuf/lib/pkgconfig"
+          GOSH_CONFIGURE="--disable-dependency-tracking CXXFLAGS='-g -O2 $ARCHS' CFLAGS='-g -O2 $ARCHS' LDFLAGS='$ARCHS'" tools/build.sh
+      - name: The programs hold a session and a forward
+        run: python3 tests/headless-smoke.py .build/bin/gosh-server .build/bin/gosh-client
+      - name: Package
+        run: tools/package-release.sh "${GITHUB_REF_NAME#v}" dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: dist/
+
+  publish:
+    if: always() && github.ref_type == 'tag' && needs.linux.result == 'success'
+    needs: [linux, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Installer and checksums
+        run: |
+          sed "s/@VERSION@/${GITHUB_REF_NAME#v}/" tools/install.sh > dist/install.sh
+          cd dist
+          sha256sum gosh-* > SHA256SUMS
+          cat SHA256SUMS
+      - name: Publish, beside the notes the release already has, or as a new pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --prerelease --title "gosh ${GITHUB_REF_NAME#v}" \
+              --notes "Not independently reviewed. macOS: $([ -e dist/gosh-*-macos-universal.tar.gz ] && echo built || echo 'did not build; not in this release')."
+          fi

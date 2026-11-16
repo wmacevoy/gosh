@@ -148,6 +148,12 @@ fi
 pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-command.py
 # (and this one the stock server last: a host with gosh-server, with only mosh-server, with neither)
 pair "gosh" "$gosh/gosh" "$gosh/gosh-server" gosh-stock.py "$stock_server"
+# The installer (REQ1/CMD-2, REQ6/CMD-4), from a release made of these programs, into the test's own home.
+if python3 tests/install.py tools/install.sh "$gosh/gosh-client" "$gosh/gosh-server" >.build/gosh-test.log 2>&1; then
+    echo "tools/install.sh passes install.py"
+else
+    cat .build/gosh-test.log; fail "tools/install.sh with tests/install.py"
+fi
 pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" forward-e2e.py
 pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" forward-e2e.py
 # (with no relay mode this test ends with a file copied each way over a stream)
