@@ -7,6 +7,29 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-16 — Reviews of the command, the extension and the fuzzers; what the stronger fuzzers found
+
+- **What happened:** three sessions, each given only the code and the requirements, reviewed items
+  10, 11 and 21. Among what they confirmed: a host or copy end beginning with `-` reached ssh as an
+  option, in the command and in the extension (`-oProxyCommand=...` runs a command on the user's
+  machine with OpenSSH before 9.6); the extension ran what the host downloaded without checking it;
+  the installer replaced a user's own `mosh-server` in `~/.local/bin` when that was off its PATH;
+  `--stun=none` did not keep a session off the meetup; and the fuzzers were weaker than their
+  claims (the meetup's could not see a message acted on twice; the copy's saw one file only; the
+  check's replay ran without AddressSanitizer). All mended, each seen red first.
+- **And:** the meetup fuzzer, made to hold "no second time", found that the meetup itself does not
+  keep it: once it lets a ticket go (`END_IDLE`, two quiet minutes; or to make room for another),
+  a REGISTER recorded earlier is taken again, and a PASS recorded after it is passed on. The
+  window is what the meetup remembers, and it forgets. Not mended: closing it needs the meetup to
+  refuse an old counter for a ticket it has forgotten, which means either keeping something per
+  ticket for its 30 days, or judging a counter's age by the clock (counters start from the time
+  of day), with the clocks of the end and the meetup then in the requirement. A question for the
+  owner: which, or accept the window and say so in PATH-5.
+- **Kind:** K3 in each case: the author's tests passed, and the author's fuzzers' properties were
+  the author's.
+- **Changed:** the fixes; every fuzzer replayed under AddressSanitizer in the check; the meetup's
+  gap written in its README's "Not closed" and here.
+
 ## 2026-11-16 — The wire's last change: what running the fork's command test against gosh found
 
 - **What happened:** with gosh's names in place, `wrapper.test` (until then run against pf.7's
