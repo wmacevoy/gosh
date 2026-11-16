@@ -39,14 +39,8 @@ bool run( const std::vector<std::string>& args,
           std::vector<std::string>& client_args,
           int& status );
 
-/* ssh's way to the server when we are its ProxyCommand: says which address it reached, then carries bytes. */
+/* ssh's way to the server when we are its ProxyCommand: says which address it reached, then carries bytes (proxy.cc). */
 int fake_proxy( const std::string& family, const std::string& host, const std::string& port );
-
-/* Pieces, for testing. */
-std::vector<std::string> shell_words( const std::string& line );
-std::string shell_quote( const std::vector<std::string>& words );
-/* "host:path" as a remote place: true, with host and path, if it is one. */
-bool remote_place( const std::string& word, std::string& host, std::string& path );
 
 }
 
