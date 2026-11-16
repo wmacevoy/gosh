@@ -24,7 +24,7 @@ worth reading before migrating the part it concerns.
   refuse an old counter for a ticket it has forgotten, which means either keeping something per
   ticket for its 30 days, or judging a counter's age by the clock (counters start from the time
   of day), with the clocks of the end and the meetup then in the requirement. A question for the
-  owner: which, or accept the window and say so in PATH-5.
+  owner: which, or accept the window and say so in `REQ15/PATH-5`.
 - **Kind:** K3 in each case: the author's tests passed, and the author's fuzzers' properties were
   the author's.
 - **Changed:** the fixes; every fuzzer replayed under AddressSanitizer in the check; the meetup's
