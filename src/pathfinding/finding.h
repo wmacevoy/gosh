@@ -20,7 +20,9 @@
  *            to be. (They are mosh's, and sealed already.)
  *
  * Absent: no answer from anywhere: probes go on, every FAST_EVERY for FAST_FOR, then every
- * SLOW_EVERY. Late: a way not heard for OPEN_FOR is thought closed. Wrong: what does not open,
+ * SLOW_EVERY. Late: a way not heard for OPEN_FOR is thought closed, and (gosh) so is one by which
+ * our probes have not been answered for ANSWERED_FOR: a way must work both ways (REQ16/PATH-8:
+ * found by review, 2026-11-16, IPv6 that went one way only). Wrong: what does not open,
  * a probe number already heard, a datagram from anywhere but the other end: ignored. Lying: a
  * STUN server's wrong answer is tried, and nothing answers there; a stranger cannot move the
  * way: only a sealed, fresh probe does.
@@ -52,6 +54,7 @@ public:
   static const uint64_t SLOW_EVERY = 2000;  /* ...this often, while there is no way through */
   static const uint64_t OPEN_EVERY = 1000;  /* and this often once there is, to know that there still is */
   static const uint64_t OPEN_FOR = 3500;    /* how long without hearing before it is thought closed */
+  static const uint64_t ANSWERED_FOR = 2 * OPEN_FOR; /* (gosh) and without an answer to our probes by it */
   static const size_t MAX_CANDIDATES = 16;
   static const size_t PROBE_LEN = 8 + 8 + 1 + 16; /* the mark; the nonce, one byte, the tag */
   static const uint64_t REGISTER_EVERY = 25000;   /* ms: registered again this often while it lasts... */
@@ -86,6 +89,8 @@ private:
   bool peer_via; /* ...or the meetup that passes datagrams on to it, if that is how it was heard */
   bool locked;
   uint64_t heard, started, last_probe, last_direct_probe;
+  uint64_t answered;       /* (gosh) when a probe of ours was last answered by the way it is open by */
+  uint64_t last_asked_back; /* (gosh) when we last asked back a new place a probe came from */
   std::vector<Outgoing> outbox;
 
   /* (gosh) the meetup, once there is a ticket for it: where it is, and where it saw us */
@@ -210,7 +215,7 @@ public:
   PathFinding( bool s_initiator, const std::string& key, uint64_t now )
     : initiator( s_initiator ), session( new Crypto::Session( Crypto::Base64Key( key ) ) ), send_seq( 0 ), heard_seq( 0 ),
       candidates(), local_new(), local_all(), peer(), peer_via( false ), locked( false ), heard( 0 ), started( now ),
-      last_probe( 0 ), last_direct_probe( 0 ), outbox(), meetup_known( false ), meetup(), ticket(),
+      last_probe( 0 ), last_direct_probe( 0 ), answered( 0 ), last_asked_back( 0 ), outbox(), meetup_known( false ), meetup(), ticket(),
       end( s_initiator ? 0 : 1 ), meetup_session(), meetup_counter( 0 ), believed(), registered( false ),
       register_tries( 0 ), registered_at( 0 ), last_register( 0 ), last_meetup_stun( 0 )
   {}
@@ -345,18 +350,35 @@ public:
          * reason to go the long way round; (gosh, REQ16/PATH-8) and while
          * there is one by IPv6, hearing from it by IPv4 as well is no reason
          * to leave it.
+         *
+         * (gosh) And only an answer moves the way: a "?" shows only that its
+         * datagrams reach us; a "!" answers one of ours, so what we send gets
+         * there too. A "?" from a new place is answered, and asked back, so
+         * that its answer can move the way.
          */
-        const bool fresh = locked && now - heard < OPEN_FOR;
+        const bool from_peer = locked && via == peer_via && same_ip_port( from, peer );
+        const bool fresh = open( now );
         const bool longer_way = via && !peer_via;
         const bool older_family = !via && !peer_via && peer.sa.sa_family == AF_INET6 && from.sa.sa_family == AF_INET;
-        if ( !( fresh && ( longer_way || older_family ) ) ) {
+        const bool would_take = !( fresh && ( longer_way || older_family ) );
+        if ( from_peer ) {
+          heard = now;
+          if ( m.text[0] == '!' ) {
+            answered = now;
+          }
+        } else if ( m.text[0] == '!' && would_take ) {
           peer = from;
           peer_via = via;
           locked = true;
-          heard = now;
+          heard = answered = now;
         }
         if ( m.text[0] == '?' ) {
           probe( '!', from, via ); /* (answered the way it came) */
+          /* (not where it would not be taken, nor more often than FAST_EVERY: two ends asking each other back would never stop) */
+          if ( !from_peer && would_take && now - last_asked_back >= FAST_EVERY ) {
+            last_asked_back = now;
+            probe( '?', from, via );
+          }
         } else if ( m.text[0] == '.' ) {
           return GOODBYE;
         }
@@ -418,7 +440,7 @@ public:
   }
 
   /* Whether there is, as far as we know, a way through just now. */
-  bool open( uint64_t now ) const { return locked && now - heard < OPEN_FOR; }
+  bool open( uint64_t now ) const { return locked && now - heard < OPEN_FOR && now - answered < ANSWERED_FOR; }
   uint64_t last_heard( void ) const { return locked ? heard : 0; }
   /* Where the other end is; or which meetup, if datagrams are being passed on to it through one. */
   std::string where( void ) const { return locked ? ( peer_via ? "the meetup at " : "" ) + format_ip_port( peer ) : std::string(); }

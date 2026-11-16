@@ -83,6 +83,12 @@ int main()
   check( "and an IPv4 one is never the same as an IPv6 one", !same_ip_port( a, b ) );
   parse_ip_port( "0.0.0.0:567", b );
   check( "not even 0.0.0.0, whichever is asked about first", !same_ip_port( b, a ) && !same_ip_port( a, b ) );
+  /* (found by review, 2026-11-16: kept as IPv6, it never matched where the socket says a datagram came from) */
+  check( "an address of one link alone is refused: it cannot be sent to without naming the link (REQ16/PATH-8)",
+         !parse_ip_port( "[fe80::1]:567", a ) && !parse_ip_port( "[fe80::1%eth0]:567", a ) );
+  check( "an IPv4 address written in IPv6's form is taken as the IPv4 one it is",
+         parse_ip_port( "[::ffff:1.2.3.4]:567", a ) && a.sa.sa_family == AF_INET && parse_ip_port( "1.2.3.4:567", b )
+           && same_ip_port( a, b ) && format_ip_port( a ) == "1.2.3.4:567" );
 
   if ( failures ) {
     printf( "FAIL REQ1/PATH-3, REQ16/PATH-8: %d checks of STUN failed\n", failures );

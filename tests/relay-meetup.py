@@ -2,10 +2,12 @@
 # Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 """REQ15/PATH-4, REQ15/PATH-5: a session that falls back to the relay gets a ticket, and both relays register with the meetup.
 
-usage: relay-meetup.py SERVER CLIENT [ADDRESS]
+usage: relay-meetup.py SERVER CLIENT [ADDRESS [MEETUP_ADDRESS]]
 
 ADDRESS is where the session and the meetup run: 127.0.0.1 by default, or ::1 for both by IPv6
-(REQ16/PATH-8).
+(REQ16/PATH-8). MEETUP_ADDRESS, if given, is the address the meetup is named by instead, another
+of the same machine's (127.0.0.2): a meetup bound to every address must answer from the one it was
+asked at, or the ends never take its answers (found by review, 2026-11-16).
 
 On loopback: a session whose client is given a UDP port where nobody is, so that it falls
 back to the relay (run directly, in place of ssh); a meetup, "SERVER meetup PORT"; and the
@@ -35,7 +37,8 @@ from variables import both
 server, client_path = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
 address = sys.argv[3] if len(sys.argv) > 3 else "127.0.0.1"
 family = socket.AF_INET6 if ":" in address else socket.AF_INET
-meetup_text = ("[%s]" % address) if family == socket.AF_INET6 else address
+meetup_address = sys.argv[4] if len(sys.argv) > 4 else address
+meetup_text = ("[%s]" % meetup_address) if family == socket.AF_INET6 else meetup_address
 failures = []
 
 

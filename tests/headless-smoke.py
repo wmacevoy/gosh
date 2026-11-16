@@ -249,6 +249,17 @@ if relay == "punched":
     check("each relay asks where it appears to be, and is told",
           "local: we may be reached at 127.0.0.1:" in log and "remote: we may be reached at 127.0.0.1:" in log)
     check("the two find a way through to each other", log.count("a way through is open") == 2, log if log.count("a way through is open") != 2 else "")
+    if ":" in address:
+        # REQ16/PATH-8: by IPv6, both able to, the way each ends on is IPv6's (found by review, 2026-11-16:
+        # this case passed with the IPv6 socket taken out). The last word of each relay on its way names it.
+        deadline = time.time() + 10
+        def last_way(side):
+            ways = re.findall(r"%s: (?:a way through is open, to|the way through is now to) (\S+)" % side, logged())
+            return ways[-1] if ways else ""
+        while time.time() < deadline and not (last_way("local").startswith("[") and last_way("remote").startswith("[")):
+            time.sleep(0.2)
+        check("and each ends on a way by IPv6", last_way("local").startswith("[") and last_way("remote").startswith("["),
+              "local %s, remote %s" % (last_way("local"), last_way("remote")))
     # Now the stream is not needed, and after a while (three seconds, for this test) is let go.
     deadline = time.time() + 20
     while time.time() < deadline and "staying for the way through" not in logged():
