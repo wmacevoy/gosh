@@ -2,6 +2,7 @@
 
 /* REQ14/SPEED-1: the byte queue (bytes.h) holds what a string would. */
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
