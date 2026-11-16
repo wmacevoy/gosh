@@ -1,0 +1,51 @@
+.\" Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
+.TH GOCP 1 "2026-11-16" "gosh" "User Commands"
+.SH NAME
+gocp \- copy files over a gosh session, carrying on where a copy left off
+.SH SYNOPSIS
+.B gocp
+[\fIoptions\fR] \fIsource\fR... \fIdestination\fR
+.SH DESCRIPTION
+.B gocp
+copies files to or from another machine, as \fBscp\fR(1) does, through a \fBgosh\fR(1) session: the
+copy survives losing the network, changing networks, and sleep. Exactly one end is remote:
+[\fIuser\fB@\fR]\fIhost\fB:\fIpath\fR.
+.PP
+A copy cut off and run again sends only what had not arrived, after checking that what had
+arrived is the start of the same file. A file appears under its own name only when the whole of it
+has arrived and its checksum agrees. A file already at the destination with the same size and
+modification time is not sent. A receiving end writes only inside its destination, whatever names
+the sending end gives it.
+.PP
+\fBNot independently reviewed.\fR See https://wmacevoy.github.io/gosh/USING.html.
+.SH OPTIONS
+.TP
+.B \-r
+Directories, and everything in them.
+.TP
+.B \-\-auto
+When the copy is done, stay, and copy again whatever changes at the source, until interrupted.
+One way only.
+.TP
+.B \-\-delete
+Also remove from the destination what is no longer at the source, within the directories copied.
+.TP
+\fB\-\-interval\fR=\fIseconds\fR
+How often \fB\-\-auto\fR looks for changes (default: 2).
+.TP
+.B \-q
+Say only what goes wrong.
+.PP
+The options of \fBgosh\fR(1) that concern the connection (\fB\-\-ssh\fR, \fB\-\-relay\fR, \fB\-p\fR,
+\fB\-\-server\fR, ...) work here.
+.SH EXAMPLES
+.nf
+gocp report.pdf server:docs/          to the server
+gocp \-r server:build/out .            from it, with what is inside
+gocp \-\-auto \-r server:build/out .     and then keep ./out up to date
+.fi
+.SH EXIT STATUS
+0 when everything was copied; 1 when anything was not (it says which), or the session ended first.
+Run it again to carry on.
+.SH SEE ALSO
+\fBgosh\fR(1), \fBscp\fR(1), \fBrsync\fR(1). https://wmacevoy.github.io/gosh/

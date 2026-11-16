@@ -1,0 +1,93 @@
+.\" Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
+.TH GOSH 1 "2026-11-16" "gosh" "User Commands"
+.SH NAME
+gosh \- mosh's session, with forwards, copies, the relay over ssh and path-finding beside it
+.SH SYNOPSIS
+.B gosh
+[\fIoptions\fR] [\fB\-\-\fR] [\fIuser\fB@\fR]\fIhost\fR [\fIcommand\fR...]
+.SH DESCRIPTION
+.B gosh
+logs in to \fIhost\fR by ssh, starts
+.B gosh-server
+there (or
+.B mosh-server
+where there is none), and becomes the client of a mosh session: a terminal that survives roaming
+between networks, sleep, and lost connections, with local echo on slow links.
+.PP
+Beside the session it carries port forwards, a command's input and output, and file copies
+(\fBgocp\fR(1)). When UDP cannot reach the server it carries the session over ssh, and goes back to
+UDP when it can. From there it looks for a way straight through NATs, or through a meetup of your
+own. Each works by IPv4 and IPv6, IPv6 first where both answer. You choose none of this.
+.PP
+\fBNot independently reviewed.\fR See https://wmacevoy.github.io/gosh/USING.html.
+.SH OPTIONS
+.TP
+\fB\-L\fR [\fIbind\fB:\fR]\fIport\fB:\fIhost\fB:\fIhostport\fR, \fB\-\-tcp\-forward\fR=...
+TCP connections to \fIport\fR here arrive at \fIhost\fB:\fIhostport\fR as seen from the server, as
+\fBssh \-L\fR does. May be repeated. The listener binds loopback unless told another address.
+.TP
+\fB\-R\fR [\fIbind\fB:\fR]\fIport\fB:\fIhost\fB:\fIhostport\fR, \fB\-\-tcp\-remote\-forward\fR=...
+The reverse: connections to \fIport\fR on the server arrive at \fIhost\fB:\fIhostport\fR as seen
+from here.
+.TP
+\fB\-LU\fR ..., \fB\-RU\fR ..., \fB\-\-udp\-forward\fR, \fB\-\-udp\-remote\-forward\fR
+The same for UDP datagrams, of any size up to 65,507 bytes.
+.TP
+\fB\-\-fragment\-parity\fR={\fBauto\fR|\fBalways\fR|\fBnever\fR}
+Whether to add parity to forwarded datagrams too large to send whole (default: auto, by measured
+loss).
+.TP
+.B \-N
+No terminal: keep the session and its forwards open until interrupted. Says
+\fBgosh: connected; forwarding.\fR on standard error once they can be used.
+.TP
+.B \-\-stdio
+No terminal: run \fIcommand\fR on the server with its input and output here, as
+\fBssh\fR \fIhost command\fR does; for example \fBrsync \-e 'gosh \-\-stdio'\fR.
+.TP
+\fB\-\-relay\fR={\fBauto\fR|\fBalways\fR|\fBnever\fR}
+Carry the session over ssh when UDP cannot reach the server: when needed (default), from the start
+and nothing by UDP, or never. ssh must be able to log in without asking.
+.TP
+\fB\-\-punch\fR={\fBauto\fR|\fBnever\fR}
+On the relay, look for a way straight to the server through the NATs in between (default: auto).
+.TP
+\fB\-\-meetup\fR=[\fIuser\fB@\fR]\fIhost\fB:\fIport\fR
+A meetup of your own (\fBgosh-server meetup\fR \fIport\fR on a machine ssh logs you in to), through
+which the session goes by UDP when the two ends find no way to each other. Its ticket is fetched
+over ssh.
+.TP
+\fB\-\-stun\fR=\fIhost\fB:\fIport\fR[,...]
+Plain STUN servers to ask where each end appears to be; \fBnone\fR to ask none (the default: no
+server on the Internet is asked anything unless you name it).
+.TP
+\fB\-4\fR, \fB\-6\fR, \fB\-\-family\fR=\fIfamily\fR
+IPv4 only, IPv6 only, or one of auto, all, prefer-inet (default), prefer-inet6.
+.TP
+\fB\-p\fR \fIport\fR[\fB:\fIport2\fR], \fB\-\-port\fR=...
+The server's UDP port or range.
+.TP
+\fB\-\-ssh\fR=\fIcommand\fR
+The ssh command (default: \fBssh\fR), for example \fB"ssh \-p 2222"\fR.
+.TP
+\fB\-\-server\fR=\fIcommand\fR
+The server to run on the host. By default gosh-server, from \fB~/.local/bin\fR first.
+.TP
+\fB\-a\fR, \fB\-n\fR, \fB\-\-predict\fR=..., \fB\-o\fR, \fB\-\-no\-init\fR, \fB\-\-no\-ssh\-pty\fR, \fB\-\-local\fR, \fB\-\-bind\-server\fR=..., \fB\-\-experimental\-remote\-ip\fR=...
+As mosh's; see \fBgosh \-\-help\fR.
+.SH ENVIRONMENT
+.TP
+.B GOSH_RELAY_LOG
+A file to which the relays say what they are doing: falling back, a way through found, a ticket
+fetched, registered with a meetup.
+.PP
+The command sets \fBGOSH_RELAY\fR, \fBGOSH_RELAY_COMMAND\fR, \fBGOSH_PUNCH\fR, \fBGOSH_STUN\fR,
+\fBGOSH_MEETUP\fR and \fBGOSH_MEETUP_TICKET_COMMAND\fR for the client from its options. mosh's own
+variables (\fBMOSH_KEY\fR, \fBMOSH_PREDICTION_DISPLAY\fR, ...) are read as mosh reads them.
+.SH EXIT STATUS
+0 when the session ends normally; 1 when an option is refused, ssh fails, or no server answers.
+.SH SEE ALSO
+\fBgocp\fR(1), \fBmosh\fR(1), \fBssh\fR(1). https://wmacevoy.github.io/gosh/
+.SH NOTES
+gosh is not mosh, and is not the mosh project's work. It carries mosh's code under the GNU General
+Public License, version 3 or later. Report problems at https://github.com/wmacevoy/gosh/issues.

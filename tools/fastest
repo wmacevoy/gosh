@@ -12,6 +12,6 @@
 # stream), relay (a TCP forward with the session carried by the relays).
 #
 # way    version                                     when, and what was measured
-udp      646558489f8b8a46aae2e3a58084fae00adff5ec    2026-11-14: 171% of 2001e4f by the gate (selective acknowledgment; 47.8 against 27.9 Mbit/s)
-stream   646558489f8b8a46aae2e3a58084fae00adff5ec    2026-11-14: 158% of pf.7 by the gate (selective acknowledgment; 38.7 against 24.6 Mbit/s)
+udp      ad278156bc62cd7406cc86f9ea5169fb1577d5bc    2026-11-16: 106% of 6465584 by the gate (the names and the wire's last change; 48.2 against 45.7 Mbit/s)
+stream   ad278156bc62cd7406cc86f9ea5169fb1577d5bc    2026-11-16: 100% of 6465584 by the gate, and the faster by its own measure (the names and the wire's last change; 40.5 against 40.5 Mbit/s)
 relay    2b279d90b6fc686332c6044bb24c807313b08a67    2026-11-14: 323% of pf.7 by the gate (the relay carried; the gain is forwarding's, items 15 and 17; 45.5 against 14.1 Mbit/s)

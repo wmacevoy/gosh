@@ -7,6 +7,26 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-16 — The wire's last change: what running the fork's command test against gosh found
+
+- **What happened:** with gosh's names in place, `wrapper.test` (until then run against pf.7's
+  command only, because it called the command `mosh`) was given the names as arguments and run
+  against gosh's. It found `gosh-server stun 60000`, the fork's dropped word, taken for "start a
+  server bound to the address `stun`": it tried, failed to bind, and exited 0. The requirements
+  drop the old names "with no aliases"; nothing said what a dropped word should do, and the fork
+  refused it. Now it is refused and the new word named. And the usage text, under `gosh --help`,
+  printed Perl (`my $copy_usage = qq{`), as design v2 had found and not yet mended.
+- **And:** `stock-session.py` failed once in the check (gosh's client, stock server, "no terminal
+  session") and passed six times alone and in the next whole check. Its failure said nothing of
+  what the client drew, so whether the session never came up or the typed line was lost cannot be
+  told. Not reproduced.
+- **Kind:** K2, for the dropped word; an unexplained red, for the session.
+- **Findable by:** running the fork's tests against gosh as well as against pf.7 wherever only a
+  name stood in the way.
+- **Changed:** the refusal; `wrapper.test` in the check against gosh's command; the stock-session
+  test now says what was drawn and whether it typed, so the next failure can be read. If it fails
+  again, it is quarantined and queued (SE1/T4), not rerun until green.
+
 ## 2026-11-16 — CI red for a day unseen; the relay ran a stock server; ~/.local/bin is not where ssh looks
 
 - **What happened (1):** CI failed on every commit from `53075c3` (2026-11-14 23:20) to `9048b1a`:

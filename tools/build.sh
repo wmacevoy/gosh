@@ -33,7 +33,7 @@ echo "build: $applied of the seam's patches applied"
 # build (told by the seam's build patch) and its include paths find them.
 for part in "$GOSH"/src/*/; do
     [ -d "$part" ] || continue
-    cp -r "$part" "$BUILD/core/src/"
+    cp -R "${part%/}" "$BUILD/core/src/" # (no trailing slash: BSD cp would copy only what is inside)
 done
 ./autogen.sh >../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED at autogen (log: $BUILD/build.log)"; exit 1; }
 eval ./configure $CONFIGURE_DEPS ${GOSH_CONFIGURE:-} >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED at configure (log: $BUILD/build.log)"; exit 1; }
