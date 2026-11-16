@@ -48,6 +48,15 @@ int main()
   check( "the part file: \".NAME.mocp-part\" beside it (REQ1/CP-3)",
          part_name( "/d/sub/b.bin" ) == "/d/sub/.b.bin.mocp-part" && part_name( "b.bin" ) == ".b.bin.mocp-part" );
 
+  check( "a child of \"/\" is the same text target_of gives (REQ1/CP-5, --delete)",
+         child_of( "/", "sub" ) == "/sub" && child_of( "/", "sub" ) == target_of( "/", true, "sub" )
+           && child_of( "/d", "x" ) == "/d/x" && child_of( "/d", "x" ) == target_of( "/d", true, "x" ) );
+  check( "a part file's name is known for one (REQ1/CP-3)",
+         is_part_name( ".x.mocp-part" ) && is_part_name( "d/.x.mocp-part" ) && is_part_name( part_name( "/d/b.bin" ) ) );
+  check( "and nothing else is",
+         !is_part_name( "x.mocp-part" ) && !is_part_name( "..mocp-part" ) && !is_part_name( ".mocp-part" )
+           && !is_part_name( ".x.mocp-part/y" ) && !is_part_name( "x" ) && !is_part_name( ".x.mocp-partial" ) );
+
   check( "a source goes by its last name",
          top_name( "/x/y/file" ) == "file" && top_name( "dir/" ) == "dir" && top_name( "file" ) == "file" );
   check( "\".\", \"..\" and \"/\": what is in them, not them",
