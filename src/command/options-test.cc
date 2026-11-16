@@ -145,6 +145,10 @@ int main()
          m.meetup_login == "me@2001:db8::1" && m.relays_read[0].second == "[2001:db8::1]:3478" );
   parse_options( { "--meetup=[2001:db8::1]:3478" }, false, s = Settings() );
   check( "and with no user", choose( s, "gosh", NULL ).meetup_login == "2001:db8::1" );
+  parse_options( { "--meetup=me@meet.example:3478", "--stun=none" }, false, s = Settings() );
+  m = choose( s, "gosh", NULL );
+  check( "--stun=none keeps the session off the meetup: no ticket's login, no meetup for the relays (REQ15/PATH-4)",
+         m.meetup_login.empty() && m.relays_read.size() == 1 && m.relays_read[0].first == "GOSH_STUN" );
   check( "a meetup with no port is refused", refused( { "--meetup=meet.example", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
   check( "nor with nothing before its port", refused( { "--meetup=:3478", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
   /* (REQ16/PATH-8; found by review, 2026-11-16: these were taken, and made an ssh login of "[2001:db8:") */

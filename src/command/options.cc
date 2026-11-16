@@ -228,7 +228,8 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
     c.relays_read.push_back( std::make_pair( "GOSH_STUN", s.value( "stun" ) ) );
   }
   /* (gosh) The meetup's address for UDP is its host and port; its ssh login, all before the port. */
-  if ( s.has( "meetup" ) ) {
+  /* (REQ15/PATH-4, REQ1/PATH-7) --stun=none keeps the session off the meetup: no ticket is fetched */
+  if ( s.has( "meetup" ) && s.value( "stun" ) != "none" ) {
     const std::string meetup = s.value( "meetup" );
     const size_t colon = meetup.rfind( ':' );
     /* (REQ16/PATH-8) HOST is a name, an IPv4 address, or an IPv6 one in brackets; PORT is 1 to 65535 */

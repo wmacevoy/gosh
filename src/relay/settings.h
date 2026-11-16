@@ -89,10 +89,16 @@ inline RelaySettings relay_settings( bool stream_only,
   RelaySettings settings;
   settings.stream_idle = ( idle && atol( idle ) >= 1000 ) ? atol( idle ) : RelayRules::STREAM_IDLE_MS;
   settings.path_finding = !stream_only && !( punch && strcmp( punch, "never" ) == 0 );
-  settings.ask = comma_list( meetup ? meetup : "" );
+  /* "none" asks nobody on the Internet anything, a meetup included (REQ1/PATH-7, REQ15/PATH-4) */
+  if ( stun && strcmp( stun, "none" ) == 0 ) {
+    return settings;
+  }
+  const std::vector<std::string> meetups = comma_list( meetup ? meetup : "" );
+  settings.ask = meetups;
   const std::vector<std::string> plain = comma_list( stun ? stun : "" ); /* (no third party unless named) */
   settings.ask.insert( settings.ask.end(), plain.begin(), plain.end() );
-  settings.meetup = settings.ask.empty() ? std::string() : settings.ask[0];
+  /* (a plain STUN server is asked where we appear to be, and is never a meetup) */
+  settings.meetup = meetups.empty() ? std::string() : meetups[0];
   if ( !settings.meetup.empty() && ticket && *ticket ) {
     settings.ticket_command = unit_separated( ticket );
   }
