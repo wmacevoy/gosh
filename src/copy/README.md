@@ -60,3 +60,8 @@ renames through whatever is already at the destination, a symbolic link included
 that cannot be opened is tested by a directory closed to writing, not by running out of
 descriptors. The review's lesser points are left: a sender may list without limit (memory), and a
 stall of a whole interval at one point of the `--auto` wait could make it wait for ever.
+
+**Fuzzed** (queue item 21): `filecopy-fuzzer.cc`, the fork's fuzzer of the receiving end, with its
+corpus (`filecopy-fuzzer-corpus/`): whatever the sending end says, a file beside the destination is
+untouched. `make check` replays the corpus and 200 seeded changes of each input; CI runs it under
+libFuzzer (`tools/fuzz.sh`). Seen red: with `..` allowed in a name (`names.h`), it aborts.

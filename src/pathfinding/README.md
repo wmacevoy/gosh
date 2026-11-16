@@ -53,3 +53,16 @@ broken on purpose and seen red. `punch-test.cc` does the same with sockets;
 **Not tested:** two machines behind real NATs or firewalls (the NAT lab against gosh, by either
 family, and two machines in one room). The NAT lab (`tests/nat-lab.py`, the fork's) builds IPv4
 networks only, and needs root to make them.
+
+**Fuzzed** (queue item 21); `make check` replays each corpus and 200 seeded changes of each input,
+and CI runs them under libFuzzer (`tools/fuzz.sh`):
+
+- `stun-fuzzer.cc`, the fork's: STUN answers from anyone, and addresses as text, written back the
+  same. Seen red under AddressSanitizer with an answer longer than it says allowed (`stun.h`);
+  breaking the check of each attribute's length alone shows nothing (the whole answer's length is
+  checked first).
+- `finding-fuzzer.cc`, new: path-finding's logic given datagrams from anyone (the other end, the
+  meetup, strangers, by IPv4 and IPv6) and real probes from a second end, as sent, changed or from
+  elsewhere; it takes the session's datagrams only from where its way is. Seen red with a probe
+  opened at any length: the corpus's `long-probe` reaches the cipher's assert, the fifth fault
+  (FINDINGS, 2026-11-15).

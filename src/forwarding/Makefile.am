@@ -18,7 +18,8 @@ libgoshforwarding_a_SOURCES = forwarding.h forward.cc forward.h frame.cc frame.h
 # A unit test is named for the file it tests, with -test. Those of tcpforward, tcpinudp and
 # udpforward are the fork's, which drive the classes on real sockets; the others are logic
 # alone, with no socket and no clock.
-check_PROGRAMS = tcp/bytes-test tcp/options-test tcp/held-test tcp/early-test tcp/timer-test tcp/connection-test tcp/tcpforward-test tcp/tcpinudp-test udp/sending-test udp/receiving-test udp/conversations-test udp/udpforward-test stream/stream-test
+check_PROGRAMS = tcp/bytes-test tcp/options-test tcp/held-test tcp/early-test tcp/timer-test tcp/connection-test tcp/tcpforward-test tcp/tcpinudp-test udp/sending-test udp/receiving-test udp/conversations-test udp/udpforward-test stream/stream-test \
+  frame-fuzzer tcp/tcpinudp-fuzzer tcp/tcpadapter-fuzzer udp/udpforward-fuzzer
 TESTS = $(check_PROGRAMS)
 LDADD = libgoshforwarding.a ../copy/libgoshcopy.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 tcp_bytes_test_SOURCES = tcp/bytes-test.cc
@@ -34,3 +35,11 @@ udp_receiving_test_SOURCES = udp/receiving-test.cc
 udp_conversations_test_SOURCES = udp/conversations-test.cc
 udp_udpforward_test_SOURCES = udp/udpforward-test.cc
 stream_stream_test_SOURCES = stream/stream-test.cc
+
+# Fuzzers (queue item 21): each is built twice. Here, with the ordinary compiler, it replays its
+# corpus (the directory beside it named for it, with -corpus after), so an input that once broke
+# the part breaks the check. In CI, with clang and -DGOSH_LIBFUZZER, libFuzzer runs it.
+frame_fuzzer_SOURCES = frame-fuzzer.cc
+tcp_tcpinudp_fuzzer_SOURCES = tcp/tcpinudp-fuzzer.cc
+tcp_tcpadapter_fuzzer_SOURCES = tcp/tcpadapter-fuzzer.cc
+udp_udpforward_fuzzer_SOURCES = udp/udpforward-fuzzer.cc

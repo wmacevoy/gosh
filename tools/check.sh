@@ -42,7 +42,9 @@ echo "core: upstream at $pin, untouched (REQ6/UP-2)"
 
 tools/build.sh || fail "tools/build.sh"
 
-# The unit tests of gosh's parts, built and run inside the build's copy.
+# The unit tests of gosh's parts, built and run inside the build's copy; and each part's fuzzers,
+# which replay their corpora and a seeded search around them (queue item 21; tools/fuzz.sh runs
+# them under libFuzzer where there is clang).
 . tools/env.sh
 for part in copy forwarding meetup pathfinding relay seam command; do
     if make -C ".build/core/src/$part" check >.build/unit-$part.log 2>&1; then
