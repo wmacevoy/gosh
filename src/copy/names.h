@@ -63,6 +63,24 @@ inline std::string target_of( const std::string& dest, bool into, const std::str
   return slash == std::string::npos ? dest : dest + path.substr( slash );
 }
 
+/* A name in a directory: no doubled slash when the directory is "/", so that it is the same text
+   target_of gives the same thing (found 2026-11-16: --delete into "/" removed what it was given). */
+inline std::string child_of( const std::string& dir, const std::string& name )
+{
+  return dir == "/" ? "/" + name : dir + "/" + name;
+}
+
+/* Whether a path's last name is one a part file has (".NAME.mocp-part"): such a file from the other
+   end would be taken for NAME's part (found 2026-11-16), so the receiver refuses it (REQ1/CP-3). */
+inline bool is_part_name( const std::string& path )
+{
+  const size_t slash = path.rfind( '/' );
+  const std::string last = slash == std::string::npos ? path : path.substr( slash + 1 );
+  static const std::string tail = ".mocp-part";
+  return last.size() > tail.size() + 1 && last[0] == '.'
+         && last.compare( last.size() - tail.size(), tail.size(), tail ) == 0;
+}
+
 /* Where a file arrives before it is whole: ".NAME.mocp-part" beside it. */
 inline std::string part_name( const std::string& target )
 {

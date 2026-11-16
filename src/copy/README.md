@@ -32,7 +32,31 @@ absolute one are also made by its refusal of an empty part, so breaking either a
 nothing. Two, a WANT or a FILE_BEGIN for an index past the list, read past the end of a vector when
 broken; their tests notice that only under AddressSanitizer.
 
+**Mended after the review of copy** (2026-11-16), the fork's faults each, each with a test seen
+red first:
+
+- `--delete` into `/` removed what it had just been told to keep: a name was joined as `//sub`
+  and never matched `/sub`. `names.h`'s `child_of`, tested in `names-test.cc`; the edge's joins use
+  it. The edge's use is read, not driven: a test would need `/` as its destination.
+- A file at the source named as another's part file (`.x.mocp-part` beside `x`) was taken for
+  that file's part, and lost, with both ends saying it was copied. Now the receiver refuses such a
+  name, that file alone (`is_part_name`), and the other is copied whole.
+- A file the sender could not open for one run had it start from 0, so the receiver threw away
+  the start it held. Now it starts where it was asked, and the start survives.
+- The receiver keeps whether a file is arriving apart from whether its part could be opened, so
+  a part that cannot be opened fails that file alone (no more `/dev/null` in its place); a LIST or
+  LIST_END once the round's plan is made is not the protocol.
+- `filecopy-test.cc` plays a lying other end over a socket pair, and the real end hangs up at once
+  with status 1, for: DATA or FILE_END with no file begun; ROUND_END with one still arriving; a
+  second LIST_END, or a LIST after it; a RESULT for something never listed; the same file wanted
+  twice. Each check was broken on purpose and its case went red.
+- The part is synced to disk before it takes its name, for the envelope's "Interruption": read,
+  not tested (it needs a power cut).
+
 **Not tested, or not changed:** the receiving end checks the names it is given but opens and
 renames through whatever is already at the destination, a symbolic link included
 (`docs/FINDINGS.md`, 2026-11-13; bears on `REQ1/CP-6`). The edge's own lines (progress, the
-`--auto` wait, `umask`) are tested only through `filecopy-test.cc` and the outside tests.
+`--auto` wait, `umask`) are tested only through `filecopy-test.cc` and the outside tests. A part
+that cannot be opened is tested by a directory closed to writing, not by running out of
+descriptors. The review's lesser points are left: a sender may list without limit (memory), and a
+stall of a whole interval at one point of the `--auto` wait could make it wait for ever.

@@ -243,7 +243,7 @@ void remove_tree( const std::string& path )
       closedir( dir );
     }
     for ( size_t i = 0; i < names.size(); i++ ) {
-      remove_tree( path + "/" + names[i] );
+      remove_tree( child_of( path, names[i] ) );
     }
     rmdir( path.c_str() );
   } else {
@@ -453,7 +453,7 @@ private:
       }
       closedir( dir );
       for ( size_t i = 0; i < names.size(); i++ ) {
-        const std::string child = source + "/" + names[i];
+        const std::string child = child_of( source, names[i] );
         struct stat link;
         if ( lstat( child.c_str(), &link ) == 0 && S_ISLNK( link.st_mode ) && stat( child.c_str(), &st ) == 0
              && S_ISDIR( st.st_mode ) ) {
@@ -571,7 +571,8 @@ private:
       say( true, e.source + ": " + strerror( errno ) );
       errors--; /* (it will be counted when the other end says it did not get it) */
       ok = false;
-      offset = 0;
+      /* (gosh) offset stays where they asked: from 0 they would throw away the start they hold, which
+         this file's being unreadable for a while says nothing against (REQ1/CP-2; found 2026-11-16) */
     }
 
     /* If they hold the start of it already, is it the start of this? */
@@ -723,7 +724,12 @@ private:
   std::vector<Plan> plans;
   size_t copied;
 
-  /* the file arriving now */
+  /* whether the plan for this round is made: a LIST or LIST_END after it is not the protocol */
+  bool planned;
+
+  /* the file arriving now; arriving is what the other end's messages are checked against, and fd may
+     be -1 while it is (its part could not be opened: it fails alone, as one that cannot be written) */
+  bool arriving;
   int fd;
   uint32_t index;
   bool ok;
@@ -765,6 +771,11 @@ private:
       return;
     }
 
+    /* (gosh) One with the name a part file has would be taken for another file's part (REQ1/CP-3) */
+    if ( is_part_name( p.target ) ) {
+      result( which, false, "its name is the one gocp gives a part file" );
+      return;
+    }
     const size_t slash = p.target.rfind( '/' );
     if ( slash != std::string::npos && slash > 0 && !make_directories( p.target.substr( 0, slash ) ) ) {
       result( which, false, strerror( errno ) );
@@ -832,7 +843,7 @@ private:
         closedir( dir );
       }
       for ( size_t j = 0; j < names.size(); j++ ) {
-        const std::string path = plans[i].target + "/" + names[j];
+        const std::string path = child_of( plans[i].target, names[j] );
         if ( listed.find( path ) == listed.end() ) {
           remove_tree( path );
           report( "removed ", plans[i].entry.path + "/" + names[j], 0 );
@@ -869,7 +880,7 @@ private:
   {
     uint64_t offset;
     read_begin( payload, index, offset );
-    if ( !begin_acceptable( fd >= 0, index, offset, plans ) ) {
+    if ( !begin_acceptable( arriving, index, offset, plans ) ) {
       throw Malformed();
     }
     const Plan& p = plans[index];
@@ -882,14 +893,12 @@ private:
       ok = false;
       trouble = strerror( errno );
     }
-    if ( fd < 0 ) {
-      fd = open( "/dev/null", O_WRONLY ); /* (somewhere for it to go, all the same) */
-    }
+    arriving = true;
   }
 
   void data( const std::string& payload )
   {
-    if ( fd < 0 ) {
+    if ( !arriving ) {
       throw Malformed();
     }
     hash.add( payload.data(), payload.size() );
@@ -915,11 +924,18 @@ private:
     bool sender_ok;
     Hash theirs;
     read_end( payload, sender_ok, theirs );
-    if ( fd < 0 ) {
+    if ( !arriving ) {
       throw Malformed();
     }
+    arriving = false;
     const Plan& p = plans[index];
-    if ( close( fd ) < 0 && ok ) {
+    /* (gosh) On the disk before it can take its name, so that a power cut leaves no file under its
+       real name unless it is whole (requirements, Operating envelope, "Interruption"; REQ1/CP-3) */
+    if ( fd >= 0 && ok && sender_ok && fsync( fd ) < 0 ) {
+      ok = false;
+      trouble = strerror( errno );
+    }
+    if ( fd >= 0 && close( fd ) < 0 && ok ) {
       ok = false;
       trouble = strerror( errno );
     }
@@ -960,7 +976,7 @@ public:
   Receiver( const Options& s_options, const char* s_home, Clock s_now, int in, int out )
     : End( s_options, s_home, s_now, in, out ),
       dest( without_trailing_slashes( expand_home( s_options.paths[0], s_home ) ) ), many( false ), into( false ),
-      into_known( false ), plans(), copied( 0 ), fd( -1 ), index( 0 ), ok( false ), trouble(), hash(), at( 0 )
+      into_known( false ), plans(), copied( 0 ), planned( false ), arriving( false ), fd( -1 ), index( 0 ), ok( false ), trouble(), hash(), at( 0 )
   {}
 
   ~Receiver()
@@ -985,6 +1001,9 @@ public:
       channel.recv( type, payload, -1 );
       switch ( type ) {
         case LIST: {
+          if ( planned ) {
+            throw Malformed();
+          }
           const std::vector<Entry> listed = read_list( payload );
           for ( size_t i = 0; i < listed.size(); i++ ) {
             Plan p;
@@ -994,6 +1013,10 @@ public:
           break;
         }
         case LIST_END:
+          if ( planned ) {
+            throw Malformed();
+          }
+          planned = true;
           copied = 0;
           plan( read_flag( payload ) );
           break;
@@ -1007,9 +1030,10 @@ public:
           end( payload );
           break;
         case ROUND_END:
-          if ( fd >= 0 ) {
+          if ( arriving ) {
             throw Malformed();
           }
+          planned = false;
           clear_progress();
           if ( round == 0 && options.local && !options.quiet ) {
             if ( copied == 0 && errors == 0 ) {
