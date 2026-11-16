@@ -66,13 +66,28 @@ inline bool stun_parse( const char* data, size_t len, Addr& mapped )
     const unsigned char* v = p + at + 4;
     /* (gosh, REQ16/PATH-8) XOR-MAPPED-ADDRESS for IPv6: disguised with the cookie and the id, bytes 4 to 19 */
     if ( type == 0x0020 && size >= 20 && v[1] == 0x02 ) {
-      memset( &mapped, 0, sizeof( mapped ) );
-      mapped.sin6.sin6_family = AF_INET6;
-      mapped.sin6.sin6_port = htons( ( ( v[2] << 8 ) | v[3] ) ^ ( STUN_COOKIE >> 16 ) );
+      Addr seen;
+      memset( &seen, 0, sizeof( seen ) );
+      seen.sin6.sin6_family = AF_INET6;
+      seen.sin6.sin6_port = htons( ( ( v[2] << 8 ) | v[3] ) ^ ( STUN_COOKIE >> 16 ) );
       for ( int i = 0; i < 16; i++ ) {
-        mapped.sin6.sin6_addr.s6_addr[i] = v[4 + i] ^ p[4 + i];
+        seen.sin6.sin6_addr.s6_addr[i] = v[4 + i] ^ p[4 + i];
       }
-      found = true;
+      /* (gosh) believed only as far as parse_ip_port would take it as text: of one link alone, not at
+         all; IPv4 in IPv6's form, as the IPv4 address it is (found by the fuzzer, 2026-11-16) */
+      if ( IN6_IS_ADDR_V4MAPPED( &seen.sin6.sin6_addr ) ) {
+        const uint16_t port = seen.sin6.sin6_port;
+        uint32_t v4;
+        memcpy( &v4, seen.sin6.sin6_addr.s6_addr + 12, 4 );
+        memset( &seen, 0, sizeof( seen ) );
+        seen.sin.sin_family = AF_INET;
+        seen.sin.sin_addr.s_addr = v4;
+        seen.sin.sin_port = port;
+      }
+      if ( !( seen.sa.sa_family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL( &seen.sin6.sin6_addr ) ) ) {
+        mapped = seen;
+        found = true;
+      }
     }
     /* XOR-MAPPED-ADDRESS, or (from servers of an older kind) MAPPED-ADDRESS; for IPv4 */
     if ( ( type == 0x0020 || type == 0x0001 ) && size >= 8 && v[1] == 0x01 && !( found && type == 0x0001 ) ) {

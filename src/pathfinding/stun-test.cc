@@ -70,6 +70,16 @@ int main()
          answer6.size() == 44 && answer6.find( std::string( reinterpret_cast<char*>( v6 ), 16 ) ) == std::string::npos );
   check( "and is read: where the asker was seen, by IPv6",
          stun_parse( answer6.data(), answer6.size(), mapped ) && format_ip_port( mapped ) == "[2001:db8::1234]:7777" );
+  /* What a STUN server says is believed only as far as it can be written down and read back (found by
+     the fuzzer under libFuzzer, 2026-11-16: an answer by IPv6 of one link, or of IPv4 in IPv6's form). */
+  unsigned char mapped4[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 1, 2, 3, 4 };
+  const std::string answer_m = Gosh::stun_answer_to( request.data(), Gosh::meetup_where_v6( mapped4, 7777 ) );
+  check( "an answer of IPv4 in IPv6's form is read as the IPv4 address it is",
+         stun_parse( answer_m.data(), answer_m.size(), mapped ) && mapped.sa.sa_family == AF_INET
+           && format_ip_port( mapped ) == "1.2.3.4:7777" );
+  unsigned char link[16] = { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+  const std::string answer_l = Gosh::stun_answer_to( request.data(), Gosh::meetup_where_v6( link, 7777 ) );
+  check( "an answer of an IPv6 address of one link alone is not taken", !stun_parse( answer_l.data(), answer_l.size(), mapped ) );
   check( "\"[2001:db8::1]:567\" is an address, and goes back to the same text",
          parse_ip_port( "[2001:db8::1]:567", a ) && a.sa.sa_family == AF_INET6 && format_ip_port( a ) == "[2001:db8::1]:567" );
   check( "an IPv6 address without its brackets, or with one, is refused",

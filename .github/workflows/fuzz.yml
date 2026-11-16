@@ -32,3 +32,4 @@ jobs:
             .build/fuzz-build.log
             .build/build.log
           if-no-files-found: ignore
+          include-hidden-files: true # (.build is hidden, and upload-artifact leaves hidden files out by default)
