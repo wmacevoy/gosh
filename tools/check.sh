@@ -153,6 +153,9 @@ pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" fo
 # (with no relay mode this test ends with a file copied each way over a stream)
 pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" headless-smoke.py
 pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" headless-smoke.py
+# (a copy cut off and carried on from its part, the two ends' copy code from each: REQ1/CP-2 across them)
+pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" copy-cut.py gocp
+pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" copy-cut.py mocp
 # (the remote relay is the server's program: each of these has one end's relay from each)
 pair "a gosh server and a pf.7 client" "$gosh/gosh-server" "$pf7/mosh-client" headless-smoke.py 127.0.0.1 always
 pair "a pf.7 server and a gosh client" "$pf7/mosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 always
