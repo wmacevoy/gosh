@@ -69,9 +69,24 @@ nothing), with `registrations-fuzzer-corpus/`. Anything from anyone, messages se
 tickets by either end from anywhere with any counter, messages sent again, STUN requests; held to
 `REQ15/PATH-5` by a model of what the meetup's own answers have shown: answered only where a
 REGISTER was sealed and came from; passed only from where an end registered, only to the other end
-of its ticket where that registered. `make check` replays the corpus and 200 seeded changes of each
-input; CI runs it under libFuzzer (`tools/fuzz.sh`). Seen red with a PASS taken from anywhere
-(`registrations.h`).
+of its ticket where that registered; a sealed message acted on once at most, and an end's counter
+taken once at most, while the meetup holds the ticket ("passed on no second time"); nothing for a
+ticket that has run out (ticket 1 runs out within reach); never more than `MAX_TICKETS` held (kind 4
+registers 256 more). `make check` replays the corpus and 200 seeded changes of each input,
+`tools/asan-replay.sh` under AddressSanitizer, and CI runs it under libFuzzer (`tools/fuzz.sh`).
+Seen red with a PASS taken from anywhere (`registrations.h`); and, since the review of item 21
+(2026-11-16), with each of four guards broken, every one of which the fuzzer passed before: the
+PASS counter, the REGISTER counter (the reviewer's `register-replay`), the expiry check (`expired`),
+and `make_room` (`full-table`).
+
+**Not closed, found by that fuzzer** (the owner's to decide): a ticket the meetup has let go, after
+two minutes with neither end registering, or put out to make room, takes its counters with it. A
+REGISTER recorded earlier and sent again from the address sealed in it is then taken again, and
+after it a recorded PASS. Shown: the fuzzer's record of "once", kept across the meetup letting the
+ticket go, aborts on a REGISTER, two minutes and a quarter of quiet, and the same REGISTER again.
+It needs someone who saw the end's datagrams and can send from its address; what they gain is a
+replayed sealed datagram, which the session refuses as one it has had. `REQ15/PATH-5` says "passed
+on no second time" without that limit.
 
 It does not check "never with more bytes than it was sent" (requirements, threat model): a STUN
 request of 20 bytes gets an answer of 32 (IPv4) or 44 (IPv6), so that sentence is untrue today.

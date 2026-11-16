@@ -547,6 +547,12 @@ fork's `file-copy` is `filecopy-test.cc`, now the edge's test. The fork's `file_
 not carried into gosh. `src/copy/README.md`.* *(2026-11-16, queue item 21: it is now, as
 `filecopy-fuzzer.cc`, with the fork's other fuzzers and two new ones, path-finding's logic and the
 meetup's; `make check` replays each corpus, and CI runs each under libFuzzer, `tools/fuzz.sh`.)*
+*(2026-11-16, after item 21's review: the fuzzers hold the parts to what they promise, not only to
+not crashing: copy's receiver over a whole tree around its destination, the meetup's "once",
+expiry and table, path-finding's way through the meetup, what reaches a UDP forward's target; the
+TCP adapter's sequence numbers are counted for it (`count_sequences_from`); two new, copy's
+sending end and the relays' stream and words; and the check replays all of them under
+AddressSanitizer as well, `tools/asan-replay.sh`, in a build of its own.)*
 
 #### the command
 
