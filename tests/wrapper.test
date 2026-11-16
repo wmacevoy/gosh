@@ -107,4 +107,15 @@ said=$("$work/$command" --ssh="$ssh" --server=/nonexistent/mosh-server localhost
 check "no server at the other end is an error, not a hang, and says so" \
     "$([ $? -eq 1 ] && printf '%s\n' "$said" | grep -q 'startup message' && echo ok)"
 
+if [ "$command" = gosh ]; then # (pf.7 hands such a word to ssh: the review of item 10, 2026-11-16)
+    : > "$FAKE_SSH_LOG"
+    said=$("$work/$command" --ssh="$ssh" -- -oProxyCommand=false 2>&1)
+    check "a host that begins with - is refused, and ssh is never run with it" \
+        "$([ $? -eq 1 ] && [ ! -s "$FAKE_SSH_LOG" ] && printf '%s\n' "$said" | grep -q 'cannot begin with' && echo ok)"
+    : > "$FAKE_SSH_LOG"
+    said=$("$work/$copy" --ssh="$ssh" -- "$work/file" '-oProxyCommand=false:x' 2>&1)
+    check "and a copy's remote end likewise" \
+        "$([ $? -eq 1 ] && [ ! -s "$FAKE_SSH_LOG" ] && echo ok)"
+fi
+
 exit $status

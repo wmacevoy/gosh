@@ -141,9 +141,14 @@ bool Gosh::Command::one_of( const std::string& word, const char* choices )
 
 bool Gosh::Command::wants_stdio( const std::vector<std::string>& args )
 {
+  /* (any word the option table reads as --stdio: a shortening such as --std too) */
   bool stdio = false;
   for ( size_t i = 0; i < args.size() && args[i] != "--"; i++ ) {
-    stdio = stdio || args[i] == "--stdio";
+    if ( args[i].size() > 2 && args[i].compare( 0, 2, "--" ) == 0 && args[i].find( '=' ) == std::string::npos ) {
+      bool negated;
+      const Option* option = find_option( args[i].substr( 2 ), true, negated );
+      stdio = stdio || ( option && std::string( option->names ) == "stdio" );
+    }
   }
   return stdio;
 }
@@ -241,7 +246,9 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
     const bool bracketed = host.size() > 2 && host[0] == '[' && host[host.size() - 1] == ']'
                            && host.find_first_of( "[]", 1 ) == host.size() - 1;
     const bool plain = !host.empty() && host.find_first_of( ":[]" ) == std::string::npos;
-    if ( !( bracketed || plain ) || port.size() > 5 || port.find_first_not_of( "0123456789" ) != std::string::npos
+    /* (and nothing ssh would take for an option: its login may not begin with "-") */
+    if ( !( bracketed || plain ) || meetup.empty() || meetup[0] == '-' || port.size() > 5
+         || port.find_first_not_of( "0123456789" ) != std::string::npos
          || atol( port.c_str() ) < 1 || atol( port.c_str() ) > 65535 ) {
       throw Failure( name + ": --meetup needs HOST:PORT.", true );
     }

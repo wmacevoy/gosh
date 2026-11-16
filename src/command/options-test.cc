@@ -149,6 +149,9 @@ int main()
   m = choose( s, "gosh", NULL );
   check( "--stun=none keeps the session off the meetup: no ticket's login, no meetup for the relays (REQ15/PATH-4)",
          m.meetup_login.empty() && m.relays_read.size() == 1 && m.relays_read[0].first == "GOSH_STUN" );
+  check( "a meetup whose login begins with - is refused: ssh would take it for an option (the review of item 10)",
+         refused( { "--meetup=-oProxyCommand=touch x@h:22", "h" } ) == "!+gosh: --meetup needs HOST:PORT."
+           && refused( { "--meetup=-h:22", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
   check( "a meetup with no port is refused", refused( { "--meetup=meet.example", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
   check( "nor with nothing before its port", refused( { "--meetup=:3478", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
   /* (REQ16/PATH-8; found by review, 2026-11-16: these were taken, and made an ssh login of "[2001:db8:") */
