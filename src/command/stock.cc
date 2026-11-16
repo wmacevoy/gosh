@@ -35,7 +35,7 @@ std::string helper_command( const std::string& words )
 }
 
 std::string stock_notice( const std::string& name, const std::string& host, const std::vector<std::string>& forwards,
-                          bool relay )
+                          bool relay, const std::vector<std::string>& paths )
 {
   std::string refused;
   for ( size_t i = 0; i + 1 < forwards.size(); i += 2 ) {
@@ -46,6 +46,9 @@ std::string stock_notice( const std::string& name, const std::string& host, cons
   }
   if ( relay ) {
     refused += std::string( refused.empty() ? "" : "; " ) + "the ssh fallback (--relay)";
+  }
+  for ( size_t i = 0; i < paths.size(); i++ ) {
+    refused += ( refused.empty() ? "" : "; " ) + paths[i];
   }
 
   std::string notice = name + ": " + host + " has no gosh-server, so its mosh-server is used.";

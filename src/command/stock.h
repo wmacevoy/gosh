@@ -50,11 +50,13 @@ std::string helper_command( const std::string& words );
  *   forwards  the forwarding words as they would have been passed: an option (-L, -R, -LU, -RU,
  *             or -F, which is passed over) and then its value, in pairs
  *   relay     whether the user asked for the ssh fallback
+ *   paths     other things asked for that only gosh's relay does, as the user wrote them
+ *             (--meetup=..., --stun=..., --punch=auto): a stock server's session never uses them
  *
  * One line, with no newline at its end.
  */
 std::string stock_notice( const std::string& name, const std::string& host, const std::vector<std::string>& forwards,
-                          bool relay );
+                          bool relay, const std::vector<std::string>& paths = std::vector<std::string>() );
 
 }
 

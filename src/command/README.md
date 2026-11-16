@@ -25,9 +25,16 @@ set as variables, not handed over as a value, because the client and its relay a
 the extension, starts `gosh-client` the same way.
 
 Tested from outside, in `tools/check.sh`: `tests/gosh-command.py`, `tests/gosh-stock.py`,
-`tests/mocp.test`, and `copy-cut.py` with `gocp`. `tests/wrapper.test` is run against pf.7's
-command only, since it calls the command `mosh` and `mocp`; it is to run against gosh's once the
-names change.
+`tests/mocp.test`, `copy-cut.py` with `gocp`, and `tests/wrapper.test`, run against pf.7's command
+(as `mosh` and `mocp`) and against gosh's (as `gosh` and `gocp`), with checks of gosh's alone:
+a host or a copy's remote end beginning with `-` is refused and ssh never run with it, and the
+old words `stun` and `stun-key` refused and their new ones named.
+
+What it refuses to give ssh (the review of item 10, 2026-11-16): a host, a `-l` user, a copy's
+remote end or the meetup's login that begins with `-`, which ssh would take for an option (as
+OpenSSH 9.6 and later refuse too); a `%` in this program's own path is written `%%` in the
+ProxyCommand. `--stun=none` keeps the session off the meetup. A one-letter host is a host
+(`x:path`), as scp has it; `user@[2001:db8::1]:path` names an IPv6 one.
 
 The remote relay and the meetup's ticket are `gosh-server`'s, from `~/.local/bin` first
 (`stock.h`'s `helper_command`), unless the user names the server. Until 2026-11-16 they ran

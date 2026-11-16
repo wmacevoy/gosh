@@ -48,9 +48,14 @@ int main( int argc, char* argv[] )
 
   /* The fork's name for a meetup, dropped with no alias (requirements v16, Scope decisions): refused
      and named, not taken for the address of a server to start. */
-  if ( !args.empty() && ( args[0] == "stun" || args[0] == "stun-key" ) ) {
-    fprintf( stderr, "%s: \"%s\" is no longer a word of gosh's: a meetup is \"%s meetup PORT\".\n", name.c_str(),
-             args[0].c_str(), name.c_str() );
+  if ( !args.empty() && args[0] == "stun" ) {
+    fprintf( stderr, "%s: \"stun\" is no longer a word of gosh's: a meetup is \"%s meetup PORT\".\n", name.c_str(),
+             name.c_str() );
+    return 1;
+  }
+  if ( !args.empty() && args[0] == "stun-key" ) {
+    fprintf( stderr, "%s: \"stun-key\" is no longer a word of gosh's: a meetup's new key is \"%s meetup-key --new\".\n",
+             name.c_str(), name.c_str() );
     return 1;
   }
 

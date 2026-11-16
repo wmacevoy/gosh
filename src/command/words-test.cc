@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "src/command/options.h"
+#include "src/command/proxy.h"
 #include "src/command/words.h"
 
 using namespace Gosh::Command;
@@ -117,6 +118,11 @@ int main()
          asked( { "--", "f", "-oX=y:path" }, true, s ) == "!gocp: a host cannot begin with \"-\": -oX=y" );
   check( "a user beginning with - (by -l)", asked( { "-l", "-oX=y", "srv" }, false, s ).substr( 0, 1 ) == "!" );
   check( "the message says why", asked( { "--", "-oX" }, false, s ) == "!gocp: a host cannot begin with \"-\": -oX" );
+
+  /* ---- ssh's ProxyCommand: ssh reads %h and %p in it, so a % in this program's own path is doubled */
+  const std::string proxy_line = proxy_command( "/opt/50%off/gosh-client", "inet" );
+  check( "the ProxyCommand: this program's path quoted, its % doubled, then %h %p for ssh (the review of item 10)",
+         proxy_line == "'/opt/50%%off/gosh-client' --mosh-fake-proxy inet %h %p", proxy_line );
 
   /* ---- -l without --stdio (the review of item 10) */
   check( "-l USER without --stdio: the user is the login's", asked( { "-l", "bob", "srv" }, false, s ).empty()
