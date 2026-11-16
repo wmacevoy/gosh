@@ -71,7 +71,7 @@ int main()
   check( "not one: no colon", !remote_place( "file", host, path ) );
   /* (the review of item 10, 2026-11-16) gosh has no Windows drives to mind: a one-letter host is a host */
   check( "a one-letter host is a host", remote_place( "x:a", host, path ) && host == "x" && path == "a" );
-  check( "an IPv6 address in brackets, with a user: ssh gets it without its brackets (REQ16/PATH-8)",
+  check( "an IPv6 address in brackets, with a user: ssh gets it without its brackets (REQ17/PATH-8)",
          remote_place( "me@[2001:db8::1]:docs/a", host, path ) && host == "me@2001:db8::1" && path == "docs/a" );
   check( "and without one", remote_place( "[::1]:/tmp/x", host, path ) && host == "::1" && path == "/tmp/x" );
   check( "not one: brackets with nothing in them, or no colon after them",

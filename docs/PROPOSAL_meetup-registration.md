@@ -141,7 +141,7 @@ over ssh. So the meetup guards against **outsiders**:
 - **The meetup sees** which two addresses talk, and how much. It writes none of that down.
 - **An end's ticket id and counter are in the clear.**
 - **A NAT that changes an end's port** costs up to 3.5 seconds to mend.
-- ~~IPv4 only, as today.~~ Since requirements v16 (REQ16/PATH-8) the meetup listens by IPv4 and
+- ~~IPv4 only, as today.~~ Since requirements v16 (now REQ17/PATH-8) the meetup listens by IPv4 and
   IPv6, and "where" carries either.
 - **Cost:** each passed datagram is sealed once more by the sender and opened once by the meetup.
   This path is the last resort before ssh.

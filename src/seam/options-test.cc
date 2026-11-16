@@ -124,7 +124,7 @@ int main()
            && Gosh::operands( { "-v#", "5", "192.0.2.1", "6" }, "#" ) == Words( { "192.0.2.1", "6" } ) );
   check( "after \"--\" every word is one, and a lone \"-\" is one",
          Gosh::operands( { "-v", "--", "-x", "6" }, "#" ) == Words( { "-x", "6" } ) && Gosh::operands( { "-" }, "#" ) == Words( { "-" } ) );
-  check( "the names it used to have are not the command (no alias but REQ6/CMD-4's)",
+  check( "the names it used to have are not the command (no alias but REQ17/CMD-4's)",
          Gosh::which_role( "mosh", { "host" }, called, skip ) == Gosh::THE_CLIENT
            && Gosh::which_role( "gosh-client", { "mosh", "host" }, called, skip ) == Gosh::THE_CLIENT && skip == 0 );
 

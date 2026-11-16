@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
-"""REQ1/CMD-2, REQ6/CMD-4: the installer, from a release made here, into a home of the test's own.
+"""REQ1/CMD-2, REQ17/CMD-4: the installer, from a release made here, into a home of the test's own.
 
 usage: install.py INSTALL_SH GOSH_CLIENT GOSH_SERVER
 
@@ -132,7 +132,7 @@ try:
           binned(home) == ["gocp", "gosh", "gosh-client", "gosh-server", "mosh-client", "mosh-server"], repr(binned(home)))
     check("no mosh: gosh and gocp are gosh-client by other names",
           link(home, "gosh") == "gosh-client" and link(home, "gocp") == "gosh-client")
-    check("no mosh: mosh-client and mosh-server are links to gosh's (REQ6/CMD-4)",
+    check("no mosh: mosh-client and mosh-server are links to gosh's (REQ17/CMD-4)",
           link(home, "mosh-client") == "gosh-client" and link(home, "mosh-server") == "gosh-server")
     ran = subprocess.run([os.path.join(home, ".local", "bin", "gosh-server"), "--version"], capture_output=True, text=True)
     check("no mosh: the installed server runs", ran.returncode == 0 and "mosh" in ran.stdout, ran.stdout + ran.stderr)
@@ -155,13 +155,13 @@ try:
     # ---- a mosh already on the PATH
     done, home = install(good, a_mosh + ":" + tools)
     check("a mosh on the PATH: it installs, with status 0", done.returncode == 0, done.stdout + done.stderr)
-    check("a mosh on the PATH: no mosh-client or mosh-server of gosh's (REQ6/CMD-4)",
+    check("a mosh on the PATH: no mosh-client or mosh-server of gosh's (REQ17/CMD-4)",
           binned(home) == ["gocp", "gosh", "gosh-client", "gosh-server"], repr(binned(home)))
     check("a mosh on the PATH: it says whose is left",
           ("mosh-server: yours at %s/mosh-server is left as it is" % a_mosh) in done.stdout, done.stdout)
 
     # ---- the user's own programs in ~/.local/bin, which is not on the PATH (the usual case on a host
-    # reached by ssh): never replaced (REQ6/CMD-4; the review of item 10, 2026-11-16)
+    # reached by ssh): never replaced (REQ17/CMD-4; the review of item 10, 2026-11-16)
     home = tempfile.mkdtemp(prefix="home-", dir=work)
     own = os.path.join(home, ".local", "bin")
     os.makedirs(own)
@@ -223,5 +223,5 @@ finally:
     shutil.rmtree(work, ignore_errors=True)
 
 if failures:
-    sys.exit("FAIL REQ1/CMD-2, REQ6/CMD-4: %s" % "; ".join(failures))
-print("PASS REQ1/CMD-2, REQ6/CMD-4: the installer checks what it fetched, and links mosh's names only where none is found")
+    sys.exit("FAIL REQ1/CMD-2, REQ17/CMD-4: %s" % "; ".join(failures))
+print("PASS REQ1/CMD-2, REQ17/CMD-4: the installer checks what it fetched, and links mosh's names only where none is found")

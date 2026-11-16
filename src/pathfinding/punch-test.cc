@@ -202,7 +202,7 @@ int main()
     close( s );
   }
 
-  /* REQ16/PATH-8: by IPv6, over ::1, if this machine has it. */
+  /* REQ17/PATH-8: by IPv6, over ::1, if this machine has it. */
   const int probe6 = socket( AF_INET6, SOCK_DGRAM, 0 );
   Network::Addr loop6;
   memset( &loop6, 0, sizeof( loop6 ) );
@@ -220,7 +220,7 @@ int main()
       a.add_candidate( "[::1]:" + std::to_string( b.local_port() ) );
       b.add_candidate( "[::1]:" + std::to_string( a.local_port() ) );
       const bool open = run( a, b, NULL, 3000, [&]( uint64_t now ) { return a.open( now ) && b.open( now ); } );
-      check( "over ::1, a way straight through by IPv6 (REQ16/PATH-8)", open && a.direct() && a.where().compare( 0, 5, "[::1]" ) == 0 );
+      check( "over ::1, a way straight through by IPv6 (REQ17/PATH-8)", open && a.direct() && a.where().compare( 0, 5, "[::1]" ) == 0 );
       std::string got;
       a.send( "by IPv6" );
       run( a, b, NULL, 1000, [&]( uint64_t ) { return !got.empty(); }, &got );
@@ -243,9 +243,9 @@ int main()
   }
 
   if ( failures ) {
-    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: %d checks of path-finding failed\n", failures );
+    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: %d checks of path-finding failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: path-finding, straight and through a meetup\n" );
+  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: path-finding, straight and through a meetup\n" );
   return 0;
 }

@@ -261,7 +261,7 @@ private:
       }
       struct addrinfo hints, *res = NULL;
       memset( &hints, 0, sizeof( hints ) );
-      hints.ai_family = AF_UNSPEC; /* (REQ16/PATH-8: the system's own order, IPv6 first where it has it) */
+      hints.ai_family = AF_UNSPEC; /* (REQ17/PATH-8: the system's own order, IPv6 first where it has it) */
       hints.ai_socktype = SOCK_DGRAM;
       if ( colon == std::string::npos
            || getaddrinfo( host.c_str(), meetup.substr( colon + 1 ).c_str(), &hints, &res ) != 0 ) {
@@ -384,7 +384,7 @@ private:
       was_open = punch->open( now );
       say( was_open ? "a way through is open, to %s" : "the way through to %s has closed", punch->where().c_str() );
     } else if ( was_open && punch->where() != was_where ) {
-      say( "the way through is now to %s", punch->where().c_str() ); /* (gosh, REQ16/PATH-8: as by IPv6, from IPv4) */
+      say( "the way through is now to %s", punch->where().c_str() ); /* (gosh, REQ17/PATH-8: as by IPv6, from IPv4) */
     }
     was_where = punch->where();
     if ( punch->meetup_registered() != was_registered ) {

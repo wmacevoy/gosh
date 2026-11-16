@@ -26,7 +26,7 @@ more").
 
 The cost of that: **only machines with IPv6 can reach it.** Campus has IPv6. A laptop on a home or
 café network without IPv6 cannot reach the server at all, by gosh or by ssh, and nothing in gosh
-can mend that (`REQ16/PATH-8`). If that matters to you, give the server an IPv4 address as well;
+can mend that (`REQ17/PATH-8`). If that matters to you, give the server an IPv4 address as well;
 gosh then uses whichever works, IPv6 first.
 
 ## 1. The server

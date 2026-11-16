@@ -125,14 +125,14 @@ pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 always
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 punched
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-meetup.py
-# (the meetup named by another of the machine's addresses: it must answer from that one, REQ16/PATH-8)
+# (the meetup named by another of the machine's addresses: it must answer from that one, REQ17/PATH-8)
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-meetup.py 127.0.0.1 127.0.0.2
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 blocked
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 translated
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 returned
 if python3 -c 'import socket; socket.socket(socket.AF_INET6, socket.SOCK_DGRAM).bind(("::1", 0))' 2>/dev/null; then
     pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py ::1 blocked
-    # REQ16/PATH-8: path-finding and the meetup by IPv6
+    # REQ17/PATH-8: path-finding and the meetup by IPv6
     pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py ::1 punched
     pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-meetup.py ::1
 fi
@@ -164,7 +164,7 @@ if tests/wrapper.test "$here/$gosh/gosh-client" "$here/$gosh/gosh-server" "$here
 else
     cat .build/gosh-test.log; stop_ours; fail "gosh with tests/wrapper.test"
 fi
-# The installer (REQ1/CMD-2, REQ6/CMD-4), from a release made of these programs, into the test's own home.
+# The installer (REQ1/CMD-2, REQ17/CMD-4), from a release made of these programs, into the test's own home.
 if python3 tests/install.py tools/install.sh "$gosh/gosh-client" "$gosh/gosh-server" >.build/gosh-test.log 2>&1; then
     echo "tools/install.sh passes install.py"
 else

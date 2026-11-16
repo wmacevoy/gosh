@@ -66,7 +66,7 @@ std::string Gosh::Command::shell_quote( const Words& words )
 
 bool Gosh::Command::remote_place( const std::string& word, std::string& host, std::string& path )
 {
-  /* (REQ16/PATH-8) [user@][ADDRESS]:path, an IPv6 address in brackets: ssh takes it without them */
+  /* (REQ17/PATH-8) [user@][ADDRESS]:path, an IPv6 address in brackets: ssh takes it without them */
   const size_t open = word.find( '[' );
   if ( open != std::string::npos && word.find_first_of( ":/" ) > open && ( open == 0 || word[open - 1] == '@' ) ) {
     const size_t close = word.find( ']', open );

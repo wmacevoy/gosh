@@ -50,10 +50,10 @@ struct Net
   PathFinding& a;
   PathFinding& b;
   Addr a_at, b_at;   /* where each appears to be, from outside */
-  Addr a_at6, b_at6; /* (REQ16/PATH-8) and by IPv6, if it has that too: AF_UNSPEC if not */
+  Addr a_at6, b_at6; /* (REQ17/PATH-8) and by IPv6, if it has that too: AF_UNSPEC if not */
   Addr meetup_at;
   bool straight;     /* whether datagrams straight between the two get through */
-  bool a_to_b4_lost, a_to_b6_lost; /* (REQ16/PATH-8) one way only: what a sends straight to b's IPv4, or IPv6, address is lost */
+  bool a_to_b4_lost, a_to_b6_lost; /* (REQ17/PATH-8) one way only: what a sends straight to b's IPv4, or IPv6, address is lost */
   Gosh::Registrations meetup;
   uint64_t now;      /* ms */
   std::string a_got, b_got;
@@ -324,7 +324,7 @@ int main()
            mine.size() == 1 && mine[0] == "203.0.113.1:7777" );
   }
 
-  /* REQ16/PATH-8: by IPv6. */
+  /* REQ17/PATH-8: by IPv6. */
   {
     PathFinding a( true, key, 1000 ), b( false, key, 1000 );
     Net net( a, b );
@@ -335,7 +335,7 @@ int main()
     a.add_candidate( "[2001:db8::b]:5000" );
     b.add_candidate( "[2001:db8::a]:4000" );
     net.pass( 1000 );
-    check( "two ends with IPv6 alone find a way straight through by it (REQ16/PATH-8)",
+    check( "two ends with IPv6 alone find a way straight through by it (REQ17/PATH-8)",
            a.open( net.now ) && a.direct() && a.where() == "[2001:db8::b]:5000" );
   }
   {
@@ -369,7 +369,7 @@ int main()
     a.add_candidate( "[2001:db8::b]:5000" );
     b.add_candidate( "[2001:db8::a]:4000" );
     net.pass( 3 * PathFinding::OPEN_EVERY );
-    check( "told their IPv6 as well, both move to it, and stay (REQ16/PATH-8: IPv6 first)",
+    check( "told their IPv6 as well, both move to it, and stay (REQ17/PATH-8: IPv6 first)",
            a.where() == "[2001:db8::b]:5000" && b.where() == "[2001:db8::a]:4000" );
     net.pass( 5 * PathFinding::OPEN_EVERY );
     check( "and IPv4's answers go on without taking them back to it", a.where() == "[2001:db8::b]:5000" );
@@ -392,7 +392,7 @@ int main()
            a.take_outbox().size() == 1 );
   }
 
-  /* REQ16/PATH-8: IPv6 that works one way only (found by review, 2026-11-16: both ends said the
+  /* REQ17/PATH-8: IPv6 that works one way only (found by review, 2026-11-16: both ends said the
      way was open and nothing went either way, for good) */
   {
     PathFinding a( true, key, 1000 ), b( false, key, 1000 );
@@ -442,9 +442,9 @@ int main()
   }
 
   if ( failures ) {
-    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: %d checks of path-finding's logic failed\n", failures );
+    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: %d checks of path-finding's logic failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: path-finding's logic\n" );
+  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: path-finding's logic\n" );
   return 0;
 }

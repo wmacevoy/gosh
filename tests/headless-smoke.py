@@ -250,7 +250,7 @@ if relay == "punched":
           "local: we may be reached at 127.0.0.1:" in log and "remote: we may be reached at 127.0.0.1:" in log)
     check("the two find a way through to each other", log.count("a way through is open") == 2, log if log.count("a way through is open") != 2 else "")
     if ":" in address:
-        # REQ16/PATH-8: by IPv6, both able to, the way each ends on is IPv6's (found by review, 2026-11-16:
+        # REQ17/PATH-8: by IPv6, both able to, the way each ends on is IPv6's (found by review, 2026-11-16:
         # this case passed with the IPv6 socket taken out). The last word of each relay on its way names it.
         deadline = time.time() + 10
         def last_way(side):

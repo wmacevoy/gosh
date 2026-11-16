@@ -1,5 +1,7 @@
 # Requirements — v16
 
+**Superseded by `REQUIREMENTS_v17.md`** (2026-11-16), in which IPv6 is tried first by the session's own first try too (PATH-8), a stock `mosh` not finding CMD-4's link is said, and the threat model no longer says a meetup answers STUN with no more bytes than it was sent. Kept as it was written.
+
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v17.md`); a spelling or lint fix is not. See
 [SE1/R1–R11](../vendor/se1/guide/04-requirements.md).

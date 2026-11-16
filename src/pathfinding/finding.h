@@ -21,7 +21,7 @@
  *
  * Absent: no answer from anywhere: probes go on, every FAST_EVERY for FAST_FOR, then every
  * SLOW_EVERY. Late: a way not heard for OPEN_FOR is thought closed, and (gosh) so is one by which
- * our probes have not been answered for ANSWERED_FOR: a way must work both ways (REQ16/PATH-8:
+ * our probes have not been answered for ANSWERED_FOR: a way must work both ways (REQ17/PATH-8:
  * found by review, 2026-11-16, IPv6 that went one way only). Wrong: what does not open,
  * a probe number already heard, a datagram from anywhere but the other end: ignored. Lying: a
  * STUN server's wrong answer is tried, and nothing answers there; a stranger cannot move the
@@ -282,7 +282,7 @@ public:
       }
       /*
        * Through a meetup is second best: go on looking, now and then, for a way straight there.
-       * (gosh, REQ16/PATH-8) And straight by IPv4 is second to straight by IPv6.
+       * (gosh, REQ17/PATH-8) And straight by IPv4 is second to straight by IPv6.
        */
       const bool by_ipv4 = !peer_via && peer.sa.sa_family == AF_INET;
       if ( ( peer_via || by_ipv4 ) && now - last_direct_probe >= SLOW_EVERY ) {
@@ -347,7 +347,7 @@ public:
         /*
          * Wherever it is now, it is there: except that while there is a way
          * straight to it, hearing from it through a meetup as well is no
-         * reason to go the long way round; (gosh, REQ16/PATH-8) and while
+         * reason to go the long way round; (gosh, REQ17/PATH-8) and while
          * there is one by IPv6, hearing from it by IPv4 as well is no reason
          * to leave it.
          *

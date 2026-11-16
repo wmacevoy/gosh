@@ -483,7 +483,7 @@ Contracts and failures:
 (`registering`, below), and a probe opened only at its one length; and divided as above: **STUN**
 is `stun.h`, **punch** and **registering** are `PathFinding` in `finding.h` (logic: it returns the
 datagrams to send), and the edge is `Punch` in `punch.*`. Since requirements v16 it is IPv4 and
-IPv6 (`REQ16/PATH-8`): one socket for both where the system allows, IPv6 first.*
+IPv6 (`REQ17/PATH-8`): one socket for both where the system allows, IPv6 first.*
 
 | **registering** | the meetup: where it sees us, REGISTER under the ticket, again every 25 s, asking again after three unanswered; PASS and PASSED | logic, in `PathFinding` (`use_meetup`, `tend_meetup`, `from_meetup`); its bytes are meetup's `messages` | written for gosh | `REQ15/PATH-4`, `REQ15/PATH-5` |
 
@@ -496,7 +496,7 @@ through a meetup; a forged ticket; an oversized probe);
 *Since 2026-11-15 the meetup is built to `PROPOSAL_meetup-registration.md`, revision 10: the
 student's own server, used with a ticket given over ssh. The fork's shared key and copyable proof
 are gone from it, and from path-finding. Since requirements v16 it listens by IPv4 and IPv6
-(`REQ16/PATH-8`), and "where" carries either.*
+(`REQ17/PATH-8`), and "where" carries either.*
 
 | Piece | Purpose | Kind | From | Serves |
 | --- | --- | --- | --- | --- |
@@ -566,7 +566,7 @@ AddressSanitizer as well, `tools/asan-replay.sh`, in a build of its own.)*
 
 It hands the client a **value**, in the same process. No `setenv`, no join and split. The textual
 forms remain for the two places text must travel: the line ssh carries to the host, and whatever
-starts `gosh-client` from outside (the extension, a stock `mosh` script through `REQ6/CMD-4`'s
+starts `gosh-client` from outside (the extension, a stock `mosh` script through `REQ17/CMD-4`'s
 link). Failures: ssh absent or refused → said, exit 1. No startup message → "Have you installed
 …". The server is not gosh's → said once; no forward, stream or relay asked of it (`REQ8/CMD-3`).
 Dropped: the Perl in the usage text; the second copy of the copy usage; `--client`, unless the
@@ -580,9 +580,9 @@ for the client stay variables: the core's client and the relays read them.)*
 
 #### install
 
-`install.sh` (with `REQ6/CMD-4`'s links, each only where the name is not on `PATH`),
+`install.sh` (with `REQ17/CMD-4`'s links, each only where the name is not on `PATH`),
 `package-release.sh` (refuses a program that needs a library the system does not ship), the release
-workflow. `REQ1/CMD-2`, `REQ6/CMD-4`, `REQ1/SHAPE-3`, `REQ6/NAME-1`. Scripts are edge; there is no
+workflow. `REQ1/CMD-2`, `REQ17/CMD-4`, `REQ1/SHAPE-3`, `REQ6/NAME-1`. Scripts are edge; there is no
 logic piece worth separating. What it lacks is a test: `install.sh` already takes where releases
 come from (`GOSH_RELEASES`) and where to put them (`PREFIX`), so a test can install a locally
 packaged release into a temporary home and check the links both ways. Fails: wrong checksum,
@@ -641,7 +641,7 @@ Logic pieces call only logic pieces. Edges call their own part's logic and the e
 **Not gosh's to change** (a stock mosh speaks them): the session's datagrams and the existing
 `Instruction` fields; `MOSH CONNECT`, `MOSH IP`; `MOSH_KEY` and the prediction and terminal
 variables; the core's own options of `mosh-client` and `mosh-server`; `MOSH_SERVER_NETWORK_TMOUT`.
-When gosh's programs are run under mosh's names (`REQ6/CMD-4`) they must take exactly these.
+When gosh's programs are run under mosh's names (`REQ17/CMD-4`) they must take exactly these.
 
 **Gosh's, free today, shut at its first release** ("it's just us"; no working with the fork's
 releases): the two `Instruction` field numbers and the capability bits; the frame and its seven
@@ -885,7 +885,7 @@ value, the lab waiting for it, twenty passes in a row (queue item 8's own *done*
 **Step 7 (6b): `-R` and UDP forwards.** Mostly logic already. Shows it wrong: `forward-e2e`; the
 frame and UDP fuzzers.
 
-**Step 8 (10): the rest of the command; install.** Do the `REQ6/CMD-4` trial first (a stock client,
+**Step 8 (10): the rest of the command; install.** Do the `REQ17/CMD-4` trial first (a stock client,
 a bare host), as the queue says. **Then renumber the `Instruction` fields.**
 
 **Step 9 (11): the extension.**

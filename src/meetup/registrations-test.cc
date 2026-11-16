@@ -146,7 +146,7 @@ int main()
          m.datagram( bytes.data(), bytes.size(), desktop, now + 10 * Registrations::END_IDLE, key_of ).any
            && m.ticket_count() == 1 );
 
-  /* REQ16/PATH-8: one end by IPv6, the other by IPv4, through one meetup that has both. */
+  /* REQ17/PATH-8: one end by IPv6, the other by IPv4, through one meetup that has both. */
   {
     Registrations both;
     const Ticket t6 = make_ticket( MASTER, "ipv6....", now + TICKET_LIFE );
@@ -154,7 +154,7 @@ int main()
     const std::string home6 = meetup_where_v6( v6, 50000 );
     End e6( t6, 1, home6 ), e4( t6, 0, laptop );
     bytes = e6.reg();
-    check( "an end registers by IPv6 (REQ16/PATH-8)", both.datagram( bytes.data(), bytes.size(), home6, now, key_of ).any );
+    check( "an end registers by IPv6 (REQ17/PATH-8)", both.datagram( bytes.data(), bytes.size(), home6, now, key_of ).any );
     bytes = e4.reg();
     both.datagram( bytes.data(), bytes.size(), laptop, now, key_of );
     bytes = e4.pass( "to the IPv6 end" );
@@ -194,9 +194,9 @@ int main()
          full.datagram( bytes.data(), bytes.size(), busy_where, now + 2, key_of ).any );
 
   if ( failures ) {
-    printf( "FAIL REQ15/PATH-5, REQ16/PATH-8: %d checks of the meetup's registrations failed\n", failures );
+    printf( "FAIL REQ15/PATH-5, REQ17/PATH-8: %d checks of the meetup's registrations failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ15/PATH-5, REQ16/PATH-8: the meetup's registrations\n" );
+  printf( "PASS REQ15/PATH-5, REQ17/PATH-8: the meetup's registrations\n" );
   return 0;
 }

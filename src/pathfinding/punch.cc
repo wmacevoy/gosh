@@ -27,7 +27,7 @@
 using namespace Network;
 
 /*
- * (gosh, REQ16/PATH-8) The socket takes both families where the system lets one socket do so: an
+ * (gosh, REQ17/PATH-8) The socket takes both families where the system lets one socket do so: an
  * IPv4 address is then written in IPv6's form for it (::ffff:a.b.c.d). The logic sees addresses
  * as they are, IPv4 as IPv4; these two put them in the socket's form and back.
  */

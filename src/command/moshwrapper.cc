@@ -49,8 +49,8 @@ const char USAGE[] = R"USAGE(Usage: %s [options] [--] [user@]host [command...]
 -6      --family=inet6       use IPv6 only
         --family=auto        autodetect network type for single-family hosts only
         --family=all         try all network types
-        --family=prefer-inet use all network types, but try IPv4 first [default]
-        --family=prefer-inet6 use all network types, but try IPv6 first
+        --family=prefer-inet use all network types, but try IPv4 first
+        --family=prefer-inet6 use all network types, but try IPv6 first [default]
 -p PORT[:PORT2]
         --port=PORT[:PORT2]  server-side UDP port or range
                                 (No effect on server-side SSH port)

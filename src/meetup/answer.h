@@ -52,7 +52,7 @@ inline std::string stun_answer( const char* request, uint32_t address, uint16_t 
 }
 
 /*
- * (REQ16/PATH-8) The answer to a request from "where" (messages.h), IPv4 or IPv6. For IPv6 the
+ * (REQ17/PATH-8) The answer to a request from "where" (messages.h), IPv4 or IPv6. For IPv6 the
  * address is disguised with the cookie and the request's own id (RFC 8489, 14.2). Empty if
  * "where" is neither.
  */

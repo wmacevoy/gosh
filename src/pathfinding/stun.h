@@ -8,7 +8,7 @@
  * Wrong input: an answer that is not a Binding Success Response with our cookie, or whose
  * attributes run past its end, is not read (false); text that is not "a.b.c.d:port" or
  * "[ipv6]:port" with a port from 1 to 65535 is refused, and so is an IPv6 address of one link
- * alone (fe80::/10); "[::ffff:a.b.c.d]:port" is the IPv4 address. IPv4 and IPv6 (REQ16/PATH-8).
+ * alone (fe80::/10); "[::ffff:a.b.c.d]:port" is the IPv4 address. IPv4 and IPv6 (REQ17/PATH-8).
  */
 
 #ifndef GOSH_PATHFINDING_STUN_H
@@ -64,7 +64,7 @@ inline bool stun_parse( const char* data, size_t len, Addr& mapped )
       break;
     }
     const unsigned char* v = p + at + 4;
-    /* (gosh, REQ16/PATH-8) XOR-MAPPED-ADDRESS for IPv6: disguised with the cookie and the id, bytes 4 to 19 */
+    /* (gosh, REQ17/PATH-8) XOR-MAPPED-ADDRESS for IPv6: disguised with the cookie and the id, bytes 4 to 19 */
     if ( type == 0x0020 && size >= 20 && v[1] == 0x02 ) {
       Addr seen;
       memset( &seen, 0, sizeof( seen ) );

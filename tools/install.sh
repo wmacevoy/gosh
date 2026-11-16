@@ -9,7 +9,7 @@
 # gosh and gocp in ~/.local/bin, after checking the download against the release's SHA256SUMS.
 # And, each only where no program of that name is on your PATH or already in ~/.local/bin,
 # mosh-client and mosh-server as links to gosh's, so that a stock mosh finds a server here
-# (REQ6/CMD-4). A program of yours there (a mosh, or another gosh) is never replaced: it says so.
+# (REQ17/CMD-4). A program of yours there (a mosh, or another gosh) is never replaced: it says so.
 #
 # Environment:
 #     GOSH_VERSION   the release to install, e.g. 0.2 [the one this script came with, or the newest]
@@ -19,7 +19,7 @@
 #                    the directory $GOSH_RELEASES/vVERSION
 #
 # Carried from the fork's scripts/install.sh (mosh-1.4.0-pf.7), with gosh's names, and the
-# links of REQ6/CMD-4 in place of the Perl script.
+# links of REQ17/CMD-4 in place of the Perl script.
 #
 # Fails, with a message and status 1: no curl or wget; a system or machine with no package; a
 # download missing, or not as SHA256SUMS says; a client that does not run here.
@@ -95,7 +95,7 @@ for f in gosh-client gosh-server; do
         || fail "the downloaded $f does not run here; build from source: https://wmacevoy.github.io/gosh/USING.html"
 done
 
-# REQ6/CMD-4: a name in $prefix/bin is gosh's to replace only when nothing is there or it is
+# REQ17/CMD-4: a name in $prefix/bin is gosh's to replace only when nothing is there or it is
 # gosh's own, a link to gosh-client or gosh-server. Anything else there is the user's: never replaced.
 ours() { # NAME
     [ ! -e "$prefix/bin/$1" ] && [ ! -L "$prefix/bin/$1" ] && return 0

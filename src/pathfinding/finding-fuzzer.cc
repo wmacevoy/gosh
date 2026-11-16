@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * REQ1/PATH-3, REQ15/PATH-4, REQ16/PATH-8: fuzzes path-finding's logic (finding.h) as the
+ * REQ1/PATH-3, REQ15/PATH-4, REQ17/PATH-8: fuzzes path-finding's logic (finding.h) as the
  * Internet sees it: anyone can send a datagram to a relay's path-finding socket. One end, A, is
  * given datagrams of any kind from anyone (from the other end's address, from the meetup's, from
  * strangers, by IPv4 and IPv6), and real probes from a second end, B, sealed with the same key

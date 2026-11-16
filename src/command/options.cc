@@ -237,7 +237,7 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
   if ( s.has( "meetup" ) && s.value( "stun" ) != "none" ) {
     const std::string meetup = s.value( "meetup" );
     const size_t colon = meetup.rfind( ':' );
-    /* (REQ16/PATH-8) HOST is a name, an IPv4 address, or an IPv6 one in brackets; PORT is 1 to 65535 */
+    /* (REQ17/PATH-8) HOST is a name, an IPv4 address, or an IPv6 one in brackets; PORT is 1 to 65535 */
     const size_t user = meetup.rfind( '@', colon == std::string::npos ? std::string::npos : colon );
     const std::string host = colon == std::string::npos ? std::string()
                                                         : meetup.substr( user == std::string::npos ? 0 : user + 1,
@@ -255,7 +255,7 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
     c.meetup_login = meetup.substr( 0, colon );
     const size_t at = c.meetup_login.rfind( '@' );
     c.relays_read.push_back( std::make_pair( "GOSH_MEETUP", meetup.substr( at == std::string::npos ? 0 : at + 1 ) ) );
-    /* (REQ16/PATH-8) "[2001:db8::1]:PORT": ssh takes the address without its brackets */
+    /* (REQ17/PATH-8) "[2001:db8::1]:PORT": ssh takes the address without its brackets */
     const size_t open = c.meetup_login.find( '[', at == std::string::npos ? 0 : at + 1 );
     if ( open != std::string::npos && c.meetup_login[c.meetup_login.size() - 1] == ']' ) {
       c.meetup_login
@@ -282,7 +282,7 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
     throw Failure( "Unknown parameter " + c.remote_ip );
   }
 
-  c.family = lower( s.value( "family", "prefer-inet" ) );
+  c.family = lower( s.value( "family", "prefer-inet6" ) ); /* IPv6 first, the session's own first try too (REQ17/PATH-8) */
   if ( s.flag( "4" ) ) {
     c.family = "inet";
   }

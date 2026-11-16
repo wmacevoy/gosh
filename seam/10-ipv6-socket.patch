@@ -1,6 +1,6 @@
 gosh seam 10: An IPv6 socket does without the IPv4 path-MTU option.
 
-For:   REQ16/PATH-8. A server with an IPv6 address alone is reached as one with IPv4 is; on
+For:   REQ17/PATH-8. A server with an IPv6 address alone is reached as one with IPv4 is; on
        Windows (Cygwin and MSYS2) the IPv4 option IP_MTU_DISCOVER is refused on an IPv6 socket
        with EINVAL, so a session to an IPv6 address could not be opened at all. Since v10 gosh
        did not carry this; v16 carries it again (client, 2026-11-15: "carry the fix").

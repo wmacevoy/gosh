@@ -5,7 +5,7 @@
 usage: relay-meetup.py SERVER CLIENT [ADDRESS [MEETUP_ADDRESS]]
 
 ADDRESS is where the session and the meetup run: 127.0.0.1 by default, or ::1 for both by IPv6
-(REQ16/PATH-8). MEETUP_ADDRESS, if given, is the address the meetup is named by instead, another
+(REQ17/PATH-8). MEETUP_ADDRESS, if given, is the address the meetup is named by instead, another
 of the same machine's (127.0.0.2): a meetup bound to every address must answer from the one it was
 asked at, or the ends never take its answers (found by review, 2026-11-16).
 
@@ -168,5 +168,5 @@ finally:
     os.remove(relay_log)
 
 if failures:
-    sys.exit("FAIL REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: %s" % "; ".join(failures))
-print("PASS REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: a relay that falls back fetches a ticket, and both relays register")
+    sys.exit("FAIL REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: %s" % "; ".join(failures))
+print("PASS REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: a relay that falls back fetches a ticket, and both relays register")

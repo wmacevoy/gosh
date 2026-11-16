@@ -81,6 +81,15 @@ if proxy is not None:
         sys.stderr.write("fake-ssh: the proxy command did not carry bytes to the port: %s\n" % e)
         sys.exit(255)
 
-env = dict(os.environ, SSH_CONNECTION="127.0.0.1 54321 127.0.0.1 22")
+arrived = "127.0.0.1"  # through a proxy command: the address it was given above
+if proxy is None:
+    # Without one, ssh reaches the first address the system lists for the host, as -4 or -6 allow;
+    # for "localhost" that is often ::1, which a client trying IPv4 first would not reach.
+    family = socket.AF_INET if "-4" in options else socket.AF_INET6 if "-6" in options else socket.AF_UNSPEC
+    try:
+        arrived = socket.getaddrinfo(host.split("@")[-1], 22, family, socket.SOCK_STREAM)[0][4][0]
+    except socket.gaierror:
+        pass
+env = dict(os.environ, SSH_CONNECTION="%s 54321 %s 22" % (arrived, arrived))
 # (-n: nothing for the command to read.  Otherwise it reads what we are given, as the relay does.)
 sys.exit(subprocess.call(["/bin/sh", "-c", command], env=env, stdin=subprocess.DEVNULL if "-n" in options else None))

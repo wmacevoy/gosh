@@ -25,7 +25,7 @@ beside it.
 | When UDP is blocked: the session carried over ssh, and back to UDP when it can be | no: "Connecting..." forever | yes, by itself (`REQ1/PATH-1`, `PATH-2`) |
 | Both ends behind NATs: a way straight through found while on ssh | no | yes (`REQ1/PATH-3`) |
 | Neither way works: datagrams passed through your own server (a *meetup*) | no | yes, with a ticket fetched over ssh (`REQ15/PATH-4`, `PATH-5`) |
-| All of the above by IPv6, IPv6 first when both work | direct UDP only | yes (`REQ16/PATH-8`) |
+| All of the above by IPv6, IPv6 first when both work | direct UDP only | yes (`REQ17/PATH-8`) |
 | The command needs Perl | yes | no: it is C++ (`REQ1/CMD-1`) |
 | Works with a stock mosh at the other end | — | the terminal does; gosh says what it cannot do there (`REQ8/CMD-3`) |
 
@@ -102,7 +102,9 @@ ln -sf gosh-client ~/.local/bin/gocp
 Do this on both machines. `gosh` looks in `~/.local/bin` on the server itself, so nothing more
 is needed. (A command that ssh runs does not usually see `~/.local/bin`: Debian's and Ubuntu's
 shell files add it only for a login. That matters only to other programs, such as a stock
-`mosh`, asking for `gosh-server` or `mosh-server` there.)
+`mosh`, asking for `gosh-server` or `mosh-server` there. `tools/install.sh` also makes
+`mosh-server` and `mosh-client` links to gosh's where the host has none (`REQ17/CMD-4`); a stock
+`mosh` finds that link only if told: `mosh --server=.local/bin/mosh-server host`.)
 
 ### 3. Let ssh log in without asking
 

@@ -180,7 +180,7 @@ try:
         onlooker.sendto(seal(wrong, "REG", tid, 0, False, 9, where(onlooker)), meet)
         check("a REGISTER sealed without the ticket's key gets nothing", receive(onlooker, 0.5) is None)
 
-        # REQ16/PATH-8: the same, by IPv6, with a ticket of its own.
+        # REQ17/PATH-8: the same, by IPv6, with a ticket of its own.
         if not have_ipv6():
             print("SKIPPED: the exchange by IPv6: this machine has no ::1", flush=True)
         else:
@@ -190,7 +190,7 @@ try:
             a6, b6 = sock(socket.AF_INET6), sock(socket.AF_INET6)
             meet6 = ("::1", port)
             a6.sendto(seal(key6, "REG", tid6, 0, False, 0, where(a6)), meet6)
-            check("by IPv6: end 0 registers, and is told where it was seen (REQ16/PATH-8)",
+            check("by IPv6: end 0 registers, and is told where it was seen (REQ17/PATH-8)",
                   open_registered(key6, receive(a6), tid6, 0) == where(a6))
             b6.sendto(seal(key6, "REG", tid6, 1, False, 0, where(b6)), meet6)
             check("by IPv6: end 1 registers", open_registered(key6, receive(b6), tid6, 1) == where(b6))
@@ -229,5 +229,5 @@ finally:
     shutil.rmtree(home, ignore_errors=True)
 
 if failures:
-    sys.exit("FAIL REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: %s" % "; ".join(failures))
-print("PASS REQ15/PATH-4, REQ15/PATH-5, REQ16/PATH-8: a meetup answers the question, and passes for a ticket's two ends alone")
+    sys.exit("FAIL REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: %s" % "; ".join(failures))
+print("PASS REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: a meetup answers the question, and passes for a ticket's two ends alone")

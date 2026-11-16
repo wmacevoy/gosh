@@ -14,7 +14,7 @@
  * no two of the four senders under one key ever use the same nonce, and a message sealed one way
  * cannot be taken for one sealed another. "where" is 19 bytes: a family (4 or 6), an address of
  * 16 (an IPv4 address in the first four, most significant first, zeros after; or an IPv6 address)
- * and a port of 2 (REQ16/PATH-8).
+ * and a port of 2 (REQ17/PATH-8).
  *
  * Wrong input: anything not exactly one of these lengths, with its mark and version, is not read
  * (false); a seal that does not open, or opens to the wrong kind or direction, is refused. Lengths

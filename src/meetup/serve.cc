@@ -6,7 +6,7 @@
  * key is master.h's. The loop is the fork's meetup_serve (mosh-1.4.0-pf.7, src/network/punch.cc),
  * with what it decided moved into those.
  *
- * (gosh, REQ16/PATH-8) The sockets are bound to every address, so each datagram is answered from
+ * (gosh, REQ17/PATH-8) The sockets are bound to every address, so each datagram is answered from
  * the address it was sent to, and one passed on goes from the address its receiver last sent to:
  * an end takes the meetup's datagrams only from the address it knows the meetup by, and a machine
  * may have several (found by review, 2026-11-16). The kernel says which, by IP_PKTINFO and
@@ -171,7 +171,7 @@ int Network::meetup_serve( const char* port, const std::string& master )
     return 1;
   }
   freeaddrinfo( res );
-  /* (REQ16/PATH-8) By IPv4 and by IPv6, each where it can be had: a server may have only one. */
+  /* (REQ17/PATH-8) By IPv4 and by IPv6, each where it can be had: a server may have only one. */
   const int socks[2] = { bound( AF_INET, port ), bound( AF_INET6, port ) };
   if ( socks[0] < 0 && socks[1] < 0 ) {
     perror( "gosh-server meetup: bind" );

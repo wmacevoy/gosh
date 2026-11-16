@@ -3,7 +3,7 @@
 /*
  * REQ1/CMD-1: the command's words read into settings, and what is refused (options.h); with
  * REQ1/CP-7 (--stdio reads in order), REQ1/PATH-7 (--punch, --stun for the relays), REQ15/PATH-4
- * and REQ16/PATH-8 (--meetup, with an IPv6 address). Plain strings; no process, no environment.
+ * and REQ17/PATH-8 (--meetup, with an IPv6 address). Plain strings; no process, no environment.
  */
 
 #include <cstdio>
@@ -101,9 +101,9 @@ int main()
   Settings plain;
   parse_options( { "h" }, false, plain );
   const Choices d = choose( plain, "gosh", NULL );
-  check( "the defaults: relay and punch auto, prediction adaptive, ip by proxy, family prefer-inet",
+  check( "the defaults: relay and punch auto, prediction adaptive, ip by proxy, family prefer-inet6 (REQ17/PATH-8: IPv6 first, the session's own first try too)",
          d.relay == "auto" && d.punch == "auto" && d.predict == "adaptive" && d.remote_ip == "proxy"
-           && d.family == "prefer-inet" && d.fragment_parity.empty() && d.meetup_login.empty() && d.relays_read.empty() );
+           && d.family == "prefer-inet6" && d.fragment_parity.empty() && d.meetup_login.empty() && d.relays_read.empty() );
   check( "prediction from MOSH_PREDICTION_DISPLAY when no option says", choose( plain, "gosh", "never" ).predict == "never" );
   check( "and refused when that is not a mode, even empty", refused( { "h" }, "" ) == "!+gosh: Unknown mode \"\"." );
   parse_options( { "-a", "--predict=never" }, false, s = Settings() );
@@ -133,7 +133,7 @@ int main()
          r.relays_read.size() == 2 && r.relays_read[0] == std::make_pair( std::string( "GOSH_PUNCH" ), std::string( "never" ) )
            && r.relays_read[1] == std::make_pair( std::string( "GOSH_STUN" ), std::string( "none" ) ) );
 
-  /* ---- the meetup (REQ15/PATH-4, REQ16/PATH-8) */
+  /* ---- the meetup (REQ15/PATH-4, REQ17/PATH-8) */
   parse_options( { "--meetup=me@meet.example:3478" }, false, s = Settings() );
   Choices m = choose( s, "gosh", NULL );
   check( "--meetup: the relays get HOST:PORT, ssh gets USER@HOST",
@@ -154,7 +154,7 @@ int main()
            && refused( { "--meetup=-h:22", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
   check( "a meetup with no port is refused", refused( { "--meetup=meet.example", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
   check( "nor with nothing before its port", refused( { "--meetup=:3478", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
-  /* (REQ16/PATH-8; found by review, 2026-11-16: these were taken, and made an ssh login of "[2001:db8:") */
+  /* (REQ17/PATH-8; found by review, 2026-11-16: these were taken, and made an ssh login of "[2001:db8:") */
   check( "an IPv6 meetup with no port is refused", refused( { "--meetup=[2001:db8::1]", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
   check( "nor an IPv6 address without its brackets", refused( { "--meetup=2001:db8::1", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
   check( "nor with a user and no port", refused( { "--meetup=me@[2001:db8::1]", "h" } ) == "!+gosh: --meetup needs HOST:PORT." );
@@ -183,10 +183,10 @@ int main()
   check( "one_of: whole words only", one_of( "never", "auto never" ) && !one_of( "neve", "auto never" ) );
 
   if ( failures ) {
-    printf( "FAIL REQ1/CMD-1, REQ1/CP-7, REQ1/PATH-7, REQ15/PATH-4, REQ16/PATH-8: %d checks of the command's options failed\n",
+    printf( "FAIL REQ1/CMD-1, REQ1/CP-7, REQ1/PATH-7, REQ15/PATH-4, REQ17/PATH-8: %d checks of the command's options failed\n",
             failures );
     return EXIT_FAILURE;
   }
-  printf( "PASS REQ1/CMD-1, REQ1/CP-7, REQ1/PATH-7, REQ15/PATH-4, REQ16/PATH-8: the command's options\n" );
+  printf( "PASS REQ1/CMD-1, REQ1/CP-7, REQ1/PATH-7, REQ15/PATH-4, REQ17/PATH-8: the command's options\n" );
   return EXIT_SUCCESS;
 }

@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * REQ1/PATH-3, REQ16/PATH-8: fuzzes what path-finding has to make sense of from anyone at all on
+ * REQ1/PATH-3, REQ17/PATH-8: fuzzes what path-finding has to make sense of from anyone at all on
  * the Internet (stun.h): answers from a STUN server (or from whoever says they are one), IPv4 and
  * IPv6; and addresses given as text.
  *
