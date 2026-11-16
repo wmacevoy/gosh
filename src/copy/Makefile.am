@@ -4,11 +4,18 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshcopy.a
 
-libgoshcopy_a_SOURCES = filecopy.cc filecopy.h
+# The logic, each a header with its test: options, messages, names, checksum, decisions. The edge:
+# filecopy.cc, the sender and the receiver.
+libgoshcopy_a_SOURCES = filecopy.cc filecopy.h options.h messages.h names.h checksum.h decisions.h
 
-# The fork's test of these functions, which calls them directly. It holds this code to
-# what it did at pf.7 while it is carried unchanged; it goes when copy is reshaped (item 9).
-check_PROGRAMS = filecopy-test
+# A test for each piece of logic, with plain values; and filecopy-test, the fork's test of the
+# two ends joined by a socket pair, which now tests the edge.
+check_PROGRAMS = options-test messages-test names-test checksum-test decisions-test filecopy-test
 TESTS = $(check_PROGRAMS)
+options_test_SOURCES = options-test.cc
+messages_test_SOURCES = messages-test.cc
+names_test_SOURCES = names-test.cc
+checksum_test_SOURCES = checksum-test.cc
+decisions_test_SOURCES = decisions-test.cc
 filecopy_test_SOURCES = filecopy-test.cc
 filecopy_test_LDADD = libgoshcopy.a

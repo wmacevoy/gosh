@@ -1,5 +1,13 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
+/*
+ * copy, the edge: the two blocking procedures, sender and receiver (design v2, 2.2: "keep the two
+ * blocking procedures"). They read and write the stream, the file system, the clock and the user;
+ * what they decide they ask of decisions.h, and the bytes they send are messages.h's. The fork's
+ * (mosh-1.4.0-pf.7, src/network/filecopy.cc), with those moved out, HOME read once (in run) and
+ * the clock passed in.
+ */
+
 #include "src/include/config.h"
 
 #include <cerrno>
@@ -26,116 +34,23 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "src/copy/decisions.h"
 #include "src/copy/filecopy.h"
+#include "src/copy/messages.h"
 
 using namespace FileCopy;
 
-void Hash::add( const char* data, size_t len )
-{
-  uint64_t x = a, y = b;
-  for ( size_t i = 0; i < len; i++ ) {
-    const uint8_t c = static_cast<uint8_t>( data[i] );
-    x = ( x ^ c ) * 0x100000001b3ULL; /* FNV-1a */
-    y = ( ( y << 5 ) | ( y >> 59 ) ) ^ c;
-    y *= 0xff51afd7ed558ccdULL;
-  }
-  a = x;
-  b = y;
-}
-
-bool FileCopy::safe_relative_path( const std::string& path )
-{
-  if ( path.empty() || path[0] == '/' || path.find( '\0' ) != std::string::npos ) {
-    return false;
-  }
-  size_t start = 0;
-  bool first = true;
-  while ( start <= path.size() ) {
-    size_t end = path.find( '/', start );
-    if ( end == std::string::npos ) {
-      end = path.size();
-    }
-    const std::string part = path.substr( start, end - start );
-    /* "." may lead, meaning the destination itself; nothing may climb out */
-    if ( part.empty() || part == ".." || ( part == "." && !first ) ) {
-      return false;
-    }
-    first = false;
-    start = end + 1;
-  }
-  return true;
-}
-
-bool FileCopy::parse( const std::vector<std::string>& words, Options& options )
-{
-  if ( words.empty() || ( words[0] != "send" && words[0] != "receive" ) ) {
-    return false;
-  }
-  options.sender = words[0] == "send";
-  size_t i = 1;
-  for ( ; i < words.size() && words[i] != "--"; i++ ) {
-    const std::string& w = words[i];
-    if ( w == "-r" ) {
-      options.recursive = true;
-    } else if ( w == "--auto" ) {
-      options.automatic = true;
-    } else if ( w == "--delete" ) {
-      options.remove = true;
-    } else if ( w == "--glob" ) {
-      options.glob = true;
-    } else if ( w == "-q" ) {
-      options.quiet = true;
-    } else if ( w.compare( 0, 11, "--interval=" ) == 0 ) {
-      options.interval = atoi( w.c_str() + 11 );
-      if ( options.interval < 100 ) {
-        return false;
-      }
-    } else {
-      return false;
-    }
-  }
-  if ( i >= words.size() ) {
-    return false;
-  }
-  options.paths.assign( words.begin() + i + 1, words.end() );
-  return options.sender ? !options.paths.empty() : options.paths.size() == 1;
-}
-
 namespace {
 
-enum MessageType
-{
-  HELLO = 1,
-  LIST,
-  LIST_END,
-  WANT,
-  PLAN_END,
-  FILE_BEGIN,
-  DATA,
-  FILE_END,
-  RESULT,
-  ROUND_END,
-  ROUND_DONE,
-  NOTE,
-  BYE
-};
-
-const char MAGIC[] = "mocp-1";
-const size_t CHUNK = 32768;
-const size_t MAX_MESSAGE = 1024 * 1024;
 const size_t OUT_HIGH = 256 * 1024; /* how much may wait to be written before we wait for it */
-const size_t LIST_BATCH = 64 * 1024;
+
+/* The clock: milliseconds, never going back. */
+typedef uint64_t ( *Clock )( void );
 
 /* The other end has gone. */
 struct Closed : public std::runtime_error
 {
   Closed() : std::runtime_error( "the connection was closed" ) {}
-};
-
-/* The other end made no sense. */
-struct Malformed : public std::runtime_error
-{
-  Malformed() : std::runtime_error( "the other end sent something that could not be understood" ) {}
 };
 
 uint64_t now_ms( void )
@@ -149,78 +64,6 @@ uint64_t now_ms( void )
   return static_cast<uint64_t>( t.tv_sec ) * 1000 + t.tv_nsec / 1000000;
 }
 
-void put8( std::string& s, uint8_t v )
-{
-  s.push_back( static_cast<char>( v ) );
-}
-
-void put32( std::string& s, uint32_t v )
-{
-  for ( int shift = 24; shift >= 0; shift -= 8 ) {
-    s.push_back( static_cast<char>( ( v >> shift ) & 0xFF ) );
-  }
-}
-
-void put64( std::string& s, uint64_t v )
-{
-  for ( int shift = 56; shift >= 0; shift -= 8 ) {
-    s.push_back( static_cast<char>( ( v >> shift ) & 0xFF ) );
-  }
-}
-
-void put_string( std::string& s, const std::string& v )
-{
-  put32( s, v.size() );
-  s += v;
-}
-
-class Reader
-{
-private:
-  const std::string& s;
-  size_t at;
-
-  void need( size_t n ) const
-  {
-    if ( s.size() - at < n ) {
-      throw Malformed();
-    }
-  }
-
-public:
-  explicit Reader( const std::string& s_s ) : s( s_s ), at( 0 ) {}
-
-  uint8_t u8( void )
-  {
-    need( 1 );
-    return static_cast<uint8_t>( s[at++] );
-  }
-  uint32_t u32( void )
-  {
-    uint32_t v = 0;
-    for ( int i = 0; i < 4; i++ ) {
-      v = ( v << 8 ) | u8();
-    }
-    return v;
-  }
-  uint64_t u64( void )
-  {
-    uint64_t v = 0;
-    for ( int i = 0; i < 8; i++ ) {
-      v = ( v << 8 ) | u8();
-    }
-    return v;
-  }
-  std::string str( void )
-  {
-    const uint32_t len = u32();
-    need( len );
-    at += len;
-    return s.substr( at - len, len );
-  }
-  bool done( void ) const { return at == s.size(); }
-};
-
 /*
  * Messages both ways over a pair of descriptors.  Nothing here waits to
  * write without also reading, so the two ends cannot each be stuck
@@ -230,6 +73,7 @@ class Channel
 {
 private:
   int in, out;
+  Clock now;
   std::string inbox, outbox;
 
   /* Waits (up to timeout, ms; -1 for as long as it takes) for something to do, and does it. */
@@ -262,7 +106,7 @@ private:
   }
 
 public:
-  Channel( int s_in, int s_out ) : in( s_in ), out( s_out ), inbox(), outbox()
+  Channel( int s_in, int s_out, Clock s_now ) : in( s_in ), out( s_out ), now( s_now ), inbox(), outbox()
   {
     fcntl( in, F_SETFL, fcntl( in, F_GETFL ) | O_NONBLOCK );
     fcntl( out, F_SETFL, fcntl( out, F_GETFL ) | O_NONBLOCK );
@@ -270,9 +114,7 @@ public:
 
   void send( uint8_t type, const std::string& payload )
   {
-    put8( outbox, type );
-    put32( outbox, payload.size() );
-    outbox += payload;
+    frame( outbox, type, payload );
     while ( outbox.size() > OUT_HIGH ) {
       turn( -1 );
     }
@@ -281,26 +123,15 @@ public:
   /* False if no message came within timeout (ms; -1 to wait for one, 0 not to wait). */
   bool recv( uint8_t& type, std::string& payload, int timeout )
   {
-    const uint64_t deadline = now_ms() + ( timeout > 0 ? timeout : 0 );
+    const uint64_t deadline = now() + ( timeout > 0 ? timeout : 0 );
     while ( true ) {
-      if ( inbox.size() >= 5 ) {
-        const size_t len = ( static_cast<size_t>( static_cast<uint8_t>( inbox[1] ) ) << 24 )
-                           | ( static_cast<uint8_t>( inbox[2] ) << 16 ) | ( static_cast<uint8_t>( inbox[3] ) << 8 )
-                           | static_cast<uint8_t>( inbox[4] );
-        if ( len > MAX_MESSAGE ) {
-          throw Malformed();
-        }
-        if ( inbox.size() >= 5 + len ) {
-          type = static_cast<uint8_t>( inbox[0] );
-          payload.assign( inbox, 5, len );
-          inbox.erase( 0, 5 + len );
-          return true;
-        }
+      if ( unframe( inbox, type, payload ) ) {
+        return true;
       }
       if ( timeout < 0 ) {
         turn( -1 );
       } else {
-        const uint64_t now = now_ms();
+        const uint64_t at = now();
         if ( timeout == 0 ) {
           /* whatever is there already, and no more */
           struct pollfd fd = { in, POLLIN, 0 };
@@ -311,10 +142,10 @@ public:
           timeout = 1; /* (and then look at what came, once) */
           continue;
         }
-        if ( now >= deadline ) {
+        if ( at >= deadline ) {
           return false;
         }
-        turn( static_cast<int>( deadline - now ) );
+        turn( static_cast<int>( deadline - at ) );
       }
     }
   }
@@ -324,25 +155,6 @@ public:
     while ( !outbox.empty() ) {
       turn( -1 );
     }
-  }
-};
-
-struct Entry
-{
-  char kind; /* F a file, D a directory, X something that is no longer there */
-  std::string path;
-  uint64_t size;
-  int64_t mtime;
-  uint32_t mode;
-  bool force;         /* known to have changed, whatever its size and time say */
-  long nsec;          /* (sender's own use: the rest of the time) */
-  std::string source; /* (sender's own use: where it is) */
-
-  Entry() : kind( 'F' ), path(), size( 0 ), mtime( 0 ), mode( 0 ), force( false ), nsec( 0 ), source() {}
-
-  bool same( const Entry& x ) const
-  {
-    return kind == x.kind && size == x.size && mtime == x.mtime && mode == x.mode && nsec == x.nsec;
   }
 };
 
@@ -359,13 +171,26 @@ long nanoseconds( const struct stat& st )
 #endif
 }
 
-std::string expand_home( const std::string& path )
+/* What stat says, as decisions.h takes it. */
+Seen seen( int ok, const struct stat& st )
 {
-  const char* home = getenv( "HOME" );
-  if ( home && ( path == "~" || path.compare( 0, 2, "~/" ) == 0 ) ) {
-    return std::string( home ) + path.substr( 1 );
+  Seen s;
+  s.exists = ok == 0;
+  if ( s.exists ) {
+    s.directory = S_ISDIR( st.st_mode );
+    s.regular = S_ISREG( st.st_mode );
+    s.size = st.st_size;
+    s.mtime = st.st_mtime;
+    s.nsec = nanoseconds( st );
   }
-  return path;
+  return s;
+}
+
+Seen seen_at( const std::string& path )
+{
+  struct stat st;
+  const int ok = stat( path.c_str(), &st );
+  return seen( ok, st );
 }
 
 std::string human( uint64_t bytes )
@@ -431,6 +256,8 @@ class End
 {
 protected:
   const Options& options;
+  const char* home; /* HOME, read once, for "~" in the paths */
+  Clock now;
   Channel channel;
   unsigned int errors; /* things that went wrong, at either end */
   unsigned int round;
@@ -467,18 +294,15 @@ protected:
         print( "mocp: " + text );
       }
     } else {
-      std::string m;
-      put8( m, error );
-      put_string( m, text );
-      channel.send( NOTE, m );
+      channel.send( NOTE, note_body( error, text ) );
     }
   }
 
   void heard( const std::string& payload )
   {
-    Reader r( payload );
-    const bool error = r.u8();
-    const std::string text = r.str();
+    bool error;
+    std::string text;
+    read_note( payload, error, text );
     if ( error ) {
       errors++;
     }
@@ -496,9 +320,9 @@ protected:
     std::string line;
     if ( options.automatic && round > 0 ) {
       char stamp[16];
-      const time_t now = time( NULL );
+      const time_t t = time( NULL );
       struct tm tm;
-      localtime_r( &now, &tm );
+      localtime_r( &t, &tm );
       strftime( stamp, sizeof( stamp ), "%H:%M:%S ", &tm );
       line = stamp;
     }
@@ -516,11 +340,11 @@ protected:
     if ( !options.local || options.quiet || total < 4 * CHUNK || !isatty( STDERR_FILENO ) ) {
       return;
     }
-    const uint64_t now = now_ms();
-    if ( now - progress_at < 250 ) {
+    const uint64_t at = now();
+    if ( at - progress_at < 250 ) {
       return;
     }
-    progress_at = now;
+    progress_at = at;
     const std::string name = path.size() > 50 ? "..." + path.substr( path.size() - 47 ) : path;
     fprintf( stderr, "\r\033[K%s  %3u%% of %s", name.c_str(), static_cast<unsigned int>( done * 100 / total ),
              human( total ).c_str() );
@@ -541,8 +365,9 @@ protected:
   }
 
 public:
-  End( const Options& s_options, int in, int out )
-    : options( s_options ), channel( in, out ), errors( 0 ), round( 0 ), progress_shown( false ), progress_at( 0 )
+  End( const Options& s_options, const char* s_home, Clock s_now, int in, int out )
+    : options( s_options ), home( s_home ), now( s_now ), channel( in, out, s_now ), errors( 0 ), round( 0 ),
+      progress_shown( false ), progress_at( 0 )
   {}
   virtual ~End() {}
   virtual void run( void ) = 0;
@@ -579,13 +404,6 @@ private:
     SENT_BAD
   };
 
-  struct Want
-  {
-    uint32_t index;
-    uint64_t offset;
-    Hash prefix;
-    Want() : index( 0 ), offset( 0 ), prefix() {}
-  };
   std::vector<Want> wants;
 
   void look_at( const std::string& source, const std::string& path, bool top, std::map<std::string, Entry>& found )
@@ -656,7 +474,7 @@ private:
   {
     std::vector<std::string> ret;
     for ( size_t i = 0; i < options.paths.size(); i++ ) {
-      const std::string path = expand_home( options.paths[i] );
+      const std::string path = expand_home( options.paths[i], home );
       if ( options.glob ) {
         glob_t matches;
         memset( &matches, 0, sizeof( matches ) );
@@ -675,18 +493,6 @@ private:
     return ret;
   }
 
-  /* The name something goes by at the other end: its own, without where it was found. */
-  static std::string top_name( std::string source )
-  {
-    while ( source.size() > 1 && source[source.size() - 1] == '/' ) {
-      source.erase( source.size() - 1 );
-    }
-    const size_t slash = source.rfind( '/' );
-    const std::string name = slash == std::string::npos ? source : source.substr( slash + 1 );
-    /* "the directory I am in", and such: what is in it, not it */
-    return ( name.empty() || name == "." || name == ".." ) ? "." : name;
-  }
-
   void scan( void )
   {
     std::map<std::string, Entry> found;
@@ -694,43 +500,15 @@ private:
     for ( size_t i = 0; i < from.size(); i++ ) {
       look_at( from[i], top_name( from[i] ), true, found );
     }
-
-    entries.clear();
-    for ( std::map<std::string, Entry>::iterator it = found.begin(); it != found.end(); it++ ) {
-      std::map<std::string, Entry>::const_iterator was = known.find( it->first );
-      if ( was == known.end() || !was->second.same( it->second ) ) {
-        it->second.force = round > 0 && it->second.kind == 'F';
-        entries.push_back( it->second );
-      }
-    }
-    std::vector<std::string> gone;
-    for ( std::map<std::string, Entry>::const_iterator it = known.begin(); it != known.end(); it++ ) {
-      if ( found.find( it->first ) == found.end() ) {
-        gone.push_back( it->first );
-      }
-    }
-    for ( size_t i = 0; i < gone.size(); i++ ) {
-      known.erase( gone[i] );
-      if ( options.remove ) {
-        Entry e;
-        e.kind = 'X';
-        e.path = gone[i];
-        entries.push_back( e );
-      }
-    }
+    entries = changes( found, known, round, options.remove );
   }
 
   void incoming( uint8_t type, const std::string& payload )
   {
-    Reader r( payload );
     switch ( type ) {
       case WANT: {
-        Want w;
-        w.index = r.u32();
-        w.offset = r.u64();
-        w.prefix.a = r.u64();
-        w.prefix.b = r.u64();
-        if ( w.index >= entries.size() || entries[w.index].kind != 'F' || state[w.index] != UP_TO_DATE ) {
+        const Want w = read_want( payload );
+        if ( !want_acceptable( w, entries, w.index < state.size() && state[w.index] != UP_TO_DATE ) ) {
           throw Malformed();
         }
         state[w.index] = WANTED;
@@ -741,9 +519,10 @@ private:
         plan_complete = true;
         break;
       case RESULT: {
-        const uint32_t index = r.u32();
-        const bool ok = r.u8();
-        const std::string why = r.str();
+        uint32_t index;
+        bool ok;
+        std::string why;
+        read_result( payload, index, ok, why );
         if ( index >= entries.size() ) {
           throw Malformed();
         }
@@ -806,17 +585,14 @@ private:
         hash.add( buf, n );
         done += n;
       }
-      if ( done != offset || !( hash == want.prefix ) ) {
-        offset = 0;
+      offset = send_from( offset, e.size, done, hash, want.prefix );
+      if ( offset == 0 ) {
         hash = Hash();
         lseek( fd, 0, SEEK_SET );
       }
     }
 
-    std::string m;
-    put32( m, want.index );
-    put64( m, offset );
-    channel.send( FILE_BEGIN, m );
+    channel.send( FILE_BEGIN, begin_body( want.index, offset ) );
 
     uint64_t at = offset;
     while ( ok && at < e.size ) {
@@ -833,18 +609,14 @@ private:
     }
     if ( fd >= 0 ) {
       struct stat st;
-      if ( fstat( fd, &st ) < 0 || static_cast<uint64_t>( st.st_size ) != e.size || st.st_mtime != e.mtime
-           || nanoseconds( st ) != e.nsec ) {
+      const int got = fstat( fd, &st );
+      if ( !unchanged_while_read( e, seen( got, st ) ) ) {
         ok = false; /* written to while we were reading it */
       }
       close( fd );
     }
 
-    m.clear();
-    put8( m, ok );
-    put64( m, hash.a );
-    put64( m, hash.b );
-    channel.send( FILE_END, m );
+    channel.send( FILE_END, end_body( ok, hash ) );
   }
 
   void one_round( void )
@@ -856,13 +628,7 @@ private:
 
     std::string m;
     for ( size_t i = 0; i < entries.size(); i++ ) {
-      const Entry& e = entries[i];
-      put8( m, e.kind );
-      put8( m, e.force );
-      put_string( m, e.path );
-      put64( m, e.size );
-      put64( m, static_cast<uint64_t>( e.mtime ) );
-      put32( m, e.mode );
+      put_listed( m, entries[i] );
       if ( m.size() > LIST_BATCH ) {
         channel.send( LIST, m );
         m.clear();
@@ -871,9 +637,7 @@ private:
     if ( !m.empty() ) {
       channel.send( LIST, m );
     }
-    m.clear();
-    put8( m, round == 0 ); /* the first is everything there is */
-    channel.send( LIST_END, m );
+    channel.send( LIST_END, flag_body( round == 0 ) ); /* the first is everything there is */
 
     uint8_t type;
     std::string payload;
@@ -902,19 +666,16 @@ private:
   }
 
 public:
-  Sender( const Options& s_options, int in, int out )
-    : End( s_options, in, out ), known(), entries(), state(), plan_complete( false ), round_complete( false ),
-      copied( 0 ), current( 0 ), wants()
+  Sender( const Options& s_options, const char* s_home, Clock s_now, int in, int out )
+    : End( s_options, s_home, s_now, in, out ), known(), entries(), state(), plan_complete( false ),
+      round_complete( false ), copied( 0 ), current( 0 ), wants()
   {}
 
   void run( void )
   {
-    std::string m( MAGIC );
-    channel.send( HELLO, m );
-    m.clear();
+    channel.send( HELLO, std::string( MAGIC ) );
     /* (more than one thing to copy means the destination is a directory to put them in) */
-    put8( m, sources().size() > 1 );
-    channel.send( HELLO, m );
+    channel.send( HELLO, flag_body( sources().size() > 1 ) );
     uint8_t type;
     std::string payload;
     channel.recv( type, payload, -1 );
@@ -940,9 +701,9 @@ public:
         break;
       }
       /* wait a while, listening in case the other end has something to say, or goes */
-      const uint64_t until = now_ms() + options.interval;
-      while ( now_ms() < until ) {
-        if ( channel.recv( type, payload, static_cast<int>( until - now_ms() ) ) ) {
+      const uint64_t until = now() + options.interval;
+      while ( now() < until ) {
+        if ( channel.recv( type, payload, static_cast<int>( until - now() ) ) ) {
           incoming( type, payload );
         }
       }
@@ -959,15 +720,6 @@ private:
   std::string dest;
   bool many, into, into_known;
 
-  struct Plan
-  {
-    Entry entry;
-    std::string target, part;
-    bool wanted;
-    uint64_t offset;
-    Hash prefix;
-    Plan() : entry(), target(), part(), wanted( false ), offset( 0 ), prefix() {}
-  };
   std::vector<Plan> plans;
   size_t copied;
 
@@ -978,31 +730,6 @@ private:
   std::string trouble;
   Hash hash;
   uint64_t at;
-
-  /* Where something from the other end goes here. */
-  std::string target_of( const std::string& path ) const
-  {
-    const std::string base = dest == "/" ? "" : dest;
-    if ( path == "." ) {
-      return dest;
-    }
-    if ( path.compare( 0, 2, "./" ) == 0 ) {
-      return base + path.substr( 1 );
-    }
-    if ( into ) {
-      return base + "/" + path;
-    }
-    /* the one thing being copied takes the destination's name */
-    const size_t slash = path.find( '/' );
-    return slash == std::string::npos ? dest : dest + path.substr( slash );
-  }
-
-  static std::string part_name( const std::string& target )
-  {
-    const size_t slash = target.rfind( '/' );
-    return slash == std::string::npos ? "." + target + ".mocp-part"
-                                      : target.substr( 0, slash + 1 ) + "." + target.substr( slash + 1 ) + ".mocp-part";
-  }
 
   void result( uint32_t which, bool good, const std::string& why )
   {
@@ -1015,21 +742,16 @@ private:
         print( "mocp: " + plans[which].target + ": " + why );
       }
     }
-    std::string m;
-    put32( m, which );
-    put8( m, good );
-    put_string( m, why );
-    channel.send( RESULT, m );
+    channel.send( RESULT, result_body( which, good, why ) );
   }
 
   void plan_one( uint32_t which )
   {
     Plan& p = plans[which];
     const Entry& e = p.entry;
-    struct stat st;
 
     if ( e.kind == 'X' ) {
-      if ( options.remove && p.target != dest ) {
+      if ( may_remove( options.remove, p.target, dest ) ) {
         remove_tree( p.target );
         unlink( p.part.c_str() );
         report( "removed ", e.path, 0 );
@@ -1048,24 +770,24 @@ private:
       result( which, false, strerror( errno ) );
       return;
     }
-    if ( stat( p.target.c_str(), &st ) == 0 ) {
-      if ( S_ISDIR( st.st_mode ) ) {
+    switch ( holding( e, seen_at( p.target ) ) ) {
+      case IN_THE_WAY:
         result( which, false, "is a directory here" );
         return;
-      }
-      if ( !e.force && S_ISREG( st.st_mode ) && static_cast<uint64_t>( st.st_size ) == e.size
-           && st.st_mtime == e.mtime ) {
-        if ( ( st.st_mode & 0777 ) != ( e.mode & ~process_umask() ) ) {
+      case HAVE_IT: {
+        struct stat st;
+        if ( stat( p.target.c_str(), &st ) == 0 && ( st.st_mode & 0777 ) != ( e.mode & ~process_umask() ) ) {
           chmod( p.target.c_str(), e.mode & ~process_umask() );
         }
         return; /* we have it */
       }
+      case WANT_IT:
+        break;
     }
 
     /* We need it.  Is there some of it here from last time? */
     p.wanted = true;
-    if ( stat( p.part.c_str(), &st ) == 0 && S_ISREG( st.st_mode ) && st.st_size > 0
-         && static_cast<uint64_t>( st.st_size ) <= e.size ) {
+    if ( part_counts( e, seen_at( p.part ) ) ) {
       const int part = open( p.part.c_str(), O_RDONLY );
       if ( part >= 0 ) {
         char buf[CHUNK];
@@ -1077,12 +799,11 @@ private:
         close( part );
       }
     }
-    std::string m;
-    put32( m, which );
-    put64( m, p.offset );
-    put64( m, p.prefix.a );
-    put64( m, p.prefix.b );
-    channel.send( WANT, m );
+    Want w;
+    w.index = which;
+    w.offset = p.offset;
+    w.prefix = p.prefix;
+    channel.send( WANT, want_body( w ) );
   }
 
   static mode_t process_umask( void )
@@ -1095,13 +816,7 @@ private:
   /* With everything listed, what is here and was not listed is to go. */
   void prune( void )
   {
-    std::set<std::string> listed;
-    for ( size_t i = 0; i < plans.size(); i++ ) {
-      listed.insert( plans[i].target );
-      if ( plans[i].wanted ) {
-        listed.insert( plans[i].part );
-      }
-    }
+    const std::set<std::string> listed = listed_here( plans );
     for ( size_t i = 0; i < plans.size(); i++ ) {
       if ( plans[i].entry.kind != 'D' ) {
         continue;
@@ -1130,17 +845,15 @@ private:
   {
     if ( !into_known ) {
       /* Is the destination a place to put things, or the name for the one thing? */
-      struct stat st;
-      const std::string& given = options.paths[0];
-      into = many || ( !given.empty() && given[given.size() - 1] == '/' )
-             || ( stat( dest.c_str(), &st ) == 0 && S_ISDIR( st.st_mode ) );
+      const Seen d = seen_at( dest );
+      into = destination_is_place( many, options.paths[0], d.exists && d.directory );
       into_known = true;
       if ( into && !make_directories( dest ) ) {
         say( true, dest + ": " + strerror( errno ) );
       }
     }
     for ( size_t i = 0; i < plans.size(); i++ ) {
-      plans[i].target = target_of( plans[i].entry.path );
+      plans[i].target = target_of( dest, into, plans[i].entry.path );
       plans[i].part = part_name( plans[i].target );
     }
     for ( size_t i = 0; i < plans.size(); i++ ) {
@@ -1154,11 +867,9 @@ private:
 
   void begin( const std::string& payload )
   {
-    Reader r( payload );
-    index = r.u32();
-    const uint64_t offset = r.u64();
-    if ( fd >= 0 || index >= plans.size() || !plans[index].wanted
-         || ( offset != 0 && offset != plans[index].offset ) ) {
+    uint64_t offset;
+    read_begin( payload, index, offset );
+    if ( !begin_acceptable( fd >= 0, index, offset, plans ) ) {
       throw Malformed();
     }
     const Plan& p = plans[index];
@@ -1201,11 +912,9 @@ private:
 
   void end( const std::string& payload )
   {
-    Reader r( payload );
-    const bool sender_ok = r.u8();
+    bool sender_ok;
     Hash theirs;
-    theirs.a = r.u64();
-    theirs.b = r.u64();
+    read_end( payload, sender_ok, theirs );
     if ( fd < 0 ) {
       throw Malformed();
     }
@@ -1216,42 +925,43 @@ private:
     }
     fd = -1;
 
-    if ( !sender_ok ) {
-      /* It changed under the sender, or could not be read.  What came may yet be a start. */
-      if ( at == 0 ) {
-        unlink( p.part.c_str() );
-      }
-      result( index, false, ok ? "it changed while it was being copied, or could not be read" : trouble );
-      return;
-    }
-    if ( ok && ( !( hash == theirs ) || at != p.entry.size ) ) {
-      ok = false;
-      trouble = "what arrived was not what was sent";
-      unlink( p.part.c_str() );
-    }
-    if ( ok ) {
-      struct timeval times[2];
-      times[0].tv_sec = times[1].tv_sec = p.entry.mtime;
-      times[0].tv_usec = times[1].tv_usec = 0;
-      chmod( p.part.c_str(), p.entry.mode & ~process_umask() );
-      utimes( p.part.c_str(), times );
-      if ( rename( p.part.c_str(), p.target.c_str() ) < 0 ) {
+    switch ( arrival( sender_ok, ok, hash, theirs, at, p.entry.size ) ) {
+      case SENDER_FAILED:
+        /* What came may yet be a start, unless nothing did. */
+        if ( at == 0 ) {
+          unlink( p.part.c_str() );
+        }
+        result( index, false, ok ? "it changed while it was being copied, or could not be read" : trouble );
+        return;
+      case NOT_AS_SENT:
         ok = false;
-        trouble = strerror( errno );
+        trouble = "what arrived was not what was sent";
+        unlink( p.part.c_str() );
+        break;
+      case NOT_WRITTEN:
+        break;
+      case WHOLE: {
+        struct timeval times[2];
+        times[0].tv_sec = times[1].tv_sec = p.entry.mtime;
+        times[0].tv_usec = times[1].tv_usec = 0;
+        chmod( p.part.c_str(), p.entry.mode & ~process_umask() );
+        utimes( p.part.c_str(), times );
+        if ( rename( p.part.c_str(), p.target.c_str() ) < 0 ) {
+          ok = false;
+          trouble = strerror( errno );
+        }
+        break;
       }
     }
     result( index, ok, trouble );
   }
 
 public:
-  Receiver( const Options& s_options, int in, int out )
-    : End( s_options, in, out ), dest( expand_home( s_options.paths[0] ) ), many( false ), into( false ),
+  Receiver( const Options& s_options, const char* s_home, Clock s_now, int in, int out )
+    : End( s_options, s_home, s_now, in, out ),
+      dest( without_trailing_slashes( expand_home( s_options.paths[0], s_home ) ) ), many( false ), into( false ),
       into_known( false ), plans(), copied( 0 ), fd( -1 ), index( 0 ), ok( false ), trouble(), hash(), at( 0 )
-  {
-    while ( dest.size() > 1 && dest[dest.size() - 1] == '/' ) {
-      dest.erase( dest.size() - 1 );
-    }
-  }
+  {}
 
   ~Receiver()
   {
@@ -1269,32 +979,23 @@ public:
     if ( type != HELLO ) {
       throw Malformed();
     }
-    many = Reader( payload ).u8();
+    many = read_flag( payload );
 
     while ( true ) {
       channel.recv( type, payload, -1 );
       switch ( type ) {
         case LIST: {
-          Reader r( payload );
-          while ( !r.done() ) {
+          const std::vector<Entry> listed = read_list( payload );
+          for ( size_t i = 0; i < listed.size(); i++ ) {
             Plan p;
-            p.entry.kind = r.u8();
-            p.entry.force = r.u8();
-            p.entry.path = r.str();
-            p.entry.size = r.u64();
-            p.entry.mtime = static_cast<int64_t>( r.u64() );
-            p.entry.mode = r.u32() & 0777;
-            if ( ( p.entry.kind != 'F' && p.entry.kind != 'D' && p.entry.kind != 'X' )
-                 || !safe_relative_path( p.entry.path ) ) {
-              throw Malformed();
-            }
+            p.entry = listed[i];
             plans.push_back( p );
           }
           break;
         }
         case LIST_END:
           copied = 0;
-          plan( Reader( payload ).u8() );
+          plan( read_flag( payload ) );
           break;
         case FILE_BEGIN:
           begin( payload );
@@ -1339,13 +1040,14 @@ public:
 int FileCopy::run( const Options& options, int in_fd, int out_fd )
 {
   signal( SIGPIPE, SIG_IGN );
+  const char* home = getenv( "HOME" ); /* the one read of the environment: for "~" in the paths */
   End* end = NULL;
   int status = 1;
   try {
     if ( options.sender ) {
-      end = new Sender( options, in_fd, out_fd );
+      end = new Sender( options, home, now_ms, in_fd, out_fd );
     } else {
-      end = new Receiver( options, in_fd, out_fd );
+      end = new Receiver( options, home, now_ms, in_fd, out_fd );
     }
     try {
       end->run();

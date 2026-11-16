@@ -1,6 +1,9 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-/* Tests the file copying of mocp: a sender and a receiver, joined by a socket pair. */
+/*
+ * REQ1/CP-1 to REQ1/CP-5: the edge of copy (filecopy.cc), the fork's test of it: a sender and a
+ * receiver, each a process, joined by a socket pair, copying real files in a directory of its own.
+ */
 
 #include <cstdio>
 #include <cstdlib>
@@ -169,20 +172,7 @@ int main( void )
   }
   root = scratch;
 
-  CHECK( FileCopy::safe_relative_path( "a/b" ) && FileCopy::safe_relative_path( "./a" ) );
-  CHECK( !FileCopy::safe_relative_path( "/a" ) && !FileCopy::safe_relative_path( "a/../b" ) );
-  CHECK( !FileCopy::safe_relative_path( ".." ) && !FileCopy::safe_relative_path( "a//b" )
-         && !FileCopy::safe_relative_path( "" ) );
-  {
-    FileCopy::Hash whole, parts;
-    whole.add( big.data(), big.size() );
-    parts.add( big.data(), 1000 );
-    parts.add( big.data() + 1000, big.size() - 1000 );
-    CHECK( whole == parts );
-    FileCopy::Hash other;
-    other.add( big.data(), big.size() - 1 );
-    CHECK( !( whole == other ) );
-  }
+  /* (names and the checksum have their own tests: names-test.cc, checksum-test.cc) */
 
   /* one file, to a new name; then into a directory; then nothing to do */
   dir( "src" );
