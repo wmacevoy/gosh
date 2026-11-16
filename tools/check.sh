@@ -118,6 +118,8 @@ pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 always
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 punched
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-meetup.py
+# (the meetup named by another of the machine's addresses: it must answer from that one, REQ16/PATH-8)
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-meetup.py 127.0.0.1 127.0.0.2
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 blocked
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 translated
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 returned
