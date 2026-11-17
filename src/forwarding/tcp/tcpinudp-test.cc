@@ -15,10 +15,6 @@
 #include "src/forwarding/frame.h"
 #include "vendor/facts/facts.h"
 
-/* The facts of the group now running, for checks outside a group: each group sets it, and a
-   helper that checks takes it as its own facts. */
-static Facts* current_facts = nullptr;
-
 using namespace Network;
 
 /* (gosh) The fork's UDPForwarder::encode and ::decode, which only its tests called: a frame of plain UDP data. */
@@ -36,7 +32,7 @@ static bool decode_data( const std::string& payload, uint8_t& forward, uint16_t&
 
 static Addr addr4( const char* s )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   Addr a;
   memset( &a, 0, sizeof( a ) );
   a.sin.sin_family = AF_INET;
@@ -46,7 +42,7 @@ static Addr addr4( const char* s )
 
 static Addr addr6( const char* s )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   Addr a;
   memset( &a, 0, sizeof( a ) );
   a.sin6.sin6_family = AF_INET6;
@@ -81,7 +77,6 @@ static const unsigned char syn_udp[]
       0x02, 0x04, 0x05, 0xB4 };                       /* MSS 1460 */
 FACTS( Syn )
 {
-  current_facts = facts;
   const Addr src = addr4( "192.0.2.1" ), dst = addr4( "198.51.100.2" );
   const std::string tcp = bytes( syn_tcp, sizeof( syn_tcp ) );
   const std::string udp = bytes( syn_udp, sizeof( syn_udp ) );
@@ -113,7 +108,6 @@ FACTS( Syn )
 }
 FACTS( DataIpv6 )
 {
-  current_facts = facts;
   /* PSH|ACK with an odd-length payload, [2001:db8::1]:443 -> [2001:db8::2]:50000 */
   const Addr src = addr6( "2001:db8::1" ), dst = addr6( "2001:db8::2" );
 
@@ -161,7 +155,6 @@ FACTS( DataIpv6 )
 }
 FACTS( Rejects )
 {
-  current_facts = facts;
   const std::string tcp = bytes( syn_tcp, sizeof( syn_tcp ) );
   const std::string datagram = bytes( syn_udp, sizeof( syn_udp ) ).substr( 8 );
   TCPInUDP s;
@@ -218,7 +211,6 @@ FACTS( Rejects )
 }
 FACTS( Sizes )
 {
-  current_facts = facts;
   /* a full-sized segment with full options exactly fills the budget */
   const size_t budget = 1200 - Gosh::FRAME_HEADER_LEN;
   const size_t mss = TCPInUDP::max_segment_size( budget );

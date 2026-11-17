@@ -10,12 +10,6 @@
 #include "src/forwarding/tcp/early.h"
 #include "vendor/facts/facts.h"
 
-/* The facts of the group now running, for checks outside a group: each group sets it, and a
-   helper that checks takes it as its own facts. */
-static Facts* current_facts = nullptr;
-
-
-
 static const size_t LIMIT = 1024 * 1024;
 
 /* The ranges an option names (kind 5), less `base`. */
@@ -33,7 +27,7 @@ typedef std::vector<std::pair<uint32_t, uint32_t> > Ranges;
 
 static void test_at( uint32_t nxt, const char* where )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   printf( "%s\n", where );
   Gosh::Early e;
   FACT_CHECK( ( e.empty() && e.blocks( nxt, LIMIT, 4 ).empty() ), "  nothing kept: nothing to say, nothing to take" );
@@ -48,12 +42,12 @@ static void test_at( uint32_t nxt, const char* where )
   e.keep( nxt + 1100, hundred, nxt, LIMIT ); /* the last to arrive: it joins 1,000 to 1,100 */
   const std::string said = e.blocks( nxt, LIMIT, 4 );
   FACT_CHECK( ( said.size() == 36 && said[0] == 1 && said[1] == 1 && said[2] == 5 && said[3] == 34 ), "  five ranges held: the option is 2 bytes of padding, kind 5, length 34: four ranges" );
-  FACT_CHECK( ( ranges_of( said, nxt ) == Ranges( { { 1000, 1200 }, { 300, 500 }, { 2000, 2100 }, { 3000, 3100 } } ) ), "  the range of the last arrival first (1,000 to 1,200), then the nearest: 300-500, 2,000-2,100, 3,000-3,100" );
-  FACT_CHECK( ( ranges_of( e.blocks( nxt, LIMIT, 2 ), nxt ) == Ranges( { { 1000, 1200 }, { 300, 500 } } ) ), "  room for two only: the last arrival's and the nearest" );
+  FACT_CHECK( ranges_of( said, nxt ) == Ranges( { { 1000, 1200 }, { 300, 500 }, { 2000, 2100 }, { 3000, 3100 } } ), "  the range of the last arrival first (1,000 to 1,200), then the nearest: 300-500, 2,000-2,100, 3,000-3,100" );
+  FACT_CHECK( ranges_of( e.blocks( nxt, LIMIT, 2 ), nxt ) == Ranges( { { 1000, 1200 }, { 300, 500 } } ), "  room for two only: the last arrival's and the nearest" );
   FACT_CHECK( e.blocks( nxt, LIMIT, 0 ).empty(), "  room for none: nothing is said" );
 
   e.keep( nxt + 300, std::string( 50, 'y' ), nxt, LIMIT );
-  FACT_CHECK( ( ranges_of( e.blocks( nxt, LIMIT, 1 ), nxt ) == Ranges( { { 1000, 1200 } } ) ), "  one that begins where one kept begins is not kept twice" );
+  FACT_CHECK( ranges_of( e.blocks( nxt, LIMIT, 1 ), nxt ) == Ranges( { { 1000, 1200 } } ), "  one that begins where one kept begins is not kept twice" );
   e.keep( nxt + 5000, "", nxt, LIMIT );
   e.keep( nxt + LIMIT + 1, hundred, nxt, LIMIT );
   FACT_CHECK( ( ranges_of( e.blocks( nxt, LIMIT, 4 ), nxt ).size() == 4 && ranges_of( e.blocks( nxt, LIMIT, 4 ), nxt )[0].first == 1000 ), "  nor an empty one, nor one further ahead than the buffer is long" );
@@ -67,12 +61,12 @@ static void test_at( uint32_t nxt, const char* where )
   FACT_CHECK( ( e.take_next( nxt + 1050, LIMIT, seq, payload ) && seq == nxt + 1000 ), "  in order up to 1,050, inside one held: it is taken, for its second half" );
   /* in order up to 2,500: the segments at 1,100 and 2,000 are behind, and are thrown away; nothing continues */
   FACT_CHECK( !e.take_next( nxt + 2500, LIMIT, seq, payload ), "  in order past two that are held: they are thrown away, and nothing is taken" );
-  FACT_CHECK( ( ranges_of( e.blocks( nxt + 2500, LIMIT, 4 ), nxt ) == Ranges( { { 3000, 3100 }, { 4000, 4100 } } ) ), "  what is left is said from there: 3,000-3,100 and 4,000-4,100" );
+  FACT_CHECK( ranges_of( e.blocks( nxt + 2500, LIMIT, 4 ), nxt ) == Ranges( { { 3000, 3100 }, { 4000, 4100 } } ), "  what is left is said from there: 3,000-3,100 and 4,000-4,100" );
 
   Gosh::Early stale;
   stale.keep( nxt + 300, hundred, nxt, LIMIT );
   stale.keep( nxt + 3000, hundred, nxt, LIMIT );
-  FACT_CHECK( ( ranges_of( stale.blocks( nxt + 1000, LIMIT, 4 ), nxt ) == Ranges( { { 3000, 3100 } } ) ), "  one that the next byte wanted has passed is not said to be held, though not yet thrown away" );
+  FACT_CHECK( ranges_of( stale.blocks( nxt + 1000, LIMIT, 4 ), nxt ) == Ranges( { { 3000, 3100 } } ), "  one that the next byte wanted has passed is not said to be held, though not yet thrown away" );
 
   Gosh::Early full;
   full.keep( nxt + 200, std::string( LIMIT - 100, 'z' ), nxt, LIMIT );
@@ -100,11 +94,12 @@ static void test_at( uint32_t nxt, const char* where )
     many.keep( nxt + 1000 * ( i + 1 ), hundred, nxt, LIMIT );
   }
   FACT_CHECK( ( ranges_of( many.blocks( nxt, LIMIT, 146 ), nxt ).size() == 4 && many.blocks( nxt, LIMIT, 146 ).size() == 36 ), "  six ranges held and room for 146: four are said, and no more (the option must fit a header)" );
-  FACT_CHECK( ( ranges_of( many.blocks( nxt, LIMIT, 4 ), nxt )[0] == std::make_pair<uint32_t, uint32_t>( 6000, 6100 ) ), "  the last to arrive began a range of its own: it is said first" );
+  const std::pair<uint32_t, uint32_t> last_range( 6000, 6100 ); /* named: a template's comma would split the fact */
+  FACT_CHECK( ranges_of( many.blocks( nxt, LIMIT, 4 ), nxt )[0] == last_range, "  the last to arrive began a range of its own: it is said first" );
   Gosh::Early inside;
   inside.keep( nxt + 1000, std::string( 500, 'c' ), nxt, LIMIT );
   inside.keep( nxt + 1100, hundred, nxt, LIMIT ); /* wholly inside the first */
-  FACT_CHECK( ( ranges_of( inside.blocks( nxt, LIMIT, 4 ), nxt ) == Ranges( { { 1000, 1500 } } ) ), "  a segment inside another does not shorten the range said" );
+  FACT_CHECK( ranges_of( inside.blocks( nxt, LIMIT, 4 ), nxt ) == Ranges( { { 1000, 1500 } } ), "  a segment inside another does not shorten the range said" );
   Gosh::Early edge;
   edge.keep( nxt + LIMIT, hundred, nxt, LIMIT );
   FACT_CHECK( ranges_of( edge.blocks( nxt, LIMIT, 4 ), nxt ).size() == 1, "  exactly as far ahead as the buffer is long: kept, and said" );
@@ -120,7 +115,6 @@ static void test_at( uint32_t nxt, const char* where )
 /* REQ14 (selective acknowledgment): segments that came early */
 FACTS( Early )
 {
-  current_facts = facts;
   test_at( 1000000, "sequence numbers in the middle of their range:" );
   test_at( 0xFFFFF800u, "sequence numbers that wrap round within the data:" );
 }

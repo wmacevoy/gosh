@@ -23,7 +23,13 @@ worth reading before migrating the part it concerns.
   once, with its output not kept. Not again in 60 runs nor in any check since. It uses real
   sockets on loopback (the fork's test). **Kind:** K2, not reproduced; left open (SE1/T9): if it
   recurs, its output (facts now names the group and line) says where.
-- **What it changed:** how a unit test is written (`CONTRIBUTING.md`).
+- **What it changed:** how a unit test is written (`CONTRIBUTING.md`). Later the same day facts
+  2.4.1 answered the issues (values of any type print; a class constant links; `FactsCurrent()`;
+  a false `FACT` leaves its group from any depth), and gosh took it: the 22 conditions in
+  parentheses and `current_facts` are gone, and a vector's or a pair's values now print when false.
+  One check run in between failed in `pf.7 with tests/headless-smoke.py` (the old fork's programs,
+  which the change does not reach: the stream was started again while UDP worked); the next run
+  passed. Not reproduced; noted here, in case it recurs.
 
 ## 2026-11-17 — The owner's trial: VS Code's remote ssh through a gosh forward kept going
 

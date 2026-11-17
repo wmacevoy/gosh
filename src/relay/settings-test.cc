@@ -38,11 +38,11 @@ FACTS( Settings )
   FACT_CHECK( !relay_settings( true, NULL, "always", NULL, NULL, NULL ).path_finding, "the stream and nothing else: no path-finding, whatever the word" );
 
   s = relay_settings( false, NULL, NULL, "meet.example:3478,other.example:1", NULL, "ssh\x1f-T\x1fmeet.example\x1f--\x1fgosh-server meetup-ticket" );
-  FACT_CHECK( ( s.ask == Words( { "meet.example:3478", "other.example:1" } ) ), "meetups named, nothing said of STUN: the meetups alone are asked" );
+  FACT_CHECK( s.ask == Words( { "meet.example:3478", "other.example:1" } ), "meetups named, nothing said of STUN: the meetups alone are asked" );
   FACT_CHECK( ( s.meetup == "meet.example:3478"
            && s.ticket_command == Words( { "ssh", "-T", "meet.example", "--", "gosh-server meetup-ticket" } ) ), "the first is the one used (REQ15/PATH-4), with its ticket's command in its words" );
   s = relay_settings( false, NULL, NULL, "meet.example:3478", "stun.example:19302", NULL );
-  FACT_CHECK( ( s.ask == Words( { "meet.example:3478", "stun.example:19302" } ) ), "meetups and STUN servers named: the meetups first" );
+  FACT_CHECK( s.ask == Words( { "meet.example:3478", "stun.example:19302" } ), "meetups and STUN servers named: the meetups first" );
   FACT_CHECK( relay_settings( false, NULL, NULL, NULL, "none", NULL ).ask.empty(), "GOSH_STUN=none, no meetup: nobody on the Internet is asked" );
   FACT_CHECK( relay_settings( false, NULL, NULL, NULL, "", NULL ).ask.empty(), "GOSH_STUN empty: likewise" );
   s = relay_settings( false, NULL, NULL, "meet.example:3478", "none", "ssh\x1fmeet.example" );
@@ -50,7 +50,7 @@ FACTS( Settings )
   s = relay_settings( false, NULL, NULL, NULL, "stun.example:19302", "ssh\x1fhost" );
   FACT_CHECK( ( s.ask == Words( { "stun.example:19302" } )
                                                                            && s.meetup.empty() && s.ticket_command.empty() ), "a plain STUN server is asked, and never taken for a meetup" );
-  FACT_CHECK( ( Gosh::comma_list( ",a,,none,b," ) == Words( { "a", "b" } ) ), "empty items and \"none\" in a list name nothing" );
+  FACT_CHECK( Gosh::comma_list( ",a,,none,b," ) == Words( { "a", "b" } ), "empty items and \"none\" in a list name nothing" );
 
   std::string address = "unset";
   FACT_CHECK( Gosh::ssh_client_address( "192.0.2.7 51000 198.51.100.9 22" ) == "192.0.2.7", "what ssh says of a connection: the client's address is its first word" );

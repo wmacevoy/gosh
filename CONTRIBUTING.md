@@ -113,10 +113,11 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   **Unit tests are written with facts** (`vendor/facts/README.md`; the owner, 2026-11-17: "fix all the
   tests"): `FACTS( Name ) { ... }` groups, registered in order in `FACTS_REGISTER_ALL`, and
   `FACT_CHECK( a == b, "what it shows" )`, which prints both values when false and goes on.
-  `--facts_plain` to read a run; `--facts_include=Name` to run one group. A condition whose values
-  cannot be printed (a vector, a struct) is put in parentheses, `FACT_CHECK( ( a == b ), ... )`; so is
-  one that compares a `static const` member, which facts would hold by reference and fail to link.
-  A helper that checks takes the running group's facts from `current_facts`, which each group sets.
+  `--facts_plain` to read a run; `--facts_include=Name` to run one group. A value with no `operator<<`
+  prints as well as facts can (a vector's elements, a pair's members, else `?`). A helper that checks
+  takes `Facts* facts` as a parameter, or, where it cannot (a method, a callback), from `FactsCurrent()`.
+  A false `FACT` leaves the whole group from any depth, by exception: so not in a destructor, and not
+  under a `catch ( ... )` of the test's own. A comma in a template argument splits a fact: name the value first.
 - **Working set:** `docs/`: `REQUIREMENTS_v16.md` (the one in force; v6 to v15 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
   and still holds the seam file by file).

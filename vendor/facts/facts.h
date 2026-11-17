@@ -42,6 +42,9 @@ extern "C"
   void FactsExclude(const char *pattern);
   void FactsRegister(Facts *facts);
   void FactsCheck();
+  // The group being run, or NULL outside a run (REQ4/WR-10).  A helper with no
+  // Facts parameter writes `Facts *facts = FactsCurrent();` and can use FACT.
+  Facts *FactsCurrent(void);
   void FactsFiction(const char *file, int line, Facts *facts,
 		    const char *a, const char *op, const char *b);
 
@@ -125,8 +128,9 @@ extern "C"
   if (!FACT_CHECK_PRINT(a, op, b, fmt)) \
   return
 
-// C++: the lambda is there to hold each side by reference while it is compared and printed.
-#define FACT_CHECK_CERR(a, op, b) ([&]() -> int { const auto &facts_a_ = (a); const auto &facts_b_ = (b); return (facts_a_ op facts_b_) ? (++facts_truths, 1) : (std::cout  << __FILE__ << "/" << facts->name << " " << __LINE__ << ": " << FACTS_RED << #a << " {=" << facts_a_ << "} " << #op << " " << #b << " {=" << facts_b_ << "} is fiction" << FACTS_RESET << std::endl, FactsFiction(__FILE__, __LINE__, facts, #a, #op, #b), facts->status = -1, ++facts_fictions, 0); }())
+// C++: the lambda is there to hold each side while it is compared and printed
+// (a number by value, anything else by reference: FactsHeld).
+#define FACT_CHECK_CERR(a, op, b) ([&]() -> int { typename FactsHeld<decltype((a))>::type facts_a_ = (a); typename FactsHeld<decltype((b))>::type facts_b_ = (b); return (facts_a_ op facts_b_) ? (++facts_truths, 1) : (std::cout  << __FILE__ << "/" << facts->name << " " << __LINE__ << ": " << FACTS_RED << #a << " {=" << FactsShow(facts_a_) << "} " << #op << " " << #b << " {=" << FactsShow(facts_b_) << "} is fiction" << FACTS_RESET << std::endl, FactsFiction(__FILE__, __LINE__, facts, #a, #op, #b), facts->status = -1, ++facts_fictions, 0); }())
 #define FACT_CERR(a, op, b)  \
   if (!FACT_CHECK_CERR(a, op, b)) \
   return
@@ -139,7 +143,6 @@ extern "C"
 // FACT_CHECK takes the same three.
 #define FACTS_EXPAND(x) x
 #define FACTS_FACT_PICK(_1, _2, _3, name, ...) name
-#define FACT(...) FACTS_EXPAND(FACTS_FACT_PICK(__VA_ARGS__, FACT_CERR, FACT_NOTE, FACT_EXPR, )(__VA_ARGS__))
 #define FACT_CHECK(...) FACTS_EXPAND(FACTS_FACT_PICK(__VA_ARGS__, FACT_CHECK_CERR, FACT_CHECK_NOTE, FACT_CHECK_EXPR, )(__VA_ARGS__))
 // The operator that takes the expression apart is the one each compiler is
 // quiet about: gcc suggests parentheses at every "<= a == b", clang at
@@ -157,17 +160,50 @@ extern "C"
 #define FACT_NOTE(expr, note)  \
   if (!FACT_CHECK_NOTE(expr, note)) \
   return
+// How a fiction leaves (REQ4/WR-8).  By return: the function the fact is
+// written in returns, which ends the group only when that is the group.  By
+// exception: FactsLeave is thrown and the group's FACTS_DECLARE catches it, so a fiction in a
+// helper, method, or lambda ends the group, and a helper that returns a value
+// can use FACT.  FACT leaves by exception wherever the compiler has them.
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS) || defined(_CPPUNWIND)
+#define FACTS_EXCEPTIONS 1
+#endif
+struct FactsLeave {};
+#define FACT_BY_RETURN(...) if (!FACT_CHECK(__VA_ARGS__)) return
+#ifdef FACTS_EXCEPTIONS
+#define FACT_BY_EXCEPTION(...) if (!FACT_CHECK(__VA_ARGS__)) throw FactsLeave()
+#define FACT(...) FACT_BY_EXCEPTION(__VA_ARGS__)
+#else
+#define FACT(...) FACT_BY_RETURN(__VA_ARGS__)
+#endif
 #define FACTS_EXTERN extern "C"
 #else
 #define FACT(a, op, b) FACT_PRINT(a, op, b, FACTS_PRINT_FORMAT(a))
 #define FACT_CHECK(a, op, b) FACT_CHECK_PRINT(a, op, b, FACTS_PRINT_FORMAT(a))
+#define FACT_BY_RETURN(a, op, b) FACT(a, op, b)
+#define FACT_BY_EXCEPTION(a, op, b) _Static_assert(0, "FACT_BY_EXCEPTION is C++ only; C leaves by return")
 #define FACTS_EXTERN
 #endif
 
+#if defined(__cplusplus) && defined(FACTS_EXCEPTIONS)
+// In C++ the run calls facts_<name>_caught, which catches the fiction FACT
+// throws (REQ4/WR-8).  The catch is here, in the program's own code, so it
+// works whichever library is linked, the C one included.  The group's body
+// keeps the name facts_<name>_function, which the gdb hints break in.
+#define FACTS_DECLARE(name, state)                                                                    \
+  void facts_##name##_function(Facts *facts);                                                           \
+  static void facts_##name##_caught(Facts *facts)                                                       \
+  {                                                                                                     \
+    try { facts_##name##_function(facts); } catch (FactsLeave &) {}                                     \
+  }                                                                                                     \
+  Facts facts_##name##_data = {__FILE__, __LINE__, #name, &facts_##name##_caught, state, NULL, NULL};   \
+  void facts_##name##_function(Facts *facts)
+#else
 #define FACTS_DECLARE(name, state)                                                                    \
   void facts_##name##_function(Facts *facts);                                                           \
   Facts facts_##name##_data = {__FILE__, __LINE__, #name, &facts_##name##_function, state, NULL, NULL}; \
   void facts_##name##_function(Facts *facts)
+#endif
 
 #define FACTS_INCLUDE(name) FACTS_DECLARE(name, FACTS_STATE_INCLUDE)
 #define FACTS_EXCLUDE(name) FACTS_DECLARE(name, FACTS_STATE_EXCLUDE)
@@ -202,6 +238,19 @@ extern "C"
 #ifdef __cplusplus
 #include <functional>
 #include <iostream>
+#include <type_traits>
+#include <iterator>
+#include <utility>
+
+  // How a fact holds a side while it compares and prints it.  A number, enum,
+  // or pointer is copied: a reference to `static const size_t MAX = 64;`,
+  // declared in a class and never defined outside it, fails to link.  Anything
+  // else is held by reference, so it need not be copyable.
+  template <class T> struct FactsHeld
+  {
+    typedef typename std::remove_cv<typename std::remove_reference<T>::type>::type bare;
+    typedef typename std::conditional<std::is_scalar<bare>::value, bare, const bare &>::type type;
+  };
  
   class FactsTrace
   {
@@ -297,9 +346,9 @@ extern "C"
 
   template <class L, class R> struct FactsBinary
   {
-    const L &lhs;
+    typename FactsHeld<L>::type lhs;
     const char *op;
-    const R &rhs;
+    typename FactsHeld<R>::type rhs;
     bool truth;
     explicit operator bool() const { return truth; }
   };
@@ -310,26 +359,88 @@ extern "C"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif
+  // Each comparison twice: a number taken by value, anything else by reference
+  // (FactsHeld).  An array is taken by value too, as the pointer it decays to;
+  // otherwise "abc" would match both.
+#define FACTS_LHS_OP(OP) \
+    template <class R> typename std::enable_if<std::is_scalar<R>::value, FactsBinary<L, R> >::type operator OP(R rhs) const { return FactsBinary<L, R>{lhs, #OP, rhs, static_cast<bool>(lhs OP rhs)}; } \
+    template <class R> typename std::enable_if<!std::is_scalar<R>::value && !std::is_array<R>::value, FactsBinary<L, R> >::type operator OP(const R &rhs) const { return FactsBinary<L, R>{lhs, #OP, rhs, static_cast<bool>(lhs OP rhs)}; }
   template <class L> struct FactsLhs
   {
-    const L &lhs;
+    typename FactsHeld<L>::type lhs;
     explicit operator bool() const { return static_cast<bool>(lhs); }
-    template <class R> FactsBinary<L, R> operator==(const R &rhs) const { return FactsBinary<L, R>{lhs, "==", rhs, static_cast<bool>(lhs == rhs)}; }
-    template <class R> FactsBinary<L, R> operator!=(const R &rhs) const { return FactsBinary<L, R>{lhs, "!=", rhs, static_cast<bool>(lhs != rhs)}; }
-    template <class R> FactsBinary<L, R> operator<(const R &rhs) const { return FactsBinary<L, R>{lhs, "<", rhs, static_cast<bool>(lhs < rhs)}; }
-    template <class R> FactsBinary<L, R> operator<=(const R &rhs) const { return FactsBinary<L, R>{lhs, "<=", rhs, static_cast<bool>(lhs <= rhs)}; }
-    template <class R> FactsBinary<L, R> operator>(const R &rhs) const { return FactsBinary<L, R>{lhs, ">", rhs, static_cast<bool>(lhs > rhs)}; }
-    template <class R> FactsBinary<L, R> operator>=(const R &rhs) const { return FactsBinary<L, R>{lhs, ">=", rhs, static_cast<bool>(lhs >= rhs)}; }
+    FACTS_LHS_OP(==)
+    FACTS_LHS_OP(!=)
+    FACTS_LHS_OP(<)
+    FACTS_LHS_OP(<=)
+    FACTS_LHS_OP(>)
+    FACTS_LHS_OP(>=)
   };
+#undef FACTS_LHS_OP
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
   struct FactsDecompose
   {
-    template <class L> FactsLhs<L> operator<<(const L &lhs) const { return FactsLhs<L>{lhs}; }
-    template <class L> FactsLhs<L> operator<=(const L &lhs) const { return FactsLhs<L>{lhs}; }
+    template <class L> typename std::enable_if<std::is_scalar<L>::value, FactsLhs<L> >::type operator<<(L lhs) const { return FactsLhs<L>{lhs}; }
+    template <class L> typename std::enable_if<!std::is_scalar<L>::value && !std::is_array<L>::value, FactsLhs<L> >::type operator<<(const L &lhs) const { return FactsLhs<L>{lhs}; }
+    template <class L> typename std::enable_if<std::is_scalar<L>::value, FactsLhs<L> >::type operator<=(L lhs) const { return FactsLhs<L>{lhs}; }
+    template <class L> typename std::enable_if<!std::is_scalar<L>::value && !std::is_array<L>::value, FactsLhs<L> >::type operator<=(const L &lhs) const { return FactsLhs<L>{lhs}; }
   };
+
+  // ---- How a fiction shows a value (REQ4/WR-9) ----
+  //
+  // With its own operator<< if it has one; else a container as its first 20
+  // elements in braces, a pair as (first, second); else "?".  So every
+  // comparison compiles, whatever its sides.  The ranks pick the first that
+  // compiles: a call with FactsRank2 prefers the overload taking FactsRank2.
+  struct FactsRank0 {};
+  struct FactsRank1 : FactsRank0 {};
+  struct FactsRank2 : FactsRank1 {};
+
+  template <class T> void FactsValue(std::ostream &out, const T &value);
+
+  template <class T> auto FactsValueRanked(std::ostream &out, const T &value, FactsRank2) -> decltype((void)(out << value))
+  {
+    out << value;
+  }
+
+  template <class T> auto FactsValueRanked(std::ostream &out, const T &value, FactsRank1) -> decltype((void)std::begin(value), (void)std::end(value))
+  {
+    const int most = 20;
+    int count = 0;
+    out << "{";
+    for (auto at = std::begin(value); at != std::end(value); ++at, ++count)
+    {
+      if (count == most) { out << ", ..."; break; }
+      if (count > 0) out << ", ";
+      FactsValue(out, *at);
+    }
+    out << "}";
+  }
+
+  template <class A, class B> void FactsValueRanked(std::ostream &out, const std::pair<A, B> &value, FactsRank1)
+  {
+    out << "(";
+    FactsValue(out, value.first);
+    out << ", ";
+    FactsValue(out, value.second);
+    out << ")";
+  }
+
+  template <class T> void FactsValueRanked(std::ostream &out, const T &, FactsRank0) { out << "?"; }
+
+  template <class T> void FactsValue(std::ostream &out, const T &value) { FactsValueRanked(out, value, FactsRank2()); }
+
+  // `out << FactsShow(x)` writes x as FactsValue does, inside a chain of <<.
+  template <class T> struct FactsShowing { const T &value; };
+  template <class T> FactsShowing<T> FactsShow(const T &value) { return FactsShowing<T>{value}; }
+  template <class T> std::ostream &operator<<(std::ostream &out, const FactsShowing<T> &shown)
+  {
+    FactsValue(out, shown.value);
+    return out;
+  }
 
   // Is it true, and what values does a fiction show: one pair of overloads
   // for each thing the expression can come out as.
@@ -338,14 +449,14 @@ extern "C"
   template <class L, class R> bool FactsExprTruth(const FactsBinary<L, R> &two) { return two.truth; }
 
   inline void FactsExprValues(std::ostream &, bool) {}
-  template <class L> void FactsExprValues(std::ostream &out, const FactsLhs<L> &one) { out << " {" << one.lhs << "}"; }
-  template <class L, class R> void FactsExprValues(std::ostream &out, const FactsBinary<L, R> &two) { out << " {" << two.lhs << " " << two.op << " " << two.rhs << "}"; }
+  template <class L> void FactsExprValues(std::ostream &out, const FactsLhs<L> &one) { out << " {" << FactsShow(one.lhs) << "}"; }
+  template <class L, class R> void FactsExprValues(std::ostream &out, const FactsBinary<L, R> &two) { out << " {" << FactsShow(two.lhs) << " " << two.op << " " << FactsShow(two.rhs) << "}"; }
 
   // Against an interval, the value is printed with the interval's 17 digits.
   template <class L> void FactsExprValues(std::ostream &out, const FactsBinary<L, facts::interval> &two)
   {
     std::streamsize digits = out.precision(17);
-    out << " {" << two.lhs << " " << two.op << " ";
+    out << " {" << FactsShow(two.lhs) << " " << two.op << " ";
     out.precision(digits);
     out << two.rhs << "}";
   }

@@ -36,7 +36,7 @@ FACTS( Checksum )
   parts.add( big.data(), 1000 );
   parts.add( big.data() + 1000, 0 );
   parts.add( big.data() + 1000, big.size() - 1000 );
-  FACT_CHECK( ( whole == parts ), "taken in pieces, it is what it is taken whole (REQ1/CP-2: a part carried on from)" );
+  FACT_CHECK( whole == parts, "taken in pieces, it is what it is taken whole (REQ1/CP-2: a part carried on from)" );
 
   std::string changed = big;
   changed[150000] ^= 1;

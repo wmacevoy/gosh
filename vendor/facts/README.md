@@ -4,7 +4,7 @@ A small C/C++ testing library by the owner: `FACT(a == b)` prints both values wh
 `FACTS_TRACE` says which case of a loop it was. Used by gosh's unit tests only; nothing of it is in
 a program gosh ships. MIT (`LICENSE`), which GPL-3.0-or-later code may use.
 
-- **From:** github.com/wmacevoy/facts, tag `v2.3.0`, commit `a3562083fad24312735b2fa36eaa26a5c84f1733`.
+- **From:** github.com/wmacevoy/facts, tag `v2.4.1`, commit `2f3cb3c3b10c30b7728aad45f56d3bc5d7d815e5`.
 - **What:** `include/facts.h`, `src/facts.c`, `src/facts.cpp`, `LICENSE`, copied unchanged. To
   update: copy the same four from a newer tag, and change the two lines above.
 - **How it is built:** `tools/build.sh` copies this directory into its copy of the core, at

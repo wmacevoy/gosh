@@ -21,10 +21,6 @@
 #include "src/util/timestamp.h"
 #include "vendor/facts/facts.h"
 
-/* The facts of the group now running, for checks outside a group: each group sets it, and a
-   helper that checks takes it as its own facts. */
-static Facts* current_facts = nullptr;
-
 using namespace Network;
 
 /* (gosh) The fork's UDPForwarder::encode and ::decode, which only its tests called: a frame of plain UDP data. */
@@ -51,7 +47,6 @@ static bool spec_ok( const char* s )
 }
 FACTS( Spec )
 {
-  current_facts = facts;
   Gosh::ForwardSpec a( "5353:ns.example.com:53" );
   FACT_CHECK( ( a.bind_host == "127.0.0.1" && a.bind_port == "5353" ) );
   FACT_CHECK( ( a.target_host == "ns.example.com" && a.target_port == "53" ) );
@@ -75,7 +70,6 @@ FACTS( Spec )
 }
 FACTS( Wire )
 {
-  current_facts = facts;
   const std::string datagram( "hello\0world", 11 );
   std::string wire = encode_data( 7, 0xBEEF, 0x0102030405060708ULL, datagram );
   FACT_CHECK( wire.size() == Gosh::FRAME_HEADER_LEN + datagram.size() );
@@ -98,7 +92,6 @@ FACTS( Wire )
 }
 FACTS( Replay )
 {
-  current_facts = facts;
   const uint64_t W = Gosh::ReplayWindow::WINDOW;
 
   Gosh::ReplayWindow w;
@@ -159,7 +152,7 @@ static bool reassembles( const std::vector<std::string>& fragments,
                          bool backwards = false,
                          bool* used_parity = NULL )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   Gosh::DatagramAssembly assembly;
   std::string out;
   bool parity = false;
@@ -184,7 +177,6 @@ static bool reassembles( const std::vector<std::string>& fragments,
 }
 FACTS( Fragments )
 {
-  current_facts = facts;
   const size_t H = Gosh::DatagramAssembly::FRAGMENT_HEADER_LEN;
 
   /* pieces are as equal as possible, and never over the limit */
@@ -311,7 +303,7 @@ private:
 
 static int udp_socket( uint16_t& port )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   int fd = socket( AF_INET, SOCK_DGRAM, 0 );
   FACT_CHECK( fd >= 0 );
   struct sockaddr_in sin;
@@ -328,7 +320,7 @@ static int udp_socket( uint16_t& port )
 /* Some systems (macOS, the BSDs) won't send a UDP datagram anywhere near the protocol's limit. */
 static size_t largest_datagram( void )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   uint16_t port;
   const int receiver = udp_socket( port );
   const int sender = udp_socket( port );
@@ -354,7 +346,7 @@ static bool readable( int fd, int timeout_ms = 2000 )
 
 static void send_to_port( int fd, uint16_t port, const std::string& s )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   struct sockaddr_in sin;
   memset( &sin, 0, sizeof( sin ) );
   sin.sin_family = AF_INET;
@@ -366,7 +358,7 @@ static void send_to_port( int fd, uint16_t port, const std::string& s )
 
 static std::string receive( int fd, struct sockaddr_in* from = NULL )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   char buf[65536];
   struct sockaddr_in sin;
   socklen_t len = sizeof( sin );
@@ -379,7 +371,6 @@ static std::string receive( int fd, struct sockaddr_in* from = NULL )
 }
 FACTS( Relay )
 {
-  current_facts = facts;
   /* the service being forwarded to */
   uint16_t target_port;
   int target = udp_socket( target_port );
@@ -612,7 +603,6 @@ FACTS( Relay )
 }
 FACTS( Remote )
 {
-  current_facts = facts;
   uint16_t target_port;
   const int target = udp_socket( target_port );
   uint16_t local_port, remote_port;

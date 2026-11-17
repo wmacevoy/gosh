@@ -50,11 +50,11 @@ static std::string joined( const Words& w )
 FACTS( Words )
 {
   /* ---- words as a shell has them */
-  FACT_CHECK( ( shell_words( " a 'b c'\t\"d \\\" e\" f\\ g \n" ) == Words( { "a", "b c", "d \" e", "f g" } ) ), "shell_words: quotes and a backslash taken away, blanks between" );
-  FACT_CHECK( ( shell_words( "a '' b" ) == Words( { "a", "", "b" } ) ), "shell_words: an empty quoted word is a word" );
+  FACT_CHECK( shell_words( " a 'b c'\t\"d \\\" e\" f\\ g \n" ) == Words( { "a", "b c", "d \" e", "f g" } ), "shell_words: quotes and a backslash taken away, blanks between" );
+  FACT_CHECK( shell_words( "a '' b" ) == Words( { "a", "", "b" } ), "shell_words: an empty quoted word is a word" );
   FACT_CHECK( shell_quote( { "it's", "a b" } ) == "'it'\\''s' 'a b'", "shell_quote: each word in single quotes, a quote in one closed and opened around it" );
-  FACT_CHECK( ( shell_words( shell_quote( { "it's", "", "$x" } ) )
-                                                               == Words( { "it's", "", "$x" } ) ), "and back: shell_words of shell_quote is the words" );
+  FACT_CHECK( shell_words( shell_quote( { "it's", "", "$x" } ) )
+                                                               == Words( { "it's", "", "$x" } ), "and back: shell_words of shell_quote is the words" );
   std::string host, path;
   FACT_CHECK( ( remote_place( "me@srv:docs/a", host, path ) && host == "me@srv" && path == "docs/a" ), "a remote place: host:path" );
   FACT_CHECK( !remote_place( "./a:b", host, path ), "not one: a colon after a slash" );

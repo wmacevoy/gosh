@@ -10,12 +10,6 @@
 #include "src/forwarding/tcp/held.h"
 #include "vendor/facts/facts.h"
 
-/* The facts of the group now running, for checks outside a group: each group sets it, and a
-   helper that checks takes it as its own facts. */
-static Facts* current_facts = nullptr;
-
-
-
 /* An acknowledgment's option naming these ranges (kind 5), as sequence numbers. */
 static std::string says( const std::vector<std::pair<uint32_t, uint32_t> >& ranges )
 {
@@ -33,7 +27,7 @@ static std::string says( const std::vector<std::pair<uint32_t, uint32_t> >& rang
 
 static void test_at( uint32_t una, const char* where )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   printf( "%s\n", where );
   Gosh::Held h;
   uint32_t at = 0, end = 0;
@@ -120,7 +114,6 @@ static void test_at( uint32_t una, const char* where )
 /* REQ14 (selective acknowledgment): what the other end holds */
 FACTS( Held )
 {
-  current_facts = facts;
   test_at( 1000000, "sequence numbers in the middle of their range:" );
   test_at( 0xFFFFF000u, "sequence numbers that wrap round within the data:" );
 }

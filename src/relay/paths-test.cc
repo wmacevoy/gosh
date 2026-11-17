@@ -84,7 +84,7 @@ FACTS( StartingAgain )
   FACT_CHECK( !p.from_client( T + 999, true, 0 ).start_stream, "999 ms after a start that failed: not again" );
 
   const uint64_t never[11] = { 1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 300000, 300000 };
-  FACT_CHECK( ( gaps( p, T + 1000, 11, last ) == std::vector<uint64_t>( never, never + 11 ) ), "a stream that has never worked is tried after 1, 2, 4, ... 256 s, then every 5 minutes" );
+  FACT_CHECK( gaps( p, T + 1000, 11, last ) == std::vector<uint64_t>( never, never + 11 ), "a stream that has never worked is tried after 1, 2, 4, ... 256 s, then every 5 minutes" );
 
   /* It answers once, and then goes again and again. */
   p.stream_answered();
@@ -96,7 +96,7 @@ FACTS( StartingAgain )
   p.stream_started( true );
   p.stream_stopped();
   last = now;
-  FACT_CHECK( ( gaps( p, now + 100, 7, last ) == std::vector<uint64_t>( worked, worked + 7 ) ), "one that has worked is tried after 1, 2, 4, 8, 16 s, then every 30 s" );
+  FACT_CHECK( gaps( p, now + 100, 7, last ) == std::vector<uint64_t>( worked, worked + 7 ), "one that has worked is tried after 1, 2, 4, 8, 16 s, then every 30 s" );
 
   /*
    * Let go, the stream may be started again at once, whatever wait its earlier failures had

@@ -72,7 +72,7 @@ FACTS( Sending )
     s.send( 3, 0xBEEF, big.data(), 88, link_of( 100 ), out );
     FACT_CHECK( ( out.kinds() == Kinds( { 0, 2, 2 } ) && s.get_fragmented() == 1 ), "88 bytes: two fragments, of the fragment kind" );
     s.send( 3, 0xBEEF, big.data(), 10, link_of( 100 ), out );
-    FACT_CHECK( ( out.numbers() == Numbers( { 0, 1, 2, 3 } ) ), "everything sent is numbered one after another, fragments too" );
+    FACT_CHECK( out.numbers() == Numbers( { 0, 1, 2, 3 } ), "everything sent is numbered one after another, fragments too" );
   }
   {
     Sending s( true );
@@ -80,7 +80,7 @@ FACTS( Sending )
     s.set_parity_mode( Sending::PARITY_NEVER );
     s.send( 0, 1, big.data(), 10, link_of( 100 ), out );
     s.send( 0, 1, big.data(), 200, link_of( 100 ), out );
-    FACT_CHECK( ( out.kinds() == Kinds( { 4, 5, 5, 5 } ) ), "forwards the server listens for use their own two kinds" );
+    FACT_CHECK( out.kinds() == Kinds( { 4, 5, 5, 5 } ), "forwards the server listens for use their own two kinds" );
   }
   {
     /* 213 bytes a payload: 200 for a fragment, 196 of them the datagram's. 1,000 bytes is 6 pieces. */
@@ -113,7 +113,7 @@ FACTS( Sending )
     s.send( 0, 1, big.data(), 10, link_of( 13 ), out );
     FACT_CHECK( ( out.payloads.empty() && s.get_dropped_oversize() == 2 ), "a payload too small to hold anything but the header: dropped, and counted" );
     s.send( 0, 1, big.data(), 10, link_of( 100 ), out );
-    FACT_CHECK( ( out.numbers() == Numbers( { 0 } ) ), "what was not sent used no number: the next is numbered 0" );
+    FACT_CHECK( out.numbers() == Numbers( { 0 } ), "what was not sent used no number: the next is numbered 0" );
   }
 
   /* (from the review of 2026-11-15: breaks these checks did not notice) */

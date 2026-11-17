@@ -146,7 +146,7 @@ FACTS( Options )
   FACT_CHECK( refused( { "-p", "9:5", "h" } ) == "!gosh: Server-side port range (9:5): low port greater than high port.", "a range backwards" );
 
   /* ---- text */
-  FACT_CHECK( ( split( "a::b", ':' ) == Words( { "a", "", "b" } ) ), "split keeps empty parts" );
+  FACT_CHECK( split( "a::b", ':' ) == Words( { "a", "", "b" } ), "split keeps empty parts" );
   FACT_CHECK( strip_end( " a b \r\n" ) == " a b", "strip_end takes line ends and spaces from the end only" );
   FACT_CHECK( ( all_digits( "012" ) && !all_digits( "" ) && !all_digits( "1a" ) ), "all_digits: not empty, digits only" );
   FACT_CHECK( ( one_of( "never", "auto never" ) && !one_of( "neve", "auto never" ) ), "one_of: whole words only" );

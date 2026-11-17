@@ -24,10 +24,6 @@
 #include "src/util/timestamp.h"
 #include "vendor/facts/facts.h"
 
-/* The facts of the group now running, for checks outside a group: each group sets it, and a
-   helper that checks takes it as its own facts. */
-static Facts* current_facts = nullptr;
-
 using namespace Network;
 
 #ifndef MSG_NOSIGNAL
@@ -56,7 +52,7 @@ public:
   bool sidechannel_connected( void ) const { return true; }
   void sidechannel_send( const std::string& payload )
   {
-  Facts* facts = current_facts;
+    Facts* facts = FactsCurrent(); /* the group running */
     FACT_CHECK( payload.size() <= max_payload );
     sent++;
     random_state = random_state * 1103515245 + 12345;
@@ -79,7 +75,7 @@ public:
 
 static int listening_socket( uint16_t& port )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   int fd = socket( AF_INET, SOCK_STREAM, 0 );
   FACT_CHECK( fd >= 0 );
   struct sockaddr_in sin;
@@ -133,7 +129,7 @@ static std::string read_to_end( int fd )
 /* The service being forwarded to: reads a whole stream, then answers with its complement. */
 static pid_t start_target( int listener )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   pid_t pid = fork();
   FACT_CHECK( pid >= 0 );
   if ( pid == 0 ) {
@@ -164,7 +160,7 @@ enum Outcome
 /* The local application: sends a stream, closes its side, and checks what comes back. */
 static pid_t start_application( uint16_t port, size_t size )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   pid_t pid = fork();
   FACT_CHECK( pid >= 0 );
   if ( pid == 0 ) {
@@ -216,7 +212,7 @@ static SideChannelSink& sink_of( Forwarding& f )
 template<class End>
 static int pump( End& client, TestLink& to_server, End& server, TestLink& to_client, pid_t app )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   for ( int rounds = 0; rounds < 200000; rounds++ ) {
     freeze_timestamp();
 
@@ -257,7 +253,6 @@ static int pump( End& client, TestLink& to_server, End& server, TestLink& to_cli
 }
 FACTS( Transfers )
 {
-  current_facts = facts;
   uint16_t target_port;
   const int listener = listening_socket( target_port );
   const pid_t target = start_target( listener );
@@ -308,7 +303,6 @@ FACTS( Transfers )
 }
 FACTS( Remote )
 {
-  current_facts = facts;
   uint16_t target_port;
   const int listener = listening_socket( target_port );
   const pid_t target = start_target( listener );
@@ -360,7 +354,6 @@ public:
 };
 FACTS( TinyMss )
 {
-  current_facts = facts;
   uint16_t target_port;
   const int listener = listening_socket( target_port );
   Addr target;
@@ -420,7 +413,7 @@ FACTS( TinyMss )
 /* Opens a connection through an adapter at the connecting end; returns the target's end of it. */
 static int open_through( AdapterPort& adapter, RecordingSink& sink, int listener )
 {
-  Facts* facts = current_facts;
+  Facts* facts = FactsCurrent(); /* the group running */
   TCPInUDP syn;
   syn.source_port = 1;
   syn.flags = TCPInUDP::SYN;
@@ -459,7 +452,6 @@ static bool any_reset( const RecordingSink& sink )
 }
 FACTS( Outage )
 {
-  current_facts = facts;
   uint16_t target_port;
   const int listener = listening_socket( target_port );
   Addr target;

@@ -32,10 +32,6 @@
 #include "src/forwarding/tcp/connection.h"
 #include "vendor/facts/facts.h"
 
-/* The facts of the group now running, for checks outside a group: each group sets it, and a
-   helper that checks takes it as its own facts. */
-static Facts* current_facts = nullptr;
-
 using Network::TCPInUDP;
 
 
@@ -208,7 +204,7 @@ struct Pair
   /* Carries everything each end has sent to the other, and what that provokes, until both are quiet. */
   void carry( void )
   {
-  Facts* facts = current_facts;
+    Facts* facts = FactsCurrent(); /* the group running */
     for ( int rounds = 0; rounds < 100000; rounds++ ) {
       if ( out[0].sent.empty() && out[1].sent.empty() ) {
         return;
@@ -244,7 +240,7 @@ struct Pair
   /* An application connects at the listening end, and the handshake runs. Returns the connection's id. */
   uint32_t open( void )
   {
-  Facts* facts = current_facts;
+    Facts* facts = FactsCurrent(); /* the group running */
     uint32_t id = 0;
     FACT_CHECK( listening.opened( 0, now, link, out[0], id ), "(a connection opens)" );
     carry(); /* the SYN arrives; the target is asked for */
@@ -280,7 +276,6 @@ static std::string pattern( size_t length )
 }
 FACTS( Transfer )
 {
-  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   const std::string there = pattern( 300000 ), back = pattern( 70001 );
@@ -305,7 +300,6 @@ FACTS( Transfer )
 }
 FACTS( SlowApplication )
 {
-  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   p.out[1].takes = 0; /* the target takes nothing */
@@ -351,7 +345,6 @@ FACTS( SlowApplication )
 }
 FACTS( Window )
 {
-  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   p.out[1].takes = 0;
@@ -387,7 +380,6 @@ FACTS( Window )
 }
 FACTS( HandshakeGivesUp )
 {
-  current_facts = facts;
   {
     Pair p;
     uint32_t id = 0;
@@ -422,7 +414,6 @@ FACTS( HandshakeGivesUp )
 }
 FACTS( SlowFinish )
 {
-  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   p.out[1].takes = 0; /* the target takes nothing yet */
@@ -447,7 +438,6 @@ FACTS( SlowFinish )
 }
 FACTS( ResetAfterEverythingArrived )
 {
-  current_facts = facts;
   /* The receive buffer exactly full (1 MB), so that taking bytes opens a closed window, which is said. */
   {
     Pair p;
@@ -734,7 +724,6 @@ FACTS( ResetAfterEverythingArrived )
 }
 FACTS( OutOfOrderAndTwice )
 {
-  current_facts = facts;
   for ( int how = 0; how < 3; how++ ) {
     Pair p;
     p.backwards = how != 1;
@@ -766,7 +755,6 @@ FACTS( OutOfOrderAndTwice )
 }
 FACTS( Two )
 {
-  current_facts = facts;
   Pair p;
   const uint32_t first = p.open();
   const uint32_t second = p.open();
@@ -791,7 +779,6 @@ FACTS( Two )
 }
 FACTS( Unexpected )
 {
-  current_facts = facts;
   /* The connecting end has its own limit: the sixty-fifth SYN is refused. */
   {
     Pair p;
@@ -831,7 +818,6 @@ FACTS( Unexpected )
 }
 FACTS( Target )
 {
-  current_facts = facts;
   {
     Pair p;
     p.out[1].reached = -1; /* the target refuses */
@@ -866,7 +852,6 @@ FACTS( Target )
 }
 FACTS( Limits )
 {
-  current_facts = facts;
   Pair p;
   uint32_t id = 0;
   bool all = true;
@@ -882,7 +867,6 @@ FACTS( Limits )
 }
 FACTS( Outage )
 {
-  current_facts = facts;
   /* REQ1/FWD-3: out of contact for six hours, with data on its way. */
   {
     Pair p;
@@ -922,7 +906,6 @@ FACTS( Outage )
 }
 FACTS( ApplicationGone )
 {
-  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   p.out[1].gone = true;
@@ -985,7 +968,6 @@ static size_t forty( bool sack, const std::vector<unsigned int>& gone, uint64_t&
 }
 FACTS( SelectiveAcknowledgment )
 {
-  current_facts = facts;
   uint64_t took = 0;
   unsigned int said_held = 0, exchanges = 0;
   bool whole = false, burst = false;
@@ -1058,7 +1040,6 @@ static size_t lossy( bool sack0, bool sack1, bool& whole, Pair** kept = NULL )
 }
 FACTS( Lossy )
 {
-  current_facts = facts;
   bool whole = false;
   const size_t data = 2 * 1024 * 1024;
 
@@ -1086,7 +1067,6 @@ FACTS( Lossy )
 }
 FACTS( LyingHolder )
 {
-  current_facts = facts;
   Pair p;
   std::string sent;
   const uint32_t id = warmed( p, sent );
@@ -1114,7 +1094,6 @@ FACTS( LyingHolder )
 }
 FACTS( WhatIsSaid )
 {
-  current_facts = facts;
   Pair p;
   std::string sent;
   const uint32_t id = warmed( p, sent );
@@ -1168,7 +1147,6 @@ FACTS( WhatIsSaid )
 }
 FACTS( LossAndAFullReceiver )
 {
-  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   p.out[1].takes = 0; /* the target takes nothing */
@@ -1198,7 +1176,6 @@ FACTS( LossAndAFullReceiver )
 }
 FACTS( HeldPastTheEnd )
 {
-  current_facts = facts;
   Pair p;
   std::string sent;
   const uint32_t id = warmed( p, sent );

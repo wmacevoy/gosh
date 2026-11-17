@@ -174,9 +174,7 @@ FACTS( FullTable )
     End q( make_ticket( MASTER, r, now + TICKET_LIFE ), 0, w );
     to( full, q.reg( now ), w, now, key_of );
   }
-  /* (a copy: FACT holds each side by reference, and a static const member has no storage to refer to) */
-  const size_t max_tickets = Registrations::MAX_TICKETS;
-  FACT( full.ticket_count() == max_tickets, "64 tickets held" );
+  FACT( full.ticket_count() == Registrations::MAX_TICKETS, "64 tickets held" );
   const std::string w = meetup_where_v4( 0x0C000001, 3 );
   End late( make_ticket( MASTER, "late....", now + TICKET_LIFE ), 0, w );
   FACT( !to( full, late.reg( now + 2 ), w, now + 2, key_of ).any, "a 65th is not taken while every one held has registered within two minutes" );

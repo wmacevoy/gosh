@@ -86,8 +86,8 @@ FACTS( Options )
   FACT_CHECK( ( Gosh::which_role( "/usr/bin/gosh-client", { "127.0.0.1", "60001" }, called, skip ) == Gosh::THE_CLIENT
            && called == "gosh-client" && skip == 0 ), "under its own name, with an address first, it is the client" );
   typedef std::vector<std::string> Words;
-  FACT_CHECK( ( Gosh::operands( { "-v", "192.0.2.1", "60001" }, "#" ) == Words( { "192.0.2.1", "60001" } ) ), "the server's address and port are found last" );
-  FACT_CHECK( ( Gosh::operands( { "192.0.2.1", "60001", "-v" }, "#" ) == Words( { "192.0.2.1", "60001" } ) ), "and first, with an option after them" );
+  FACT_CHECK( Gosh::operands( { "-v", "192.0.2.1", "60001" }, "#" ) == Words( { "192.0.2.1", "60001" } ), "the server's address and port are found last" );
+  FACT_CHECK( Gosh::operands( { "192.0.2.1", "60001", "-v" }, "#" ) == Words( { "192.0.2.1", "60001" } ), "and first, with an option after them" );
   FACT_CHECK( ( Gosh::operands( { "192.0.2.1", "-#", "5", "6" }, "#" ) == Words( { "192.0.2.1", "6" } )
            && Gosh::operands( { "-#5", "192.0.2.1", "6" }, "#" ) == Words( { "192.0.2.1", "6" } )
            && Gosh::operands( { "-v#", "5", "192.0.2.1", "6" }, "#" ) == Words( { "192.0.2.1", "6" } ) ), "an option's value is not one of them, as the next word or joined on" );
