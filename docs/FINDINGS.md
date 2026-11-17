@@ -7,6 +7,20 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-17 — The guide's ProxyCommand line lost the host's User and IdentityFile
+
+- **What happened:** the owner's first `ssh tribes` through `gosh -W`, with the guide's line
+  (`ProxyCommand gosh -W localhost:22 %h`), failed: `Permission denied (publickey)`, then `Did not
+  find the server's startup message`. In a `ProxyCommand` ssh writes `%h` as the `HostName`, so
+  gosh's own ssh asked for the full name, matched no `Host tribes` block, and logged in as the
+  laptop's user with the default keys. `%n` (the name typed) would match the block, but then gosh
+  would find the `ProxyCommand` there and start `gosh -W` within itself.
+- **What would have found it:** a test with real ssh and a host whose `User` differs from the
+  local one. The tests have no ssh server (`fake-ssh.py` stands in), and it took ssh's own reading
+  of `%h` to show it. **Kind:** K3: the guide's line was believed and never run with real ssh.
+- **What it changed:** the guide, the man page and `--help` give `%r@%h`, with `User` and
+  `IdentityFile` in a block that matches both names; the owner's trial then worked.
+
 ## 2026-11-17 — Every unit test moved to facts; and udpforward-test aborted once
 
 - **What was done:** the 37 unit tests moved from their own `check()` (or the fork's `CHECK()`) to

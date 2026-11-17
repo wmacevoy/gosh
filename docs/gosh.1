@@ -49,7 +49,7 @@ No terminal: run \fIcommand\fR on the server with its input and output here, as
 No terminal: join standard input and output to a TCP connection to \fIhost\fR:\fIport\fR as
 seen from the server, as \fBssh \-W\fR does, carried by the session, so that it survives roaming
 and sleep as a forward does. For ssh itself, and everything that uses it, in \fI~/.ssh/config\fR:
-\fBProxyCommand gosh \-W localhost:22 %h\fR. If the connection cannot be made, the stream
+\fBProxyCommand gosh \-W localhost:22 %r@%h\fR, with the host's \fBUser\fR and \fBIdentityFile\fR in a block that matches its \fBHostName\fR too, since \fB%h\fR is that name. If the connection cannot be made, the stream
 ends with nothing said on this side.
 .TP
 \fB\-\-relay\fR={\fBauto\fR|\fBalways\fR|\fBnever\fR}

@@ -156,8 +156,19 @@ editor's remote ssh), roams with a line in `~/.ssh/config` on your machine:
 ```
 Host myserver
     HostName myserver.example.edu
-    ProxyCommand gosh -W localhost:22 %h
+    ProxyCommand gosh -W localhost:22 %r@%h
+Host myserver myserver.example.edu
+    User you
+    IdentityFile ~/.ssh/id_ed25519
 ```
+
+The second block is not optional when you have a `User` or an `IdentityFile` for the host. In a
+`ProxyCommand`, ssh writes `%h` as the `HostName` (`myserver.example.edu`), not the name you typed,
+so gosh's own ssh does not match `Host myserver`, and a setting there alone does not reach it. It
+fails with `Permission denied (publickey)` and then `Did not find the server's startup message`.
+`%r@` carries the user; a block matching both names carries the rest. Keep `ProxyCommand` out of
+that block, and do not write `%n` (the name you typed) for `%h`: gosh would find your own
+`ProxyCommand` and start `gosh -W` within itself. (Found in the owner's trial, 2026-11-17.)
 
 `ssh myserver` then logs in through a gosh session, which survives a change of network or a
 sleep as a terminal does. Each `ssh` starts its own gosh session (and so logs in twice: once for

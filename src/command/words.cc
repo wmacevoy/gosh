@@ -215,7 +215,7 @@ Gosh::Command::Asked Gosh::Command::what_was_asked( const Settings& s, bool copy
     session.headless = true;
   } else if ( s.has( "W" ) ) {
     /* REQ19/FWD-6: standard input and output joined to HOST:PORT as seen from the server, as "ssh -W"
-       does: what a ProxyCommand is ("ProxyCommand gosh -W localhost:22 %h") */
+       does: what a ProxyCommand is ("ProxyCommand gosh -W localhost:22 %r@%h") */
     if ( stdio ) {
       throw Failure( name + ": -W and --stdio are two ways of using standard input and output: one at a time." );
     }
