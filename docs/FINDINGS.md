@@ -7,6 +7,31 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-17 — The owner's trial: VS Code's remote ssh through a gosh forward kept going
+
+- **What was done:** the trial queue item 23 waited on (`REQ19/FWD-6`). The owner, on a Mac
+  (gosh v0.2 from the release), ran `gosh -N -L 2222:localhost:22` to this machine, pointed VS
+  Code's Remote - SSH (0.128.0) at `localhost:2222` (`HostKeyAlias` to the host's name), and kept a
+  `while true; do date; sleep 1; done` running in its terminal.
+- **What happened:** Wi-Fi off for 30 s, a roam to a phone's hotspot, and the lid closed for 5
+  minutes: the window stayed connected, the loop never stopped. The lid closed for about 18 minutes
+  (05:47 to 06:05 by the Mac): the window reconnected, by itself, in about a second. The loop kept
+  going (the same shell); the gosh session and its `gosh -N` never stopped.
+- **Why it reconnected, by the logs** (the Mac's Remote - SSH log; this host's processes): at wake,
+  VS Code's own helper gave up its tunnel (`Server delay-shutdown request failed: socket hang up`,
+  `local-server-8> Timed out`) and ran ssh again; the new ssh logged in through gosh's forward in
+  0.8 s and found the same VS Code server running. No ssh message of a connection cut under it was
+  seen (`Connection reset`, `closed by remote host`, `Broken pipe`), but the old ssh's last lines
+  were not read, so that gosh's forward did not end it is inferred, not shown. sshd here has no
+  `ClientAliveInterval`. In the same second gosh said "no answer by UDP; trying through ssh as well"
+  and started a relay: VS Code's timer fired while gosh was regaining contact.
+- **Open, seen in passing, not looked into:** whether the session goes back from the relay to UDP
+  once UDP answers again (`REQ1/SHAPE-2`); and a `gosh-server relay` on this host, started 13:40
+  UTC, whose ssh has gone (its parent is init), left running: not this session's to stop.
+- **Kind:** K1, answered: the trial was the one question `-W` waited on.
+- **What it changed:** queue item 23's block is the trial no longer; `-W` would not change VS Code's
+  own reconnect at wake, and is waiting on the owner's word to build.
+
 ## 2026-11-17 — The meetup's replay after letting a ticket go, closed; and a nonce it reused
 
 - **What happened (1):** the replay found on 2026-11-16 (below) was closed by the owner's choice, the
