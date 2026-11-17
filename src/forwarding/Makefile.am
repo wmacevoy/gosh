@@ -21,7 +21,7 @@ libgoshforwarding_a_SOURCES = forwarding.h forward.cc forward.h frame.cc frame.h
 check_PROGRAMS = tcp/bytes-test tcp/options-test tcp/held-test tcp/early-test tcp/timer-test tcp/connection-test tcp/tcpforward-test tcp/tcpinudp-test udp/sending-test udp/receiving-test udp/conversations-test udp/udpforward-test stream/stream-test \
   frame-fuzzer tcp/tcpinudp-fuzzer tcp/tcpadapter-fuzzer udp/udpforward-fuzzer
 TESTS = $(check_PROGRAMS)
-LDADD = libgoshforwarding.a ../copy/libgoshcopy.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+LDADD = libgoshforwarding.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 tcp_bytes_test_SOURCES = tcp/bytes-test.cc
 tcp_options_test_SOURCES = tcp/options-test.cc
 tcp_held_test_SOURCES = tcp/held-test.cc

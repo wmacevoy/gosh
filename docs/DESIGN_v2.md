@@ -313,6 +313,17 @@ owner (section 8, question 9).
 3. **No interface with one implementation.** A boundary is a virtual call only where two real
    things stand behind it. Where the second thing is a test recorder, it is a template parameter,
    which the owner named as the remedy and which costs nothing per datagram.
+4. **Only glue reaches across layers** *(2026-11-17, the owner: "yes, do 1-3 with your names")*.
+   Every part is in one layer: **application** (the core's terminal, copy), **carrying**
+   (forwarding), **paths** (relay, path-finding, meetup), **glue** (the command, the seam). A part
+   other than glue includes only its own layer and the core; `tests/layers.py` fails the check
+   otherwise, a veto for `REQ6/SHAPE-5`. The session is in the middle: carrying rides inside it,
+   paths carry it, applications ride on carrying, so none of the three needs another. Until that
+   day the one crossing was a stream's process, in forwarding, including copy and naming the
+   applications; the seam names them now (`src/seam/applications.*`). Why not directories by layer
+   (`app/copy/`, `app/shell/`): `app/` would hold copy alone, the terminal stays in the core
+   (`REQ10/SHAPE-1`), and the move would touch every include, the build patch and the docs to
+   label what the check already holds (`src/README.md`).
 
 ### 2.2 The parts and their pieces
 
@@ -363,7 +374,7 @@ each end (`tests/stock-session.py`). `REQ8/CMD-3`: none.
 | **connection** | gosh's TCP: one end of a forwarded connection | logic, given `now`, a segment or bytes, and the link's three facts; emits segments and socket actions | `Conn`, `tcpadapter.cc:254-386,416-460,462-845` | `SegmentPort`, `SegmentSink` | `REQ1/FWD-1`, `REQ1/FWD-3` |
 | **stream** | forward 0 of the sixth kind; a stream's words; when the client is done | logic | `stream_words*`, `streamchild.cc:51-78`; `tend_stream`'s decision, `stmclient.cc:376-391` | — | `REQ1/CP-7`, `REQ1/CP-1` |
 | **listeners and targets** | bind, accept, connect, read, write, close; resolve names once | edge | `add_listener`, `accept_from`, `passive_open`, `flush`, `read_socket`, `tick`'s `poll`, `tcpadapter.cc`; `UDPForwarder` ctor, `read_fd`, `deliver` | — | `REQ1/FWD-4` |
-| **a stream's process** | start the process at one end; become `@copy`, `@stdio` or `@sh` | edge | `stream_child`, `become`, `stdio_pump`, `streamchild.cc:80-235` | — | `REQ1/CP-7` |
+| **a stream's process** | start the process at one end; become what the program gives it (since 2026-11-17 the seam's `applications` names `@copy`, `@stdio`, `@sh`) | edge | `stream_child`, `become`, `stdio_pump`, `streamchild.cc:80-235` | — | `REQ1/CP-7` |
 | **forwarding** (the whole) | own the forwards of each kind; give each arriving payload to its kind; one surface for a program's loop | edge, thin | `forwarding.h` | `SideChannelMux` (a `switch` on five fixed kinds) | all of the above |
 
 *Where the pieces stand, since 2026-11-14 (the owner: "forwarding seems a little too pooled";
@@ -611,8 +622,8 @@ checks the forms it uses. Tests today: `test/connect.test.js`, `test/shpool.test
 | Caller | May call |
 | --- | --- |
 | the core | nothing of gosh's, except the seam's listed call sites |
-| the seam: the programs | the command; forwarding; relay (`options`, `start`, the local relay's start; the remote relay); meetup (`serve`); the core |
-| forwarding | the seam: side channel. From `a stream's process` only: copy (`options`, and to become one end) |
+| the seam: the programs | the command; forwarding; copy (`applications`: what a stream is between); relay (`options`, `start`, the local relay's start; the remote relay); meetup (`serve`); the core |
+| forwarding | the seam: side channel. *(Until 2026-11-17, from `a stream's process`: copy. Now nothing of another layer: the seam gives it the application to become, rule 4.)* |
 | relay | path-finding |
 | path-finding | meetup: `ticket` and `messages` only |
 | meetup, copy | nothing of gosh's |

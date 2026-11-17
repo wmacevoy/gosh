@@ -2,7 +2,8 @@
 # Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
 # The full check: the one command a person, an agent and CI all run (SE1/O3).
 # Prints PASS and exits 0, or says what failed and exits 1. In order:
-#   1. the repository is sound (se --doctor);
+#   1. the repository is sound (se --doctor), and gosh's parts keep to their layers
+#      (tests/layers.py; src/README.md);
 #   2. the core is upstream's at the pinned commit, byte for byte (REQ6/UP-2);
 #   3. it builds (tools/build.sh), with the seam's patches applied to a copy of
 #      the core and gosh's parts beside it, and the parts' unit tests pass;
@@ -28,6 +29,7 @@ fail() { echo "FAIL: $*"; exit 1; }
 # needs api.github.com to answer; when it does not, the line is
 # "[fail] release check ... not made", and the remedy is to run it again.
 python3 se.py --doctor || fail "se --doctor"
+python3 tests/layers.py || fail "gosh's parts keep to their layers (tests/layers.py)"
 
 # REQ6/UP-2. The pin is the commit this repository records for core/ (git's own
 # entry for the submodule, so it is written in one place). The core is right when

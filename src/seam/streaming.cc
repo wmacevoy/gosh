@@ -10,6 +10,7 @@
 #include "src/forwarding/stream/stream.h"
 #include "src/forwarding/stream/streamchild.h"
 #include "src/network/network.h"
+#include "src/seam/applications.h"
 
 using namespace Gosh;
 
@@ -53,7 +54,8 @@ void Gosh::serve_stream( void )
 {
   Session& s = session();
   const std::vector<std::string> words = s.stream.words;
-  s.forwarding->set_stream_spawner( [words]() { return Network::stream_child( words, false, NULL ); } );
+  s.forwarding->set_stream_spawner(
+    [words]() { return stream_words_valid( words ) ? Network::stream_child( stream_application( words, false ), false, NULL ) : -1; } );
 }
 
 void Gosh::stream_never_ran( void )
@@ -67,7 +69,7 @@ void Gosh::start_stream( void )
 {
   Session& s = session();
   pid_t pid = 0;
-  const int fd = Network::stream_child( s.stream.words, true, &pid );
+  const int fd = stream_words_valid( s.stream.words ) ? Network::stream_child( stream_application( s.stream.words, true ), true, &pid ) : -1;
   if ( fd < 0 ) {
     stream_never_ran();
     return;
