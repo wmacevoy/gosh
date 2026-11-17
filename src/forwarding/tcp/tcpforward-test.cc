@@ -22,6 +22,11 @@
 #include "src/forwarding/tcp/tcpadapter.h"
 #include "src/forwarding/tcp/tcpforward.h"
 #include "src/util/timestamp.h"
+#include "vendor/facts/facts.h"
+
+/* The facts of the group now running, for checks outside a group: each group sets it, and a
+   helper that checks takes it as its own facts. */
+static Facts* current_facts = nullptr;
 
 using namespace Network;
 
@@ -29,13 +34,6 @@ using namespace Network;
 #define MSG_NOSIGNAL 0
 #endif
 
-#define CHECK( x )                                                                                                 \
-  do {                                                                                                             \
-    if ( !( x ) ) {                                                                                                \
-      fprintf( stderr, "%s:%d: check failed: %s\n", __FILE__, __LINE__, #x );                                      \
-      exit( EXIT_FAILURE );                                                                                        \
-    }                                                                                                              \
-  } while ( 0 )
 
 /* One direction of an established mosh session.  Delivery is deferred, as it is over a network. */
 class TestLink : public SideChannelLink
@@ -58,7 +56,8 @@ public:
   bool sidechannel_connected( void ) const { return true; }
   void sidechannel_send( const std::string& payload )
   {
-    CHECK( payload.size() <= max_payload );
+  Facts* facts = current_facts;
+    FACT_CHECK( payload.size() <= max_payload );
     sent++;
     random_state = random_state * 1103515245 + 12345;
     if ( lose_one_in && ( random_state >> 16 ) % lose_one_in == 0 ) {
@@ -80,16 +79,17 @@ public:
 
 static int listening_socket( uint16_t& port )
 {
+  Facts* facts = current_facts;
   int fd = socket( AF_INET, SOCK_STREAM, 0 );
-  CHECK( fd >= 0 );
+  FACT_CHECK( fd >= 0 );
   struct sockaddr_in sin;
   memset( &sin, 0, sizeof( sin ) );
   sin.sin_family = AF_INET;
   sin.sin_addr.s_addr = htonl( INADDR_LOOPBACK );
-  CHECK( bind( fd, reinterpret_cast<struct sockaddr*>( &sin ), sizeof( sin ) ) == 0 );
-  CHECK( listen( fd, 8 ) == 0 );
+  FACT_CHECK( bind( fd, reinterpret_cast<struct sockaddr*>( &sin ), sizeof( sin ) ) == 0 );
+  FACT_CHECK( listen( fd, 8 ) == 0 );
   socklen_t len = sizeof( sin );
-  CHECK( getsockname( fd, reinterpret_cast<struct sockaddr*>( &sin ), &len ) == 0 );
+  FACT_CHECK( getsockname( fd, reinterpret_cast<struct sockaddr*>( &sin ), &len ) == 0 );
   port = ntohs( sin.sin_port );
   return fd;
 }
@@ -133,8 +133,9 @@ static std::string read_to_end( int fd )
 /* The service being forwarded to: reads a whole stream, then answers with its complement. */
 static pid_t start_target( int listener )
 {
+  Facts* facts = current_facts;
   pid_t pid = fork();
-  CHECK( pid >= 0 );
+  FACT_CHECK( pid >= 0 );
   if ( pid == 0 ) {
     alarm( 120 );
     while ( true ) {
@@ -163,8 +164,9 @@ enum Outcome
 /* The local application: sends a stream, closes its side, and checks what comes back. */
 static pid_t start_application( uint16_t port, size_t size )
 {
+  Facts* facts = current_facts;
   pid_t pid = fork();
-  CHECK( pid >= 0 );
+  FACT_CHECK( pid >= 0 );
   if ( pid == 0 ) {
     alarm( 120 );
     int fd = socket( AF_INET, SOCK_STREAM, 0 );
@@ -214,6 +216,7 @@ static SideChannelSink& sink_of( Forwarding& f )
 template<class End>
 static int pump( End& client, TestLink& to_server, End& server, TestLink& to_client, pid_t app )
 {
+  Facts* facts = current_facts;
   for ( int rounds = 0; rounds < 200000; rounds++ ) {
     freeze_timestamp();
 
@@ -245,16 +248,16 @@ static int pump( End& client, TestLink& to_server, End& server, TestLink& to_cli
 
     int status;
     if ( waitpid( app, &status, WNOHANG ) == app ) {
-      CHECK( WIFEXITED( status ) );
+      FACT_CHECK( WIFEXITED( status ) );
       return WEXITSTATUS( status );
     }
   }
-  CHECK( !"transfer did not finish" );
+  FACT_CHECK( !"transfer did not finish" );
   return -1;
 }
-
-static void test_transfers( void )
+FACTS( Transfers )
 {
+  current_facts = facts;
   uint16_t target_port;
   const int listener = listening_socket( target_port );
   const pid_t target = start_target( listener );
@@ -271,42 +274,41 @@ static void test_transfers( void )
   TCPForwarder server( &to_client, TCPForwarder::CONNECT, specs );
 
   /* a clean path */
-  CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 300000 ) ) == DELIVERED );
-  CHECK( to_server.lost == 0 && to_client.lost == 0 );
+  FACT_CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 300000 ) ) == DELIVERED );
+  FACT_CHECK( ( to_server.lost == 0 && to_client.lost == 0 ) );
 
   /* nothing at all to send is still a connection, opened and closed in order */
-  CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 1 ) ) == DELIVERED );
+  FACT_CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 1 ) ) == DELIVERED );
 
   /* one datagram in twenty lost, each way: slower, but every byte still arrives, once and in order */
   to_server.lose_one_in = to_client.lose_one_in = 20;
-  CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 300000 ) ) == DELIVERED );
-  CHECK( to_server.lost > 5 && to_client.lost > 5 );
+  FACT_CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 300000 ) ) == DELIVERED );
+  FACT_CHECK( ( to_server.lost > 5 && to_client.lost > 5 ) );
   to_server.lose_one_in = to_client.lose_one_in = 0;
 
   /* a small MTU means small segments, never oversize ones (the link checks) */
   to_server.max_payload = to_client.max_payload = 300;
-  CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 50000 ) ) == DELIVERED );
-  CHECK( client.get_dropped_oversize() == 0 && server.get_dropped_oversize() == 0 );
+  FACT_CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 50000 ) ) == DELIVERED );
+  FACT_CHECK( ( client.get_dropped_oversize() == 0 && server.get_dropped_oversize() == 0 ) );
   to_server.max_payload = to_client.max_payload = 1200;
 
   /* the target refuses, so the application is refused */
-  CHECK( pump( client, to_server, server, to_client, start_application( refused_listen_port, 1000 ) ) == REFUSED );
+  FACT_CHECK( pump( client, to_server, server, to_client, start_application( refused_listen_port, 1000 ) ) == REFUSED );
 
   /* no forwarding at the other end (an older server, say): refused at once */
   to_server.ready = false;
-  CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 1000 ) ) == REFUSED );
+  FACT_CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 1000 ) ) == REFUSED );
   to_server.ready = true;
 
   /* and it all still works afterwards */
-  CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 10000 ) ) == DELIVERED );
+  FACT_CHECK( pump( client, to_server, server, to_client, start_application( listen_port, 10000 ) ) == DELIVERED );
 
   kill( target, SIGTERM );
   waitpid( target, NULL, 0 );
 }
-
-/* A remote forward (-R) is a forward with the ends exchanged: the server listens, the client connects. */
-static void test_remote( void )
+FACTS( Remote )
 {
+  current_facts = facts;
   uint16_t target_port;
   const int listener = listening_socket( target_port );
   const pid_t target = start_target( listener );
@@ -326,17 +328,17 @@ static void test_remote( void )
   Forwarding server( &to_client, false, none, local_specs, remote_specs );
 
   /* the client listens for the local forward and the server for the remote one, not the other way about */
-  CHECK( client.fds().size() == 1 && server.fds().size() == 1 );
+  FACT_CHECK( ( client.fds().size() == 1 && server.fds().size() == 1 ) );
 
-  CHECK( pump( client, to_server, server, to_client, start_application( remote_port, 200000 ) ) == DELIVERED );
-  CHECK( pump( client, to_server, server, to_client, start_application( local_port, 200000 ) ) == DELIVERED );
+  FACT_CHECK( pump( client, to_server, server, to_client, start_application( remote_port, 200000 ) ) == DELIVERED );
+  FACT_CHECK( pump( client, to_server, server, to_client, start_application( local_port, 200000 ) ) == DELIVERED );
 
   /* both at once, with loss: the two directions' segments must not be confused */
   to_server.lose_one_in = to_client.lose_one_in = 25;
   const pid_t other = start_application( local_port, 100000 );
-  CHECK( pump( client, to_server, server, to_client, start_application( remote_port, 100000 ) ) == DELIVERED );
-  CHECK( pump( client, to_server, server, to_client, other ) == DELIVERED );
-  CHECK( to_server.lost > 0 && to_client.lost > 0 );
+  FACT_CHECK( pump( client, to_server, server, to_client, start_application( remote_port, 100000 ) ) == DELIVERED );
+  FACT_CHECK( pump( client, to_server, server, to_client, other ) == DELIVERED );
+  FACT_CHECK( ( to_server.lost > 0 && to_client.lost > 0 ) );
 
   kill( target, SIGTERM );
   waitpid( target, NULL, 0 );
@@ -356,14 +358,9 @@ public:
   size_t max_datagram( void ) const { return 1200; }
   void to_network( uint8_t, const TCPInUDP& segment ) { sent.push_back( segment ); }
 };
-
-/*
- * A peer may ask for segments as small as it likes, including of no
- * bytes at all.  (Found by fuzzing: the adapter used to oblige, sending
- * empty segments for ever.)
- */
-static void test_tiny_mss( void )
+FACTS( TinyMss )
 {
+  current_facts = facts;
   uint16_t target_port;
   const int listener = listening_socket( target_port );
   Addr target;
@@ -390,7 +387,7 @@ static void test_tiny_mss( void )
     freeze_timestamp();
     adapter.tick( frozen_timestamp() );
   }
-  CHECK( sink.sent.size() == 1 && sink.sent[0].has( TCPInUDP::SYN ) && sink.sent[0].has( TCPInUDP::ACK ) );
+  FACT_CHECK( ( sink.sent.size() == 1 && sink.sent[0].has( TCPInUDP::SYN ) && sink.sent[0].has( TCPInUDP::ACK ) ) );
 
   TCPInUDP ack;
   ack.source_port = 1;
@@ -402,18 +399,18 @@ static void test_tiny_mss( void )
 
   /* the target has plenty to say */
   const int app = accept( listener, NULL, NULL );
-  CHECK( app >= 0 );
-  CHECK( write_all( app, std::string( 1000, 'x' ) ) );
+  FACT_CHECK( app >= 0 );
+  FACT_CHECK( write_all( app, std::string( 1000, 'x' ) ) );
   usleep( 50000 );
   sink.sent.clear();
   const std::vector<int> fds = adapter.fds();
-  CHECK( fds.size() == 1 );
+  FACT_CHECK( fds.size() == 1 );
   adapter.read_fd( fds[0] ); /* this used never to return */
 
   /* it is sent in pieces that are small, but not nothing */
-  CHECK( !sink.sent.empty() );
+  FACT_CHECK( !sink.sent.empty() );
   for ( size_t i = 0; i < sink.sent.size(); i++ ) {
-    CHECK( !sink.sent[i].payload.empty() && sink.sent[i].payload.size() <= AdapterPort::MIN_MSS );
+    FACT_CHECK( ( !sink.sent[i].payload.empty() && sink.sent[i].payload.size() <= AdapterPort::MIN_MSS ) );
   }
 
   close( app );
@@ -423,6 +420,7 @@ static void test_tiny_mss( void )
 /* Opens a connection through an adapter at the connecting end; returns the target's end of it. */
 static int open_through( AdapterPort& adapter, RecordingSink& sink, int listener )
 {
+  Facts* facts = current_facts;
   TCPInUDP syn;
   syn.source_port = 1;
   syn.flags = TCPInUDP::SYN;
@@ -435,7 +433,7 @@ static int open_through( AdapterPort& adapter, RecordingSink& sink, int listener
     freeze_timestamp();
     adapter.tick( frozen_timestamp() );
   }
-  CHECK( sink.sent.size() == 1 && sink.sent[0].has( TCPInUDP::SYN ) );
+  FACT_CHECK( ( sink.sent.size() == 1 && sink.sent[0].has( TCPInUDP::SYN ) ) );
 
   TCPInUDP ack;
   ack.source_port = 1;
@@ -446,7 +444,7 @@ static int open_through( AdapterPort& adapter, RecordingSink& sink, int listener
   adapter.from_network( 0, ack );
 
   const int app = accept( listener, NULL, NULL );
-  CHECK( app >= 0 );
+  FACT_CHECK( app >= 0 );
   return app;
 }
 
@@ -459,14 +457,9 @@ static bool any_reset( const RecordingSink& sink )
   }
   return false;
 }
-
-/*
- * A mosh session can be out of contact for hours and carry on, and so
- * must a connection forwarded through it.  But a connection whose peer
- * has stopped answering while the session is in contact is given up on.
- */
-static void test_outage( void )
+FACTS( Outage )
 {
+  current_facts = facts;
   uint16_t target_port;
   const int listener = listening_socket( target_port );
   Addr target;
@@ -482,11 +475,11 @@ static void test_outage( void )
     const int app = open_through( adapter, sink, listener );
 
     /* data is sent, and nothing comes back */
-    CHECK( write_all( app, "is anybody there?" ) );
+    FACT_CHECK( write_all( app, "is anybody there?" ) );
     usleep( 50000 );
     sink.sent.clear();
     adapter.read_fd( adapter.fds().at( 0 ) );
-    CHECK( sink.sent.size() == 1 && sink.sent[0].payload == "is anybody there?" );
+    FACT_CHECK( ( sink.sent.size() == 1 && sink.sent[0].payload == "is anybody there?" ) );
     const TCPInUDP data = sink.sent[0];
 
     sink.up = in_contact;
@@ -499,20 +492,20 @@ static void test_outage( void )
 
     if ( in_contact ) {
       /* silence from a peer we can reach: after some retransmissions, give up and say so */
-      CHECK( sink.sent.size() > 3 && sink.sent.size() < 20 );
-      CHECK( any_reset( sink ) && adapter.connection_count() == 0 );
+      FACT_CHECK( ( sink.sent.size() > 3 && sink.sent.size() < 20 ) );
+      FACT_CHECK( ( any_reset( sink ) && adapter.connection_count() == 0 ) );
     } else {
       /* silence because the session is out of contact: keep trying, quietly, for as long as it takes */
-      CHECK( !any_reset( sink ) && adapter.connection_count() == 1 );
+      FACT_CHECK( ( !any_reset( sink ) && adapter.connection_count() == 1 ) );
       for ( size_t i = 0; i < sink.sent.size(); i++ ) {
-        CHECK( sink.sent[i].payload == data.payload && sink.sent[i].seq == data.seq );
+        FACT_CHECK( ( sink.sent[i].payload == data.payload && sink.sent[i].seq == data.seq ) );
       }
 
       /* contact returns: it is sent again at once, not when a backed-off timer gets round to it */
       sink.up = true;
       sink.sent.clear();
       adapter.tick( now + 1 );
-      CHECK( sink.sent.size() == 1 && sink.sent[0].payload == data.payload );
+      FACT_CHECK( ( sink.sent.size() == 1 && sink.sent[0].payload == data.payload ) );
 
       /* and the connection carries on as if nothing had happened */
       TCPInUDP reply;
@@ -524,19 +517,19 @@ static void test_outage( void )
       reply.payload = "yes, still here";
       adapter.from_network( 0, reply );
       char buf[64];
-      CHECK( recv( app, buf, sizeof( buf ), 0 ) == 15 && memcmp( buf, "yes, still here", 15 ) == 0 );
-      CHECK( adapter.connection_count() == 1 );
+      FACT_CHECK( ( recv( app, buf, sizeof( buf ), 0 ) == 15 && memcmp( buf, "yes, still here", 15 ) == 0 ) );
+      FACT_CHECK( adapter.connection_count() == 1 );
     }
     close( app );
   }
   close( listener );
 }
-
-int main()
+FACTS_REGISTER_ALL()
 {
-  test_tiny_mss();
-  test_outage();
-  test_transfers();
-  test_remote();
-  return EXIT_SUCCESS;
+  FACTS_REGISTER( TinyMss );
+  FACTS_REGISTER( Outage );
+  FACTS_REGISTER( Transfers );
+  FACTS_REGISTER( Remote );
 }
+
+FACTS_MAIN

@@ -9,16 +9,9 @@
 #include <vector>
 
 #include "src/forwarding/tcp/bytes.h"
+#include "vendor/facts/facts.h"
 
-static int failures = 0;
 
-static void check( const char* what, bool ok )
-{
-  printf( "%-90s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
 
 static std::string pattern( size_t length )
 {
@@ -28,9 +21,7 @@ static std::string pattern( size_t length )
   }
   return s;
 }
-
-/* Bytes behaves as a string that is appended to at the end and taken from at the front. */
-static void test_bytes( void )
+FACTS( Bytes )
 {
   Gosh::Bytes queue;
   std::string model;
@@ -53,18 +44,16 @@ static void test_bytes( void )
             && std::string( queue.data(), queue.size() ) == model
             && queue.substr( n % ( model.size() + 1 ), 100 ) == model.substr( n % ( model.size() + 1 ), 100 );
   }
-  check( "the byte queue holds what a string would, through 200,000 additions and removals", agree && most > 100000 );
+  FACT_CHECK( ( agree && most > 100000 ), "the byte queue holds what a string would, through 200,000 additions and removals" );
 }
-
-/* (from the review of 2026-11-15) Part of another string is added; and the front, once taken, is given back. */
-static void test_part_and_tidying( void )
+FACTS( PartAndTidying )
 {
   Gosh::Bytes queue;
   const std::string source = pattern( 1000 );
   queue.append( source, 100, 250 );
-  check( "part of a string is added: the 250 bytes from its 100th", queue.size() == 250 && std::string( queue.data(), queue.size() ) == source.substr( 100, 250 ) );
+  FACT_CHECK( ( queue.size() == 250 && std::string( queue.data(), queue.size() ) == source.substr( 100, 250 ) ), "part of a string is added: the 250 bytes from its 100th" );
   queue.append( source, 0, 0 );
-  check( "none of a string adds nothing", queue.size() == 250 );
+  FACT_CHECK( queue.size() == 250, "none of a string adds nothing" );
 
   /* 1 MB waits; it is taken from the front 1,000 bytes at a time while as much is added: what is kept stays near what waits. */
   Gosh::Bytes steady;
@@ -76,22 +65,16 @@ static void test_part_and_tidying( void )
     steady.append( megabyte.data(), 1000 );
     right = right && steady.size() == megabyte.size();
   }
-  check( "5 MB through a queue of 1 MB, taken and added a thousand bytes at a time: 1 MB waits throughout", right );
+  FACT_CHECK( right, "5 MB through a queue of 1 MB, taken and added a thousand bytes at a time: 1 MB waits throughout" );
   /* what waits is the end of: the megabyte, then its first thousand bytes 5,000 times; 5,000,000 bytes in, that is 424 bytes into a copy */
-  check( "and what waits is the right bytes",
-         std::string( steady.data(), 1000 ) == megabyte.substr( 424, 576 ) + megabyte.substr( 0, 424 )
-           && steady.substr( steady.size() - 1000, 1000 ) == megabyte.substr( 0, 1000 ) );
+  FACT_CHECK( ( std::string( steady.data(), 1000 ) == megabyte.substr( 424, 576 ) + megabyte.substr( 0, 424 )
+           && steady.substr( steady.size() - 1000, 1000 ) == megabyte.substr( 0, 1000 ) ), "and what waits is the right bytes" );
 }
-
-int main()
+/* REQ14/SPEED-1: the byte queue */
+FACTS_REGISTER_ALL()
 {
-  test_bytes();
-
-  test_part_and_tidying();
-  if ( failures ) {
-    printf( "FAIL REQ14/SPEED-1: %d checks of the byte queue failed\n", failures );
-    return EXIT_FAILURE;
-  }
-  printf( "PASS REQ14/SPEED-1: the byte queue\n" );
-  return EXIT_SUCCESS;
+  FACTS_REGISTER( Bytes );
+  FACTS_REGISTER( PartAndTidying );
 }
+
+FACTS_MAIN

@@ -12,6 +12,6 @@ a program gosh ships. MIT (`LICENSE`), which GPL-3.0-or-later code may use.
   that part's directory from `facts.cpp` (which includes `facts.c`) without gosh's warning flags,
   as code that is not gosh's.
 
-Taken on 2026-11-17 on the owner's word ("yes to both, start with facts"), as a trial: one test,
-`src/meetup/registrations-test.cc`, is written with it; whether the rest follow is the owner's to
-decide (`docs/QUEUE.md`).
+Taken on 2026-11-17 on the owner's word ("yes to both, start with facts"), tried on
+`src/meetup/registrations-test.cc`; then every unit test was moved to it ("fix all the tests"):
+how they are written is in `CONTRIBUTING.md`.

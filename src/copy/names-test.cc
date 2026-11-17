@@ -11,67 +11,47 @@
 #include <string>
 
 #include "src/copy/names.h"
-
-static int failures = 0;
-
-static void check( const char* what, bool ok )
-{
-  printf( "%-92s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
-
-int main()
+#include "vendor/facts/facts.h"
+/* REQ1/CP-6, REQ1/CP-3: names */
+FACTS( Names )
 {
   using namespace FileCopy;
 
-  check( "safe: a name, a path, and \"./\" leading (REQ1/CP-6)",
-         safe_relative_path( "a" ) && safe_relative_path( "a/b/c" ) && safe_relative_path( "./a" )
-           && safe_relative_path( "." ) && safe_relative_path( "..a" ) && safe_relative_path( "a.." ) );
-  check( "not safe: empty", !safe_relative_path( "" ) );
-  check( "not safe: absolute", !safe_relative_path( "/a" ) && !safe_relative_path( "/" ) );
-  check( "not safe: \"..\" anywhere",
-         !safe_relative_path( ".." ) && !safe_relative_path( "../a" ) && !safe_relative_path( "a/../b" )
-           && !safe_relative_path( "a/.." ) );
-  check( "not safe: an empty part (\"a//b\", \"a/\")", !safe_relative_path( "a//b" ) && !safe_relative_path( "a/" ) );
-  check( "not safe: \".\" but first (\"a/./b\")", !safe_relative_path( "a/./b" ) && !safe_relative_path( "./." ) );
-  check( "not safe: a NUL in it", !safe_relative_path( std::string( "a\0b", 3 ) ) );
+  FACT_CHECK( ( safe_relative_path( "a" ) && safe_relative_path( "a/b/c" ) && safe_relative_path( "./a" )
+           && safe_relative_path( "." ) && safe_relative_path( "..a" ) && safe_relative_path( "a.." ) ), "safe: a name, a path, and \"./\" leading (REQ1/CP-6)" );
+  FACT_CHECK( !safe_relative_path( "" ), "not safe: empty" );
+  FACT_CHECK( ( !safe_relative_path( "/a" ) && !safe_relative_path( "/" ) ), "not safe: absolute" );
+  FACT_CHECK( ( !safe_relative_path( ".." ) && !safe_relative_path( "../a" ) && !safe_relative_path( "a/../b" )
+           && !safe_relative_path( "a/.." ) ), "not safe: \"..\" anywhere" );
+  FACT_CHECK( ( !safe_relative_path( "a//b" ) && !safe_relative_path( "a/" ) ), "not safe: an empty part (\"a//b\", \"a/\")" );
+  FACT_CHECK( ( !safe_relative_path( "a/./b" ) && !safe_relative_path( "./." ) ), "not safe: \".\" but first (\"a/./b\")" );
+  FACT_CHECK( !safe_relative_path( std::string( "a\0b", 3 ) ), "not safe: a NUL in it" );
 
-  check( "into a directory: under it", target_of( "/d", true, "x/y" ) == "/d/x/y" );
-  check( "\"./\" leading: inside the destination itself", target_of( "/d", false, "./x" ) == "/d/x" );
-  check( "\".\": the destination itself", target_of( "/d", true, "." ) == "/d" );
-  check( "the one thing copied takes the destination's name, with what is under it",
-         target_of( "/d/new", false, "src" ) == "/d/new" && target_of( "/d/new", false, "src/a/b" ) == "/d/new/a/b" );
-  check( "a destination of \"/\": no doubled slash", target_of( "/", true, "x" ) == "/x" );
+  FACT_CHECK( target_of( "/d", true, "x/y" ) == "/d/x/y", "into a directory: under it" );
+  FACT_CHECK( target_of( "/d", false, "./x" ) == "/d/x", "\"./\" leading: inside the destination itself" );
+  FACT_CHECK( target_of( "/d", true, "." ) == "/d", "\".\": the destination itself" );
+  FACT_CHECK( ( target_of( "/d/new", false, "src" ) == "/d/new" && target_of( "/d/new", false, "src/a/b" ) == "/d/new/a/b" ), "the one thing copied takes the destination's name, with what is under it" );
+  FACT_CHECK( target_of( "/", true, "x" ) == "/x", "a destination of \"/\": no doubled slash" );
 
-  check( "the part file: \".NAME.mocp-part\" beside it (REQ1/CP-3)",
-         part_name( "/d/sub/b.bin" ) == "/d/sub/.b.bin.mocp-part" && part_name( "b.bin" ) == ".b.bin.mocp-part" );
+  FACT_CHECK( ( part_name( "/d/sub/b.bin" ) == "/d/sub/.b.bin.mocp-part" && part_name( "b.bin" ) == ".b.bin.mocp-part" ), "the part file: \".NAME.mocp-part\" beside it (REQ1/CP-3)" );
 
-  check( "a child of \"/\" is the same text target_of gives (REQ1/CP-5, --delete)",
-         child_of( "/", "sub" ) == "/sub" && child_of( "/", "sub" ) == target_of( "/", true, "sub" )
-           && child_of( "/d", "x" ) == "/d/x" && child_of( "/d", "x" ) == target_of( "/d", true, "x" ) );
-  check( "a part file's name is known for one (REQ1/CP-3)",
-         is_part_name( ".x.mocp-part" ) && is_part_name( "d/.x.mocp-part" ) && is_part_name( part_name( "/d/b.bin" ) ) );
-  check( "and nothing else is",
-         !is_part_name( "x.mocp-part" ) && !is_part_name( "..mocp-part" ) && !is_part_name( ".mocp-part" )
-           && !is_part_name( ".x.mocp-part/y" ) && !is_part_name( "x" ) && !is_part_name( ".x.mocp-partial" ) );
+  FACT_CHECK( ( child_of( "/", "sub" ) == "/sub" && child_of( "/", "sub" ) == target_of( "/", true, "sub" )
+           && child_of( "/d", "x" ) == "/d/x" && child_of( "/d", "x" ) == target_of( "/d", true, "x" ) ), "a child of \"/\" is the same text target_of gives (REQ1/CP-5, --delete)" );
+  FACT_CHECK( ( is_part_name( ".x.mocp-part" ) && is_part_name( "d/.x.mocp-part" ) && is_part_name( part_name( "/d/b.bin" ) ) ), "a part file's name is known for one (REQ1/CP-3)" );
+  FACT_CHECK( ( !is_part_name( "x.mocp-part" ) && !is_part_name( "..mocp-part" ) && !is_part_name( ".mocp-part" )
+           && !is_part_name( ".x.mocp-part/y" ) && !is_part_name( "x" ) && !is_part_name( ".x.mocp-partial" ) ), "and nothing else is" );
 
-  check( "a source goes by its last name",
-         top_name( "/x/y/file" ) == "file" && top_name( "dir/" ) == "dir" && top_name( "file" ) == "file" );
-  check( "\".\", \"..\" and \"/\": what is in them, not them",
-         top_name( "src/." ) == "." && top_name( ".." ) == "." && top_name( "/" ) == "." );
+  FACT_CHECK( ( top_name( "/x/y/file" ) == "file" && top_name( "dir/" ) == "dir" && top_name( "file" ) == "file" ), "a source goes by its last name" );
+  FACT_CHECK( ( top_name( "src/." ) == "." && top_name( ".." ) == "." && top_name( "/" ) == "." ), "\".\", \"..\" and \"/\": what is in them, not them" );
 
-  check( "\"~\" and \"~/\" under the home given", expand_home( "~", "/h" ) == "/h" && expand_home( "~/a", "/h" ) == "/h/a" );
-  check( "anything else, and no home: as it is",
-         expand_home( "~a", "/h" ) == "~a" && expand_home( "a/~", "/h" ) == "a/~" && expand_home( "~/a", NULL ) == "~/a" );
-  check( "trailing slashes go, but \"/\" stays",
-         without_trailing_slashes( "a//" ) == "a" && without_trailing_slashes( "/" ) == "/" );
-
-  if ( failures ) {
-    printf( "FAIL REQ1/CP-6, REQ1/CP-3: %d checks of names failed\n", failures );
-    return 1;
-  }
-  printf( "PASS REQ1/CP-6, REQ1/CP-3: names\n" );
-  return 0;
+  FACT_CHECK( ( expand_home( "~", "/h" ) == "/h" && expand_home( "~/a", "/h" ) == "/h/a" ), "\"~\" and \"~/\" under the home given" );
+  FACT_CHECK( ( expand_home( "~a", "/h" ) == "~a" && expand_home( "a/~", "/h" ) == "a/~" && expand_home( "~/a", NULL ) == "~/a" ), "anything else, and no home: as it is" );
+  FACT_CHECK( ( without_trailing_slashes( "a//" ) == "a" && without_trailing_slashes( "/" ) == "/" ), "trailing slashes go, but \"/\" stays" );
 }
+
+FACTS_REGISTER_ALL()
+{
+  FACTS_REGISTER( Names );
+}
+
+FACTS_MAIN

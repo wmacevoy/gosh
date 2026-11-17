@@ -13,6 +13,11 @@
 
 #include "src/forwarding/tcp/tcpinudp.h"
 #include "src/forwarding/frame.h"
+#include "vendor/facts/facts.h"
+
+/* The facts of the group now running, for checks outside a group: each group sets it, and a
+   helper that checks takes it as its own facts. */
+static Facts* current_facts = nullptr;
 
 using namespace Network;
 
@@ -28,29 +33,24 @@ static bool decode_data( const std::string& payload, uint8_t& forward, uint16_t&
   return Gosh::decode_frame( payload, type, forward, flow_id, seq, datagram ) && type == Gosh::TYPE_UDP_DATA;
 }
 
-#define CHECK( x )                                                                                                 \
-  do {                                                                                                             \
-    if ( !( x ) ) {                                                                                                \
-      fprintf( stderr, "%s:%d: check failed: %s\n", __FILE__, __LINE__, #x );                                      \
-      exit( EXIT_FAILURE );                                                                                        \
-    }                                                                                                              \
-  } while ( 0 )
 
 static Addr addr4( const char* s )
 {
+  Facts* facts = current_facts;
   Addr a;
   memset( &a, 0, sizeof( a ) );
   a.sin.sin_family = AF_INET;
-  CHECK( inet_pton( AF_INET, s, &a.sin.sin_addr ) == 1 );
+  FACT_CHECK( inet_pton( AF_INET, s, &a.sin.sin_addr ) == 1 );
   return a;
 }
 
 static Addr addr6( const char* s )
 {
+  Facts* facts = current_facts;
   Addr a;
   memset( &a, 0, sizeof( a ) );
   a.sin6.sin6_family = AF_INET6;
-  CHECK( inet_pton( AF_INET6, s, &a.sin6.sin6_addr ) == 1 );
+  FACT_CHECK( inet_pton( AF_INET6, s, &a.sin6.sin6_addr ) == 1 );
   return a;
 }
 
@@ -79,41 +79,41 @@ static const unsigned char syn_udp[]
       0x01, 0x02, 0x03, 0x04,                         /* seq */
       0x00, 0x00, 0x00, 0x00,                         /* ack */
       0x02, 0x04, 0x05, 0xB4 };                       /* MSS 1460 */
-
-static void test_syn( void )
+FACTS( Syn )
 {
+  current_facts = facts;
   const Addr src = addr4( "192.0.2.1" ), dst = addr4( "198.51.100.2" );
   const std::string tcp = bytes( syn_tcp, sizeof( syn_tcp ) );
   const std::string udp = bytes( syn_udp, sizeof( syn_udp ) );
 
   TCPInUDP s;
-  CHECK( TCPInUDP::from_tcp( tcp, s ) );
-  CHECK( s.source_port == 12345 && s.dest_port == 80 );
-  CHECK( s.seq == 0x01020304 && s.ack == 0 && s.window == 0xFFFF );
-  CHECK( s.flags == TCPInUDP::SYN && s.has( TCPInUDP::SYN ) && !s.has( TCPInUDP::ACK ) );
-  CHECK( s.data_offset() == 6 && s.options == std::string( "\x02\x04\x05\xB4" ) && s.payload.empty() );
+  FACT_CHECK( TCPInUDP::from_tcp( tcp, s ) );
+  FACT_CHECK( ( s.source_port == 12345 && s.dest_port == 80 ) );
+  FACT_CHECK( ( s.seq == 0x01020304 && s.ack == 0 && s.window == 0xFFFF ) );
+  FACT_CHECK( ( s.flags == TCPInUDP::SYN && s.has( TCPInUDP::SYN ) && !s.has( TCPInUDP::ACK ) ) );
+  FACT_CHECK( ( s.data_offset() == 6 && s.options == std::string( "\x02\x04\x05\xB4" ) && s.payload.empty() ) );
 
   /* TCP -> UDP: same bytes rearranged, same length */
-  CHECK( s.to_udp( src, dst ) == udp );
-  CHECK( s.to_datagram() == udp.substr( TCPInUDP::UDP_HEADER_LEN ) );
-  CHECK( udp.size() == tcp.size() );
+  FACT_CHECK( s.to_udp( src, dst ) == udp );
+  FACT_CHECK( s.to_datagram() == udp.substr( TCPInUDP::UDP_HEADER_LEN ) );
+  FACT_CHECK( udp.size() == tcp.size() );
 
   /* UDP -> TCP, as a socket would see it: the payload plus the datagram's ports */
   TCPInUDP r;
-  CHECK( TCPInUDP::from_datagram( 12345, 80, udp.substr( TCPInUDP::UDP_HEADER_LEN ), r ) );
-  CHECK( r.to_tcp( src, dst ) == tcp );
+  FACT_CHECK( TCPInUDP::from_datagram( 12345, 80, udp.substr( TCPInUDP::UDP_HEADER_LEN ), r ) );
+  FACT_CHECK( r.to_tcp( src, dst ) == tcp );
 
   /* The forwarder acts as a NAT: other addresses and ports, another (valid) checksum. */
   r.source_port = 40000;
   const std::string natted = r.to_tcp( addr4( "10.0.0.1" ), dst );
-  CHECK( natted != tcp && natted.size() == tcp.size() );
+  FACT_CHECK( ( natted != tcp && natted.size() == tcp.size() ) );
   std::string zeroed = natted;
   zeroed[16] = zeroed[17] = 0;
-  CHECK( TCPInUDP::checksum( IPPROTO_TCP, addr4( "10.0.0.1" ), dst, zeroed ) == word( natted, 16 ) );
+  FACT_CHECK( TCPInUDP::checksum( IPPROTO_TCP, addr4( "10.0.0.1" ), dst, zeroed ) == word( natted, 16 ) );
 }
-
-static void test_data_ipv6( void )
+FACTS( DataIpv6 )
 {
+  current_facts = facts;
   /* PSH|ACK with an odd-length payload, [2001:db8::1]:443 -> [2001:db8::2]:50000 */
   const Addr src = addr6( "2001:db8::1" ), dst = addr6( "2001:db8::2" );
 
@@ -128,11 +128,11 @@ static void test_data_ipv6( void )
 
   const std::string tcp = s.to_tcp( src, dst );
   const std::string udp = s.to_udp( src, dst );
-  CHECK( tcp.size() == 25 && udp.size() == 25 );
-  CHECK( word( tcp, 16 ) == 0xA928 ); /* computed independently */
-  CHECK( word( udp, 6 ) == 0xA904 );
-  CHECK( word( udp, 4 ) == 25 );
-  CHECK( word( tcp, 12 ) == 0x5018 && word( udp, 8 ) == 0x5018 );
+  FACT_CHECK( ( tcp.size() == 25 && udp.size() == 25 ) );
+  FACT_CHECK( word( tcp, 16 ) == 0xA928 ); /* computed independently */
+  FACT_CHECK( word( udp, 6 ) == 0xA904 );
+  FACT_CHECK( word( udp, 4 ) == 25 );
+  FACT_CHECK( ( word( tcp, 12 ) == 0x5018 && word( udp, 8 ) == 0x5018 ) );
 
   /*
    * The kernel translator never recomputes a checksum; it only adjusts
@@ -142,13 +142,13 @@ static void test_data_ipv6( void )
    */
   unsigned int sum = ( ~word( tcp, 16 ) & 0xFFFF ) + ( IPPROTO_UDP - IPPROTO_TCP ) + udp.size();
   sum = ( sum & 0xFFFF ) + ( sum >> 16 );
-  CHECK( ( ~sum & 0xFFFF ) == word( udp, 6 ) );
+  FACT_CHECK( ( ~sum & 0xFFFF ) == word( udp, 6 ) );
 
   TCPInUDP r;
-  CHECK( TCPInUDP::from_tcp( tcp, r ) );
-  CHECK( r.to_udp( src, dst ) == udp );
-  CHECK( TCPInUDP::from_datagram( 443, 50000, udp.substr( 8 ), r ) );
-  CHECK( r.payload == "hello" && r.options.empty() && r.to_tcp( src, dst ) == tcp );
+  FACT_CHECK( TCPInUDP::from_tcp( tcp, r ) );
+  FACT_CHECK( r.to_udp( src, dst ) == udp );
+  FACT_CHECK( TCPInUDP::from_datagram( 443, 50000, udp.substr( 8 ), r ) );
+  FACT_CHECK( ( r.payload == "hello" && r.options.empty() && r.to_tcp( src, dst ) == tcp ) );
 
   /* a checksum needs one address family */
   bool threw = false;
@@ -157,41 +157,41 @@ static void test_data_ipv6( void )
   } catch ( const NetworkException& ) {
     threw = true;
   }
-  CHECK( threw );
+  FACT_CHECK( threw );
 }
-
-static void test_rejects( void )
+FACTS( Rejects )
 {
+  current_facts = facts;
   const std::string tcp = bytes( syn_tcp, sizeof( syn_tcp ) );
   const std::string datagram = bytes( syn_udp, sizeof( syn_udp ) ).substr( 8 );
   TCPInUDP s;
 
   /* truncated */
-  CHECK( !TCPInUDP::from_tcp( tcp.substr( 0, 19 ), s ) );
-  CHECK( !TCPInUDP::from_datagram( 1, 2, datagram.substr( 0, 11 ), s ) );
-  CHECK( !TCPInUDP::from_datagram( 1, 2, "", s ) );
+  FACT_CHECK( !TCPInUDP::from_tcp( tcp.substr( 0, 19 ), s ) );
+  FACT_CHECK( !TCPInUDP::from_datagram( 1, 2, datagram.substr( 0, 11 ), s ) );
+  FACT_CHECK( !TCPInUDP::from_datagram( 1, 2, "", s ) );
 
   /* header claims options that are not there */
-  CHECK( !TCPInUDP::from_tcp( tcp.substr( 0, 20 ), s ) );
-  CHECK( !TCPInUDP::from_datagram( 1, 2, datagram.substr( 0, 12 ), s ) );
+  FACT_CHECK( !TCPInUDP::from_tcp( tcp.substr( 0, 20 ), s ) );
+  FACT_CHECK( !TCPInUDP::from_datagram( 1, 2, datagram.substr( 0, 12 ), s ) );
 
   /* data offset smaller than a TCP header */
   std::string bad = tcp;
   bad[12] = 0x40;
-  CHECK( !TCPInUDP::from_tcp( bad, s ) );
+  FACT_CHECK( !TCPInUDP::from_tcp( bad, s ) );
   bad = datagram;
   bad[0] = 0x40;
-  CHECK( !TCPInUDP::from_datagram( 1, 2, bad, s ) );
+  FACT_CHECK( !TCPInUDP::from_datagram( 1, 2, bad, s ) );
 
   /* urgent data has nowhere to go */
   bad = tcp;
   bad[13] |= 0x20;
-  CHECK( !TCPInUDP::from_tcp( bad, s ) );
+  FACT_CHECK( !TCPInUDP::from_tcp( bad, s ) );
   /* ...and a stray URG bit arriving in a datagram is dropped, not believed */
   bad = datagram;
   bad[1] |= 0x20;
-  CHECK( TCPInUDP::from_datagram( 1, 2, bad, s ) );
-  CHECK( !s.has( TCPInUDP::URG ) && s.has( TCPInUDP::SYN ) );
+  FACT_CHECK( TCPInUDP::from_datagram( 1, 2, bad, s ) );
+  FACT_CHECK( ( !s.has( TCPInUDP::URG ) && s.has( TCPInUDP::SYN ) ) );
 
   /* can't serialize what can't be represented */
   const char* unrepresentable[] = { "urg", "ragged options", "too many options" };
@@ -213,44 +213,44 @@ static void test_rejects( void )
     if ( !threw ) {
       fprintf( stderr, "accepted: %s\n", unrepresentable[i] );
     }
-    CHECK( threw );
+    FACT_CHECK( threw );
   }
 }
-
-static void test_sizes( void )
+FACTS( Sizes )
 {
+  current_facts = facts;
   /* a full-sized segment with full options exactly fills the budget */
   const size_t budget = 1200 - Gosh::FRAME_HEADER_LEN;
   const size_t mss = TCPInUDP::max_segment_size( budget );
-  CHECK( mss == budget - 12 - 40 );
+  FACT_CHECK( mss == budget - 12 - 40 );
 
   TCPInUDP s;
   s.flags = TCPInUDP::ACK;
   s.options = std::string( TCPInUDP::MAX_OPTIONS_LEN, '\x01' ); /* NOPs */
   s.payload = std::string( mss, 'x' );
-  CHECK( s.data_offset() == 15 );
-  CHECK( s.to_datagram().size() == budget );
+  FACT_CHECK( s.data_offset() == 15 );
+  FACT_CHECK( s.to_datagram().size() == budget );
 
-  CHECK( TCPInUDP::max_segment_size( 52 ) == 0 && TCPInUDP::max_segment_size( 0 ) == 0 );
+  FACT_CHECK( ( TCPInUDP::max_segment_size( 52 ) == 0 && TCPInUDP::max_segment_size( 0 ) == 0 ) );
 
   /* and it survives the forwarder's own framing untouched */
   const std::string wire = encode_data( 0, 1, 2, s.to_datagram() );
-  CHECK( wire.size() == 1200 );
+  FACT_CHECK( wire.size() == 1200 );
   uint8_t forward;
   uint16_t flow;
   uint64_t seq;
   std::string datagram;
   TCPInUDP r;
-  CHECK( decode_data( wire, forward, flow, seq, datagram ) );
-  CHECK( TCPInUDP::from_datagram( 0, 0, datagram, r ) );
-  CHECK( r.payload == s.payload && r.options == s.options && r.flags == s.flags );
+  FACT_CHECK( decode_data( wire, forward, flow, seq, datagram ) );
+  FACT_CHECK( TCPInUDP::from_datagram( 0, 0, datagram, r ) );
+  FACT_CHECK( ( r.payload == s.payload && r.options == s.options && r.flags == s.flags ) );
+}
+FACTS_REGISTER_ALL()
+{
+  FACTS_REGISTER( Syn );
+  FACTS_REGISTER( DataIpv6 );
+  FACTS_REGISTER( Rejects );
+  FACTS_REGISTER( Sizes );
 }
 
-int main()
-{
-  test_syn();
-  test_data_ipv6();
-  test_rejects();
-  test_sizes();
-  return EXIT_SUCCESS;
-}
+FACTS_MAIN

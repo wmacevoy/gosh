@@ -9,11 +9,10 @@ libgoshmeetup_a_SOURCES = ticket.h messages.h registrations.h answer.h master.cc
 
 check_PROGRAMS = ticket-test messages-test registrations-test answer-test registrations-fuzzer
 TESTS = $(check_PROGRAMS)
-LDADD = libgoshmeetup.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+LDADD = libfacts.a libgoshmeetup.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 ticket_test_SOURCES = ticket-test.cc
 messages_test_SOURCES = messages-test.cc
 registrations_test_SOURCES = registrations-test.cc
-registrations_test_LDADD = libfacts.a $(LDADD)
 
 # The testing library (vendor/facts/README.md), built here for the tests alone, without gosh's
 # warning flags: it is not gosh's code. (subdir-objects: its source is outside this directory.)

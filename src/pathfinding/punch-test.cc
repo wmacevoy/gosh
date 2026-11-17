@@ -24,16 +24,9 @@
 #include "src/meetup/answer.h"
 #include "src/meetup/registrations.h"
 #include "src/pathfinding/punch.h"
+#include "vendor/facts/facts.h"
 
-static int failures = 0;
 
-static void check( const char* what, bool ok )
-{
-  printf( "%-92s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
 
 static uint64_t now_ms( void )
 {
@@ -137,8 +130,8 @@ bool run( Network::Punch& a, Network::Punch& b, Meetup* m, uint64_t ms, Done don
   return false;
 }
 }
-
-int main()
+/* REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: path-finding, straight and through a meetup */
+FACTS( Punch )
 {
   using Network::Punch;
   const std::string key = Crypto::Base64Key().printable_key();
@@ -149,30 +142,29 @@ int main()
     a.add_candidate( "127.0.0.1:" + std::to_string( b.local_port() ) );
     b.add_candidate( "127.0.0.1:" + std::to_string( a.local_port() ) );
     const bool open = run( a, b, NULL, 3000, [&]( uint64_t now ) { return a.open( now ) && b.open( now ); } );
-    check( "each told where the other is: a way straight through, both ways (REQ1/PATH-3)", open && a.direct() && b.direct() );
+    FACT_CHECK( ( open && a.direct() && b.direct() ), "each told where the other is: a way straight through, both ways (REQ1/PATH-3)" );
     std::string got;
     a.send( "a datagram of the session's" );
     run( a, b, NULL, 1000, [&]( uint64_t ) { return !got.empty(); }, &got );
-    check( "and a datagram sent goes straight to the other end", got == "a datagram of the session's" );
+    FACT_CHECK( got == "a datagram of the session's", "and a datagram sent goes straight to the other end" );
   }
 
   {
     Meetup m;
     const Gosh::Ticket t = Gosh::make_ticket( MASTER, "random!!", time( NULL ) + 3600 );
     Punch a( true, key, nobody, now_ms() ), b( false, key, nobody, now_ms() );
-    check( "a meetup is taken at an address, with a ticket", a.use_meetup( m.where(), t ) && b.use_meetup( m.where(), t ) );
-    check( "and not at what is not an address", !a.use_meetup( "meetup.example:1", t ) );
+    FACT_CHECK( ( a.use_meetup( m.where(), t ) && b.use_meetup( m.where(), t ) ), "a meetup is taken at an address, with a ticket" );
+    FACT_CHECK( !a.use_meetup( "meetup.example:1", t ), "and not at what is not an address" );
     a.use_meetup( m.where(), t );
     const bool registered = run( a, b, &m, 3000, [&]( uint64_t ) { return a.meetup_registered() && b.meetup_registered(); } );
-    check( "neither knowing where the other is, both register with the meetup (REQ18/PATH-5)", registered );
+    FACT_CHECK( registered, "neither knowing where the other is, both register with the meetup (REQ18/PATH-5)" );
     const bool open = run( a, b, &m, 3000, [&]( uint64_t now ) { return a.open( now ) && b.open( now ); } );
-    check( "and find each other through it: a way through, not straight (REQ15/PATH-4)",
-           open && !a.direct() && !b.direct() && a.where().find( "meetup" ) != std::string::npos );
+    FACT_CHECK( ( open && !a.direct() && !b.direct() && a.where().find( "meetup" ) != std::string::npos ), "and find each other through it: a way through, not straight (REQ15/PATH-4)" );
     std::string got;
     const int before = m.passed;
     a.send( "through the meetup" );
     run( a, b, &m, 1000, [&]( uint64_t ) { return got == "through the meetup"; }, &got );
-    check( "a datagram sent goes through the meetup to the other end", got == "through the meetup" && m.passed > before );
+    FACT_CHECK( ( got == "through the meetup" && m.passed > before ), "a datagram sent goes through the meetup to the other end" );
   }
 
   {
@@ -182,7 +174,7 @@ int main()
     a.use_meetup( m.where(), forged );
     b.use_meetup( m.where(), forged );
     const bool registered = run( a, b, &m, 1500, [&]( uint64_t ) { return a.meetup_registered() || b.meetup_registered(); } );
-    check( "with a ticket the meetup did not make, neither is registered", !registered );
+    FACT_CHECK( !registered, "with a ticket the meetup did not make, neither is registered" );
   }
 
   {
@@ -199,7 +191,7 @@ int main()
     usleep( 50000 );
     std::string d;
     const Punch::Got got = a.receive( now_ms(), d );
-    check( "a probe-marked datagram of 4,008 bytes is not opened, and nothing is undone by it", got == Punch::OTHER );
+    FACT_CHECK( got == Punch::OTHER, "a probe-marked datagram of 4,008 bytes is not opened, and nothing is undone by it" );
     close( s );
   }
 
@@ -221,11 +213,11 @@ int main()
       a.add_candidate( "[::1]:" + std::to_string( b.local_port() ) );
       b.add_candidate( "[::1]:" + std::to_string( a.local_port() ) );
       const bool open = run( a, b, NULL, 3000, [&]( uint64_t now ) { return a.open( now ) && b.open( now ); } );
-      check( "over ::1, a way straight through by IPv6 (REQ17/PATH-8)", open && a.direct() && a.where().compare( 0, 5, "[::1]" ) == 0 );
+      FACT_CHECK( ( open && a.direct() && a.where().compare( 0, 5, "[::1]" ) == 0 ), "over ::1, a way straight through by IPv6 (REQ17/PATH-8)" );
       std::string got;
       a.send( "by IPv6" );
       run( a, b, NULL, 1000, [&]( uint64_t ) { return !got.empty(); }, &got );
-      check( "and a datagram goes straight by it", got == "by IPv6" );
+      FACT_CHECK( got == "by IPv6", "and a datagram goes straight by it" );
     }
     {
       Meetup m( AF_INET6 );
@@ -234,19 +226,18 @@ int main()
       a.use_meetup( m.where(), t );
       b.use_meetup( m.where(), t );
       const bool open = run( a, b, &m, 4000, [&]( uint64_t now ) { return a.open( now ) && b.open( now ); } );
-      check( "a meetup at ::1 alone: both register, and find each other through it",
-             open && a.meetup_registered() && b.meetup_registered() && !a.direct() );
+      FACT_CHECK( ( open && a.meetup_registered() && b.meetup_registered() && !a.direct() ), "a meetup at ::1 alone: both register, and find each other through it" );
       std::string got;
       a.send( "through an IPv6 meetup" );
       run( a, b, &m, 1000, [&]( uint64_t ) { return got == "through an IPv6 meetup"; }, &got );
-      check( "and a datagram goes through it", got == "through an IPv6 meetup" );
+      FACT_CHECK( got == "through an IPv6 meetup", "and a datagram goes through it" );
     }
   }
-
-  if ( failures ) {
-    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: %d checks of path-finding failed\n", failures );
-    return 1;
-  }
-  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: path-finding, straight and through a meetup\n" );
-  return 0;
 }
+
+FACTS_REGISTER_ALL()
+{
+  FACTS_REGISTER( Punch );
+}
+
+FACTS_MAIN

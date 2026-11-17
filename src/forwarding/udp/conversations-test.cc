@@ -15,16 +15,9 @@
 #include <vector>
 
 #include "src/forwarding/udp/conversations.h"
+#include "vendor/facts/facts.h"
 
-static int failures = 0;
 
-static void check( const char* what, bool ok )
-{
-  printf( "%-86s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
 
 /* What an end is asked to do, written down. */
 struct Recorder
@@ -111,125 +104,109 @@ static std::string pattern( size_t length )
   }
   return s;
 }
-
-static void test_there_and_back( void )
+FACTS( ThereAndBack )
 {
   Pair p;
   p.say( "alice", "hello", 1000 );
-  check( "an application's datagram goes as one payload of 13 + 5 bytes", p.ra.sent.size() == 1 && p.ra.sent[0].size() == 18 );
+  FACT_CHECK( ( p.ra.sent.size() == 1 && p.ra.sent[0].size() == 18 ), "an application's datagram goes as one payload of 13 + 5 bytes" );
   p.a_to_b( 1000 );
-  check( "the other end opens one socket for the conversation, and sends the datagram on it",
-         p.rb.opened.size() == 1 && p.rb.to_targets.size() == 1 && p.rb.to_targets[0].first == p.rb.opened[0]
-           && p.rb.to_targets[0].second == "hello" );
+  FACT_CHECK( ( p.rb.opened.size() == 1 && p.rb.to_targets.size() == 1 && p.rb.to_targets[0].first == p.rb.opened[0]
+           && p.rb.to_targets[0].second == "hello" ), "the other end opens one socket for the conversation, and sends the datagram on it" );
   p.b.from_target( p.rb.opened[0], "world", 5, 1001, p.link, p.rb );
   p.b_to_a( 1001 );
-  check( "the target's answer comes back to the application that began it",
-         p.ra.to_applications.size() == 1 && p.ra.to_applications[0].first == "alice"
-           && p.ra.to_applications[0].second == "world" );
+  FACT_CHECK( ( p.ra.to_applications.size() == 1 && p.ra.to_applications[0].first == "alice"
+           && p.ra.to_applications[0].second == "world" ), "the target's answer comes back to the application that began it" );
 
   p.say( "alice", "again", 1002 );
   p.say( "bob", "me too", 1002 );
   p.say( "alice", "other forward", 1002, 1 );
   p.a_to_b( 1002 );
-  check( "the same application again is the same conversation; another, or another forward, is a new one",
-         p.a.flow_count() == 3 && p.rb.opened.size() == 3 && p.rb.to_targets.size() == 4
-           && p.rb.to_targets[1].first == p.rb.opened[0] && p.rb.to_targets[2].first == p.rb.opened[1] );
-  check( "conversations on one forward have different numbers; another forward may reuse one",
-         p.rb.opened_ids.size() == 3 && p.rb.opened_ids[0] != p.rb.opened_ids[1] );
+  FACT_CHECK( ( p.a.flow_count() == 3 && p.rb.opened.size() == 3 && p.rb.to_targets.size() == 4
+           && p.rb.to_targets[1].first == p.rb.opened[0] && p.rb.to_targets[2].first == p.rb.opened[1] ), "the same application again is the same conversation; another, or another forward, is a new one" );
+  FACT_CHECK( ( p.rb.opened_ids.size() == 3 && p.rb.opened_ids[0] != p.rb.opened_ids[1] ), "conversations on one forward have different numbers; another forward may reuse one" );
 }
-
-/* Each conversation has a socket of its own, and an answer goes back by the conversation its socket is of. */
-static void test_which_conversation( void )
+FACTS( WhichConversation )
 {
   Pair p;
   p.say( "alice", "a", 1000 );
   p.say( "bob", "b", 1000 );
   p.a_to_b( 1000 );
-  check( "two conversations have two sockets, with different handles",
-         p.rb.opened.size() == 2 && p.rb.opened[0] != p.rb.opened[1] );
+  FACT_CHECK( ( p.rb.opened.size() == 2 && p.rb.opened[0] != p.rb.opened[1] ), "two conversations have two sockets, with different handles" );
   p.b.from_target( p.rb.opened[1], "for bob", 7, 1001, p.link, p.rb );
   p.b_to_a( 1001 );
-  check( "an answer on the second socket goes to the second application",
-         p.ra.to_applications.size() == 1 && p.ra.to_applications[0].first == "bob" );
+  FACT_CHECK( ( p.ra.to_applications.size() == 1 && p.ra.to_applications[0].first == "bob" ), "an answer on the second socket goes to the second application" );
 
   /* The same number on two forwards is two conversations (the other end chooses the numbers). */
   Pair q;
   q.b.payload( Gosh::encode_frame( Gosh::TYPE_UDP_DATA, 0, 5, 1, "zero" ), 1000, q.rb );
   q.b.payload( Gosh::encode_frame( Gosh::TYPE_UDP_DATA, 1, 5, 2, "one" ), 1000, q.rb );
-  check( "the same number on two forwards is two conversations", q.b.flow_count() == 2 && q.rb.opened.size() == 2 );
+  FACT_CHECK( ( q.b.flow_count() == 2 && q.rb.opened.size() == 2 ), "the same number on two forwards is two conversations" );
   q.b.from_target( q.rb.opened[1], "back", 4, 1000, q.link, q.rb );
   uint8_t type = 0, forward = 0;
   uint16_t id = 0;
   uint64_t seq = 0;
   std::string data;
-  check( "and an answer on the second's socket is framed for the second forward",
-         q.rb.sent.size() == 1 && Gosh::decode_frame( q.rb.sent[0], type, forward, id, seq, data ) && forward == 1
-           && id == 5 && data == "back" );
+  FACT_CHECK( ( q.rb.sent.size() == 1 && Gosh::decode_frame( q.rb.sent[0], type, forward, id, seq, data ) && forward == 1
+           && id == 5 && data == "back" ), "and an answer on the second's socket is framed for the second forward" );
 
   /* Forwards the server listens for have kinds of their own, there and back. */
   Pair r( 1200, true );
   r.say( "alice", "reverse", 1000 );
-  check( "a forward the server listens for sends its own kind of payload",
-         r.ra.sent.size() == 1 && Gosh::decode_frame( r.ra.sent[0], type, forward, id, seq, data )
-           && type == Gosh::TYPE_UDP_REVERSE_DATA );
+  FACT_CHECK( ( r.ra.sent.size() == 1 && Gosh::decode_frame( r.ra.sent[0], type, forward, id, seq, data )
+           && type == Gosh::TYPE_UDP_REVERSE_DATA ), "a forward the server listens for sends its own kind of payload" );
   r.a_to_b( 1000 );
-  check( "which its other end takes", r.rb.to_targets.size() == 1 && r.rb.to_targets[0].second == "reverse" );
+  FACT_CHECK( ( r.rb.to_targets.size() == 1 && r.rb.to_targets[0].second == "reverse" ), "which its other end takes" );
   r.b.payload( Gosh::encode_frame( Gosh::TYPE_UDP_DATA, 0, 9, 77, "plain" ), 1000, r.rb );
-  check( "and the plain kind it does not", r.rb.to_targets.size() == 1 );
+  FACT_CHECK( r.rb.to_targets.size() == 1, "and the plain kind it does not" );
 }
-
-static void test_refused_payloads( void )
+FACTS( RefusedPayloads )
 {
   Pair p;
   p.say( "alice", "once", 1000 );
   const std::string payload = p.ra.sent[0];
   p.a_to_b( 1000 );
   p.b.payload( payload, 1000, p.rb );
-  check( "REQ1/FWD-2: a payload that arrives twice is delivered once", p.rb.to_targets.size() == 1 );
+  FACT_CHECK( p.rb.to_targets.size() == 1, "REQ1/FWD-2: a payload that arrives twice is delivered once" );
 
   p.b.payload( Gosh::encode_frame( Gosh::TYPE_UDP_DATA, 2, 0, 50, "x" ), 1000, p.rb );
-  check( "a payload for a forward there is not is dropped", p.rb.to_targets.size() == 1 && p.b.flow_count() == 1 );
+  FACT_CHECK( ( p.rb.to_targets.size() == 1 && p.b.flow_count() == 1 ), "a payload for a forward there is not is dropped" );
   p.b.payload( Gosh::encode_frame( Gosh::TYPE_UDP_REVERSE_DATA, 0, 0, 51, "x" ), 1000, p.rb );
   p.b.payload( Gosh::encode_frame( Gosh::TYPE_TCP_SEGMENT, 0, 0, 52, "x" ), 1000, p.rb );
-  check( "a payload of the other direction's kind, or of TCP's, is dropped", p.rb.to_targets.size() == 1 );
+  FACT_CHECK( p.rb.to_targets.size() == 1, "a payload of the other direction's kind, or of TCP's, is dropped" );
   p.b.payload( payload.substr( 0, 12 ), 1000, p.rb );
-  check( "a payload shorter than the header is dropped", p.rb.to_targets.size() == 1 );
+  FACT_CHECK( p.rb.to_targets.size() == 1, "a payload shorter than the header is dropped" );
 
   p.a.payload( Gosh::encode_frame( Gosh::TYPE_UDP_DATA, 0, 999, 60, "reply" ), 1000, p.ra );
-  check( "an answer for a conversation the listening end does not have is dropped", p.ra.to_applications.empty() );
+  FACT_CHECK( p.ra.to_applications.empty(), "an answer for a conversation the listening end does not have is dropped" );
 
   p.rb.refuse = true;
   p.b.payload( Gosh::encode_frame( Gosh::TYPE_UDP_DATA, 1, 7, 61, "no socket" ), 1000, p.rb );
-  check( "no socket to be had for a new conversation: the datagram is dropped, and no conversation kept",
-         p.rb.to_targets.size() == 1 && p.b.flow_count() == 1 );
+  FACT_CHECK( ( p.rb.to_targets.size() == 1 && p.b.flow_count() == 1 ), "no socket to be had for a new conversation: the datagram is dropped, and no conversation kept" );
 
   Gosh::DatagramLink down = p.link;
   down.ready = false;
   p.ra.sent.clear();
   p.a.from_application( 0, "alice", "lost", 4, 1000, down, p.ra );
-  check( "the session not ready: an application's datagram is dropped, not kept", p.ra.sent.empty() );
+  FACT_CHECK( p.ra.sent.empty(), "the session not ready: an application's datagram is dropped, not kept" );
 }
-
-static void test_forgotten( void )
+FACTS( Forgotten )
 {
   Pair p;
   p.say( "alice", "a", 1000 );
   p.a_to_b( 1000 );
   p.say( "bob", "b", 1000 + 120000 ); /* two minutes later, to the millisecond: alice is not forgotten yet */
   p.a_to_b( 1000 + 120000 );
-  check( "a conversation quiet for exactly two minutes is still there when another begins",
-         p.a.flow_count() == 2 && p.b.flow_count() == 2 && p.rb.closed.empty() );
+  FACT_CHECK( ( p.a.flow_count() == 2 && p.b.flow_count() == 2 && p.rb.closed.empty() ), "a conversation quiet for exactly two minutes is still there when another begins" );
   p.say( "carol", "c", 1000 + 120001 ); /* a millisecond more */
   p.a_to_b( 1000 + 120001 );
-  check( "a millisecond later it is forgotten at both ends, and its socket closed",
-         p.a.flow_count() == 2 && p.b.flow_count() == 2 && p.rb.closed.size() == 1 && p.rb.closed[0] == p.rb.opened[0] );
+  FACT_CHECK( ( p.a.flow_count() == 2 && p.b.flow_count() == 2 && p.rb.closed.size() == 1 && p.rb.closed[0] == p.rb.opened[0] ), "a millisecond later it is forgotten at both ends, and its socket closed" );
 
   /* Use keeps a conversation: used again after a minute, it is there two minutes and a millisecond after it began. */
   Pair u;
   u.say( "alice", "a", 1000 );
   u.say( "alice", "a", 61000 );
   u.say( "bob", "b", 1000 + 120001 );
-  check( "a conversation used again a minute on is not forgotten a minute after that", u.a.flow_count() == 2 );
+  FACT_CHECK( u.a.flow_count() == 2, "a conversation used again a minute on is not forgotten a minute after that" );
 
   /* So do answers, at both ends: a conversation where only the target speaks is not forgotten. */
   Pair v;
@@ -239,11 +216,10 @@ static void test_forgotten( void )
   v.b_to_a( 100000 );
   v.say( "bob", "b", 1000 + 120001 );
   v.a_to_b( 1000 + 120001 );
-  check( "a conversation in which only the target has spoken since is kept, at both ends",
-         v.a.flow_count() == 2 && v.b.flow_count() == 2 && v.rb.closed.empty() );
+  FACT_CHECK( ( v.a.flow_count() == 2 && v.b.flow_count() == 2 && v.rb.closed.empty() ), "a conversation in which only the target has spoken since is kept, at both ends" );
   v.b.from_target( v.rb.opened[0], "tock", 4, 1000 + 120002, v.link, v.rb );
   v.b_to_a( 1000 + 120002 );
-  check( "and its answers still reach the application", v.ra.to_applications.size() == 2 && v.ra.to_applications[1].first == "alice" );
+  FACT_CHECK( ( v.ra.to_applications.size() == 2 && v.ra.to_applications[1].first == "alice" ), "and its answers still reach the application" );
 
   /* Sixty-four at once, each used at a different time; the sixty-fifth pushes out the quietest. */
   Pair q;
@@ -253,14 +229,12 @@ static void test_forgotten( void )
   }
   q.say( "peer0", "x", 5100 ); /* the first is used again, so the second is now the quietest */
   q.a_to_b( 5100 );
-  check( "(sixty-four conversations)", q.a.flow_count() == 64 && q.b.flow_count() == 64 && q.rb.closed.empty() );
+  FACT_CHECK( ( q.a.flow_count() == 64 && q.b.flow_count() == 64 && q.rb.closed.empty() ), "(sixty-four conversations)" );
   q.say( "one more", "x", 5200 );
   q.a_to_b( 5200 );
-  check( "the sixty-fifth conversation pushes out the one quiet longest: the second, not the first",
-         q.a.flow_count() == 64 && q.b.flow_count() == 64 && q.rb.closed.size() == 1 && q.rb.closed[0] == q.rb.opened[1] );
+  FACT_CHECK( ( q.a.flow_count() == 64 && q.b.flow_count() == 64 && q.rb.closed.size() == 1 && q.rb.closed[0] == q.rb.opened[1] ), "the sixty-fifth conversation pushes out the one quiet longest: the second, not the first" );
 }
-
-static void test_fragments( void )
+FACTS( Fragments )
 {
   /* 213 bytes a payload: 200 for a fragment, 196 of them the datagram's. A datagram of 1,000 bytes is 6 pieces. */
   Pair p( 213 );
@@ -268,29 +242,25 @@ static void test_fragments( void )
 
   p.a.set_parity_mode( Conversations::PARITY_NEVER );
   p.say( "alice", big, 1000 );
-  check( "1,000 bytes where a payload holds 213: six fragments, no parity",
-         p.ra.sent.size() == 6 && p.a.get_fragmented() == 1 && p.a.get_with_parity() == 0 );
+  FACT_CHECK( ( p.ra.sent.size() == 6 && p.a.get_fragmented() == 1 && p.a.get_with_parity() == 0 ), "1,000 bytes where a payload holds 213: six fragments, no parity" );
   p.a_to_b( 1000 );
-  check( "and the datagram is rebuilt whole at the other end",
-         p.rb.to_targets.size() == 1 && p.rb.to_targets[0].second == big && p.b.get_reassembled() == 1 );
+  FACT_CHECK( ( p.rb.to_targets.size() == 1 && p.rb.to_targets[0].second == big && p.b.get_reassembled() == 1 ), "and the datagram is rebuilt whole at the other end" );
 
   /* One fragment lost, no parity: nothing is delivered, and a second after its first fragment it is abandoned. */
   p.say( "alice", big, 2000 );
   p.ra.sent.erase( p.ra.sent.begin() + 2 );
   p.a_to_b( 2000 );
-  check( "a fragment lost with no parity: nothing delivered, the rest kept waiting",
-         p.rb.to_targets.size() == 1 && p.b.partial_count() == 1 );
+  FACT_CHECK( ( p.rb.to_targets.size() == 1 && p.b.partial_count() == 1 ), "a fragment lost with no parity: nothing delivered, the rest kept waiting" );
   p.a.set_parity_mode( Conversations::PARITY_ALWAYS );
   p.say( "alice", big, 3000 ); /* exactly a second later: still waiting */
   const size_t with_parity = p.ra.sent.size();
   p.ra.sent.erase( p.ra.sent.begin() + 2 );
   p.a_to_b( 3000 );
-  check( "with parity: seven fragments; one lost, and the datagram is rebuilt from the rest",
-         with_parity == 7 && p.rb.to_targets.size() == 2 && p.rb.to_targets[1].second == big && p.b.get_recovered() == 1 );
-  check( "exactly a second on, the earlier datagram is still waited for", p.b.partial_count() == 1 && p.b.get_abandoned() == 0 );
+  FACT_CHECK( ( with_parity == 7 && p.rb.to_targets.size() == 2 && p.rb.to_targets[1].second == big && p.b.get_recovered() == 1 ), "with parity: seven fragments; one lost, and the datagram is rebuilt from the rest" );
+  FACT_CHECK( ( p.b.partial_count() == 1 && p.b.get_abandoned() == 0 ), "exactly a second on, the earlier datagram is still waited for" );
   p.say( "alice", big, 3001 );
   p.a_to_b( 3001 );
-  check( "a millisecond later it is abandoned", p.b.partial_count() == 0 && p.b.get_abandoned() == 1 );
+  FACT_CHECK( ( p.b.partial_count() == 0 && p.b.get_abandoned() == 1 ), "a millisecond later it is abandoned" );
 
   /* A fragment that arrives twice, and one that claims a datagram of another conversation. */
   Pair f( 213 );
@@ -307,43 +277,36 @@ static void test_fragments( void )
   std::string piece;
   Gosh::decode_frame( six[5], type, forward, id, seq, piece );
   f.b.payload( Gosh::encode_frame( type, forward, id + 1, seq, piece ), 1000, f.rb );
-  check( "the last fragment, but said to be of another conversation: not taken, and the datagram not rebuilt",
-         f.rb.to_targets.empty() && f.b.partial_count() == 1 );
+  FACT_CHECK( ( f.rb.to_targets.empty() && f.b.partial_count() == 1 ), "the last fragment, but said to be of another conversation: not taken, and the datagram not rebuilt" );
   f.b.payload( six[5], 1000, f.rb );
-  check( "(that used its number: the true one after it is a replay, and refused)", f.rb.to_targets.empty() );
+  FACT_CHECK( f.rb.to_targets.empty(), "(that used its number: the true one after it is a replay, and refused)" );
 
   /* Whether to add parity when left to decide: at the session's loss, would it be lost 2 times in 100 without? */
   Pair q( 213 );
   q.link.loss = 0.003; /* six fragments: lost 1.8 times in 100 */
   q.say( "alice", big, 1000 );
-  check( "left to decide, at 0.3% loss six fragments go without parity", q.ra.sent.size() == 6 );
+  FACT_CHECK( q.ra.sent.size() == 6, "left to decide, at 0.3% loss six fragments go without parity" );
   q.ra.sent.clear();
   q.link.loss = 0.004; /* 2.4 times in 100 */
   q.say( "alice", big, 1000 );
-  check( "and at 0.4% with it", q.ra.sent.size() == 7 );
+  FACT_CHECK( q.ra.sent.size() == 7, "and at 0.4% with it" );
 
   /* Too large: 255 fragments at most, parity among them, which leaves 226 pieces. Here a piece is 100 bytes. */
   Pair r( 13 + 4 + 100 );
   r.a.set_parity_mode( Conversations::PARITY_NEVER );
   r.say( "alice", pattern( 22601 ), 1000 );
-  check( "a datagram needing more than 226 pieces is dropped, and counted",
-         r.ra.sent.empty() && r.a.get_dropped_oversize() == 1 );
+  FACT_CHECK( ( r.ra.sent.empty() && r.a.get_dropped_oversize() == 1 ), "a datagram needing more than 226 pieces is dropped, and counted" );
   r.say( "alice", pattern( 22600 ), 1000 );
-  check( "one needing exactly 226 is sent", r.ra.sent.size() == 226 );
+  FACT_CHECK( r.ra.sent.size() == 226, "one needing exactly 226 is sent" );
 }
-
-int main()
+/* REQ1/FWD-2: UDP forwards' conversations, with no socket and no clock */
+FACTS_REGISTER_ALL()
 {
-  test_there_and_back();
-  test_which_conversation();
-  test_refused_payloads();
-  test_forgotten();
-  test_fragments();
-
-  if ( failures ) {
-    printf( "FAIL REQ1/FWD-2: %d checks of UDP forwards' conversations failed\n", failures );
-    return EXIT_FAILURE;
-  }
-  printf( "PASS REQ1/FWD-2: UDP forwards' conversations, with no socket and no clock\n" );
-  return EXIT_SUCCESS;
+  FACTS_REGISTER( ThereAndBack );
+  FACTS_REGISTER( WhichConversation );
+  FACTS_REGISTER( RefusedPayloads );
+  FACTS_REGISTER( Forgotten );
+  FACTS_REGISTER( Fragments );
 }
+
+FACTS_MAIN

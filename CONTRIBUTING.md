@@ -110,9 +110,13 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   `filecopy-test.cc` for `filecopy.cc` (the owner, 2026-11-14: "thisthing-test for thisthing", so that a test is
   found from the name of what it tests). A test the fork named otherwise is renamed when it is carried. `tools/` builds and checks; `tests/` holds tests that
   drive the programs from outside.
-  **facts, on trial since 2026-11-17:** `src/meetup/registrations-test.cc` is written with the owner's
-  testing library (`vendor/facts/README.md`): `FACT(a == b, "what it shows")` prints both values when
-  false. The other tests keep their own `check()` until the owner decides (`docs/QUEUE.md`, item 24).
+  **Unit tests are written with facts** (`vendor/facts/README.md`; the owner, 2026-11-17: "fix all the
+  tests"): `FACTS( Name ) { ... }` groups, registered in order in `FACTS_REGISTER_ALL`, and
+  `FACT_CHECK( a == b, "what it shows" )`, which prints both values when false and goes on.
+  `--facts_plain` to read a run; `--facts_include=Name` to run one group. A condition whose values
+  cannot be printed (a vector, a struct) is put in parentheses, `FACT_CHECK( ( a == b ), ... )`; so is
+  one that compares a `static const` member, which facts would hold by reference and fail to link.
+  A helper that checks takes the running group's facts from `current_facts`, which each group sets.
 - **Working set:** `docs/`: `REQUIREMENTS_v16.md` (the one in force; v6 to v15 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
   and still holds the seam file by file).

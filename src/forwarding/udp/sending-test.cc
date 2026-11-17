@@ -8,16 +8,9 @@
 #include <vector>
 
 #include "src/forwarding/udp/sending.h"
+#include "vendor/facts/facts.h"
 
-static int failures = 0;
 
-static void check( const char* what, bool ok )
-{
-  printf( "%-90s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
 
 struct Sent
 {
@@ -56,8 +49,8 @@ static Gosh::DatagramLink link_of( size_t max_payload, double loss = 0, bool rea
   link.loss = loss;
   return link;
 }
-
-int main()
+/* REQ1/FWD-2: a UDP forward's sending, with no socket */
+FACTS( Sending )
 {
   using Gosh::Sending;
   const std::string big( 1000, 'x' );
@@ -72,16 +65,14 @@ int main()
     uint16_t id = 0;
     uint64_t seq = 9;
     std::string data;
-    check( "87 bytes where a payload holds 100: one payload of exactly 100 (13 of header)",
-           out.payloads.size() == 1 && out.payloads[0].size() == 100 );
-    check( "framed as plain UDP data, for its forward and conversation, numbered 0",
-           Gosh::decode_frame( out.payloads[0], type, forward, id, seq, data ) && type == Gosh::TYPE_UDP_DATA && forward == 3
-             && id == 0xBEEF && seq == 0 && data == big.substr( 0, 87 ) );
+    FACT_CHECK( ( out.payloads.size() == 1 && out.payloads[0].size() == 100 ), "87 bytes where a payload holds 100: one payload of exactly 100 (13 of header)" );
+    FACT_CHECK( ( Gosh::decode_frame( out.payloads[0], type, forward, id, seq, data ) && type == Gosh::TYPE_UDP_DATA && forward == 3
+             && id == 0xBEEF && seq == 0 && data == big.substr( 0, 87 ) ), "framed as plain UDP data, for its forward and conversation, numbered 0" );
     s.set_parity_mode( Sending::PARITY_NEVER );
     s.send( 3, 0xBEEF, big.data(), 88, link_of( 100 ), out );
-    check( "88 bytes: two fragments, of the fragment kind", out.kinds() == Kinds( { 0, 2, 2 } ) && s.get_fragmented() == 1 );
+    FACT_CHECK( ( out.kinds() == Kinds( { 0, 2, 2 } ) && s.get_fragmented() == 1 ), "88 bytes: two fragments, of the fragment kind" );
     s.send( 3, 0xBEEF, big.data(), 10, link_of( 100 ), out );
-    check( "everything sent is numbered one after another, fragments too", out.numbers() == Numbers( { 0, 1, 2, 3 } ) );
+    FACT_CHECK( ( out.numbers() == Numbers( { 0, 1, 2, 3 } ) ), "everything sent is numbered one after another, fragments too" );
   }
   {
     Sending s( true );
@@ -89,7 +80,7 @@ int main()
     s.set_parity_mode( Sending::PARITY_NEVER );
     s.send( 0, 1, big.data(), 10, link_of( 100 ), out );
     s.send( 0, 1, big.data(), 200, link_of( 100 ), out );
-    check( "forwards the server listens for use their own two kinds", out.kinds() == Kinds( { 4, 5, 5, 5 } ) );
+    FACT_CHECK( ( out.kinds() == Kinds( { 4, 5, 5, 5 } ) ), "forwards the server listens for use their own two kinds" );
   }
   {
     /* 213 bytes a payload: 200 for a fragment, 196 of them the datagram's. 1,000 bytes is 6 pieces. */
@@ -97,34 +88,32 @@ int main()
     Sent out;
     s.set_parity_mode( Sending::PARITY_NEVER );
     s.send( 0, 1, big.data(), 1000, link_of( 213, 0.5 ), out );
-    check( "never: six fragments, however lossy the session", out.payloads.size() == 6 && s.get_with_parity() == 0 );
+    FACT_CHECK( ( out.payloads.size() == 6 && s.get_with_parity() == 0 ), "never: six fragments, however lossy the session" );
     out.payloads.clear();
     s.set_parity_mode( Sending::PARITY_ALWAYS );
     s.send( 0, 1, big.data(), 1000, link_of( 213, 0 ), out );
-    check( "always: seven, one of them parity, though nothing is being lost",
-           out.payloads.size() == 7 && s.get_with_parity() == 1 && s.get_fragmented() == 2 );
+    FACT_CHECK( ( out.payloads.size() == 7 && s.get_with_parity() == 1 && s.get_fragmented() == 2 ), "always: seven, one of them parity, though nothing is being lost" );
     out.payloads.clear();
     s.set_parity_mode( Sending::PARITY_AUTO );
     s.send( 0, 1, big.data(), 1000, link_of( 213, 0.003 ), out ); /* six fragments: lost 1.8 times in 100 */
-    check( "left to decide, at 0.3% loss: six", out.payloads.size() == 6 );
+    FACT_CHECK( out.payloads.size() == 6, "left to decide, at 0.3% loss: six" );
     out.payloads.clear();
     s.send( 0, 1, big.data(), 1000, link_of( 213, 0.004 ), out ); /* 2.4 times in 100 */
-    check( "at 0.4%: seven", out.payloads.size() == 7 );
+    FACT_CHECK( out.payloads.size() == 7, "at 0.4%: seven" );
   }
   {
     Sending s( false );
     Sent out;
     s.send( 0, 1, big.data(), 10, link_of( 100, 0, false ), out );
-    check( "the session not ready: nothing is sent", out.payloads.empty() );
+    FACT_CHECK( out.payloads.empty(), "the session not ready: nothing is sent" );
     s.set_parity_mode( Sending::PARITY_NEVER );
     const std::string huge( 22601, 'y' );
     s.send( 0, 1, huge.data(), huge.size(), link_of( 13 + 4 + 100 ), out );
-    check( "more than 226 pieces: dropped, and counted", out.payloads.empty() && s.get_dropped_oversize() == 1 );
+    FACT_CHECK( ( out.payloads.empty() && s.get_dropped_oversize() == 1 ), "more than 226 pieces: dropped, and counted" );
     s.send( 0, 1, big.data(), 10, link_of( 13 ), out );
-    check( "a payload too small to hold anything but the header: dropped, and counted",
-           out.payloads.empty() && s.get_dropped_oversize() == 2 );
+    FACT_CHECK( ( out.payloads.empty() && s.get_dropped_oversize() == 2 ), "a payload too small to hold anything but the header: dropped, and counted" );
     s.send( 0, 1, big.data(), 10, link_of( 100 ), out );
-    check( "what was not sent used no number: the next is numbered 0", out.numbers() == Numbers( { 0 } ) );
+    FACT_CHECK( ( out.numbers() == Numbers( { 0 } ) ), "what was not sent used no number: the next is numbered 0" );
   }
 
   /* (from the review of 2026-11-15: breaks these checks did not notice) */
@@ -132,7 +121,7 @@ int main()
     Sending s( false );
     Sent out;
     s.send( 5, 0x1234, big.data(), 1000, link_of( 213, 0.004 ), out ); /* nothing set: left to decide, and at 0.4% it adds parity */
-    check( "nothing said of parity: it decides for itself (seven fragments at 0.4% loss)", out.payloads.size() == 7 );
+    FACT_CHECK( out.payloads.size() == 7, "nothing said of parity: it decides for itself (seven fragments at 0.4% loss)" );
     bool all = true;
     for ( size_t i = 0; i < out.payloads.size(); i++ ) {
       uint8_t type = 0, forward = 0;
@@ -141,19 +130,19 @@ int main()
       std::string data;
       all = all && Gosh::decode_frame( out.payloads[i], type, forward, id, seq, data ) && forward == 5 && id == 0x1234;
     }
-    check( "every fragment is framed for its forward and conversation", all );
+    FACT_CHECK( all, "every fragment is framed for its forward and conversation" );
     const std::string huge( 22601, 'y' );
     Sending t( false );
     Sent none;
     t.set_parity_mode( Sending::PARITY_NEVER );
     t.send( 0, 1, huge.data(), huge.size(), link_of( 13 + 4 + 100 ), none );
-    check( "a datagram dropped for its size is not counted as one sent in fragments", t.get_dropped_oversize() == 1 && t.get_fragmented() == 0 );
+    FACT_CHECK( ( t.get_dropped_oversize() == 1 && t.get_fragmented() == 0 ), "a datagram dropped for its size is not counted as one sent in fragments" );
   }
-
-  if ( failures ) {
-    printf( "FAIL REQ1/FWD-2: %d checks of sending failed\n", failures );
-    return EXIT_FAILURE;
-  }
-  printf( "PASS REQ1/FWD-2: a UDP forward's sending, with no socket\n" );
-  return EXIT_SUCCESS;
 }
+
+FACTS_REGISTER_ALL()
+{
+  FACTS_REGISTER( Sending );
+}
+
+FACTS_MAIN

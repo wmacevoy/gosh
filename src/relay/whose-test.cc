@@ -9,16 +9,9 @@
 #include <arpa/inet.h>
 
 #include "src/relay/whose.h"
+#include "vendor/facts/facts.h"
 
-static int failures = 0;
 
-static void check( const char* what, bool ok )
-{
-  printf( "%-92s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
 
 static struct sockaddr_in v4( const char* address, uint16_t port )
 {
@@ -57,44 +50,39 @@ static const char LIST[] =
   " 1402: 0100007F:C351 00000000:0000 07 00000000:00000000 00:00000000 00000000  1001        0 117525917 2 00000000df04f891 0     \n"
   " 1403: 0200007F:C352 00000000:0000 07 00000000:00000000 00:00000000 00000000  1000        0 117525918 2 00000000df04f892 0     \n"
   " cut short\n";
-
-int main()
+/* REQ1/PATH-1: whose a datagram is */
+FACTS( Whose )
 {
-  check( "the same IPv4 address and port are the same place", same( v4( "198.51.100.9", 60001 ), v4( "198.51.100.9", 60001 ) ) );
-  check( "another port is not", !same( v4( "198.51.100.9", 60001 ), v4( "198.51.100.9", 60002 ) ) );
-  check( "another address is not", !same( v4( "198.51.100.9", 60001 ), v4( "198.51.100.8", 60001 ) ) );
-  check( "the same IPv6 address and port are", same( v6( "2001:db8::9", 60001 ), v6( "2001:db8::9", 60001 ) ) );
-  check( "another IPv6 address or port is not",
-         !same( v6( "2001:db8::9", 60001 ), v6( "2001:db8::8", 60001 ) ) && !same( v6( "2001:db8::9", 60001 ), v6( "2001:db8::9", 1 ) ) );
-  check( "an IPv4 and an IPv6 address are never the same place", !same( v4( "127.0.0.1", 60001 ), v6( "::1", 60001 ) ) );
+  FACT_CHECK( same( v4( "198.51.100.9", 60001 ), v4( "198.51.100.9", 60001 ) ), "the same IPv4 address and port are the same place" );
+  FACT_CHECK( !same( v4( "198.51.100.9", 60001 ), v4( "198.51.100.9", 60002 ) ), "another port is not" );
+  FACT_CHECK( !same( v4( "198.51.100.9", 60001 ), v4( "198.51.100.8", 60001 ) ), "another address is not" );
+  FACT_CHECK( same( v6( "2001:db8::9", 60001 ), v6( "2001:db8::9", 60001 ) ), "the same IPv6 address and port are" );
+  FACT_CHECK( ( !same( v6( "2001:db8::9", 60001 ), v6( "2001:db8::8", 60001 ) ) && !same( v6( "2001:db8::9", 60001 ), v6( "2001:db8::9", 1 ) ) ), "another IPv6 address or port is not" );
+  FACT_CHECK( !same( v4( "127.0.0.1", 60001 ), v6( "::1", 60001 ) ), "an IPv4 and an IPv6 address are never the same place" );
   const struct sockaddr_in whole = v4( "127.0.0.1", 9 );
-  check( "an address cut short is no place",
-         !Gosh::same_udp_address( reinterpret_cast<const struct sockaddr*>( &whole ), 4,
-                                  reinterpret_cast<const struct sockaddr*>( &whole ), sizeof( whole ) ) );
+  FACT_CHECK( !Gosh::same_udp_address( reinterpret_cast<const struct sockaddr*>( &whole ), 4,
+                                  reinterpret_cast<const struct sockaddr*>( &whole ), sizeof( whole ) ), "an address cut short is no place" );
 
   const uint32_t loopback = v4( "127.0.0.1", 0 ).sin_addr.s_addr;
   using Gosh::udp_sender_is_users;
-  check( "a port held by a socket of ours on any address: ours", udp_sender_is_users( LIST, loopback, 0xEA60, 1000 ) );
-  check( "a port held by a socket of ours on that address: ours", udp_sender_is_users( LIST, loopback, 0xEA61, 1000 ) );
-  check( "a port held by another user's socket: not ours", !udp_sender_is_users( LIST, loopback, 0xC350, 1000 ) );
-  check( "(and theirs, asked as them)", udp_sender_is_users( LIST, loopback, 0xC350, 1001 ) );
-  check( "a port held by ours and by another user's that could both have sent it: not ours",
-         !udp_sender_is_users( LIST, loopback, 0xC351, 1000 ) && !udp_sender_is_users( LIST, loopback, 0xC351, 1001 ) );
-  check( "a port held by ours on another address: could not have sent it, so not ours",
-         !udp_sender_is_users( LIST, loopback, 0xC352, 1000 ) );
-  check( "a port nobody holds: not ours", !udp_sender_is_users( LIST, loopback, 0x1234, 1000 ) );
-  check( "an empty list, or one of nothing readable: not ours",
-         !udp_sender_is_users( "", loopback, 0xEA60, 1000 ) && !udp_sender_is_users( "one\ntwo words\n", loopback, 0xEA60, 1000 ) );
+  FACT_CHECK( udp_sender_is_users( LIST, loopback, 0xEA60, 1000 ), "a port held by a socket of ours on any address: ours" );
+  FACT_CHECK( udp_sender_is_users( LIST, loopback, 0xEA61, 1000 ), "a port held by a socket of ours on that address: ours" );
+  FACT_CHECK( !udp_sender_is_users( LIST, loopback, 0xC350, 1000 ), "a port held by another user's socket: not ours" );
+  FACT_CHECK( udp_sender_is_users( LIST, loopback, 0xC350, 1001 ), "(and theirs, asked as them)" );
+  FACT_CHECK( ( !udp_sender_is_users( LIST, loopback, 0xC351, 1000 ) && !udp_sender_is_users( LIST, loopback, 0xC351, 1001 ) ), "a port held by ours and by another user's that could both have sent it: not ours" );
+  FACT_CHECK( !udp_sender_is_users( LIST, loopback, 0xC352, 1000 ), "a port held by ours on another address: could not have sent it, so not ours" );
+  FACT_CHECK( !udp_sender_is_users( LIST, loopback, 0x1234, 1000 ), "a port nobody holds: not ours" );
+  FACT_CHECK( ( !udp_sender_is_users( "", loopback, 0xEA60, 1000 ) && !udp_sender_is_users( "one\ntwo words\n", loopback, 0xEA60, 1000 ) ), "an empty list, or one of nothing readable: not ours" );
 
-  check( "four ways to the server and the first answers: one is kept", Gosh::remote_ways_kept( 4, 0 ) == 1 );
-  check( "the third answers: three are kept, the two more likely among them", Gosh::remote_ways_kept( 4, 2 ) == 3 );
-  check( "the last answers: all are kept", Gosh::remote_ways_kept( 4, 3 ) == 4 );
-  check( "one way, and it answers: it is kept", Gosh::remote_ways_kept( 1, 0 ) == 1 );
-
-  if ( failures ) {
-    printf( "FAIL REQ1/PATH-1: %d checks of whose a datagram is failed\n", failures );
-    return EXIT_FAILURE;
-  }
-  printf( "PASS REQ1/PATH-1: whose a datagram is\n" );
-  return EXIT_SUCCESS;
+  FACT_CHECK( Gosh::remote_ways_kept( 4, 0 ) == 1, "four ways to the server and the first answers: one is kept" );
+  FACT_CHECK( Gosh::remote_ways_kept( 4, 2 ) == 3, "the third answers: three are kept, the two more likely among them" );
+  FACT_CHECK( Gosh::remote_ways_kept( 4, 3 ) == 4, "the last answers: all are kept" );
+  FACT_CHECK( Gosh::remote_ways_kept( 1, 0 ) == 1, "one way, and it answers: it is kept" );
 }
+
+FACTS_REGISTER_ALL()
+{
+  FACTS_REGISTER( Whose );
+}
+
+FACTS_MAIN

@@ -15,19 +15,12 @@
 #include "src/meetup/answer.h"
 #include "src/meetup/registrations.h"
 #include "src/pathfinding/finding.h"
+#include "vendor/facts/facts.h"
 
 using Network::Addr;
 using Network::PathFinding;
 
-static int failures = 0;
 
-static void check( const char* what, bool ok )
-{
-  printf( "%-92s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
 
 namespace {
 const std::string MASTER( "0123456789abcdef" );
@@ -159,8 +152,8 @@ struct Net
   }
 };
 }
-
-int main()
+/* REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: path-finding's logic */
+FACTS( Finding )
 {
   const std::string key = Crypto::Base64Key().printable_key();
   const Gosh::Ticket ticket = Gosh::make_ticket( MASTER, "random!!", 2000000000 );
@@ -171,23 +164,22 @@ int main()
     a.add_candidate( "198.51.100.2:5000" );
     b.add_candidate( "203.0.113.1:4000" );
     net.pass( 1000 );
-    check( "each told where the other is: a way straight through, both ways (REQ1/PATH-3)",
-           a.open( net.now ) && b.open( net.now ) && a.direct() && b.direct() );
-    check( "each knows where the other is", a.where() == "198.51.100.2:5000" && b.where() == "203.0.113.1:4000" );
+    FACT_CHECK( ( a.open( net.now ) && b.open( net.now ) && a.direct() && b.direct() ), "each told where the other is: a way straight through, both ways (REQ1/PATH-3)" );
+    FACT_CHECK( ( a.where() == "198.51.100.2:5000" && b.where() == "203.0.113.1:4000" ), "each knows where the other is" );
     a.send( "a datagram of the session's" );
     net.deliver();
-    check( "a datagram sent goes straight to the other end", net.b_got == "a datagram of the session's" );
+    FACT_CHECK( net.b_got == "a datagram of the session's", "a datagram sent goes straight to the other end" );
 
     net.straight = false;
     net.pass( PathFinding::OPEN_FOR + 1000 );
-    check( "when nothing comes back for 3.5 s, the way is thought closed", !a.open( net.now ) && !b.open( net.now ) );
+    FACT_CHECK( ( !a.open( net.now ) && !b.open( net.now ) ), "when nothing comes back for 3.5 s, the way is thought closed" );
     net.straight = true;
     net.pass( 2500 );
-    check( "and found again when it opens", a.open( net.now ) && b.open( net.now ) );
+    FACT_CHECK( ( a.open( net.now ) && b.open( net.now ) ), "and found again when it opens" );
 
     a.goodbye();
     net.deliver();
-    check( "a goodbye reaches the other end", net.b_goodbyes == 1 );
+    FACT_CHECK( net.b_goodbyes == 1, "a goodbye reaches the other end" );
   }
 
   /* REQ18/PATH-5: a TIME is believed only as the answer to our last REGISTER, so an old one sent again moves no clock. */
@@ -220,8 +212,7 @@ int main()
     const bool opened = Gosh::meetup_read_header( reg.data(), reg.size(), h ) && Gosh::meetup_open( as_meetup, h, false, counter, text )
                         && Gosh::meetup_read_register( text, where, said );
     const uint64_t meetup_ms = ( MEETUP_CLOCK + net.now / 1000 ) * 1000;
-    check( "a TIME that answers no REGISTER of ours is not believed: the next REGISTER keeps the meetup's clock",
-           a.meetup_registered() && opened && said + 5000 > meetup_ms && said < meetup_ms + 5000 );
+    FACT_CHECK( ( a.meetup_registered() && opened && said + 5000 > meetup_ms && said < meetup_ms + 5000 ), "a TIME that answers no REGISTER of ours is not believed: the next REGISTER keeps the meetup's clock" );
   }
 
   {
@@ -230,32 +221,29 @@ int main()
     net.straight = false;
     a.add_candidate( "198.51.100.2:5000" );
     b.add_candidate( "203.0.113.1:4000" );
-    check( "a meetup is taken at an address, with a ticket", a.use_meetup( "192.0.2.9:3478", ticket, 1 )
-                                                                 && b.use_meetup( "192.0.2.9:3478", ticket, 1 ) );
-    check( "and not at what is not one", !a.use_meetup( "meetup.example:1", ticket, 1 ) );
+    FACT_CHECK( ( a.use_meetup( "192.0.2.9:3478", ticket, 1 )
+                                                                 && b.use_meetup( "192.0.2.9:3478", ticket, 1 ) ), "a meetup is taken at an address, with a ticket" );
+    FACT_CHECK( !a.use_meetup( "meetup.example:1", ticket, 1 ), "and not at what is not one" );
     a.use_meetup( "192.0.2.9:3478", ticket, 1 );
     net.pass( 1000 );
-    check( "nothing straight gets through, and both register with the meetup (REQ18/PATH-5)",
-           a.meetup_registered() && b.meetup_registered() );
-    check( "each by the meetup's clock, which it was told (TIME), its own being far off (REQ18/PATH-5)",
-           net.meetup_told_time == 2 );
+    FACT_CHECK( ( a.meetup_registered() && b.meetup_registered() ), "nothing straight gets through, and both register with the meetup (REQ18/PATH-5)" );
+    FACT_CHECK( net.meetup_told_time == 2, "each by the meetup's clock, which it was told (TIME), its own being far off (REQ18/PATH-5)" );
     net.pass( 1000 );
-    check( "and find each other through it: open, and not straight (REQ15/PATH-4)",
-           a.open( net.now ) && b.open( net.now ) && !a.direct() && !b.direct()
-             && a.where() == "the meetup at 192.0.2.9:3478" );
+    FACT_CHECK( ( a.open( net.now ) && b.open( net.now ) && !a.direct() && !b.direct()
+             && a.where() == "the meetup at 192.0.2.9:3478" ), "and find each other through it: open, and not straight (REQ15/PATH-4)" );
     const int before = net.meetup_passed;
     a.send( "through the meetup" );
     net.deliver();
-    check( "a datagram sent goes through the meetup to the other end", net.b_got == "through the meetup" && net.meetup_passed > before );
+    FACT_CHECK( ( net.b_got == "through the meetup" && net.meetup_passed > before ), "a datagram sent goes through the meetup to the other end" );
 
     net.straight = true;
     net.pass( 2 * PathFinding::SLOW_EVERY + 500 );
-    check( "a way straight through is still looked for, and taken when it opens", a.direct() && b.direct() );
+    FACT_CHECK( ( a.direct() && b.direct() ), "a way straight through is still looked for, and taken when it opens" );
     net.b_got.clear();
     const int via = net.meetup_passed;
     a.send( "straight again" );
     net.deliver();
-    check( "and then datagrams go straight, not through the meetup", net.b_got == "straight again" && net.meetup_passed == via );
+    FACT_CHECK( ( net.b_got == "straight again" && net.meetup_passed == via ), "and then datagrams go straight, not through the meetup" );
     std::string probe;
     for ( int i = 0; i < 40 && probe.empty(); i++ ) {
       net.now += 50;
@@ -268,14 +256,12 @@ int main()
       }
     }
     net.to_end( true, Gosh::meetup_passed( probe ), net.meetup_at );
-    check( "with a way straight through, a probe heard through the meetup as well does not turn it back",
-           !probe.empty() && a.direct() );
+    FACT_CHECK( ( !probe.empty() && a.direct() ), "with a way straight through, a probe heard through the meetup as well does not turn it back" );
 
     net.straight = false;
     net.a_at = at( "203.0.113.1:4444" ); /* the NAT moves end 0 to another port */
     net.pass( PathFinding::REGISTER_EVERY + PathFinding::OPEN_FOR + 6000 );
-    check( "end 0 moved by its NAT: it registers again from where it now is, and the way through holds",
-           a.meetup_registered() && a.open( net.now ) && b.open( net.now ) && !a.direct() );
+    FACT_CHECK( ( a.meetup_registered() && a.open( net.now ) && b.open( net.now ) && !a.direct() ), "end 0 moved by its NAT: it registers again from where it now is, and the way through holds" );
   }
 
   {
@@ -289,12 +275,12 @@ int main()
     Crypto::Session liar( Gosh::raw_key( ticket.key ) );
     net.to_end( true, Gosh::meetup_seal( liar, Gosh::MEETUP_REGISTERED, ticket.id, 0, true, 7,
                                          Gosh::meetup_where_v4( 0xCB007101, 9999 ) ), net.meetup_at );
-    check( "a REGISTERED that says it saw us somewhere we did not say is not taken", !a.meetup_registered() );
+    FACT_CHECK( !a.meetup_registered(), "a REGISTERED that says it saw us somewhere we did not say is not taken" );
     net.a_at = at( "203.0.113.1:4001" );
     net.pass( 2 * PathFinding::REGISTER_RETRY );
-    check( "moved before registering: its REGISTERs are refused", !a.meetup_registered() );
+    FACT_CHECK( !a.meetup_registered(), "moved before registering: its REGISTERs are refused" );
     net.pass( 3 * PathFinding::REGISTER_RETRY + 3000 );
-    check( "so it asks again where it is, and registers from there", a.meetup_registered() );
+    FACT_CHECK( a.meetup_registered(), "so it asks again where it is, and registers from there" );
   }
 
   {
@@ -305,8 +291,7 @@ int main()
     a.use_meetup( "192.0.2.9:3478", forged, 1 );
     b.use_meetup( "192.0.2.9:3478", forged, 1 );
     net.pass( 5000 );
-    check( "with a ticket the meetup did not make, neither registers, and no way is found",
-           !a.meetup_registered() && !b.meetup_registered() && !a.open( net.now ) );
+    FACT_CHECK( ( !a.meetup_registered() && !b.meetup_registered() && !a.open( net.now ) ), "with a ticket the meetup did not make, neither registers, and no way is found" );
   }
 
   {
@@ -319,8 +304,8 @@ int main()
     net.straight_sent = 0;
     net.pass( 8000 );
     const int slow = net.straight_sent;
-    check( "with no way through, it probes every 250 ms for 8 s (about 32)", fast >= 30 && fast <= 34 );
-    check( "and then every 2 s (about 4 in 8 s)", slow >= 3 && slow <= 5 );
+    FACT_CHECK( ( fast >= 30 && fast <= 34 ), "with no way through, it probes every 250 ms for 8 s (about 32)" );
+    FACT_CHECK( ( slow >= 3 && slow <= 5 ), "and then every 2 s (about 4 in 8 s)" );
   }
 
   {
@@ -333,11 +318,10 @@ int main()
     std::string d;
     std::string huge( Network::PUNCH_MARK, sizeof( Network::PUNCH_MARK ) );
     huge += std::string( 4000, 'x' );
-    check( "a probe-marked datagram of 4,008 bytes is not opened (the fifth security fault)",
-           b.receive( net.now, huge.data(), huge.size(), net.a_at, d ) == PathFinding::OTHER );
+    FACT_CHECK( b.receive( net.now, huge.data(), huge.size(), net.a_at, d ) == PathFinding::OTHER, "a probe-marked datagram of 4,008 bytes is not opened (the fifth security fault)" );
     std::string short_probe( Network::PUNCH_MARK, sizeof( Network::PUNCH_MARK ) );
     short_probe += "abc";
-    check( "nor one too short", b.receive( net.now, short_probe.data(), short_probe.size(), net.a_at, d ) == PathFinding::OTHER );
+    FACT_CHECK( b.receive( net.now, short_probe.data(), short_probe.size(), net.a_at, d ) == PathFinding::OTHER, "nor one too short" );
 
     /* A probe of end 0's, copied as it went, and sent later from somewhere else. */
     a.goodbye(); /* (any probe will do; this one is easy to find) */
@@ -347,21 +331,19 @@ int main()
     const std::string before = b.where();
     const Addr onlooker = at( "192.0.2.66:6666" );
     net.to_end( false, copied, onlooker );
-    check( "a probe sent again, from elsewhere, does not move the way", b.where() == before );
+    FACT_CHECK( b.where() == before, "a probe sent again, from elsewhere, does not move the way" );
     std::string sealed_elsewhere( Network::PUNCH_MARK, sizeof( Network::PUNCH_MARK ) );
     sealed_elsewhere += std::string( PathFinding::PROBE_LEN - sizeof( Network::PUNCH_MARK ), 'z' );
     net.to_end( false, sealed_elsewhere, onlooker );
-    check( "nor does one not sealed with the key", b.where() == before );
-    check( "and a datagram from anywhere but the other end is not the session's",
-           b.receive( net.now, "hello", 5, onlooker, d ) == PathFinding::OTHER );
+    FACT_CHECK( b.where() == before, "nor does one not sealed with the key" );
+    FACT_CHECK( b.receive( net.now, "hello", 5, onlooker, d ) == PathFinding::OTHER, "and a datagram from anywhere but the other end is not the session's" );
 
     const std::string answer = Gosh::stun_answer( std::string( "\x00\x01\x00\x00\x21\x12\xa4\x42" "twelve bytes", 20 ).data(),
                                                   0xCB007101, 7777 );
     b.take_local_candidates();
     b.receive( net.now, answer.data(), answer.size(), at( "192.0.2.50:3478" ), d );
     const std::vector<std::string> mine = b.take_local_candidates();
-    check( "a STUN server's answer gives a new place where we may be reached",
-           mine.size() == 1 && mine[0] == "203.0.113.1:7777" );
+    FACT_CHECK( ( mine.size() == 1 && mine[0] == "203.0.113.1:7777" ), "a STUN server's answer gives a new place where we may be reached" );
   }
 
   /* REQ17/PATH-8: by IPv6. */
@@ -375,8 +357,7 @@ int main()
     a.add_candidate( "[2001:db8::b]:5000" );
     b.add_candidate( "[2001:db8::a]:4000" );
     net.pass( 1000 );
-    check( "two ends with IPv6 alone find a way straight through by it (REQ17/PATH-8)",
-           a.open( net.now ) && a.direct() && a.where() == "[2001:db8::b]:5000" );
+    FACT_CHECK( ( a.open( net.now ) && a.direct() && a.where() == "[2001:db8::b]:5000" ), "two ends with IPv6 alone find a way straight through by it (REQ17/PATH-8)" );
   }
   {
     PathFinding a( true, key, 1000 ), b( false, key, 1000 );
@@ -390,12 +371,11 @@ int main()
     a.use_meetup( "[2001:db8::9]:3478", ticket, 1 );
     b.use_meetup( "[2001:db8::9]:3478", ticket, 1 );
     net.pass( 2000 );
-    check( "and, nothing straight getting through, through a meetup with an IPv6 address alone",
-           a.meetup_registered() && b.meetup_registered() && a.open( net.now ) && !a.direct()
-             && a.where() == "the meetup at [2001:db8::9]:3478" );
+    FACT_CHECK( ( a.meetup_registered() && b.meetup_registered() && a.open( net.now ) && !a.direct()
+             && a.where() == "the meetup at [2001:db8::9]:3478" ), "and, nothing straight getting through, through a meetup with an IPv6 address alone" );
     a.send( "by IPv6, through the meetup" );
     net.deliver();
-    check( "and a datagram goes through it", net.b_got == "by IPv6, through the meetup" );
+    FACT_CHECK( net.b_got == "by IPv6, through the meetup", "and a datagram goes through it" );
   }
   {
     PathFinding a( true, key, 1000 ), b( false, key, 1000 );
@@ -405,14 +385,13 @@ int main()
     a.add_candidate( "198.51.100.2:5000" );
     b.add_candidate( "203.0.113.1:4000" );
     net.pass( 1000 );
-    check( "two ends with both families, told only each other's IPv4: by IPv4", a.direct() && a.where() == "198.51.100.2:5000" );
+    FACT_CHECK( ( a.direct() && a.where() == "198.51.100.2:5000" ), "two ends with both families, told only each other's IPv4: by IPv4" );
     a.add_candidate( "[2001:db8::b]:5000" );
     b.add_candidate( "[2001:db8::a]:4000" );
     net.pass( 3 * PathFinding::OPEN_EVERY );
-    check( "told their IPv6 as well, both move to it, and stay (REQ17/PATH-8: IPv6 first)",
-           a.where() == "[2001:db8::b]:5000" && b.where() == "[2001:db8::a]:4000" );
+    FACT_CHECK( ( a.where() == "[2001:db8::b]:5000" && b.where() == "[2001:db8::a]:4000" ), "told their IPv6 as well, both move to it, and stay (REQ17/PATH-8: IPv6 first)" );
     net.pass( 5 * PathFinding::OPEN_EVERY );
-    check( "and IPv4's answers go on without taking them back to it", a.where() == "[2001:db8::b]:5000" );
+    FACT_CHECK( a.where() == "[2001:db8::b]:5000", "and IPv4's answers go on without taking them back to it" );
     std::string probe;
     for ( int i = 0; i < 40 && probe.empty(); i++ ) {
       net.now += 50;
@@ -426,10 +405,8 @@ int main()
     }
     a.take_outbox();
     net.to_end( true, probe, net.b_at );
-    check( "a fresh probe from the other end by IPv4 does not take it off IPv6 while that answers",
-           !probe.empty() && a.where() == "[2001:db8::b]:5000" );
-    check( "and it is answered, and not asked back (two ends asking each other back would never stop)",
-           a.take_outbox().size() == 1 );
+    FACT_CHECK( ( !probe.empty() && a.where() == "[2001:db8::b]:5000" ), "a fresh probe from the other end by IPv4 does not take it off IPv6 while that answers" );
+    FACT_CHECK( a.take_outbox().size() == 1, "and it is answered, and not asked back (two ends asking each other back would never stop)" );
   }
 
   /* REQ17/PATH-8: IPv6 that works one way only (found by review, 2026-11-16: both ends said the
@@ -445,14 +422,13 @@ int main()
     b.add_candidate( "203.0.113.1:4000" );
     b.add_candidate( "[2001:db8::a]:4000" );
     net.pass( 20000 );
-    check( "IPv6 one way only: both ends take IPv4, which works both ways",
-           a.open( net.now ) && b.open( net.now ) && a.where() == "198.51.100.2:5000" && b.where() == "203.0.113.1:4000" );
+    FACT_CHECK( ( a.open( net.now ) && b.open( net.now ) && a.where() == "198.51.100.2:5000" && b.where() == "203.0.113.1:4000" ), "IPv6 one way only: both ends take IPv4, which works both ways" );
     net.a_got.clear();
     net.b_got.clear();
     a.send( "from a" );
     b.send( "from b" );
     net.deliver();
-    check( "and datagrams arrive both ways", net.b_got == "from a" && net.a_got == "from b" );
+    FACT_CHECK( ( net.b_got == "from a" && net.a_got == "from b" ), "and datagrams arrive both ways" );
   }
   {
     PathFinding a( true, key, 1000 ), b( false, key, 1000 );
@@ -463,8 +439,7 @@ int main()
     const bool opened = a.open( net.now ) && b.open( net.now );
     net.a_to_b4_lost = true; /* from now, what a sends is lost; what b sends still arrives */
     net.pass( 2 * PathFinding::OPEN_FOR + 4 * PathFinding::OPEN_EVERY );
-    check( "a way that goes one way only, once open, is thought closed at the end it cannot send from",
-           opened && !a.open( net.now ) );
+    FACT_CHECK( ( opened && !a.open( net.now ) ), "a way that goes one way only, once open, is thought closed at the end it cannot send from" );
   }
   {
     /* An end moved to where the other was never told it might be: its probes come from there, and
@@ -477,14 +452,13 @@ int main()
     net.pass( 1000 );
     net.a_at = at( "203.0.113.77:4444" );
     net.pass( 2 * PathFinding::OPEN_FOR );
-    check( "an end moved to a place the other was not told of is found there, both ways",
-           b.open( net.now ) && b.where() == "203.0.113.77:4444" && a.open( net.now ) );
+    FACT_CHECK( ( b.open( net.now ) && b.where() == "203.0.113.77:4444" && a.open( net.now ) ), "an end moved to a place the other was not told of is found there, both ways" );
   }
-
-  if ( failures ) {
-    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: %d checks of path-finding's logic failed\n", failures );
-    return 1;
-  }
-  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: path-finding's logic\n" );
-  return 0;
 }
+
+FACTS_REGISTER_ALL()
+{
+  FACTS_REGISTER( Finding );
+}
+
+FACTS_MAIN

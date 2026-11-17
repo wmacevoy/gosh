@@ -7,6 +7,24 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-17 — Every unit test moved to facts; and udpforward-test aborted once
+
+- **What was done:** the 37 unit tests moved from their own `check()` (or the fork's `CHECK()`) to
+  facts (`vendor/facts/`), by a script, so that each condition came over unchanged. That they did
+  was checked by comparing the 1,115 conditions in order against the old files, not by the tests
+  passing; and each test was seen to fail with one fact made false.
+- **What the move ran into, each a fact about facts:** a condition whose values have no `<<` (a
+  `std::vector`, a struct) does not compile, and one that compares a `static const` member does not
+  link (facts holds each side by reference); both are compared in parentheses, as one bool. A comma
+  in a template argument splits the macro's arguments. A check in a helper has no `facts` to report
+  to, and a file-wide variable cannot be called `facts`, which facts' own namespace is: so a pointer,
+  `current_facts`, set by each group. Reported to facts as two issues (the guide, and changes).
+- **What happened besides:** run by hand just after a build, `udpforward-test` exited by SIGABRT
+  once, with its output not kept. Not again in 60 runs nor in any check since. It uses real
+  sockets on loopback (the fork's test). **Kind:** K2, not reproduced; left open (SE1/T9): if it
+  recurs, its output (facts now names the group and line) says where.
+- **What it changed:** how a unit test is written (`CONTRIBUTING.md`).
+
 ## 2026-11-17 — The owner's trial: VS Code's remote ssh through a gosh forward kept going
 
 - **What was done:** the trial queue item 23 waited on (`REQ19/FWD-6`). The owner, on a Mac

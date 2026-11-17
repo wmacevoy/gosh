@@ -30,18 +30,15 @@
 #include <vector>
 
 #include "src/forwarding/tcp/connection.h"
+#include "vendor/facts/facts.h"
+
+/* The facts of the group now running, for checks outside a group: each group sets it, and a
+   helper that checks takes it as its own facts. */
+static Facts* current_facts = nullptr;
 
 using Network::TCPInUDP;
 
-static int failures = 0;
 
-static void check( const char* what, bool ok )
-{
-  printf( "%-78s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
 
 /* What an end is asked to do, written down; and what it is told back, as the test sets it. */
 struct Recorder
@@ -211,6 +208,7 @@ struct Pair
   /* Carries everything each end has sent to the other, and what that provokes, until both are quiet. */
   void carry( void )
   {
+  Facts* facts = current_facts;
     for ( int rounds = 0; rounds < 100000; rounds++ ) {
       if ( out[0].sent.empty() && out[1].sent.empty() ) {
         return;
@@ -233,7 +231,7 @@ struct Pair
         }
       }
     }
-    check( "(two ends fall quiet)", false );
+    FACT_CHECK( false, "(two ends fall quiet)" );
   }
 
   void tick( uint64_t later )
@@ -246,8 +244,9 @@ struct Pair
   /* An application connects at the listening end, and the handshake runs. Returns the connection's id. */
   uint32_t open( void )
   {
+  Facts* facts = current_facts;
     uint32_t id = 0;
-    check( "(a connection opens)", listening.opened( 0, now, link, out[0], id ) );
+    FACT_CHECK( listening.opened( 0, now, link, out[0], id ), "(a connection opens)" );
     carry(); /* the SYN arrives; the target is asked for */
     tick( 1 ); /* the target is found to be reached */
     carry();
@@ -279,9 +278,9 @@ static std::string pattern( size_t length )
   }
   return s;
 }
-
-static void test_transfer( void )
+FACTS( Transfer )
 {
+  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   const std::string there = pattern( 300000 ), back = pattern( 70001 );
@@ -293,21 +292,20 @@ static void test_transfer( void )
     p.tick( 1 );
   }
   p.carry();
-  check( "bytes written at the listening end arrive whole at the target", p.out[1].got == there );
-  check( "and bytes written at the target arrive whole at the application", p.out[0].got == back );
+  FACT_CHECK( p.out[1].got == there, "bytes written at the listening end arrive whole at the target" );
+  FACT_CHECK( p.out[0].got == back, "and bytes written at the target arrive whole at the application" );
 
   p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] ); /* the application finishes writing */
   p.carry();
-  check( "one end finishing is passed on, and the connection stays for the other", p.out[1].shut && p.out[1].closed.empty() );
+  FACT_CHECK( ( p.out[1].shut && p.out[1].closed.empty() ), "one end finishing is passed on, and the connection stays for the other" );
   p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] );
   p.carry();
-  check( "both finished: each end closes, in order and not with a reset",
-         p.out[0].closed.size() == 1 && !p.out[0].closed[0].second && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second
-           && p.listening.count() == 0 && p.connecting.count() == 0 );
+  FACT_CHECK( ( p.out[0].closed.size() == 1 && !p.out[0].closed[0].second && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second
+           && p.listening.count() == 0 && p.connecting.count() == 0 ), "both finished: each end closes, in order and not with a reset" );
 }
-
-static void test_slow_application( void )
+FACTS( SlowApplication )
 {
+  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   p.out[1].takes = 0; /* the target takes nothing */
@@ -320,10 +318,9 @@ static void test_slow_application( void )
     p.tick( 50 );
   }
   p.carry();
-  check( "an application that takes nothing is given nothing", p.out[1].got.empty() );
-  check( "and the sender stops: it has read no more than its two buffers hold",
-         written >= 1024 * 1024 && written <= 2 * 1024 * 1024 ); /* (1 MB each way: Operating envelope) */
-  check( "neither end has given up", p.out[0].closed.empty() && p.out[1].closed.empty() );
+  FACT_CHECK( p.out[1].got.empty(), "an application that takes nothing is given nothing" );
+  FACT_CHECK( ( written >= 1024 * 1024 && written <= 2 * 1024 * 1024 ), "and the sender stops: it has read no more than its two buffers hold" ); /* (1 MB each way: Operating envelope) */
+  FACT_CHECK( ( p.out[0].closed.empty() && p.out[1].closed.empty() ), "neither end has given up" );
 
   /* With the window shut and nothing on its way, the sender probes it: one byte, so as not to wait for ever. */
   p.out[0].sent.clear();
@@ -331,8 +328,7 @@ static void test_slow_application( void )
   for ( int i = 0; i < 100 && p.out[0].sent.empty(); i++ ) {
     p.tick( 1000 );
   }
-  check( "with the window shut, the sender probes it with one byte",
-         !p.out[0].sent.empty() && p.out[0].sent[0].second.payload.size() == 1 );
+  FACT_CHECK( ( !p.out[0].sent.empty() && p.out[0].sent[0].second.payload.size() == 1 ), "with the window shut, the sender probes it with one byte" );
   p.carrying = true;
   p.carry();
 
@@ -342,8 +338,7 @@ static void test_slow_application( void )
   p.out[1].sent.clear();
   p.now += 1;
   p.connecting.tick( p.now, p.link, p.out[1] );
-  check( "when there is room for two segments again, the receiver says so unasked",
-         p.out[1].sent.size() == 1 && p.out[1].sent[0].second.payload.empty() && p.out[1].sent[0].second.window > 0 );
+  FACT_CHECK( ( p.out[1].sent.size() == 1 && p.out[1].sent[0].second.payload.empty() && p.out[1].sent[0].second.window > 0 ), "when there is room for two segments again, the receiver says so unasked" );
 
   /* And then everything. */
   p.out[1].takes = -1;
@@ -352,12 +347,11 @@ static void test_slow_application( void )
     p.carry();
     p.tick( 5 );
   }
-  check( "once the application takes bytes again, all of them arrive, in order", p.out[1].got == data );
+  FACT_CHECK( p.out[1].got == data, "once the application takes bytes again, all of them arrive, in order" );
 }
-
-/* More than 64 KB can be on its way at once: the windows are scaled. */
-static void test_window( void )
+FACTS( Window )
 {
+  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   p.out[1].takes = 0;
@@ -371,8 +365,7 @@ static void test_window( void )
   p.out[1].takes = -1;
   p.now += 1;
   p.connecting.tick( p.now, p.link, p.out[1] ); /* the application takes what its end is holding, and nothing more arrives */
-  check( "a megabyte was waiting at the receiver: its window was not held to what 16 bits can say",
-         p.out[1].got.size() > 1000000 && p.out[1].got.size() <= 1024 * 1024 && p.out[1].got == data.substr( 0, p.out[1].got.size() ) );
+  FACT_CHECK( ( p.out[1].got.size() > 1000000 && p.out[1].got.size() <= 1024 * 1024 && p.out[1].got == data.substr( 0, p.out[1].got.size() ) ), "a megabyte was waiting at the receiver: its window was not held to what 16 bits can say" );
 
   /* And the sender believes it: once it has learnt the path is good, it puts far more than 64 KB on its way at once. */
   Pair q;
@@ -390,13 +383,11 @@ static void test_window( void )
   for ( size_t i = 0; i < q.out[0].sent.size(); i++ ) {
     on_its_way += q.out[0].sent[i].second.payload.size();
   }
-  check( "with nothing yet acknowledged, the sender has several hundred kilobytes on their way at once",
-         q.out[1].got.size() == 2000000 && on_its_way > 300000 );
+  FACT_CHECK( ( q.out[1].got.size() == 2000000 && on_its_way > 300000 ), "with nothing yet acknowledged, the sender has several hundred kilobytes on their way at once" );
 }
-
-/* A handshake that is never answered, while the session is in contact, is given up. */
-static void test_handshake_gives_up( void )
+FACTS( HandshakeGivesUp )
 {
+  current_facts = facts;
   {
     Pair p;
     uint32_t id = 0;
@@ -409,8 +400,7 @@ static void test_handshake_gives_up( void )
       syns += p.out[0].sent.size();
       p.out[0].sent.clear();
     }
-    check( "a SYN never answered is sent six times in all, and then the application is refused",
-           syns == 6 && p.out[0].closed.size() == 1 && p.out[0].closed[0].second && p.listening.count() == 0 );
+    FACT_CHECK( ( syns == 6 && p.out[0].closed.size() == 1 && p.out[0].closed[0].second && p.listening.count() == 0 ), "a SYN never answered is sent six times in all, and then the application is refused" );
   }
   {
     Pair p;
@@ -427,14 +417,12 @@ static void test_handshake_gives_up( void )
     for ( size_t i = 0; i < p.out[1].sent.size(); i++ ) {
       told = told || p.out[1].sent[i].second.has( TCPInUDP::RST );
     }
-    check( "an acceptance never acknowledged: the target's socket is closed with a reset, and the other end is told",
-           p.out[1].closed.size() == 1 && p.out[1].closed[0].second && told && p.connecting.count() == 0 );
+    FACT_CHECK( ( p.out[1].closed.size() == 1 && p.out[1].closed[0].second && told && p.connecting.count() == 0 ), "an acceptance never acknowledged: the target's socket is closed with a reset, and the other end is told" );
   }
 }
-
-/* The end of a connection waits for an application that is slow to take what came before it. */
-static void test_slow_finish( void )
+FACTS( SlowFinish )
 {
+  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   p.out[1].takes = 0; /* the target takes nothing yet */
@@ -442,36 +430,24 @@ static void test_slow_finish( void )
   p.write( 0, id, data );
   p.listening.read( id, NULL, 0, p.now, p.link, p.out[0] ); /* and the application has finished writing */
   p.carry();
-  check( "the end has arrived, but bytes before it are undelivered: the target is not yet told it is over",
-         p.out[1].got.empty() && !p.out[1].shut && p.out[1].closed.empty() );
-  check( "while an application is slow, its end asks to be woken in ten milliseconds to try again",
-         p.connecting.wait_time( p.now ) == 10 );
+  FACT_CHECK( ( p.out[1].got.empty() && !p.out[1].shut && p.out[1].closed.empty() ), "the end has arrived, but bytes before it are undelivered: the target is not yet told it is over" );
+  FACT_CHECK( p.connecting.wait_time( p.now ) == 10, "while an application is slow, its end asks to be woken in ten milliseconds to try again" );
 
   p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] ); /* the target finishes writing too */
   p.carry();
-  check( "both ends have finished, and bytes are still undelivered: the connection is not closed",
-         p.out[1].closed.empty() && p.connecting.count() == 1 );
+  FACT_CHECK( ( p.out[1].closed.empty() && p.connecting.count() == 1 ), "both ends have finished, and bytes are still undelivered: the connection is not closed" );
 
   p.out[1].takes = 100;
   p.tick( 10 );
-  check( "it takes a little: still not told it is over", p.out[1].got.size() == 100 && !p.out[1].shut && p.out[1].closed.empty() );
+  FACT_CHECK( ( p.out[1].got.size() == 100 && !p.out[1].shut && p.out[1].closed.empty() ), "it takes a little: still not told it is over" );
   p.out[1].takes = -1;
   p.tick( 10 );
   p.carry();
-  check( "once it has taken everything, it is told, and only then is the connection closed, in order",
-         p.out[1].got == data && p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+  FACT_CHECK( ( p.out[1].got == data && p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second ), "once it has taken everything, it is told, and only then is the connection closed, in order" );
 }
-
-/*
- * Queue item 18. One end has closed in order and forgotten the connection; the other still
- * holds bytes its slow application has not taken. Anything that end now sends (it says its
- * window has opened as the application takes bytes; or a segment of its arrives late, or twice)
- * is answered with a reset by the end that has forgotten. Everything from that end had already
- * arrived, in order and complete, its finish included: the reset has nothing to say about
- * those bytes, and they are delivered.
- */
-static void test_reset_after_everything_arrived( void )
+FACTS( ResetAfterEverythingArrived )
 {
+  current_facts = facts;
   /* The receive buffer exactly full (1 MB), so that taking bytes opens a closed window, which is said. */
   {
     Pair p;
@@ -488,9 +464,8 @@ static void test_reset_after_everything_arrived( void )
     p.carry();
     p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] );
     p.carry();
-    check( "(1 MB sent and held; both ends finished; the sending end has closed, in order, and forgotten)",
-           written == data.size() && p.out[0].closed.size() == 1 && !p.out[0].closed[0].second && p.listening.count() == 0
-             && p.out[1].got.empty() );
+    FACT_CHECK( ( written == data.size() && p.out[0].closed.size() == 1 && !p.out[0].closed[0].second && p.listening.count() == 0
+             && p.out[1].got.empty() ), "(1 MB sent and held; both ends finished; the sending end has closed, in order, and forgotten)" );
     p.out[1].takes = 100000; /* the application takes some: the window opens, and that is said */
     p.tick( 10 );
     p.carry();
@@ -505,10 +480,9 @@ static void test_reset_after_everything_arrived( void )
     p.tick( 10 );
     said_after += p.out[1].sent.size();
     p.carry();
-    check( "told once that the other end has gone, it sends that end nothing more", said_after == 0 );
-    check( "the slow application takes bytes after the other end has gone: it gets every one of the 1 MB", p.out[1].got == data );
-    check( "and is then told it is over, and the connection closes in order, not with a reset",
-           p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second && p.connecting.count() == 0 );
+    FACT_CHECK( said_after == 0, "told once that the other end has gone, it sends that end nothing more" );
+    FACT_CHECK( p.out[1].got == data, "the slow application takes bytes after the other end has gone: it gets every one of the 1 MB" );
+    FACT_CHECK( ( p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second && p.connecting.count() == 0 ), "and is then told it is over, and the connection closes in order, not with a reset" );
   }
 
   /* A segment that arrives a second time, late, at the end that has forgotten. */
@@ -522,16 +496,14 @@ static void test_reset_after_everything_arrived( void )
     p.carry();
     p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] );
     p.carry();
-    check( "(5,000 bytes held; the sending end has closed and forgotten)", p.listening.count() == 0 && p.out[1].got.empty() );
+    FACT_CHECK( ( p.listening.count() == 0 && p.out[1].got.empty() ), "(5,000 bytes held; the sending end has closed and forgotten)" );
     p.listening.segment( 0, p.last_from[1], p.now, p.link, p.out[0] ); /* the last thing it sent, again */
-    check( "(the end that has forgotten answers it with a reset)",
-           p.out[0].sent.size() == 1 && p.out[0].sent[0].second.has( TCPInUDP::RST ) );
+    FACT_CHECK( ( p.out[0].sent.size() == 1 && p.out[0].sent[0].second.has( TCPInUDP::RST ) ), "(the end that has forgotten answers it with a reset)" );
     p.carry();
     p.out[1].takes = -1;
     p.tick( 10 );
     p.carry();
-    check( "a late copy of a segment, answered with a reset: the 5,000 bytes are delivered all the same",
-           p.out[1].got == data && p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+    FACT_CHECK( ( p.out[1].got == data && p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second ), "a late copy of a segment, answered with a reset: the 5,000 bytes are delivered all the same" );
   }
 
   /* The other end finished and then forgot us before it had all of ours: what we hold is delivered, then a reset. */
@@ -552,8 +524,7 @@ static void test_reset_after_everything_arrived( void )
     reset.seq = reset.seq + reset.payload.size() + 1; /* (after its finish) */
     reset.payload.clear();
     p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
-    check( "a reset after its finish, with our answer not yet acknowledged: nothing is closed while bytes are held",
-           p.out[1].closed.empty() && p.out[1].got.empty() );
+    FACT_CHECK( ( p.out[1].closed.empty() && p.out[1].got.empty() ), "a reset after its finish, with our answer not yet acknowledged: nothing is closed while bytes are held" );
 
     /* Something the other end sent before it forgot arrives after its reset: its finish, again. */
     bool threw = false;
@@ -562,21 +533,19 @@ static void test_reset_after_everything_arrived( void )
     } catch ( const std::exception& e ) {
       threw = true;
     }
-    check( "a segment of its that arrives after its reset changes nothing, and breaks nothing",
-           !threw && p.out[1].closed.empty() && p.connecting.count() == 1 );
+    FACT_CHECK( ( !threw && p.out[1].closed.empty() && p.connecting.count() == 1 ), "a segment of its that arrives after its reset changes nothing, and breaks nothing" );
 
     /* The application has more to say. It is taken and goes nowhere, so that the application is not left stuck writing. */
-    check( "the application's further bytes are still taken from it", p.connecting.wants( id ) > 0 );
+    FACT_CHECK( p.connecting.wants( id ) > 0, "the application's further bytes are still taken from it" );
     p.connecting.read( id, "more", 4, p.now, p.link, p.out[1] );
-    check( "and nothing is sent to the end that has gone", p.out[1].sent.empty() && p.connecting.count() == 1 );
+    FACT_CHECK( ( p.out[1].sent.empty() && p.connecting.count() == 1 ), "and nothing is sent to the end that has gone" );
     const std::string much( 65536, 'w' );
     size_t taken = 0;
     for ( int i = 0; i < 48 && p.connecting.wants( id ); i++ ) { /* 3 MB: three times what a send buffer holds */
       p.connecting.read( id, much.data(), std::min( much.size(), p.connecting.wants( id ) ), p.now, p.link, p.out[1] );
       taken += much.size();
     }
-    check( "however much it writes: 3 MB is taken, where a buffer of what could not be sent would have filled at 1 MB",
-           taken == 48 * much.size() && p.connecting.wants( id ) > 0 && p.out[1].sent.empty() );
+    FACT_CHECK( ( taken == 48 * much.size() && p.connecting.wants( id ) > 0 && p.out[1].sent.empty() ), "however much it writes: 3 MB is taken, where a buffer of what could not be sent would have filled at 1 MB" );
 
     p.out[1].takes = -1;
     p.tick( 10 );
@@ -585,8 +554,7 @@ static void test_reset_after_everything_arrived( void )
      * it has not yet read, which is the loss this is here to prevent. Its unacknowledged answer
      * is lost either way; it finds out as with any TCP, when it next writes.
      */
-    check( "the 5,000 bytes are delivered, and the connection then closes in order",
-           p.out[1].got == data && p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+    FACT_CHECK( ( p.out[1].got == data && p.out[1].shut && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second ), "the 5,000 bytes are delivered, and the connection then closes in order" );
   }
 
   /* The reset comes when nothing is held: there is nothing to wait for, and the connection ends then, in order. */
@@ -606,11 +574,9 @@ static void test_reset_after_everything_arrived( void )
     reset.flags = TCPInUDP::RST;
     reset.seq = reset.seq + reset.payload.size() + 1;
     reset.payload.clear();
-    check( "(everything was taken already, and the connection is still open for our answer)",
-           p.out[1].got == data && p.connecting.count() == 1 );
+    FACT_CHECK( ( p.out[1].got == data && p.connecting.count() == 1 ), "(everything was taken already, and the connection is still open for our answer)" );
     p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
-    check( "a reset after its finish with nothing held: the connection ends at once, in order",
-           p.connecting.count() == 0 && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+    FACT_CHECK( ( p.connecting.count() == 0 && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second ), "a reset after its finish with nothing held: the connection ends at once, in order" );
   }
 
   /* The application finishes writing after the reset, while bytes are still held: it is not asked for more. */
@@ -628,12 +594,10 @@ static void test_reset_after_everything_arrived( void )
     reset.payload.clear();
     p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
     p.connecting.read( id, NULL, 0, p.now, p.link, p.out[1] ); /* the application's end of file */
-    check( "the application finishes writing after the reset: nothing more is wanted from it, and the bytes are still held",
-           p.connecting.wants( id ) == 0 && p.connecting.count() == 1 && p.out[1].closed.empty() );
+    FACT_CHECK( ( p.connecting.wants( id ) == 0 && p.connecting.count() == 1 && p.out[1].closed.empty() ), "the application finishes writing after the reset: nothing more is wanted from it, and the bytes are still held" );
     p.out[1].takes = -1;
     p.tick( 10 );
-    check( "and when it reads, it gets them, and the connection closes in order",
-           p.out[1].got == data && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+    FACT_CHECK( ( p.out[1].got == data && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second ), "and when it reads, it gets them, and the connection closes in order" );
   }
 
   /* The application itself goes, after the reset, with bytes held: the connection ends, and nothing is sent to nobody. */
@@ -651,8 +615,7 @@ static void test_reset_after_everything_arrived( void )
     p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
     p.out[1].gone = true;
     p.tick( 10 );
-    check( "the application gone too: the connection ends, and no reset is sent to an end that is not there",
-           p.connecting.count() == 0 && p.out[1].closed.size() == 1 && p.out[1].sent.empty() );
+    FACT_CHECK( ( p.connecting.count() == 0 && p.out[1].closed.size() == 1 && p.out[1].sent.empty() ), "the application gone too: the connection ends, and no reset is sent to an end that is not there" );
     (void) id;
   }
 
@@ -671,8 +634,7 @@ static void test_reset_after_everything_arrived( void )
     for ( int i = 0; i < 64 && p.connecting.wants( id ); i++ ) {
       queued += p.write( 1, id, ours.substr( queued, 65536 ) );
     }
-    check( "(our send buffer is full: 1 MB waits, and no more is wanted from the application)",
-           queued == 1024 * 1024 && p.connecting.wants( id ) == 0 );
+    FACT_CHECK( ( queued == 1024 * 1024 && p.connecting.wants( id ) == 0 ), "(our send buffer is full: 1 MB waits, and no more is wanted from the application)" );
     const uint32_t ours_begin = p.out[1].sent.empty() ? 0 : p.out[1].sent[0].second.seq;
     p.out[1].sent.clear();
     p.carrying = true;
@@ -681,8 +643,7 @@ static void test_reset_after_everything_arrived( void )
     reset.seq = reset.seq + reset.payload.size() + 1;
     reset.payload.clear();
     p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
-    check( "the other end gone, what waited to be sent is let go, and the application is read from again",
-           p.connecting.wants( id ) > 0 );
+    FACT_CHECK( p.connecting.wants( id ) > 0, "the other end gone, what waited to be sent is let go, and the application is read from again" );
     TCPInUDP late = reset;
     late.flags = TCPInUDP::ACK;
     late.ack = ours_begin + 1000;
@@ -694,11 +655,10 @@ static void test_reset_after_everything_arrived( void )
       sent_after += p.out[1].sent.size();
       p.out[1].sent.clear();
     }
-    check( "an old acknowledgment after the reset starts no timer: 400 s on, the bytes are still held and nothing was sent",
-           p.out[1].closed.empty() && p.connecting.count() == 1 && sent_after == 0 );
+    FACT_CHECK( ( p.out[1].closed.empty() && p.connecting.count() == 1 && sent_after == 0 ), "an old acknowledgment after the reset starts no timer: 400 s on, the bytes are still held and nothing was sent" );
     p.out[1].takes = -1;
     p.tick( 10 );
-    check( "and when the application reads, it gets them", p.out[1].got == data && !p.out[1].closed.empty() && !p.out[1].closed[0].second );
+    FACT_CHECK( ( p.out[1].got == data && !p.out[1].closed.empty() && !p.out[1].closed[0].second ), "and when the application reads, it gets them" );
   }
 
   /* The other end had everything and closed; only its last acknowledgment, of our finish, was lost. */
@@ -717,8 +677,7 @@ static void test_reset_after_everything_arrived( void )
       p.listening.segment( ours[i].first, ours[i].second, p.now, p.link, p.out[0] );
     }
     p.out[0].sent.clear(); /* ...and the acknowledgment of it is lost */
-    check( "(the other end has everything, and has closed and forgotten; we do not know our finish arrived)",
-           p.listening.count() == 0 && p.connecting.count() == 1 );
+    FACT_CHECK( ( p.listening.count() == 0 && p.connecting.count() == 1 ), "(the other end has everything, and has closed and forgotten; we do not know our finish arrived)" );
     for ( int i = 0; i < 5 && p.out[0].sent.empty(); i++ ) {
       p.tick( 1000 ); /* our finish is sent again, and answered with a reset */
       p.carry();
@@ -726,8 +685,7 @@ static void test_reset_after_everything_arrived( void )
     p.out[1].takes = -1;
     p.tick( 10 );
     p.carry();
-    check( "only the last acknowledgment lost: the bytes are delivered and the connection closes in order",
-           p.out[1].got == data && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+    FACT_CHECK( ( p.out[1].got == data && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second ), "only the last acknowledgment lost: the bytes are delivered and the connection closes in order" );
   }
 
   /* A full buffer, and the reset drawn by a late copy: taking bytes then opens the window, of which nothing is said. */
@@ -755,8 +713,7 @@ static void test_reset_after_everything_arrived( void )
       said += p.out[1].sent.size();
       p.out[1].sent.clear();
     }
-    check( "told the other end has gone, a window that opens is not announced to it: nothing is sent, and all arrives",
-           said == 0 && p.out[1].got == data );
+    FACT_CHECK( ( said == 0 && p.out[1].got == data ), "told the other end has gone, a window that opens is not announced to it: nothing is sent, and all arrives" );
   }
 
   /* A reset while the other end has not finished is still believed: what it had to say is not all here. */
@@ -771,15 +728,13 @@ static void test_reset_after_everything_arrived( void )
     reset.seq = reset.seq + reset.payload.size();
     reset.payload.clear();
     p.connecting.segment( 0, reset, p.now, p.link, p.out[1] );
-    check( "a reset from an end that has not finished: believed, and the connection ends with a reset",
-           p.out[1].closed.size() == 1 && p.out[1].closed[0].second && p.out[1].got.empty() );
+    FACT_CHECK( ( p.out[1].closed.size() == 1 && p.out[1].closed[0].second && p.out[1].got.empty() ), "a reset from an end that has not finished: believed, and the connection ends with a reset" );
     (void) id;
   }
 }
-
-/* Segments that arrive in the opposite order, and twice: everything still arrives once, whole. */
-static void test_out_of_order_and_twice( void )
+FACTS( OutOfOrderAndTwice )
 {
+  current_facts = facts;
   for ( int how = 0; how < 3; how++ ) {
     Pair p;
     p.backwards = how != 1;
@@ -803,24 +758,21 @@ static void test_out_of_order_and_twice( void )
       p.carry();
       p.tick( 10 );
     }
-    check( how == 0 ? "every batch of segments arriving backwards: both ways whole, once, and closed in order"
+    FACT_CHECK( ( p.out[1].got == there && p.out[0].got == back && p.out[0].closed.size() == 1 && !p.out[0].closed[0].second
+             && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second ), ( how == 0 ? "every batch of segments arriving backwards: both ways whole, once, and closed in order"
            : how == 1 ? "every segment arriving twice: likewise"
-                      : "backwards and twice: likewise",
-           p.out[1].got == there && p.out[0].got == back && p.out[0].closed.size() == 1 && !p.out[0].closed[0].second
-             && p.out[1].closed.size() == 1 && !p.out[1].closed[0].second );
+                      : "backwards and twice: likewise" ) );
   }
 }
-
-/* Two connections at once are two connections. */
-static void test_two( void )
+FACTS( Two )
 {
+  current_facts = facts;
   Pair p;
   const uint32_t first = p.open();
   const uint32_t second = p.open();
-  check( "a second connection has a name of its own", first != second && p.listening.count() == 2 && p.connecting.count() == 2 );
+  FACT_CHECK( ( first != second && p.listening.count() == 2 && p.connecting.count() == 2 ), "a second connection has a name of its own" );
   const std::vector<uint32_t> readable = p.listening.readable();
-  check( "both are worth reading, in the order they were opened",
-         readable.size() == 2 && readable[0] == first && readable[1] == second );
+  FACT_CHECK( ( readable.size() == 2 && readable[0] == first && readable[1] == second ), "both are worth reading, in the order they were opened" );
 
   const std::string one = pattern( 40000 ), two = std::string( 30000, 'z' );
   size_t a = 0, b = 0;
@@ -831,17 +783,15 @@ static void test_two( void )
     p.tick( 1 );
   }
   p.carry();
-  check( "each connection's bytes arrive on that connection and not the other",
-         p.out[1].got_on[first] == one && p.out[1].got_on[second] == two );
+  FACT_CHECK( ( p.out[1].got_on[first] == one && p.out[1].got_on[second] == two ), "each connection's bytes arrive on that connection and not the other" );
 
   p.listening.failed( first, p.link, p.out[0] );
   p.carry();
-  check( "ending one leaves the other", p.listening.count() == 1 && p.connecting.count() == 1 && p.listening.wants( second ) > 0 );
+  FACT_CHECK( ( p.listening.count() == 1 && p.connecting.count() == 1 && p.listening.wants( second ) > 0 ), "ending one leaves the other" );
 }
-
-/* What arrives for a connection that is not as the segment supposes. */
-static void test_unexpected( void )
+FACTS( Unexpected )
 {
+  current_facts = facts;
   /* The connecting end has its own limit: the sixty-fifth SYN is refused. */
   {
     Pair p;
@@ -859,9 +809,8 @@ static void test_unexpected( void )
     syn.flags = TCPInUDP::SYN;
     syn.seq = 777;
     p.connecting.segment( 0, syn, p.now, p.link, p.out[1] );
-    check( "the connecting end takes sixty-four; the sixty-fifth is refused with a reset and no target is asked for",
-           held && p.connecting.count() == 64 && p.out[1].connects == 64 && p.out[1].sent.size() == 1
-             && p.out[1].sent[0].second.flags == ( TCPInUDP::RST | TCPInUDP::ACK ) && p.out[1].sent[0].second.ack == 778 );
+    FACT_CHECK( ( held && p.connecting.count() == 64 && p.out[1].connects == 64 && p.out[1].sent.size() == 1
+             && p.out[1].sent[0].second.flags == ( TCPInUDP::RST | TCPInUDP::ACK ) && p.out[1].sent[0].second.ack == 778 ), "the connecting end takes sixty-four; the sixty-fifth is refused with a reset and no target is asked for" );
   }
   /* An acknowledgment of something never sent, while waiting for the other end to accept. */
   {
@@ -876,14 +825,13 @@ static void test_unexpected( void )
     wrong.seq = 5;
     wrong.ack = ours.seq + 99; /* not our SYN */
     p.listening.segment( 0, wrong, p.now, p.link, p.out[0] );
-    check( "an acceptance of a SYN we did not send is answered with a reset at the number it named, and changes nothing",
-           p.out[0].sent.size() == 1 && p.out[0].sent[0].second.flags == TCPInUDP::RST
-             && p.out[0].sent[0].second.seq == ours.seq + 99 && p.listening.count() == 1 && p.out[0].closed.empty() );
+    FACT_CHECK( ( p.out[0].sent.size() == 1 && p.out[0].sent[0].second.flags == TCPInUDP::RST
+             && p.out[0].sent[0].second.seq == ours.seq + 99 && p.listening.count() == 1 && p.out[0].closed.empty() ), "an acceptance of a SYN we did not send is answered with a reset at the number it named, and changes nothing" );
   }
 }
-
-static void test_target( void )
+FACTS( Target )
 {
+  current_facts = facts;
   {
     Pair p;
     p.out[1].reached = -1; /* the target refuses */
@@ -892,8 +840,7 @@ static void test_target( void )
     p.carry();
     p.tick( 1 );
     p.carry();
-    check( "a target that refuses: the application is refused too, with a reset",
-           p.out[0].closed.size() == 1 && p.out[0].closed[0].second && p.listening.count() == 0 && p.connecting.count() == 0 );
+    FACT_CHECK( ( p.out[0].closed.size() == 1 && p.out[0].closed[0].second && p.listening.count() == 0 && p.connecting.count() == 0 ), "a target that refuses: the application is refused too, with a reset" );
   }
   {
     Pair p;
@@ -903,11 +850,10 @@ static void test_target( void )
     p.carry();
     p.tick( 9998 ); /* (the number itself, not the code's name for it: ten seconds is what is required) */
     p.carry();
-    check( "a target that has not answered yet: both ends wait", p.out[0].closed.empty() && p.connecting.count() == 1 );
+    FACT_CHECK( ( p.out[0].closed.empty() && p.connecting.count() == 1 ), "a target that has not answered yet: both ends wait" );
     p.tick( 2 );
     p.carry();
-    check( "after ten seconds without an answer, the application is refused",
-           p.out[0].closed.size() == 1 && p.out[0].closed[0].second && p.connecting.count() == 0 );
+    FACT_CHECK( ( p.out[0].closed.size() == 1 && p.out[0].closed[0].second && p.connecting.count() == 0 ), "after ten seconds without an answer, the application is refused" );
   }
   {
     Pair p;
@@ -915,31 +861,28 @@ static void test_target( void )
     uint32_t id = 0;
     p.listening.opened( 0, p.now, p.link, p.out[0], id );
     p.carry();
-    check( "a forward with no target: refused at once, and no connection is kept",
-           p.out[0].closed.size() == 1 && p.out[0].closed[0].second && p.connecting.count() == 0 );
+    FACT_CHECK( ( p.out[0].closed.size() == 1 && p.out[0].closed[0].second && p.connecting.count() == 0 ), "a forward with no target: refused at once, and no connection is kept" );
   }
 }
-
-static void test_limits( void )
+FACTS( Limits )
 {
+  current_facts = facts;
   Pair p;
   uint32_t id = 0;
   bool all = true;
   for ( size_t i = 0; i < 64; i++ ) { /* (the number itself: requirements, Operating envelope) */
     all = all && p.listening.opened( 0, p.now, p.link, p.out[0], id );
   }
-  check( "sixty-four connections open", all && p.listening.count() == 64 );
-  check( "the sixty-fifth is refused, and nothing is sent for it",
-         ( p.out[0].sent.clear(), !p.listening.opened( 0, p.now, p.link, p.out[0], id ) ) && p.out[0].sent.empty() );
+  FACT_CHECK( ( all && p.listening.count() == 64 ), "sixty-four connections open" );
+  FACT_CHECK( ( ( p.out[0].sent.clear(), !p.listening.opened( 0, p.now, p.link, p.out[0], id ) ) && p.out[0].sent.empty() ), "the sixty-fifth is refused, and nothing is sent for it" );
 
   Pair q;
   q.link.ready = false;
-  check( "while the session cannot carry a segment, a connection is refused",
-         !q.listening.opened( 0, q.now, q.link, q.out[0], id ) && q.listening.count() == 0 );
+  FACT_CHECK( ( !q.listening.opened( 0, q.now, q.link, q.out[0], id ) && q.listening.count() == 0 ), "while the session cannot carry a segment, a connection is refused" );
 }
-
-static void test_outage( void )
+FACTS( Outage )
 {
+  current_facts = facts;
   /* REQ1/FWD-3: out of contact for six hours, with data on its way. */
   {
     Pair p;
@@ -952,19 +895,17 @@ static void test_outage( void )
       p.tick( 30000 );
       p.out[0].sent.clear(); /* (lost) */
     }
-    check( "REQ1/FWD-3: six hours out of contact, and the connection is still there",
-           p.out[0].closed.empty() && p.listening.count() == 1 && p.out[1].got.empty() );
+    FACT_CHECK( ( p.out[0].closed.empty() && p.listening.count() == 1 && p.out[1].got.empty() ), "REQ1/FWD-3: six hours out of contact, and the connection is still there" );
 
     p.carrying = true;
     p.link.in_contact = true;
     p.tick( 1 ); /* contact returns */
-    check( "REQ1/FWD-3: when contact returns it sends again at once, without waiting on a backed-off timer",
-           !p.out[0].sent.empty() );
+    FACT_CHECK( !p.out[0].sent.empty(), "REQ1/FWD-3: when contact returns it sends again at once, without waiting on a backed-off timer" );
     for ( int i = 0; i < 200 && p.out[1].got.size() < data.size(); i++ ) {
       p.carry();
       p.tick( 50 );
     }
-    check( "REQ1/FWD-3: and what was written before the outage arrives whole", p.out[1].got == data );
+    FACT_CHECK( p.out[1].got == data, "REQ1/FWD-3: and what was written before the outage arrives whole" );
   }
   /* The same silence while in contact is a different thing: the other end has gone. */
   {
@@ -976,27 +917,24 @@ static void test_outage( void )
       p.tick( 30000 );
       p.out[0].sent.clear();
     }
-    check( "in contact, with nothing ever acknowledged: the connection is ended, with a reset",
-           p.out[0].closed.size() == 1 && p.out[0].closed[0].second && p.listening.count() == 0 );
+    FACT_CHECK( ( p.out[0].closed.size() == 1 && p.out[0].closed[0].second && p.listening.count() == 0 ), "in contact, with nothing ever acknowledged: the connection is ended, with a reset" );
   }
 }
-
-static void test_application_gone( void )
+FACTS( ApplicationGone )
 {
+  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   p.out[1].gone = true;
   p.write( 0, id, "anyone there" );
   p.carry();
-  check( "an application that has gone: both ends close with a reset",
-         p.out[1].closed.size() == 1 && p.out[1].closed[0].second && p.out[0].closed.size() == 1 && p.out[0].closed[0].second );
+  FACT_CHECK( ( p.out[1].closed.size() == 1 && p.out[1].closed[0].second && p.out[0].closed.size() == 1 && p.out[0].closed[0].second ), "an application that has gone: both ends close with a reset" );
 
   Pair q;
   const uint32_t id2 = q.open();
   q.listening.failed( id2, q.link, q.out[0] );
   q.carry();
-  check( "a socket that fails on reading: the same, from the other side",
-         q.out[0].closed.size() == 1 && q.out[0].closed[0].second && q.out[1].closed.size() == 1 && q.out[1].closed[0].second );
+  FACT_CHECK( ( q.out[0].closed.size() == 1 && q.out[0].closed[0].second && q.out[1].closed.size() == 1 && q.out[1].closed[0].second ), "a socket that fails on reading: the same, from the other side" );
 }
 
 static const size_t SEGMENT = 1187 - TCPInUDP::DATAGRAM_HEADER_LEN; /* the data one segment carries here */
@@ -1045,9 +983,9 @@ static size_t forty( bool sack, const std::vector<unsigned int>& gone, uint64_t&
   whole = p.out[1].got == sent;
   return p.data_bytes;
 }
-
-static void test_selective_acknowledgment( void )
+FACTS( SelectiveAcknowledgment )
 {
+  current_facts = facts;
   uint64_t took = 0;
   unsigned int said_held = 0, exchanges = 0;
   bool whole = false, burst = false;
@@ -1055,20 +993,19 @@ static void test_selective_acknowledgment( void )
   const std::vector<unsigned int> five( apart, apart + 5 );
 
   const size_t with = forty( true, five, took, said_held, exchanges, whole, burst );
-  check( "(forty segments are sent at once)", burst );
-  check( "five of forty segments lost, apart: everything arrives whole", whole );
-  check( "the receiver said what it held beyond each gap", said_held >= 35 );
-  check( "the sender sent again the five that were lost and nothing else: 45 segments of data",
-         with == 45 * SEGMENT );
-  check( "and without waiting for a timer: in under 200 ms of the logic's time", took < 200 );
+  FACT_CHECK( burst, "(forty segments are sent at once)" );
+  FACT_CHECK( whole, "five of forty segments lost, apart: everything arrives whole" );
+  FACT_CHECK( said_held >= 35, "the receiver said what it held beyond each gap" );
+  FACT_CHECK( with == 45 * SEGMENT, "the sender sent again the five that were lost and nothing else: 45 segments of data" );
+  FACT_CHECK( took < 200, "and without waiting for a timer: in under 200 ms of the logic's time" );
   /* the forty; the five again, each as an acknowledgment says another segment got there; (and the last ACK answered) */
-  check( "in two exchanges: all five were sent again before any of them was acknowledged", exchanges == 2 );
+  FACT_CHECK( exchanges == 2, "in two exchanges: all five were sent again before any of them was acknowledged" );
 
   const size_t without = forty( false, five, took, said_held, exchanges, whole, burst );
-  check( "without selective acknowledgment (the fork's way) it arrives whole too", whole && burst );
-  check( "with nothing said of what is held", said_held == 0 );
-  check( "and more is sent again than was lost", without > 45 * SEGMENT );
-  check( "in more exchanges", exchanges > 2 );
+  FACT_CHECK( ( whole && burst ), "without selective acknowledgment (the fork's way) it arrives whole too" );
+  FACT_CHECK( said_held == 0, "with nothing said of what is held" );
+  FACT_CHECK( without > 45 * SEGMENT, "and more is sent again than was lost" );
+  FACT_CHECK( exchanges > 2, "in more exchanges" );
   printf( "    (without it: %lu segments' worth of data sent for 40, in %u exchanges)\n",
           static_cast<unsigned long>( ( without + SEGMENT - 1 ) / SEGMENT ), exchanges );
 
@@ -1079,10 +1016,10 @@ static void test_selective_acknowledgment( void )
   const unsigned int twice[4] = { 3, 9, 40, 41 };
   const std::vector<unsigned int> again( twice, twice + 4 );
   const size_t slow = forty( true, again, took, said_held, exchanges, whole, burst );
-  check( "two lost, and lost again when sent again: it arrives whole, after a timer", whole && burst && took >= 200 );
-  check( "and going back, the sender passed over what was held: 44 segments of data in all", slow == 44 * SEGMENT );
+  FACT_CHECK( ( whole && burst && took >= 200 ), "two lost, and lost again when sent again: it arrives whole, after a timer" );
+  FACT_CHECK( slow == 44 * SEGMENT, "and going back, the sender passed over what was held: 44 segments of data in all" );
   const size_t slow_without = forty( false, again, took, said_held, exchanges, whole, burst );
-  check( "(without selective acknowledgment: whole, and more than 44)", whole && slow_without > 44 * SEGMENT );
+  FACT_CHECK( ( whole && slow_without > 44 * SEGMENT ), "(without selective acknowledgment: whole, and more than 44)" );
 
   /*
    * Three, likewise. After the timer the sender may send one segment, then two: the second gap,
@@ -1092,8 +1029,8 @@ static void test_selective_acknowledgment( void )
   const unsigned int thrice[6] = { 3, 9, 15, 40, 41, 42 };
   const std::vector<unsigned int> three( thrice, thrice + 6 );
   const size_t slower = forty( true, three, took, said_held, exchanges, whole, burst );
-  check( "three lost, and lost again: whole, with 46 segments of data in all", whole && slower == 46 * SEGMENT );
-  check( "the second and third gaps are filled in one exchange after the first: 4 in all", exchanges == 4 );
+  FACT_CHECK( ( whole && slower == 46 * SEGMENT ), "three lost, and lost again: whole, with 46 segments of data in all" );
+  FACT_CHECK( exchanges == 4, "the second and third gaps are filled in one exchange after the first: 4 in all" );
 }
 
 /* Two megabytes with five segments in a hundred lost on the way. Returns the bytes of data sent in all. */
@@ -1119,44 +1056,37 @@ static size_t lossy( bool sack0, bool sack1, bool& whole, Pair** kept = NULL )
   }
   return sent;
 }
-
-static void test_lossy( void )
+FACTS( Lossy )
 {
+  current_facts = facts;
   bool whole = false;
   const size_t data = 2 * 1024 * 1024;
 
   const size_t with = lossy( true, true, whole );
-  check( "2 MB with 5 in 100 segments lost: it arrives whole", whole );
+  FACT_CHECK( whole, "2 MB with 5 in 100 segments lost: it arrives whole" );
   /* 5 in 100 lost means 100 sent for 95 to arrive, 105.3% at the least; what is over that was sent for nothing. */
-  check( "having sent less than 108% of it", with < data / 100 * 108 );
+  FACT_CHECK( with < data / 100 * 108, "having sent less than 108% of it" );
   printf( "    (with selective acknowledgment: %.1f%% of the data was sent)\n", 100.0 * with / data );
 
   const size_t without = lossy( false, false, whole );
-  check( "without selective acknowledgment it arrives whole", whole );
-  check( "having sent more than that", without > with );
+  FACT_CHECK( whole, "without selective acknowledgment it arrives whole" );
+  FACT_CHECK( without > with, "having sent more than that" );
   printf( "    (without: %.1f%%)\n", 100.0 * without / data );
 
   /* An end that does not know selective acknowledgment: pf.7's, at either end. */
   for ( int knows = 0; knows < 2; knows++ ) {
     Pair* p = NULL;
     const size_t mixed = lossy( knows == 0, knows == 1, whole, &p );
-    check( knows == 0 ? "the target's end does not know it: 2 MB with losses arrives whole"
-                      : "the listening end does not know it: 2 MB with losses arrives whole",
-           whole );
-    check( "  and no segment after the handshake carries any option, either way",
-           p->options_after_syn[0] == 0 && p->options_after_syn[1] == 0 );
-    check( "  and as much is sent as when neither end knows it: it is the fork's TCP", mixed == without );
+    FACT_CHECK( whole, ( knows == 0 ? "the target's end does not know it: 2 MB with losses arrives whole"
+                      : "the listening end does not know it: 2 MB with losses arrives whole" ) );
+    FACT_CHECK( ( p->options_after_syn[0] == 0 && p->options_after_syn[1] == 0 ), "  and no segment after the handshake carries any option, either way" );
+    FACT_CHECK( mixed == without, "  and as much is sent as when neither end knows it: it is the fork's TCP" );
     delete p;
   }
 }
-
-/*
- * An end that says it holds a segment it never got. The sender has no reason to send that
- * segment again until the acknowledgments reach it and stop there; an end that held it would
- * have acknowledged past it, so from then the claim is not believed, and it is sent.
- */
-static void test_lying_holder( void )
+FACTS( LyingHolder )
 {
+  current_facts = facts;
   Pair p;
   std::string sent;
   const uint32_t id = warmed( p, sent );
@@ -1178,15 +1108,13 @@ static void test_lying_holder( void )
     p.carry();
     p.tick( 10 );
   }
-  check( "(the lie was told)", p.lie_known && p.said_held > 0 );
-  check( "an end that says it holds what it never got: everything arrives whole all the same", p.out[1].got == sent );
-  check( "  within a minute of the logic's time, and the connection stays",
-         p.now - began < 60 * 1000 && p.out[0].closed.empty() && p.out[1].closed.empty() );
+  FACT_CHECK( ( p.lie_known && p.said_held > 0 ), "(the lie was told)" );
+  FACT_CHECK( p.out[1].got == sent, "an end that says it holds what it never got: everything arrives whole all the same" );
+  FACT_CHECK( ( p.now - began < 60 * 1000 && p.out[0].closed.empty() && p.out[1].closed.empty() ), "  within a minute of the logic's time, and the connection stays" );
 }
-
-/* What the receiver says it holds: four ranges at most, the latest arrival's first, then the nearest. */
-static void test_what_is_said( void )
+FACTS( WhatIsSaid )
 {
+  current_facts = facts;
   Pair p;
   std::string sent;
   const uint32_t id = warmed( p, sent );
@@ -1222,7 +1150,7 @@ static void test_what_is_said( void )
       expected.append( b, 4 );
     }
   }
-  check( "five gaps: the last acknowledgment names the latest range, then the three nearest, exactly", said == expected );
+  FACT_CHECK( said == expected, "five gaps: the last acknowledgment names the latest range, then the three nearest, exactly" );
 
   /*
    * Only that last acknowledgment gets back. One is not enough to start a repair, so a timer
@@ -1236,17 +1164,11 @@ static void test_what_is_said( void )
     p.carry();
     p.tick( 1 );
   }
-  check( "with only that acknowledgment back: whole, and the five lost sent again and nothing else, 45 in all",
-         p.out[1].got == sent + more && p.data_bytes == 45 * SEGMENT );
+  FACT_CHECK( ( p.out[1].got == sent + more && p.data_bytes == 45 * SEGMENT ), "with only that acknowledgment back: whole, and the five lost sent again and nothing else, 45 in all" );
 }
-
-/*
- * What is held is not on its way, and does not count against how much the sender may have on
- * its way. But it is in the receiver's buffer, or will be, and counts against the room the
- * receiver has said it has: the sender never sends past that, a loss or no.
- */
-static void test_loss_and_a_full_receiver( void )
+FACTS( LossAndAFullReceiver )
 {
+  current_facts = facts;
   Pair p;
   const uint32_t id = p.open();
   p.out[1].takes = 0; /* the target takes nothing */
@@ -1257,7 +1179,7 @@ static void test_loss_and_a_full_receiver( void )
     p.carry();
     p.tick( 1 );
   }
-  check( "(900,000 bytes wait in the receiver's buffer)", written == 900000 && p.out[1].got.empty() );
+  FACT_CHECK( ( written == 900000 && p.out[1].got.empty() ), "(900,000 bytes wait in the receiver's buffer)" );
   p.reset_count();
   p.lose.push_back( 0 ); /* the next segment is lost */
   for ( int i = 0; i < 100 && written < data.size(); i++ ) {
@@ -1265,20 +1187,18 @@ static void test_loss_and_a_full_receiver( void )
     p.carry();
     p.tick( 1 );
   }
-  check( "a segment lost while the receiver is nearly full: nothing is sent past the room it gave (but a 1-byte probe)",
-         p.beyond_edge <= 1 );
+  FACT_CHECK( p.beyond_edge <= 1, "a segment lost while the receiver is nearly full: nothing is sent past the room it gave (but a 1-byte probe)" );
   p.out[1].takes = -1;
   for ( int i = 0; i < 100000 && p.out[1].got.size() < written; i++ ) {
     written += p.write( 0, id, data.substr( written ) );
     p.carry();
     p.tick( 1 );
   }
-  check( "and when the target takes again, everything arrives whole", written == data.size() && p.out[1].got == data );
+  FACT_CHECK( ( written == data.size() && p.out[1].got == data ), "and when the target takes again, everything arrives whole" );
 }
-
-/* An end that says it holds our FIN, which is no data of ours: not believed, and nothing breaks. */
-static void test_held_past_the_end( void )
+FACTS( HeldPastTheEnd )
 {
+  current_facts = facts;
   Pair p;
   std::string sent;
   const uint32_t id = warmed( p, sent );
@@ -1294,37 +1214,31 @@ static void test_held_past_the_end( void )
     p.carry();
     p.tick( 10 );
   }
-  check( "(the lie was told)", p.lie_known );
-  check( "an end that says it holds past the end of our data: the ten bytes and the finish arrive all the same",
-         p.out[1].got == sent + last && p.out[1].shut && p.out[0].closed.empty() );
+  FACT_CHECK( p.lie_known, "(the lie was told)" );
+  FACT_CHECK( ( p.out[1].got == sent + last && p.out[1].shut && p.out[0].closed.empty() ), "an end that says it holds past the end of our data: the ten bytes and the finish arrive all the same" );
 }
-
-int main()
+/* REQ1/FWD-1, REQ1/FWD-3: the connection logic, with no socket and no clock */
+FACTS_REGISTER_ALL()
 {
-  test_transfer();
-  test_slow_application();
-  test_window();
-  test_handshake_gives_up();
-  test_slow_finish();
-  test_reset_after_everything_arrived();
-  test_out_of_order_and_twice();
-  test_two();
-  test_unexpected();
-  test_target();
-  test_limits();
-  test_outage();
-  test_application_gone();
-  test_selective_acknowledgment();
-  test_lossy();
-  test_lying_holder();
-  test_what_is_said();
-  test_loss_and_a_full_receiver();
-  test_held_past_the_end();
-
-  if ( failures ) {
-    printf( "FAIL REQ1/FWD-1, REQ1/FWD-3: %d checks of the connection logic failed\n", failures );
-    return EXIT_FAILURE;
-  }
-  printf( "PASS REQ1/FWD-1, REQ1/FWD-3: the connection logic, with no socket and no clock\n" );
-  return EXIT_SUCCESS;
+  FACTS_REGISTER( Transfer );
+  FACTS_REGISTER( SlowApplication );
+  FACTS_REGISTER( Window );
+  FACTS_REGISTER( HandshakeGivesUp );
+  FACTS_REGISTER( SlowFinish );
+  FACTS_REGISTER( ResetAfterEverythingArrived );
+  FACTS_REGISTER( OutOfOrderAndTwice );
+  FACTS_REGISTER( Two );
+  FACTS_REGISTER( Unexpected );
+  FACTS_REGISTER( Target );
+  FACTS_REGISTER( Limits );
+  FACTS_REGISTER( Outage );
+  FACTS_REGISTER( ApplicationGone );
+  FACTS_REGISTER( SelectiveAcknowledgment );
+  FACTS_REGISTER( Lossy );
+  FACTS_REGISTER( LyingHolder );
+  FACTS_REGISTER( WhatIsSaid );
+  FACTS_REGISTER( LossAndAFullReceiver );
+  FACTS_REGISTER( HeldPastTheEnd );
 }
+
+FACTS_MAIN

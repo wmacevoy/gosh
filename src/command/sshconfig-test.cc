@@ -7,54 +7,40 @@
 #include <string>
 
 #include "src/command/sshconfig.h"
+#include "vendor/facts/facts.h"
 
 using namespace Gosh::Command;
-
-static int failures = 0;
-
-static void check( const char* what, bool ok, const std::string& got = "" )
-{
-  printf( "%-76s %s%s\n", what, ok ? "ok" : "FAIL ", ok ? "" : got.c_str() );
-  if ( !ok ) {
-    failures++;
-  }
-}
-
-int main()
+/* REQ19/CMD-5: the user's ssh config, read and followed */
+FACTS( Sshconfig )
 {
   /* as OpenSSH 9.2's ssh -G prints them, in part */
   const SshConfig jump = read_ssh_config( "host inside\nhostname 10.9.9.9\nport 22\nproxyjump bastion.example\n" );
-  check( "ssh -G read: the HostName and a ProxyJump", jump.hostname == "10.9.9.9" && jump.proxyjump == "bastion.example"
-                                                          && jump.proxycommand.empty() );
+  FACT_CHECK( ( jump.hostname == "10.9.9.9" && jump.proxyjump == "bastion.example"
+                                                          && jump.proxycommand.empty() ), "ssh -G read: the HostName and a ProxyJump" );
   const SshConfig plain = read_ssh_config( "hostname server.example\nproxycommand none\nproxyjump none\n" );
-  check( "\"none\" is no proxy", plain.proxyjump.empty() && plain.proxycommand.empty() );
+  FACT_CHECK( ( plain.proxyjump.empty() && plain.proxycommand.empty() ), "\"none\" is no proxy" );
   const SshConfig command = read_ssh_config( "hostname h\nproxycommand nc -X 5 -x socks:1080 %h %p\n" );
-  check( "a ProxyCommand, all its words", command.proxycommand == "nc -X 5 -x socks:1080 %h %p" );
-  check( "nothing read from nothing (an ssh with no -G)", read_ssh_config( "" ).hostname.empty() );
+  FACT_CHECK( command.proxycommand == "nc -X 5 -x socks:1080 %h %p", "a ProxyCommand, all its words" );
+  FACT_CHECK( read_ssh_config( "" ).hostname.empty(), "nothing read from nothing (an ssh with no -G)" );
 
-  check( "with nothing asked and no proxy of the user's, the address by gosh's proxy, as before",
-         remote_ip_for( "", plain ) == "proxy" );
-  check( "with the user's ProxyJump, the address from the server: the host reached the user's way",
-         remote_ip_for( "", jump ) == "remote" );
-  check( "and so with the user's own ProxyCommand", remote_ip_for( "", command ) == "remote" );
+  FACT_CHECK( remote_ip_for( "", plain ) == "proxy", "with nothing asked and no proxy of the user's, the address by gosh's proxy, as before" );
+  FACT_CHECK( remote_ip_for( "", jump ) == "remote", "with the user's ProxyJump, the address from the server: the host reached the user's way" );
+  FACT_CHECK( remote_ip_for( "", command ) == "remote", "and so with the user's own ProxyCommand" );
   const SshConfig itself = read_ssh_config( "hostname h\nproxycommand /home/u/.local/bin/gosh -W localhost:22 %h\n" );
-  check( "but not when the user's ProxyCommand is gosh itself: its login would run gosh again",
-         runs_gosh( itself.proxycommand ) && remote_ip_for( "", itself ) == "proxy" );
-  check( "gosh-client and gocp are gosh too; goshawk is not",
-         runs_gosh( "gosh-client x" ) && runs_gosh( "  gocp" ) && !runs_gosh( "goshawk %h" ) && !runs_gosh( "" ) );
-  check( "what the user asked is what is done", remote_ip_for( "local", jump ) == "local" && remote_ip_for( "proxy", jump ) == "proxy" );
+  FACT_CHECK( ( runs_gosh( itself.proxycommand ) && remote_ip_for( "", itself ) == "proxy" ), "but not when the user's ProxyCommand is gosh itself: its login would run gosh again" );
+  FACT_CHECK( ( runs_gosh( "gosh-client x" ) && runs_gosh( "  gocp" ) && !runs_gosh( "goshawk %h" ) && !runs_gosh( "" ) ), "gosh-client and gocp are gosh too; goshawk is not" );
+  FACT_CHECK( ( remote_ip_for( "local", jump ) == "local" && remote_ip_for( "proxy", jump ) == "proxy" ), "what the user asked is what is done" );
 
   const SshConfig alias = read_ssh_config( "hostname m.example.org\n" );
-  check( "a meetup named by an alias is reached at the alias's HostName", meetup_address( "mymeetup:3478", alias ) == "m.example.org:3478",
-         meetup_address( "mymeetup:3478", alias ) );
+  FACT_CHECK( meetup_address( "mymeetup:3478", alias ) == "m.example.org:3478", "a meetup named by an alias is reached at the alias's HostName" << ": " << ( meetup_address( "mymeetup:3478", alias ) ) );
   const SshConfig six = read_ssh_config( "hostname 2001:db8::9\n" );
-  check( "an IPv6 HostName, bracketed", meetup_address( "m6:3478", six ) == "[2001:db8::9]:3478", meetup_address( "m6:3478", six ) );
-  check( "as given when the config says nothing", meetup_address( "m:3478", SshConfig() ) == "m:3478" );
-
-  if ( failures ) {
-    printf( "FAIL REQ19/CMD-5: %d checks failed\n", failures );
-    return EXIT_FAILURE;
-  }
-  printf( "PASS REQ19/CMD-5: the user's ssh config, read and followed\n" );
-  return EXIT_SUCCESS;
+  FACT_CHECK( meetup_address( "m6:3478", six ) == "[2001:db8::9]:3478", "an IPv6 HostName, bracketed" << ": " << ( meetup_address( "m6:3478", six ) ) );
+  FACT_CHECK( meetup_address( "m:3478", SshConfig() ) == "m:3478", "as given when the config says nothing" );
 }
+
+FACTS_REGISTER_ALL()
+{
+  FACTS_REGISTER( Sshconfig );
+}
+
+FACTS_MAIN

@@ -13,12 +13,17 @@ libgoshcopy_a_SOURCES = filecopy.cc filecopy.h options.h messages.h names.h chec
 check_PROGRAMS = options-test messages-test names-test checksum-test decisions-test filecopy-test filecopy-fuzzer sender-fuzzer
 TESTS = $(check_PROGRAMS)
 options_test_SOURCES = options-test.cc
+options_test_LDADD = libfacts.a
 messages_test_SOURCES = messages-test.cc
+messages_test_LDADD = libfacts.a
 names_test_SOURCES = names-test.cc
+names_test_LDADD = libfacts.a
 checksum_test_SOURCES = checksum-test.cc
+checksum_test_LDADD = libfacts.a
 decisions_test_SOURCES = decisions-test.cc
+decisions_test_LDADD = libfacts.a
 filecopy_test_SOURCES = filecopy-test.cc
-filecopy_test_LDADD = libgoshcopy.a
+filecopy_test_LDADD = libfacts.a libgoshcopy.a
 
 # Fuzzers (queue item 21): each is built twice. Here, with the ordinary compiler, it replays its
 # corpus (the directory beside it named for it, with -corpus after), so an input that once broke
@@ -27,3 +32,11 @@ filecopy_fuzzer_SOURCES = filecopy-fuzzer.cc
 filecopy_fuzzer_LDADD = libgoshcopy.a
 sender_fuzzer_SOURCES = sender-fuzzer.cc
 sender_fuzzer_LDADD = libgoshcopy.a
+
+AUTOMAKE_OPTIONS = subdir-objects
+
+# The testing library (vendor/facts/README.md), built here for the tests alone, without gosh's
+# warning flags: it is not gosh's code. (subdir-objects: its source is outside this directory.)
+check_LIBRARIES = libfacts.a
+libfacts_a_SOURCES = ../../vendor/facts/facts.cpp
+libfacts_a_CXXFLAGS =

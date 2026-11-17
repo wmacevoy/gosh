@@ -21,7 +21,7 @@ libgoshforwarding_a_SOURCES = forwarding.h forward.cc forward.h frame.cc frame.h
 check_PROGRAMS = tcp/bytes-test tcp/options-test tcp/held-test tcp/early-test tcp/timer-test tcp/connection-test tcp/tcpforward-test tcp/tcpinudp-test udp/sending-test udp/receiving-test udp/conversations-test udp/udpforward-test stream/stream-test \
   frame-fuzzer tcp/tcpinudp-fuzzer tcp/tcpadapter-fuzzer udp/udpforward-fuzzer
 TESTS = $(check_PROGRAMS)
-LDADD = libgoshforwarding.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+LDADD = libfacts.a libgoshforwarding.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 tcp_bytes_test_SOURCES = tcp/bytes-test.cc
 tcp_options_test_SOURCES = tcp/options-test.cc
 tcp_held_test_SOURCES = tcp/held-test.cc
@@ -43,3 +43,9 @@ frame_fuzzer_SOURCES = frame-fuzzer.cc
 tcp_tcpinudp_fuzzer_SOURCES = tcp/tcpinudp-fuzzer.cc
 tcp_tcpadapter_fuzzer_SOURCES = tcp/tcpadapter-fuzzer.cc
 udp_udpforward_fuzzer_SOURCES = udp/udpforward-fuzzer.cc
+
+# The testing library (vendor/facts/README.md), built here for the tests alone, without gosh's
+# warning flags: it is not gosh's code. (subdir-objects: its source is outside this directory.)
+check_LIBRARIES = libfacts.a
+libfacts_a_SOURCES = ../../vendor/facts/facts.cpp
+libfacts_a_CXXFLAGS =

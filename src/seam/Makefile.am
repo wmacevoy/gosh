@@ -14,4 +14,12 @@ libgoshservermain_a_SOURCES = server-main.cc
 check_PROGRAMS = options-test
 TESTS = $(check_PROGRAMS)
 options_test_SOURCES = options-test.cc
-options_test_LDADD = libgoshseam.a
+options_test_LDADD = libfacts.a libgoshseam.a
+
+AUTOMAKE_OPTIONS = subdir-objects
+
+# The testing library (vendor/facts/README.md), built here for the tests alone, without gosh's
+# warning flags: it is not gosh's code. (subdir-objects: its source is outside this directory.)
+check_LIBRARIES = libfacts.a
+libfacts_a_SOURCES = ../../vendor/facts/facts.cpp
+libfacts_a_CXXFLAGS =

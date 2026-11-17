@@ -11,16 +11,9 @@
 #include <vector>
 
 #include "src/copy/options.h"
+#include "vendor/facts/facts.h"
 
-static int failures = 0;
 
-static void check( const char* what, bool ok )
-{
-  printf( "%-92s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
 
 static bool parsed( const std::string& line, FileCopy::Options& o )
 {
@@ -33,34 +26,29 @@ static bool parsed( const std::string& line, FileCopy::Options& o )
   o = FileCopy::Options();
   return FileCopy::parse( words, o );
 }
-
-int main()
+/* REQ1/CP-1, REQ1/CP-5: the options */
+FACTS( Options )
 {
   FileCopy::Options o;
-  check( "a sender of two sources (REQ1/CP-1)",
-         parsed( "send -- a b", o ) && o.sender && o.paths.size() == 2 && o.paths[1] == "b" && !o.recursive );
-  check( "a receiver of one destination", parsed( "receive -- d", o ) && !o.sender && o.paths.size() == 1 );
-  check( "each flag (REQ1/CP-5: --auto, --delete, --interval)",
-         parsed( "send -r --auto --delete --glob -q --interval=250 -- a", o ) && o.recursive && o.automatic
-           && o.remove && o.glob && o.quiet && o.interval == 250 );
-  check( "unset, they are off, and the interval is 2 s",
-         parsed( "send -- a", o ) && !o.automatic && !o.remove && !o.glob && !o.quiet && o.interval == 2000 );
-  check( "a path that looks like a flag, after \"--\", is a path",
-         parsed( "send -- -r", o ) && o.paths.size() == 1 && o.paths[0] == "-r" && !o.recursive );
+  FACT_CHECK( ( parsed( "send -- a b", o ) && o.sender && o.paths.size() == 2 && o.paths[1] == "b" && !o.recursive ), "a sender of two sources (REQ1/CP-1)" );
+  FACT_CHECK( ( parsed( "receive -- d", o ) && !o.sender && o.paths.size() == 1 ), "a receiver of one destination" );
+  FACT_CHECK( ( parsed( "send -r --auto --delete --glob -q --interval=250 -- a", o ) && o.recursive && o.automatic
+           && o.remove && o.glob && o.quiet && o.interval == 250 ), "each flag (REQ1/CP-5: --auto, --delete, --interval)" );
+  FACT_CHECK( ( parsed( "send -- a", o ) && !o.automatic && !o.remove && !o.glob && !o.quiet && o.interval == 2000 ), "unset, they are off, and the interval is 2 s" );
+  FACT_CHECK( ( parsed( "send -- -r", o ) && o.paths.size() == 1 && o.paths[0] == "-r" && !o.recursive ), "a path that looks like a flag, after \"--\", is a path" );
 
-  check( "refused: neither send nor receive", !parsed( "copy -- a", o ) && !parsed( "", o ) );
-  check( "refused: a word it does not know", !parsed( "send -x -- a", o ) );
-  check( "refused: no \"--\"", !parsed( "send a", o ) && !parsed( "send -r", o ) && !parsed( "receive", o ) );
-  check( "refused: a sender with nothing to send", !parsed( "send --", o ) );
-  check( "refused: a receiver with none, or two, destinations", !parsed( "receive --", o ) && !parsed( "receive -- a b", o ) );
-  check( "refused: an interval under 100 ms, or not a number",
-         !parsed( "send --interval=99 -- a", o ) && !parsed( "send --interval=x -- a", o ) );
-  check( "100 ms is allowed", parsed( "send --interval=100 -- a", o ) && o.interval == 100 );
-
-  if ( failures ) {
-    printf( "FAIL REQ1/CP-1, REQ1/CP-5: %d checks of the options failed\n", failures );
-    return 1;
-  }
-  printf( "PASS REQ1/CP-1, REQ1/CP-5: the options\n" );
-  return 0;
+  FACT_CHECK( ( !parsed( "copy -- a", o ) && !parsed( "", o ) ), "refused: neither send nor receive" );
+  FACT_CHECK( !parsed( "send -x -- a", o ), "refused: a word it does not know" );
+  FACT_CHECK( ( !parsed( "send a", o ) && !parsed( "send -r", o ) && !parsed( "receive", o ) ), "refused: no \"--\"" );
+  FACT_CHECK( !parsed( "send --", o ), "refused: a sender with nothing to send" );
+  FACT_CHECK( ( !parsed( "receive --", o ) && !parsed( "receive -- a b", o ) ), "refused: a receiver with none, or two, destinations" );
+  FACT_CHECK( ( !parsed( "send --interval=99 -- a", o ) && !parsed( "send --interval=x -- a", o ) ), "refused: an interval under 100 ms, or not a number" );
+  FACT_CHECK( ( parsed( "send --interval=100 -- a", o ) && o.interval == 100 ), "100 ms is allowed" );
 }
+
+FACTS_REGISTER_ALL()
+{
+  FACTS_REGISTER( Options );
+}
+
+FACTS_MAIN

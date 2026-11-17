@@ -13,16 +13,9 @@
 #include <vector>
 
 #include "src/copy/messages.h"
+#include "vendor/facts/facts.h"
 
-static int failures = 0;
 
-static void check( const char* what, bool ok )
-{
-  printf( "%-92s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
 
 static std::string bytes( const char* s, size_t n )
 {
@@ -51,32 +44,30 @@ static void read_short_result( void )
   std::string why;
   FileCopy::read_result( bytes( "\0\0\0\1\1\0\0\0\5ab", 11 ), i, ok, why );
 }
-
-int main()
+/* REQ1/CP-1, REQ1/CP-6: the messages of mocp-1 */
+FACTS( Messages )
 {
   using namespace FileCopy;
 
-  check( "the magic is \"mocp-1\", and the types are 1 to 13 in pf.7's order",
-         std::string( MAGIC ) == "mocp-1" && HELLO == 1 && LIST == 2 && WANT == 4 && FILE_BEGIN == 6 && DATA == 7
-           && FILE_END == 8 && RESULT == 9 && NOTE == 12 && BYE == 13 );
+  FACT_CHECK( ( std::string( MAGIC ) == "mocp-1" && HELLO == 1 && LIST == 2 && WANT == 4 && FILE_BEGIN == 6 && DATA == 7
+           && FILE_END == 8 && RESULT == 9 && NOTE == 12 && BYE == 13 ), "the magic is \"mocp-1\", and the types are 1 to 13 in pf.7's order" );
 
   std::string out;
   frame( out, DATA, "xyz" );
-  check( "on the stream: the type, a 4-byte length, the body (REQ1/CP-1)", out == bytes( "\7\0\0\0\3xyz", 8 ) );
+  FACT_CHECK( out == bytes( "\7\0\0\0\3xyz", 8 ), "on the stream: the type, a 4-byte length, the body (REQ1/CP-1)" );
   frame( out, BYE, "" );
   uint8_t type = 0;
   std::string body;
-  check( "two in a row come off one at a time",
-         unframe( out, type, body ) && type == DATA && body == "xyz" && unframe( out, type, body ) && type == BYE
-           && body.empty() && out.empty() );
+  FACT_CHECK( ( unframe( out, type, body ) && type == DATA && body == "xyz" && unframe( out, type, body ) && type == BYE
+           && body.empty() && out.empty() ), "two in a row come off one at a time" );
   std::string partial = bytes( "\7\0\0\0\3xy", 7 );
-  check( "one not yet whole stays where it is", !unframe( partial, type, body ) && partial.size() == 7 );
+  FACT_CHECK( ( !unframe( partial, type, body ) && partial.size() == 7 ), "one not yet whole stays where it is" );
   std::string four = bytes( "\7\0\0\0", 4 );
-  check( "nor is a header of four bytes read", !unframe( four, type, body ) );
+  FACT_CHECK( !unframe( four, type, body ), "nor is a header of four bytes read" );
   std::string huge = bytes( "\7\0\x10\0\1", 5 ); /* 1 MB and one byte */
-  check( "a length over 1 MB is Malformed at once", malformed( [&] { unframe( huge, type, body ); } ) );
+  FACT_CHECK( malformed( [&] { unframe( huge, type, body ); } ), "a length over 1 MB is Malformed at once" );
   std::string most = bytes( "\7\0\x10\0\0", 5 ); /* exactly 1 MB: waits for the rest */
-  check( "exactly 1 MB is allowed, and waits for its bytes", !unframe( most, type, body ) );
+  FACT_CHECK( !unframe( most, type, body ), "exactly 1 MB is allowed, and waits for its bytes" );
 
   Entry e;
   e.kind = 'F';
@@ -89,30 +80,28 @@ int main()
   e.source = "/not/sent";
   std::string list;
   put_listed( list, e );
-  check( "a listed entry: kind, force, name, size, time, mode; and not the sender's own fields",
-         list
-           == bytes( "F\1\0\0\0\3a/b\1\2\3\4\5\6\7\x8\x11\x22\x33\x44\x55\x66\x77\x88\0\0\1\xa4", 2 + 4 + 3 + 8 + 8 + 4 ) );
+  FACT_CHECK( list
+           == bytes( "F\1\0\0\0\3a/b\1\2\3\4\5\6\7\x8\x11\x22\x33\x44\x55\x66\x77\x88\0\0\1\xa4", 2 + 4 + 3 + 8 + 8 + 4 ), "a listed entry: kind, force, name, size, time, mode; and not the sender's own fields" );
   Entry d;
   d.kind = 'D';
   d.path = "a";
   d.mode = 0755;
   put_listed( list, d );
   const std::vector<Entry> back = read_list( list );
-  check( "a LIST of two reads back to both",
-         back.size() == 2 && back[0].kind == 'F' && back[0].force && back[0].path == "a/b" && back[0].size == e.size
+  FACT_CHECK( ( back.size() == 2 && back[0].kind == 'F' && back[0].force && back[0].path == "a/b" && back[0].size == e.size
            && back[0].mtime == e.mtime && back[0].mode == 0644 && back[1].kind == 'D' && back[1].path == "a"
-           && back[1].source.empty() );
+           && back[1].source.empty() ), "a LIST of two reads back to both" );
   std::string mode_high;
   e.mode = 0104755; /* more than the permissions */
   put_listed( mode_high, e );
-  check( "a mode read keeps only the permissions", read_list( mode_high )[0].mode == 0755 );
+  FACT_CHECK( read_list( mode_high )[0].mode == 0755, "a mode read keeps only the permissions" );
   e.mode = 0644;
 
   Entry bad = e;
   bad.kind = 'L';
   std::string other_kind;
   put_listed( other_kind, bad );
-  check( "a kind that is none of F, D, X: Malformed", malformed( [&] { read_list( other_kind ); } ) );
+  FACT_CHECK( malformed( [&] { read_list( other_kind ); } ), "a kind that is none of F, D, X: Malformed" );
   const char* unsafe[] = { "../x", "/etc/passwd", "a/../../b", "", "a//b" };
   bool all_refused = true;
   for ( size_t i = 0; i < sizeof( unsafe ) / sizeof( unsafe[0] ); i++ ) {
@@ -122,11 +111,11 @@ int main()
     put_listed( m, bad );
     all_refused = all_refused && malformed( [&] { read_list( m ); } );
   }
-  check( "a listed name that would land outside the destination: Malformed (REQ1/CP-6)", all_refused );
+  FACT_CHECK( all_refused, "a listed name that would land outside the destination: Malformed (REQ1/CP-6)" );
   std::string cut = list.substr( 0, list.size() - 1 );
-  check( "a LIST that runs short: Malformed", malformed( [&] { read_list( cut ); } ) );
+  FACT_CHECK( malformed( [&] { read_list( cut ); } ), "a LIST that runs short: Malformed" );
   std::string long_name = bytes( "F\0\xff\xff\xff\xff", 6 );
-  check( "a name longer than what is left: Malformed", malformed( [&] { read_list( long_name ); } ) );
+  FACT_CHECK( malformed( [&] { read_list( long_name ); } ), "a name longer than what is left: Malformed" );
 
   Want w;
   w.index = 7;
@@ -134,43 +123,40 @@ int main()
   w.prefix.a = 1;
   w.prefix.b = 2;
   const std::string wb = want_body( w );
-  check( "WANT: index, offset, and the checksum's two halves (28 bytes)",
-         wb.size() == 28 && wb.substr( 0, 4 ) == bytes( "\0\0\0\7", 4 ) && wb.substr( 4, 8 ) == bytes( "\0\0\0\0\0\1\xe2\x40", 8 ) );
+  FACT_CHECK( ( wb.size() == 28 && wb.substr( 0, 4 ) == bytes( "\0\0\0\7", 4 ) && wb.substr( 4, 8 ) == bytes( "\0\0\0\0\0\1\xe2\x40", 8 ) ), "WANT: index, offset, and the checksum's two halves (28 bytes)" );
   const Want wr = read_want( wb );
-  check( "and reads back", wr.index == 7 && wr.offset == 123456 && wr.prefix.a == 1 && wr.prefix.b == 2 );
-  check( "a WANT that runs short: Malformed", malformed( read_short_want ) );
+  FACT_CHECK( ( wr.index == 7 && wr.offset == 123456 && wr.prefix.a == 1 && wr.prefix.b == 2 ), "and reads back" );
+  FACT_CHECK( malformed( read_short_want ), "a WANT that runs short: Malformed" );
 
   uint32_t index = 0;
   uint64_t offset = 0;
   read_begin( begin_body( 3, 99 ), index, offset );
-  check( "FILE_BEGIN: index and offset, 12 bytes", begin_body( 3, 99 ).size() == 12 && index == 3 && offset == 99 );
+  FACT_CHECK( ( begin_body( 3, 99 ).size() == 12 && index == 3 && offset == 99 ), "FILE_BEGIN: index and offset, 12 bytes" );
 
   bool ok = false;
   Hash h;
   Hash sent;
   sent.add( "x", 1 );
   read_end( end_body( true, sent ), ok, h );
-  check( "FILE_END: whether it was read whole, and the checksum, 17 bytes",
-         end_body( true, sent ).size() == 17 && end_body( true, sent )[0] == 1 && ok && h == sent );
+  FACT_CHECK( ( end_body( true, sent ).size() == 17 && end_body( true, sent )[0] == 1 && ok && h == sent ), "FILE_END: whether it was read whole, and the checksum, 17 bytes" );
 
   std::string why;
   read_result( result_body( 5, false, "no room" ), index, ok, why );
-  check( "RESULT: index, whether it took its name, why",
-         result_body( 5, false, "no room" ) == bytes( "\0\0\0\5\0\0\0\0\7no room", 16 ) && index == 5 && !ok
-           && why == "no room" );
-  check( "a RESULT whose reason runs short: Malformed", malformed( read_short_result ) );
+  FACT_CHECK( ( result_body( 5, false, "no room" ) == bytes( "\0\0\0\5\0\0\0\0\7no room", 16 ) && index == 5 && !ok
+           && why == "no room" ), "RESULT: index, whether it took its name, why" );
+  FACT_CHECK( malformed( read_short_result ), "a RESULT whose reason runs short: Malformed" );
 
   bool error = false;
   std::string text;
   read_note( note_body( true, "hi" ), error, text );
-  check( "NOTE: whether it is an error, and the text", note_body( true, "hi" ) == bytes( "\1\0\0\0\2hi", 7 ) && error && text == "hi" );
-  check( "a flag: one byte, either way", flag_body( true ) == "\1" && !read_flag( flag_body( false ) ) );
-  check( "a flag that is not there: Malformed", malformed( [] { read_flag( "" ); } ) );
-
-  if ( failures ) {
-    printf( "FAIL REQ1/CP-1, REQ1/CP-6: %d checks of the messages failed\n", failures );
-    return 1;
-  }
-  printf( "PASS REQ1/CP-1, REQ1/CP-6: the messages of mocp-1\n" );
-  return 0;
+  FACT_CHECK( ( note_body( true, "hi" ) == bytes( "\1\0\0\0\2hi", 7 ) && error && text == "hi" ), "NOTE: whether it is an error, and the text" );
+  FACT_CHECK( ( flag_body( true ) == "\1" && !read_flag( flag_body( false ) ) ), "a flag: one byte, either way" );
+  FACT_CHECK( malformed( [] { read_flag( "" ); } ), "a flag that is not there: Malformed" );
 }
+
+FACTS_REGISTER_ALL()
+{
+  FACTS_REGISTER( Messages );
+}
+
+FACTS_MAIN
