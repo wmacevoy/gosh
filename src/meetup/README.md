@@ -104,8 +104,10 @@ a recorded PASS. Now, in version 2 of the messages:
 **Not closed:** a meetup just started remembers nothing, so for its first minute it takes again a
 REGISTER copied in the minute before it started, and after it the PASSes copied with it. Closing
 it would need the meetup to write down when it was last running and refuse REGISTERs for a minute
-after a start that follows soon after one; it was left for the owner (a minute's outage after each
-quick restart, a file kept, and two meetups sharing a home making each other wait).
+after a start that follows soon after one (a minute's outage after each quick restart, a file kept,
+and two meetups sharing a home making each other wait). Left open by the owner, 2026-11-17: "leave
+it open". What it needs: the end's datagrams seen in the minute before a restart the attacker
+cannot cause, and its address to send from; what it gains: sealed datagrams passed a second time.
 `registrations-test` shows it, so that closing it shows too.
 
 Seen red: `registrations-test` with each of the four guards broken; `finding-test` with an end
