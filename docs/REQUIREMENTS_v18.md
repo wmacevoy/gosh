@@ -30,7 +30,8 @@ requirement."; and, after the three were argued again the same day, "ok do all t
 2026-11-17: "accept v17".** v18 is the client's decision of 2026-11-17 on the meetup's replay
 after it lets a ticket go: "yes, go ahead with the clock", and then "actually allow both ---
 this is the problem with nts --- you need to know what time it is to set your clock. this version
-already has it if the refusal contains the servers roughtime." **Not yet accepted.**
+already has it if the refusal contains the servers roughtime." **Accepted by the client on
+2026-11-17: "accept v18".**
 
 **What changed from v17.**
 
