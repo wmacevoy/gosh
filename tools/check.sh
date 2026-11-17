@@ -121,7 +121,7 @@ gosh=.build/bin
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" forward-e2e.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" outage.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py
-# The relay (REQ1/PATH-1, REQ1/PATH-2), path-finding (REQ1/PATH-3), and the meetup's ticket (REQ15/PATH-4, REQ15/PATH-5).
+# The relay (REQ1/PATH-1, REQ1/PATH-2), path-finding (REQ1/PATH-3), and the meetup's ticket (REQ15/PATH-4, REQ18/PATH-5).
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 always
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 punched
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-meetup.py
@@ -139,7 +139,7 @@ fi
 # (gosh only: pf.7 fails these two, which are the faults they were written to show. FINDINGS, 2026-11-13 to 15)
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-spoof.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" relay-dies.py
-# The meetup, as a process (REQ15/PATH-4, REQ15/PATH-5): gosh's alone, since pf.7's has no tickets. (It takes the server alone.)
+# The meetup, as a process (REQ15/PATH-4, REQ18/PATH-5): gosh's alone, since pf.7's has no tickets. (It takes the server alone.)
 if python3 tests/meetup-tickets.py "$gosh/gosh-server" >.build/gosh-test.log 2>&1; then
     grep "^SKIPPED" .build/gosh-test.log || true
     echo "$gosh/gosh-server passes meetup-tickets.py"
