@@ -34,7 +34,7 @@ already has it if the refusal contains the servers roughtime." **Accepted by the
 2026-11-17: "accept v18".** v19 is the client's decisions of the same day on ssh, drafted by the
 agent: "yes, do 1-3" (the fix, the design, this draft), after "that seems amazingly useful ...
 worth unfreezing for" (`-W`) and "if we decided to own ssh, then we would want to know what it
-does for the transport". **Not yet accepted.**
+does for the transport". **Accepted by the client on 2026-11-17: "accept v19".**
 
 **What changed from v18.**
 
