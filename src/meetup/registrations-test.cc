@@ -2,29 +2,29 @@
 
 /*
  * REQ18/PATH-5: what a meetup does with REGISTER and PASS (registrations.h), with the real
- * cipher. The first half is the meetup working for the two ends of a ticket. The second is the
- * fork's replay (the old passing-test.cc, test_replay) turned round: each thing an onlooker with
- * a copied datagram could do there is shown refused here.
+ * cipher. The first group is the meetup working for the two ends of a ticket, then the fork's
+ * replay (the old passing-test.cc, test_replay) turned round: each thing an onlooker with a copied
+ * datagram could do there is shown refused. REQ17/PATH-8: one end by IPv6.
+ *
+ * Written with facts (vendor/facts/README.md), the trial of 2026-11-17: each fact's note is what
+ * it shows, printed with both values when it is false. Run with --facts_plain to read it.
  */
 
-#include <cstdio>
 #include <string>
 
 #include "src/meetup/registrations.h"
+#include "vendor/facts/facts.h"
 
-static int failures = 0;
-
-static void check( const char* what, bool ok )
-{
-  printf( "%-92s %s\n", what, ok ? "ok" : "FAIL" );
-  if ( !ok ) {
-    failures++;
-  }
-}
+using namespace Gosh;
 
 namespace {
 const std::string MASTER( "0123456789abcdef" );
+const uint64_t now = 500000;
+const std::string laptop = meetup_where_v4( 0x0A000001, 40000 );
+const std::string desktop = meetup_where_v4( 0xC0A80001, 50000 );
+const std::string onlooker = meetup_where_v4( 0x01020304, 6666 );
 
+/* The meetup's way to a ticket's key, counting how often it is asked. */
 struct KeyOf
 {
   int* asked;
@@ -55,225 +55,224 @@ struct End
   }
   std::string pass( const std::string& d ) { return Gosh::meetup_seal( session, Gosh::MEETUP_PASS, ticket.id, end, false, counter++, d ); }
 };
+
+/* What the meetup does with a datagram, as one call. */
+Registrations::Send to( Registrations& m, const std::string& bytes, const std::string& from, uint64_t at, const KeyOf& key_of )
+{
+  return m.datagram( bytes.data(), bytes.size(), from, at, key_of );
 }
 
-int main()
+/* The kind of what the meetup sent, or -1 if it is not one of its messages. */
+int kind_of( const Registrations::Send& s )
 {
-  using namespace Gosh;
+  MeetupHeader h;
+  return meetup_read_header( s.bytes.data(), s.bytes.size(), h ) ? h.kind : -1;
+}
+}
+
+/* REQ18/PATH-5: a ticket's two ends, and the replay turned round. */
+FACTS( TwoEndsAndTheReplay )
+{
   int asked = 0;
   const KeyOf key_of = { &asked };
-  const uint64_t now = 500000;
   const Ticket t = make_ticket( MASTER, "random!!", now + TICKET_LIFE );
-  const std::string laptop = meetup_where_v4( 0x0A000001, 40000 );
-  const std::string desktop = meetup_where_v4( 0xC0A80001, 50000 );
-  const std::string onlooker = meetup_where_v4( 0x01020304, 6666 );
   End a( t, 0, laptop );
   End b( t, 1, desktop );
 
   Registrations m( now - 1000 );
-  std::string bytes = a.reg( now );
-  Registrations::Send s = m.datagram( bytes.data(), bytes.size(), laptop, now, key_of );
-  check( "end 0 registers: answered REGISTERED, to where it is", s.any && s.to == laptop && s.bytes.size() == 70 );
+  Registrations::Send s = to( m, a.reg( now ), laptop, now, key_of );
+  FACT( s.any, "end 0 registers: answered" );
+  FACT( s.to == laptop, "REGISTERED goes to where end 0 is" );
+  FACT( s.bytes.size() == 70u, "REGISTERED is 70 bytes" );
   MeetupHeader h;
   uint64_t counter;
   std::string seen;
-  check( "which end 0 opens, sealed by the meetup, saying where it was seen",
-         meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == MEETUP_REGISTERED
-           && meetup_open( a.session, h, true, counter, seen ) && seen == laptop );
-  check( "the ticket is held, its key computed once", m.ticket_count() == 1 && asked == 1 );
+  FACT( kind_of( s ) == MEETUP_REGISTERED );
+  meetup_read_header( s.bytes.data(), s.bytes.size(), h );
+  FACT( meetup_open( a.session, h, true, counter, seen ), "end 0 opens it: sealed by the meetup" );
+  FACT( seen == laptop, "saying where end 0 was seen" );
+  FACT( m.ticket_count() == 1u, "the ticket is held" );
+  FACT( asked == 1, "its key computed once" );
 
-  bytes = a.pass( "hello" );
-  check( "with the other end not registered, nothing is passed", !m.datagram( bytes.data(), bytes.size(), laptop, now, key_of ).any );
+  FACT( !to( m, a.pass( "hello" ), laptop, now, key_of ).any, "with the other end not registered, nothing is passed" );
 
-  bytes = b.reg( now );
-  check( "end 1 registers", m.datagram( bytes.data(), bytes.size(), desktop, now, key_of ).any );
-  check( "and its key is not computed again", asked == 1 );
+  FACT( to( m, b.reg( now ), desktop, now, key_of ).any, "end 1 registers" );
+  FACT( asked == 1, "and its key is not computed again" );
 
-  bytes = a.pass( "hello" );
-  const std::string copied_pass = bytes;
-  s = m.datagram( bytes.data(), bytes.size(), laptop, now, key_of );
-  check( "end 0's datagram goes to end 1, where it registered, as PASSED",
-         s.any && s.to == desktop && s.bytes == meetup_passed( "hello" ) );
-  bytes = b.pass( "and back" );
-  s = m.datagram( bytes.data(), bytes.size(), desktop, now + 1, key_of );
-  check( "and end 1's to end 0", s.any && s.to == laptop && s.bytes == meetup_passed( "and back" ) );
+  const std::string copied_pass = a.pass( "hello" );
+  s = to( m, copied_pass, laptop, now, key_of );
+  FACT( s.to == desktop, "end 0's datagram goes to end 1, where it registered" );
+  FACT( s.bytes == meetup_passed( "hello" ), "as PASSED" );
+  s = to( m, b.pass( "and back" ), desktop, now + 1, key_of );
+  FACT( s.to == laptop, "and end 1's to end 0" );
+  FACT( s.bytes == meetup_passed( "and back" ) );
 
   /* The replay, turned round. */
   const std::string copied_reg = a.reg( now + 2 ); /* copied on its way, and held back from the meetup */
-  check( "a copied REGISTER, sent from elsewhere before the real one arrives, is refused",
-         !m.datagram( copied_reg.data(), copied_reg.size(), onlooker, now + 2, key_of ).any );
-  check( "and the real one, arriving after, is taken",
-         m.datagram( copied_reg.data(), copied_reg.size(), laptop, now + 2, key_of ).any );
-  bytes = b.pass( "still yours" );
-  s = m.datagram( bytes.data(), bytes.size(), desktop, now + 3, key_of );
-  check( "and end 0 is still where it was: end 1's datagrams still go to it", s.any && s.to == laptop );
-  check( "the same REGISTER sent again from the same place changes nothing",
-         !m.datagram( copied_reg.data(), copied_reg.size(), laptop, now + 4, key_of ).any );
-  check( "a copied PASS sent again is not passed a second time",
-         !m.datagram( copied_pass.data(), copied_pass.size(), laptop, now + 4, key_of ).any );
-  bytes = a.pass( "from elsewhere" );
-  check( "a PASS from anywhere but where its end registered is not passed",
-         !m.datagram( bytes.data(), bytes.size(), onlooker, now + 4, key_of ).any );
+  FACT( !to( m, copied_reg, onlooker, now + 2, key_of ).any, "a copied REGISTER, sent from elsewhere before the real one arrives, is refused" );
+  FACT( to( m, copied_reg, laptop, now + 2, key_of ).any, "and the real one, arriving after, is taken" );
+  s = to( m, b.pass( "still yours" ), desktop, now + 3, key_of );
+  FACT( s.to == laptop, "and end 0 is still where it was: end 1's datagrams still go to it" );
+  FACT( !to( m, copied_reg, laptop, now + 4, key_of ).any, "the same REGISTER sent again from the same place changes nothing" );
+  FACT( !to( m, copied_pass, laptop, now + 4, key_of ).any, "a copied PASS sent again is not passed a second time" );
+  FACT( !to( m, a.pass( "from elsewhere" ), onlooker, now + 4, key_of ).any, "a PASS from anywhere but where its end registered is not passed" );
   End thief( t, 0, onlooker, "not the key 16by" );
-  bytes = thief.reg( now + 4 );
-  check( "a REGISTER for the ticket, sealed without its key, is refused",
-         !m.datagram( bytes.data(), bytes.size(), onlooker, now + 4, key_of ).any );
+  FACT( !to( m, thief.reg( now + 4 ), onlooker, now + 4, key_of ).any, "a REGISTER for the ticket, sealed without its key, is refused" );
 
-  asked = 0;
   const Ticket stranger = make_ticket( "not our master!!", "random!!", now + TICKET_LIFE );
   End x( stranger, 0, onlooker );
-  bytes = x.reg( now + 5 );
-  check( "a ticket made under another master key is refused", !m.datagram( bytes.data(), bytes.size(), onlooker, now + 5, key_of ).any );
-  check( "and not held", m.ticket_count() == 1 );
+  FACT( !to( m, x.reg( now + 5 ), onlooker, now + 5, key_of ).any, "a ticket made under another master key is refused" );
+  FACT( m.ticket_count() == 1u, "and not held" );
   asked = 0;
-  bytes = x.pass( "anything" );
-  check( "a PASS for a ticket not held is dropped without a key computed",
-         !m.datagram( bytes.data(), bytes.size(), onlooker, now + 5, key_of ).any && asked == 0 );
+  FACT( !to( m, x.pass( "anything" ), onlooker, now + 5, key_of ).any, "a PASS for a ticket not held is dropped" );
+  FACT( asked == 0, "without a key computed" );
 
-  const Ticket old = make_ticket( MASTER, "oldtickt", now );
-  End o( old, 0, laptop );
-  bytes = o.reg( now );
-  check( "a ticket past its time is refused", !m.datagram( bytes.data(), bytes.size(), laptop, now, key_of ).any );
+  End o( make_ticket( MASTER, "oldtickt", now ), 0, laptop );
+  const std::string old_reg = o.reg( now );
+  FACT( !to( m, old_reg, laptop, now, key_of ).any, "a ticket past its time is refused" );
 
-  check( "junk, and what is not one of the messages, is dropped",
-         !m.datagram( "hello", 5, onlooker, now, key_of ).any && !m.datagram( bytes.data(), 77, laptop, now, key_of ).any );
+  FACT( !m.datagram( "hello", 5, onlooker, now, key_of ).any, "junk is dropped" );
+  FACT( !m.datagram( old_reg.data(), 77, laptop, now, key_of ).any, "and what is not one of the messages" );
 
   /* Late. */
   const uint64_t later = now + 4 + Registrations::END_IDLE + 1; /* end 1 last registered at now + 3 */
-  bytes = a.reg( now + 100 );
-  m.datagram( bytes.data(), bytes.size(), laptop, now + 100, key_of );
-  bytes = a.pass( "after a long quiet" );
-  check( "an end not registered again for two minutes is not passed to",
-         !m.datagram( bytes.data(), bytes.size(), laptop, later, key_of ).any );
-  bytes = b.reg( now + 10 * Registrations::END_IDLE );
-  check( "when both have gone quiet the ticket is let go, and taken again on registering",
-         m.datagram( bytes.data(), bytes.size(), desktop, now + 10 * Registrations::END_IDLE, key_of ).any
-           && m.ticket_count() == 1 );
-
-  /* REQ17/PATH-8: one end by IPv6, the other by IPv4, through one meetup that has both. */
-  {
-    Registrations both( now - 1000 );
-    const Ticket t6 = make_ticket( MASTER, "ipv6....", now + TICKET_LIFE );
-    unsigned char v6[16] = { 0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x09 };
-    const std::string home6 = meetup_where_v6( v6, 50000 );
-    End e6( t6, 1, home6 ), e4( t6, 0, laptop );
-    bytes = e6.reg( now );
-    check( "an end registers by IPv6 (REQ17/PATH-8)", both.datagram( bytes.data(), bytes.size(), home6, now, key_of ).any );
-    bytes = e4.reg( now );
-    both.datagram( bytes.data(), bytes.size(), laptop, now, key_of );
-    bytes = e4.pass( "to the IPv6 end" );
-    s = both.datagram( bytes.data(), bytes.size(), laptop, now, key_of );
-    check( "and what the IPv4 end sends goes to it, at its IPv6 address", s.any && s.to == home6 );
-    bytes = e6.pass( "back" );
-    s = both.datagram( bytes.data(), bytes.size(), home6, now, key_of );
-    check( "and the way back", s.any && s.to == laptop );
-  }
-
-  /* Full: no new ticket while every one held may still be replayed (REQ18/PATH-5). */
-  {
-    Registrations full( now - 1000 );
-    for ( size_t i = 0; i < Registrations::MAX_TICKETS; i++ ) {
-      std::string r( "quiet..." );
-      r[7] = static_cast<char>( i );
-      const std::string w = meetup_where_v4( 0x0B000000 + i, 2 );
-      End q( make_ticket( MASTER, r, now + TICKET_LIFE ), 0, w );
-      bytes = q.reg( now );
-      full.datagram( bytes.data(), bytes.size(), w, now, key_of );
-    }
-    check( "64 tickets held", full.ticket_count() == Registrations::MAX_TICKETS );
-    const std::string w = meetup_where_v4( 0x0C000001, 3 );
-    End late( make_ticket( MASTER, "late....", now + TICKET_LIFE ), 0, w );
-    bytes = late.reg( now + 2 );
-    check( "a 65th is not taken while every one held has registered within two minutes",
-           !full.datagram( bytes.data(), bytes.size(), w, now + 2, key_of ).any && full.ticket_count() == 64 );
-    const uint64_t quiet = now + Registrations::END_IDLE + 1;
-    bytes = late.reg( quiet );
-    check( "and is taken once they have gone quiet",
-           full.datagram( bytes.data(), bytes.size(), w, quiet, key_of ).any && full.ticket_count() == 1 );
-  }
-
-  /* REQ18/PATH-5: what was copied off the network is no use even after the meetup lets its ticket go. */
-  {
-    Registrations r( now - 1000 );
-    const Ticket t2 = make_ticket( MASTER, "forgets.", now + TICKET_LIFE );
-    End c( t2, 0, laptop ), d( t2, 1, desktop );
-    const std::string copied_c = c.reg( now );
-    s = r.datagram( copied_c.data(), copied_c.size(), laptop, now, key_of );
-    uint64_t first_sealed = 0;
-    std::string where_seen;
-    meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && meetup_open( c.session, h, true, first_sealed, where_seen );
-    bytes = d.reg( now );
-    r.datagram( bytes.data(), bytes.size(), desktop, now, key_of );
-    const std::string copied_p = c.pass( "once" );
-    check( "(a ticket held, both ends registered, a PASS passed)",
-           r.datagram( copied_p.data(), copied_p.size(), laptop, now, key_of ).any );
-
-    const uint64_t gone = now + Registrations::END_IDLE + 1;
-    s = r.datagram( copied_c.data(), copied_c.size(), laptop, gone, key_of );
-    check( "once the ticket is let go, the copied REGISTER is not taken again",
-           r.ticket_count() == 0 && ( !s.any || ( meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == MEETUP_TIME ) ) );
-    check( "and the copied PASS is not passed", !r.datagram( copied_p.data(), copied_p.size(), laptop, gone, key_of ).any );
-
-    bytes = c.reg( gone );
-    s = r.datagram( bytes.data(), bytes.size(), laptop, gone, key_of );
-    uint64_t again_sealed = 0;
-    check( "the end itself registers again, and is taken",
-           s.any && meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == MEETUP_REGISTERED
-             && meetup_open( c.session, h, true, again_sealed, where_seen ) );
-    check( "and what the meetup seals for the ticket taken again is not numbered as before (a nonce once only)",
-           again_sealed > first_sealed );
-    bytes = d.reg( gone );
-    r.datagram( bytes.data(), bytes.size(), desktop, gone, key_of );
-    check( "a PASS sealed before that REGISTER is not passed, though the ticket is held afresh",
-           !r.datagram( copied_p.data(), copied_p.size(), laptop, gone, key_of ).any );
-    bytes = c.pass( "new" );
-    check( "while a new one is", r.datagram( bytes.data(), bytes.size(), laptop, gone, key_of ).any );
-  }
-
-  /* REQ18/PATH-5: an end whose clock is wrong is told the meetup's, and only it can read that. */
-  {
-    Registrations r( now - 1000 );
-    const Ticket t3 = make_ticket( MASTER, "clock...", now + TICKET_LIFE );
-    End c( t3, 0, laptop );
-    const uint64_t asked = c.counter;
-    bytes = c.reg( now - 600 );
-    s = r.datagram( bytes.data(), bytes.size(), laptop, now, key_of );
-    std::string text;
-    uint64_t answering = 0, its_time = 0;
-    check( "a REGISTER ten minutes behind the meetup's clock is not taken", r.ticket_count() == 0 );
-    check( "it is answered TIME, sealed for that end, with the meetup's time and the REGISTER it answers",
-           s.any && s.to == laptop && meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == MEETUP_TIME
-             && meetup_open( c.session, h, true, counter, text ) && meetup_read_time( text, answering, its_time )
-             && answering == asked && its_time == now * 1000 );
-    bytes = c.reg( now + 600 );
-    check( "and so is one ten minutes ahead", r.datagram( bytes.data(), bytes.size(), laptop, now, key_of ).any && r.ticket_count() == 0 );
-    bytes = c.reg( now + Registrations::CLOCK_SLACK );
-    check( "one within a minute is taken", r.datagram( bytes.data(), bytes.size(), laptop, now, key_of ).any && r.ticket_count() == 1 );
-    End thief( t3, 0, laptop, "not the key 16by" );
-    bytes = thief.reg( now - 600 );
-    check( "a REGISTER not sealed with the ticket's key is told nothing",
-           !r.datagram( bytes.data(), bytes.size(), laptop, now, key_of ).any );
-    End elsewhere( t3, 0, onlooker );
-    bytes = elsewhere.reg( now - 600 );
-    check( "nor one from anywhere but where it says it is", !r.datagram( bytes.data(), bytes.size(), laptop, now, key_of ).any );
-  }
-
-  /* Not closed (README): a meetup just started remembers nothing, so a REGISTER copied in the minute
-     before is taken again in the minute after. Shown here, so that closing it shows too. */
-  {
-    Registrations before( now - 1000 ), after( now );
-    const Ticket t4 = make_ticket( MASTER, "restart.", now + TICKET_LIFE );
-    End c( t4, 0, laptop );
-    bytes = c.reg( now );
-    before.datagram( bytes.data(), bytes.size(), laptop, now, key_of );
-    check( "(not closed) a meetup just started takes again a REGISTER copied the minute before",
-           after.datagram( bytes.data(), bytes.size(), laptop, now + 30, key_of ).any );
-  }
-
-  if ( failures ) {
-    printf( "FAIL REQ18/PATH-5, REQ17/PATH-8: %d checks of the meetup's registrations failed\n", failures );
-    return 1;
-  }
-  printf( "PASS REQ18/PATH-5, REQ17/PATH-8: the meetup's registrations\n" );
-  return 0;
+  to( m, a.reg( now + 100 ), laptop, now + 100, key_of );
+  FACT( !to( m, a.pass( "after a long quiet" ), laptop, later, key_of ).any, "an end not registered again for two minutes is not passed to" );
+  FACT( to( m, b.reg( now + 10 * Registrations::END_IDLE ), desktop, now + 10 * Registrations::END_IDLE, key_of ).any,
+        "when both have gone quiet the ticket is let go, and taken again on registering" );
+  FACT( m.ticket_count() == 1u );
 }
+
+/* REQ17/PATH-8: one end by IPv6, the other by IPv4, through one meetup that has both. */
+FACTS( OneEndByIPv6 )
+{
+  int asked = 0;
+  const KeyOf key_of = { &asked };
+  Registrations both( now - 1000 );
+  const Ticket t6 = make_ticket( MASTER, "ipv6....", now + TICKET_LIFE );
+  unsigned char v6[16] = { 0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x09 };
+  const std::string home6 = meetup_where_v6( v6, 50000 );
+  End e6( t6, 1, home6 ), e4( t6, 0, laptop );
+  FACT( to( both, e6.reg( now ), home6, now, key_of ).any, "an end registers by IPv6" );
+  to( both, e4.reg( now ), laptop, now, key_of );
+  Registrations::Send s = to( both, e4.pass( "to the IPv6 end" ), laptop, now, key_of );
+  FACT( s.to == home6, "what the IPv4 end sends goes to it, at its IPv6 address" );
+  s = to( both, e6.pass( "back" ), home6, now, key_of );
+  FACT( s.to == laptop, "and the way back" );
+}
+
+/* REQ18/PATH-5: no new ticket while every one held may still be replayed. */
+FACTS( FullTable )
+{
+  int asked = 0;
+  const KeyOf key_of = { &asked };
+  Registrations full( now - 1000 );
+  for ( size_t i = 0; i < Registrations::MAX_TICKETS; i++ ) {
+    std::string r( "quiet..." );
+    r[7] = static_cast<char>( i );
+    const std::string w = meetup_where_v4( 0x0B000000 + i, 2 );
+    End q( make_ticket( MASTER, r, now + TICKET_LIFE ), 0, w );
+    to( full, q.reg( now ), w, now, key_of );
+  }
+  /* (a copy: FACT holds each side by reference, and a static const member has no storage to refer to) */
+  const size_t max_tickets = Registrations::MAX_TICKETS;
+  FACT( full.ticket_count() == max_tickets, "64 tickets held" );
+  const std::string w = meetup_where_v4( 0x0C000001, 3 );
+  End late( make_ticket( MASTER, "late....", now + TICKET_LIFE ), 0, w );
+  FACT( !to( full, late.reg( now + 2 ), w, now + 2, key_of ).any, "a 65th is not taken while every one held has registered within two minutes" );
+  FACT( full.ticket_count() == 64u );
+  const uint64_t quiet = now + Registrations::END_IDLE + 1;
+  FACT( to( full, late.reg( quiet ), w, quiet, key_of ).any, "and is taken once they have gone quiet" );
+  FACT( full.ticket_count() == 1u );
+}
+
+/* REQ18/PATH-5: what was copied off the network is no use even after the meetup lets its ticket go. */
+FACTS( CopiesAfterLettingGo )
+{
+  int asked = 0;
+  const KeyOf key_of = { &asked };
+  Registrations r( now - 1000 );
+  const Ticket t2 = make_ticket( MASTER, "forgets.", now + TICKET_LIFE );
+  End c( t2, 0, laptop ), d( t2, 1, desktop );
+  const std::string copied_c = c.reg( now );
+  Registrations::Send s = to( r, copied_c, laptop, now, key_of );
+  MeetupHeader h;
+  uint64_t first_sealed = 0;
+  std::string where_seen;
+  meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && meetup_open( c.session, h, true, first_sealed, where_seen );
+  to( r, d.reg( now ), desktop, now, key_of );
+  const std::string copied_p = c.pass( "once" );
+  FACT( to( r, copied_p, laptop, now, key_of ).any, "(a ticket held, both ends registered, a PASS passed)" );
+
+  const uint64_t gone = now + Registrations::END_IDLE + 1;
+  s = to( r, copied_c, laptop, gone, key_of );
+  FACT( r.ticket_count() == 0u, "once the ticket is let go, the copied REGISTER is not taken again" );
+  FACT( ( !s.any || kind_of( s ) == MEETUP_TIME ), "at most it is answered TIME" );
+  FACT( !to( r, copied_p, laptop, gone, key_of ).any, "and the copied PASS is not passed" );
+
+  s = to( r, c.reg( gone ), laptop, gone, key_of );
+  FACT( kind_of( s ) == MEETUP_REGISTERED, "the end itself registers again, and is taken" );
+  uint64_t again_sealed = 0;
+  meetup_read_header( s.bytes.data(), s.bytes.size(), h );
+  FACT( meetup_open( c.session, h, true, again_sealed, where_seen ) );
+  FACT( again_sealed > first_sealed, "what the meetup seals for the ticket taken again is not numbered as before (a nonce once only)" );
+  to( r, d.reg( gone ), desktop, gone, key_of );
+  FACT( !to( r, copied_p, laptop, gone, key_of ).any, "a PASS sealed before that REGISTER is not passed, though the ticket is held afresh" );
+  FACT( to( r, c.pass( "new" ), laptop, gone, key_of ).any, "while a new one is" );
+}
+
+/* REQ18/PATH-5: an end whose clock is wrong is told the meetup's, and only it can read that. */
+FACTS( WrongClock )
+{
+  int asked = 0;
+  const KeyOf key_of = { &asked };
+  Registrations r( now - 1000 );
+  const Ticket t3 = make_ticket( MASTER, "clock...", now + TICKET_LIFE );
+  End c( t3, 0, laptop );
+  const uint64_t asking = c.counter;
+  Registrations::Send s = to( r, c.reg( now - 600 ), laptop, now, key_of );
+  FACT( r.ticket_count() == 0u, "a REGISTER ten minutes behind the meetup's clock is not taken" );
+  FACT( s.to == laptop, "it is answered, to that end" );
+  FACT( kind_of( s ) == MEETUP_TIME, "with TIME" );
+  MeetupHeader h;
+  meetup_read_header( s.bytes.data(), s.bytes.size(), h );
+  uint64_t counter = 0, answering = 0, its_time = 0;
+  std::string text;
+  FACT( meetup_open( c.session, h, true, counter, text ), "sealed for that end" );
+  FACT( meetup_read_time( text, answering, its_time ) );
+  FACT( answering == asking, "naming the REGISTER it answers" );
+  FACT( its_time == now * 1000, "with the meetup's time" );
+  FACT( to( r, c.reg( now + 600 ), laptop, now, key_of ).any, "and so is one ten minutes ahead" );
+  FACT( r.ticket_count() == 0u );
+  FACT( to( r, c.reg( now + Registrations::CLOCK_SLACK ), laptop, now, key_of ).any, "one within a minute is taken" );
+  FACT( r.ticket_count() == 1u );
+  End thief( t3, 0, laptop, "not the key 16by" );
+  FACT( !to( r, thief.reg( now - 600 ), laptop, now, key_of ).any, "a REGISTER not sealed with the ticket's key is told nothing" );
+  End elsewhere( t3, 0, onlooker );
+  FACT( !to( r, elsewhere.reg( now - 600 ), laptop, now, key_of ).any, "nor one from anywhere but where it says it is" );
+}
+
+/* Not closed (README): a meetup just started remembers nothing, so a REGISTER copied in the minute
+   before is taken again in the minute after. Shown here, so that closing it shows too. */
+FACTS( NotClosedRestart )
+{
+  int asked = 0;
+  const KeyOf key_of = { &asked };
+  Registrations before( now - 1000 ), after( now );
+  End c( make_ticket( MASTER, "restart.", now + TICKET_LIFE ), 0, laptop );
+  const std::string bytes = c.reg( now );
+  to( before, bytes, laptop, now, key_of );
+  FACT( to( after, bytes, laptop, now + 30, key_of ).any, "(not closed) a meetup just started takes again a REGISTER copied the minute before" );
+}
+
+FACTS_REGISTER_ALL()
+{
+  FACTS_REGISTER( TwoEndsAndTheReplay );
+  FACTS_REGISTER( OneEndByIPv6 );
+  FACTS_REGISTER( FullTable );
+  FACTS_REGISTER( CopiesAfterLettingGo );
+  FACTS_REGISTER( WrongClock );
+  FACTS_REGISTER( NotClosedRestart );
+}
+
+FACTS_MAIN

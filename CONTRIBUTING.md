@@ -110,6 +110,9 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   `filecopy-test.cc` for `filecopy.cc` (the owner, 2026-11-14: "thisthing-test for thisthing", so that a test is
   found from the name of what it tests). A test the fork named otherwise is renamed when it is carried. `tools/` builds and checks; `tests/` holds tests that
   drive the programs from outside.
+  **facts, on trial since 2026-11-17:** `src/meetup/registrations-test.cc` is written with the owner's
+  testing library (`vendor/facts/README.md`): `FACT(a == b, "what it shows")` prints both values when
+  false. The other tests keep their own `check()` until the owner decides (`docs/QUEUE.md`, item 24).
 - **Working set:** `docs/`: `REQUIREMENTS_v16.md` (the one in force; v6 to v15 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
   and still holds the seam file by file).

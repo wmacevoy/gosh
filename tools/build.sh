@@ -35,6 +35,9 @@ for part in "$GOSH"/src/*/; do
     [ -d "$part" ] || continue
     cp -R "${part%/}" "$BUILD/core/src/" # (no trailing slash: BSD cp would copy only what is inside)
 done
+# The testing library the parts' tests use (vendor/facts/README.md), where they include it from.
+mkdir -p "$BUILD/core/vendor"
+cp -R "$GOSH/vendor/facts" "$BUILD/core/vendor/"
 # Which gosh this is, for --version (src/seam/gosh-version.h): a release's tag, or the commit.
 gosh_version=$(git -C "$GOSH" describe --tags --always --dirty 2>/dev/null || echo unknown)
 printf '#define GOSH_VERSION "%s"\n' "$gosh_version" > "$BUILD/core/src/seam/gosh-version.h"
