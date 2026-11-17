@@ -20,6 +20,7 @@
 #include "src/command/moshwrapper.h"
 #include "src/command/options.h"
 #include "src/command/proxy.h"
+#include "src/command/sshconfig.h"
 #include "src/command/startup.h"
 #include "src/command/stock.h"
 #include "src/command/words.h"
@@ -218,14 +219,36 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
       return false;
     }
 
-    const Choices choices = choose( s, name, getenv( "MOSH_PREDICTION_DISPLAY" ) );
-    set_variables( choices.relays_read );
+    Choices choices = choose( s, name, getenv( "MOSH_PREDICTION_DISPLAY" ) );
 
     /* ---- what the session is for */
 
     const Asked session = what_was_asked( s, copy, stdio, name, COPY_USAGE );
     std::string userhost = session.host;
     const bool local = s.flag( "local" );
+    const Words ssh = shell_words( s.value( "ssh", "ssh" ) );
+    if ( ssh.empty() ) {
+      throw Failure( name + ": --ssh needs a command." );
+    }
+
+    /*
+     * ---- (gosh, REQ19/CMD-5) the host, and the meetup, reached as the user's own ssh would reach
+     * them: a ProxyJump or ProxyCommand of theirs is not displaced by ours, and a meetup named by an
+     * alias is sent to at its HostName (sshconfig.h)
+     */
+    if ( !local ) {
+      const SshConfig config = read_ssh_config( ssh_config_text( ssh, userhost ) );
+      choices.remote_ip = remote_ip_for( s.has( "experimental-remote-ip" ) ? choices.remote_ip : "", config );
+    }
+    if ( !choices.meetup_login.empty() ) {
+      const SshConfig config = read_ssh_config( ssh_config_text( ssh, choices.meetup_login ) );
+      for ( size_t i = 0; i < choices.relays_read.size(); i++ ) {
+        if ( choices.relays_read[i].first == "GOSH_MEETUP" ) {
+          choices.relays_read[i].second = meetup_address( choices.relays_read[i].second, config );
+        }
+      }
+    }
+    set_variables( choices.relays_read );
     const Words bind = bind_arguments( s.value( "bind-server" ), local, userhost );
 
     /* ---- how many colors the terminal has, for the server to know (there is none without one) */
@@ -250,10 +273,6 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
     /* ---- start the server, by ssh, and hear from it */
 
     const std::string server = s.value( "server", DEFAULT_SERVER );
-    const Words ssh = shell_words( s.value( "ssh", "ssh" ) );
-    if ( ssh.empty() ) {
-      throw Failure( name + ": --ssh needs a command." );
-    }
     Words locales;
     for ( size_t i = 0; i < sizeof( LOCALE_NAMES ) / sizeof( LOCALE_NAMES[0] ); i++ ) {
       if ( const char* value = getenv( LOCALE_NAMES[i] ) ) {

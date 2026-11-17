@@ -40,6 +40,8 @@ import socket
 import struct
 import subprocess
 import sys
+import shutil
+import tempfile
 import termios
 import threading
 import time
@@ -81,14 +83,15 @@ def our_servers():
     return found
 
 
-def session_draws(how):
-    """Runs "gosh host -- printf" on a terminal of its own; says whether the server's output was drawn."""
+def session_draws(how, extra_env=None):
+    """Runs "gosh host -- printf" on a terminal of its own; says whether the server's output was drawn.
+    how: --experimental-remote-ip's value, or None to leave gosh to choose."""
     # The words "he%s" and "llo" are on the command line; "hello" is only ever what the server's printf wrote.
-    words = [gosh, "--ssh=" + ssh, "--server=" + server_path, "--experimental-remote-ip=" + how,
-             "localhost", "--", "printf", "he%s\\n", "llo"]
+    words = [gosh, "--ssh=" + ssh, "--server=" + server_path] + ([] if how is None else ["--experimental-remote-ip=" + how]) \
+        + ["localhost", "--", "printf", "he%s\\n", "llo"]
     pid, terminal = pty.fork()
     if pid == 0:
-        os.execve(gosh, words, env)
+        os.execve(gosh, words, dict(env, **(extra_env or {})))
     seen = b""
     try:
         fcntl.ioctl(terminal, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
@@ -207,6 +210,27 @@ try:
         drawn, tail = session_draws(how)
         check('gosh host -- command: a terminal session, the address by "%s"' % how, drawn, repr(tail))
     forward_carries_a_byte()
+
+    # REQ19/CMD-5: the user's own way to the host is kept. fake-ssh prints FAKE_SSH_G for -G and logs each use.
+    work = tempfile.mkdtemp(prefix="gosh-sshconfig-")
+    for case, config, wanted in (
+            ("a ProxyJump of the user's", "hostname localhost\nproxyjump bastion.example\n", False),
+            ("a ProxyCommand of the user's", "hostname localhost\nproxycommand nc -x socks:1080 %h %p\n", False),
+            ("a ProxyCommand that is gosh itself", "hostname localhost\nproxycommand gosh -W localhost:22 %h\n", True),
+            ("no proxy of the user's", "hostname localhost\n", True)):
+        g, log = os.path.join(work, "g"), os.path.join(work, "log")
+        with open(g, "w") as f:
+            f.write(config)
+        if os.path.exists(log):
+            os.remove(log)
+        drawn, tail = session_draws(None, {"FAKE_SSH_G": g, "FAKE_SSH_LOG": log})
+        with open(log) as f:
+            logins = [line for line in f if "'-G'" not in line]
+        ours = any("ProxyCommand=" in line for line in logins)
+        check("with %s: the session comes up" % case, drawn, repr(tail))
+        check("with %s: %s" % (case, "gosh's ProxyCommand is used" if wanted else "ssh is left to reach it the user's way"),
+              len(logins) == 1 and ours == wanted, repr(logins))
+    shutil.rmtree(work, ignore_errors=True)
 finally:
     for pid in our_servers() - before:
         try:
@@ -215,5 +239,5 @@ finally:
             pass
 
 if failures:
-    sys.exit("FAIL REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7: %s" % "; ".join(failures))
-print("PASS REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7: the gosh command, a session, a forward and a stream")
+    sys.exit("FAIL REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7, REQ19/CMD-5: %s" % "; ".join(failures))
+print("PASS REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7, REQ19/CMD-5: the gosh command, a session, a forward and a stream, by the user's own way to the host")

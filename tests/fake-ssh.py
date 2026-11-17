@@ -14,6 +14,9 @@ what ssh would as far as mosh can tell:
 
 FAKE_SSH_LOG, if set, names a file to which each use is added: the
 arguments, one use to a line.
+
+With -G it prints the config, as ssh -G does, and connects nowhere: the
+file FAKE_SSH_G names, if set, or else only the host's name (REQ19/CMD-5).
 """
 
 import os
@@ -46,6 +49,15 @@ log = os.environ.get("FAKE_SSH_LOG")
 if log:
     with open(log, "a") as f:
         f.write(repr(args) + "\n")
+
+if "-G" in options and host is not None:
+    config = os.environ.get("FAKE_SSH_G")
+    if config:
+        with open(config) as f:
+            sys.stdout.write(f.read())
+    else:
+        sys.stdout.write("hostname %s\n" % host.split("@")[-1])
+    sys.exit(0)
 
 if host is None or command is None:
     sys.stderr.write("fake-ssh: expected a host and a command\n")

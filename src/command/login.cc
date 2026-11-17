@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -56,6 +57,57 @@ std::string Gosh::Command::terminal_colors( void ( *print_colors )( void ), cons
   }
   said = strip_end( said );
   return all_digits( said ) ? said : "0";
+}
+
+std::string Gosh::Command::ssh_config_text( const std::vector<std::string>& ssh, const std::string& host )
+{
+  int out[2];
+  if ( ssh.empty() || pipe( out ) < 0 ) {
+    return std::string();
+  }
+  std::vector<std::string> words = ssh;
+  words.push_back( "-G" );
+  words.push_back( host );
+  const pid_t child = fork();
+  if ( child < 0 ) {
+    close( out[0] );
+    close( out[1] );
+    return std::string();
+  }
+  if ( child == 0 ) {
+    dup2( out[1], STDOUT_FILENO );
+    const int null = open( "/dev/null", O_RDWR );
+    if ( null >= 0 ) {
+      dup2( null, STDIN_FILENO );
+      dup2( null, STDERR_FILENO );
+    }
+    close( out[0] );
+    std::vector<char*> argv;
+    for ( size_t i = 0; i < words.size(); i++ ) {
+      argv.push_back( const_cast<char*>( words[i].c_str() ) );
+    }
+    argv.push_back( NULL );
+    execvp( argv[0], &argv[0] );
+    _exit( 127 );
+  }
+  close( out[1] );
+  std::string text;
+  char buf[4096];
+  ssize_t n;
+  while ( ( n = read( out[0], buf, sizeof( buf ) ) ) != 0 ) {
+    if ( n < 0 ) {
+      if ( errno == EINTR ) {
+        continue;
+      }
+      break;
+    }
+    text.append( buf, n );
+  }
+  close( out[0] );
+  int status = 0;
+  while ( waitpid( child, &status, 0 ) < 0 && errno == EINTR ) {
+  }
+  return WIFEXITED( status ) && WEXITSTATUS( status ) == 0 ? text : std::string();
 }
 
 void Gosh::Command::start_server( const Login& login, Startup& startup )

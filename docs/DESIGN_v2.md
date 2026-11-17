@@ -315,7 +315,8 @@ owner (section 8, question 9).
    which the owner named as the remedy and which costs nothing per datagram.
 4. **Only glue reaches across layers** *(2026-11-17, the owner: "yes, do 1-3 with your names")*.
    Every part is in one layer: **application** (the core's terminal, copy), **carrying**
-   (forwarding), **paths** (relay, path-finding, meetup), **glue** (the command, the seam). A part
+   (forwarding), **paths** (relay, path-finding, meetup), **glue** (the command, the seam). Under
+   all four is **trust**, which is ssh's and none of gosh's parts (3.4). A part
    other than glue includes only its own layer and the core; `tests/layers.py` fails the check
    otherwise, a veto for `REQ6/SHAPE-5`. The session is in the middle: carrying rides inside it,
    paths carry it, applications ride on carrying, so none of the three needs another. Until that
@@ -687,6 +688,47 @@ no requirement asks for a change.
 
 **User-facing names the requirements already fix:** `-L -R -LU -RU -N --stdio --copy --relay
 --punch --stun --meetup --auto --delete`, `gosh-server relay|meetup|meetup-key`.
+
+### 3.4 ssh, gosh's trust
+
+*(2026-11-17, the owner: "if we decided to own ssh, then we would want to know what it does for
+the transport"; and "yes, do 1-3". The glossary's **trust**, `REQ19`.)*
+
+gosh does not own ssh, and leans on it more than on any part of its own. This is what ssh does for
+gosh, as the code uses it: the contract gosh assumes, written down so that a reviewer can ask
+about each line, and so that anything that one day stood in for ssh would know what it must do.
+It is a contract, not an interface in the code: there is one implementation (rule 3).
+
+| # | ssh's job for gosh | Where gosh asks | gosh's layer | Absent / late / wrong / lying |
+| --- | --- | --- | --- | --- |
+| 1 | **who:** proves the user to the host (keys, PAM, `authorized_keys`) | every login | trust | absent: no session, ssh says why. The relay's and the ticket's logins may not ask (`BatchMode`), so in practice a key (`REQ1/PATH-1`) |
+| 2 | **which:** proves the host is the host (`known_hosts`) | every login | trust | wrong: ssh refuses; gosh adds nothing to it, and trusts every later step (the key, the ticket) only because of it |
+| 3 | **secrets:** carries the session's key (`MOSH CONNECT port key`) and a meetup's ticket to the client | the login; `meetup-ticket` | trust | lying: whoever could forge these could join the session; only ssh stands between. The key is made fresh each session; a ticket lives 30 days (`REQ18/PATH-5`) |
+| 4 | **launch:** starts the far end, `gosh-server new`, `relay`, `meetup-ticket`, with nothing of gosh's already running there | `command/words.cc`, `relay/local.cc` | glue | absent: no gosh-server, then a stock `mosh-server` (`REQ8/CMD-3`). The hard one to own: without sshd, something must be resident on the host, and a resident service per user means root (`REQ1/SHAPE-3`) |
+| 5 | **address:** which address the session is to use (gosh's own ProxyCommand sees where it connected; or the server reads `SSH_CONNECTION`) | `command/proxy.cc`, `startup.cc` | paths | wrong: behind a bastion the address is one the client cannot reach by UDP, and the relay (job 7) carries the session instead |
+| 6 | **reachability:** the user's names and routes: aliases, `HostName`, `Port`, `ProxyJump`, `ProxyCommand` | `ssh -G` (`command/sshconfig.h`) | paths | until 2026-11-17 gosh overrode it (`REQ19/CMD-5`); now read and kept, except a ProxyCommand that is gosh itself |
+| 7 | **carrying:** the fallback, a byte stream through firewalls that let only ssh through | the relay | paths | late: TCP's head-of-line delay, acceptable in a fallback that path-finding leaves when it can |
+
+**What the table shows.** Once a session runs by UDP, ssh does nothing: for the transport it is a
+start (jobs 1 to 6) and one path among four (job 7). Jobs 1 to 3 are a layer gosh's parts do not
+have, because ssh is it; the glossary names it **trust**, and `src/README.md` puts it under the four.
+Owning ssh would mean owning 1 to 4, of which 4 needs something resident on every host. Where gosh
+already holds a credential of its own, it was given over ssh: a meetup's ticket, fetched once,
+good for 30 days. That is the shape owning any of it would take, if ever (`REQ19`, *Scope
+decisions*).
+
+**Two ways of using ssh better, neither of them owning it:**
+- **ssh over gosh** (`REQ19/FWD-6`, `-W`, not yet built): a ProxyCommand that carries ssh inside a
+  gosh session, so that ssh and everything that uses it roams. Each `-W` logs in once to start
+  its session (jobs 1 to 4), and the ssh inside logs in again; a session shared by many is not yet.
+  A ProxyCommand that is gosh is why job 6 has its exception: gosh's own login must not run it.
+- **One ssh connection shared** (ssh's `ControlMaster`; a question in `REQ19`, *Not yet answered*):
+  the relay and the ticket would reuse the login's connection, and job 1 could ask a password once.
+
+**Not done, and worth it when one of the above is built:** gosh's calls on ssh are in three places
+(the command's words for the login, the relay and the ticket; the relay, which runs it; the
+proxy). One edge, "what gosh asks of ssh", with these jobs as its entries, is where a shared
+connection or a change of ssh's options would then be made once.
 
 ---
 

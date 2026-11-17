@@ -50,6 +50,14 @@ struct Login
  */
 void start_server( const Login& login, Startup& startup );
 
+/*
+ * What the user's ssh would do for this host: the output of `SSH... -G HOST`, which reads the
+ * config and connects nowhere (REQ19/CMD-5; sshconfig.h reads it). Empty if ssh has no -G (older
+ * than 6.8), or says nothing, or fails. ssh's standard input is nothing and its standard error is
+ * dropped: a config gosh cannot read is a config gosh does as before with.
+ */
+std::string ssh_config_text( const std::vector<std::string>& ssh, const std::string& host );
+
 }
 }
 

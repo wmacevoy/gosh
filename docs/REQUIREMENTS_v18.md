@@ -1,5 +1,7 @@
 # Requirements — v18
 
+**Superseded by `REQUIREMENTS_v19.md`** (2026-11-17), in which gosh reaches a host the user's own ssh way (CMD-5), `-W` carries ssh itself over gosh (FWD-6), and ssh is named as gosh's trust. Kept as it was written.
+
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v19.md`); a spelling or lint fix is not. See
 [SE1/R1–R11](../vendor/se1/guide/04-requirements.md).

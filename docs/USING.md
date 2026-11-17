@@ -106,6 +106,9 @@ shell files add it only for a login. That matters only to other programs, such a
 `mosh-server` and `mosh-client` links to gosh's where the host has none (`REQ17/CMD-4`); a stock
 `mosh` finds that link only if told: `mosh --server=.local/bin/mosh-server host`.)
 
+gosh reaches a host the way your own ssh does: a `ProxyJump` or `ProxyCommand` in `~/.ssh/config`
+is kept, and a meetup may be named by an alias there (`REQ19/CMD-5`).
+
 ### 3. Let ssh log in without asking
 
 The relay and the meetup's ticket each open an ssh connection while the terminal is already the
