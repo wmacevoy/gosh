@@ -11,10 +11,12 @@ libgoshseam_a_SOURCES = applications.cc applications.h options.cc options.h sess
 libgoshclientmain_a_SOURCES = client-main.cc
 libgoshservermain_a_SOURCES = server-main.cc
 
-check_PROGRAMS = options-test
+check_PROGRAMS = options-test applications-test
 TESTS = $(check_PROGRAMS)
 options_test_SOURCES = options-test.cc
 options_test_LDADD = libfacts.a libgoshseam.a
+applications_test_SOURCES = applications-test.cc
+applications_test_LDADD = libfacts.a libgoshseam.a ../copy/libgoshcopy.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 
 AUTOMAKE_OPTIONS = subdir-objects
 

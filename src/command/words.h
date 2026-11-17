@@ -33,6 +33,9 @@ std::string shell_quote( const Words& words );
 /* "[user@]host:path" as a remote place: true, with host and path, if it is one. A colon after a
  * slash, or after a single letter (a Windows drive), is part of a local name. */
 bool remote_place( const std::string& word, std::string& host, std::string& path );
+/* "HOST:PORT" or "[IPV6]:PORT", as -W takes it: true, with host (brackets taken away) and port, if
+ * the host is not empty and the port is a number from 1 to 65535. */
+bool host_port( const std::string& word, std::string& host, std::string& port );
 
 /* ---- what was asked: what the session is for */
 
@@ -48,10 +51,12 @@ struct Asked
 
 /*
  * From the settings: for a copy, which end is which and what each is told (REQ1/CP-1, REQ1/CP-5);
- * for --stdio, the command to run at the other end (REQ1/CP-7); otherwise the host and its command.
+ * for --stdio, the command to run at the other end (REQ1/CP-7); for -W HOST:PORT, the connection to
+ * make there (REQ19/FWD-6); otherwise the host and its command.
  * copy: the command was called as gocp, or given --copy. Throws Failure: for a copy, the copy's
  * usage when there are too few words, and a message when neither or both ends are remote or the
- * sources are on two machines; the usage when there is no host.
+ * sources are on two machines; a message for -W with a copy, --stdio, a command, or a HOST:PORT
+ * that is not one; the usage when there is no host.
  */
 Asked what_was_asked( const Settings& settings, bool copy, bool stdio, const std::string& name,
                         const char* copy_usage );

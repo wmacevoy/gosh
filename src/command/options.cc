@@ -50,6 +50,7 @@ const Option OPTIONS[] = {
   { "q", false, false },
   { "interval", true, false },
   { "stdio", false, false },
+  { "W", true, false },
   { "l", true, false },
   { "experimental-remote-ip", true, false },
 };

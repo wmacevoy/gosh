@@ -88,6 +88,31 @@ bool Gosh::Command::remote_place( const std::string& word, std::string& host, st
   return true;
 }
 
+bool Gosh::Command::host_port( const std::string& word, std::string& host, std::string& port )
+{
+  size_t colon;
+  if ( !word.empty() && word[0] == '[' ) {
+    const size_t close = word.find( ']' );
+    if ( close == std::string::npos || close + 1 >= word.size() || word[close + 1] != ':' ) {
+      return false;
+    }
+    host = word.substr( 1, close - 1 );
+    colon = close + 1;
+  } else {
+    colon = word.find( ':' );
+    if ( colon == std::string::npos || word.find( ':', colon + 1 ) != std::string::npos ) {
+      return false; /* (an IPv6 address needs its brackets) */
+    }
+    host = word.substr( 0, colon );
+  }
+  port = word.substr( colon + 1 );
+  if ( host.empty() || port.empty() || port.size() > 5 || port.find_first_not_of( "0123456789" ) != std::string::npos ) {
+    return false;
+  }
+  const long n = strtol( port.c_str(), NULL, 10 );
+  return n >= 1 && n <= 65535;
+}
+
 Gosh::Command::Asked Gosh::Command::what_was_asked( const Settings& s, bool copy, bool stdio, const std::string& name,
                                     const char* copy_usage )
 {
@@ -95,6 +120,9 @@ Gosh::Command::Asked Gosh::Command::what_was_asked( const Settings& s, bool copy
   session.headless = s.flag( "N" );
   Words rest = s.rest;
 
+  if ( copy && s.has( "W" ) ) {
+    throw Failure( name + ": -W is not for copying files." );
+  }
   if ( copy ) {
     /* Copying files: work out which end is which, and what each is to do. */
     if ( rest.size() < 2 ) {
@@ -184,6 +212,24 @@ Gosh::Command::Asked Gosh::Command::what_was_asked( const Settings& s, bool copy
       session.stream_local.push_back( dest_path );
     }
     rest.assign( 1, host );
+    session.headless = true;
+  } else if ( s.has( "W" ) ) {
+    /* REQ19/FWD-6: standard input and output joined to HOST:PORT as seen from the server, as "ssh -W"
+       does: what a ProxyCommand is ("ProxyCommand gosh -W localhost:22 %h") */
+    if ( stdio ) {
+      throw Failure( name + ": -W and --stdio are two ways of using standard input and output: one at a time." );
+    }
+    std::string host, port;
+    if ( !host_port( s.value( "W" ), host, port ) || host.find( '\x1f' ) != std::string::npos ) {
+      throw Failure( name + ": -W needs HOST:PORT (an IPv6 address in brackets), not \"" + s.value( "W" ) + "\"." );
+    }
+    if ( rest.size() > 1 ) {
+      throw Failure( name + ": -W takes the host alone, with no command." );
+    }
+    session.stream_remote.push_back( "@connect" );
+    session.stream_remote.push_back( host );
+    session.stream_remote.push_back( port );
+    session.stream_local.push_back( "@stdio" );
     session.headless = true;
   } else if ( stdio ) {
     /* ("--" may come before the host, as the usage has it; and the command may be set off with "--") */

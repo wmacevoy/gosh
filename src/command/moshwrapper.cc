@@ -96,6 +96,11 @@ const char USAGE[] = R"USAGE(Usage: %s [options] [--] [user@]host [command...]
                                 with its input and output here, as
                                 "ssh host command" does
 
+-W HOST:PORT                 no terminal: join standard input and output
+                                to HOST:PORT as seen from the server, as
+                                "ssh -W" does; for ssh's ProxyCommand:
+                                "ProxyCommand gosh -W localhost:22 %%h"
+
         --copy               copy files: see "gocp --help"
 
         --relay={auto|always|never}

@@ -121,6 +121,26 @@ FACTS( Words )
   FACT_CHECK( ( asked( { "--stdio", "-l", "me", "you@srv", "cat" }, false, s ).empty() && s.host == "you@srv" ), "--stdio: -l does not replace a user already given" );
   FACT_CHECK( asked( { "--stdio", "srv" }, false, s ) == "!+gocp: --stdio needs a command to run on the server.", "--stdio with no command: refused, with the usage" );
 
+  /* ---- -W HOST:PORT (REQ19/FWD-6) */
+  FACT( asked( { "-W", "localhost:22", "srv" }, false, s ) == "", "-W HOST:PORT host: taken" );
+  FACT_CHECK( s.host == "srv" );
+  FACT_CHECK( joined( s.stream_remote ) == "@connect|localhost|22", "the server joins the stream to HOST:PORT" );
+  FACT_CHECK( joined( s.stream_local ) == "@stdio", "and this end to standard input and output" );
+  FACT_CHECK( s.headless, "with no terminal" );
+  FACT( asked( { "-W", "[::1]:2222", "-l", "me", "srv" }, false, s ) == "", "an IPv6 address in brackets" );
+  FACT_CHECK( joined( s.stream_remote ) == "@connect|::1|2222", "is given without them" );
+  FACT_CHECK( s.host == "me@srv", "and -l is the login's, as with --stdio" );
+  FACT_CHECK( asked( { "-W", "localhost", "srv" }, false, s ) == "!gocp: -W needs HOST:PORT (an IPv6 address in brackets), not \"localhost\".", "no port: refused" );
+  FACT_CHECK( asked( { "-W", "h:0", "srv" }, false, s ).substr( 0, 18 ) == "!gocp: -W needs HO", "port 0: refused" );
+  FACT_CHECK( asked( { "-W", "h:65536", "srv" }, false, s ).substr( 0, 18 ) == "!gocp: -W needs HO", "a port past 65535: refused" );
+  FACT_CHECK( asked( { "-W", "h:ssh", "srv" }, false, s ).substr( 0, 18 ) == "!gocp: -W needs HO", "a service name: refused (a number only)" );
+  FACT_CHECK( asked( { "-W", "::1:22", "srv" }, false, s ).substr( 0, 18 ) == "!gocp: -W needs HO", "an IPv6 address without brackets: refused" );
+  FACT_CHECK( asked( { "-W", ":22", "srv" }, false, s ).substr( 0, 18 ) == "!gocp: -W needs HO", "no host: refused" );
+  FACT_CHECK( asked( { "-W", "h:22", "srv", "ls" }, false, s ) == "!gocp: -W takes the host alone, with no command.", "a command after the host: refused" );
+  FACT_CHECK( asked( { "-W", "h:22", "--stdio", "srv", "ls" }, false, s ) == "!gocp: -W and --stdio are two ways of using standard input and output: one at a time.", "with --stdio: refused" );
+  FACT_CHECK( asked( { "-W", "h:22", "a", "srv:b" }, true, s ) == "!gocp: -W is not for copying files.", "with a copy: refused" );
+  FACT_CHECK( asked( { "-W", "h:22" }, false, s ) == "!+", "with no host: the usage" );
+
   /* ---- a session */
   FACT_CHECK( ( asked( { "srv", "--", "top", "-d", "1" }, false, s ).empty()
                                                    && s.host == "srv" && joined( s.command ) == "top|-d|1" && !s.headless

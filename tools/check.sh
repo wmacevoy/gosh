@@ -122,6 +122,7 @@ pair() { # LABEL SERVER CLIENT NAME ARGS...
 gosh=.build/bin
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" forward-e2e.py
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" outage.py
+pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" connect-outage.py   # REQ19/FWD-6: -W's connection, the same
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py
 # The relay (REQ1/PATH-1, REQ1/PATH-2), path-finding (REQ1/PATH-3), and the meetup's ticket (REQ15/PATH-4, REQ18/PATH-5).
 pair "gosh" "$gosh/gosh-server" "$gosh/gosh-client" headless-smoke.py 127.0.0.1 always

@@ -45,6 +45,13 @@ No terminal: keep the session and its forwards open until interrupted. Says
 No terminal: run \fIcommand\fR on the server with its input and output here, as
 \fBssh\fR \fIhost command\fR does; for example \fBrsync \-e 'gosh \-\-stdio'\fR.
 .TP
+.BI \-W " host" : port
+No terminal: join standard input and output to a TCP connection to \fIhost\fR:\fIport\fR as
+seen from the server, as \fBssh \-W\fR does, carried by the session, so that it survives roaming
+and sleep as a forward does. For ssh itself, and everything that uses it, in \fI~/.ssh/config\fR:
+\fBProxyCommand gosh \-W localhost:22 %h\fR. If the connection cannot be made, the stream
+ends with nothing said on this side.
+.TP
 \fB\-\-relay\fR={\fBauto\fR|\fBalways\fR|\fBnever\fR}
 Carry the session over ssh when UDP cannot reach the server: when needed (default), from the start
 and nothing by UDP, or never. ssh must be able to log in without asking.

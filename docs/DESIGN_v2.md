@@ -375,7 +375,7 @@ each end (`tests/stock-session.py`). `REQ8/CMD-3`: none.
 | **connection** | gosh's TCP: one end of a forwarded connection | logic, given `now`, a segment or bytes, and the link's three facts; emits segments and socket actions | `Conn`, `tcpadapter.cc:254-386,416-460,462-845` | `SegmentPort`, `SegmentSink` | `REQ1/FWD-1`, `REQ1/FWD-3` |
 | **stream** | forward 0 of the sixth kind; a stream's words; when the client is done | logic | `stream_words*`, `streamchild.cc:51-78`; `tend_stream`'s decision, `stmclient.cc:376-391` | — | `REQ1/CP-7`, `REQ1/CP-1` |
 | **listeners and targets** | bind, accept, connect, read, write, close; resolve names once | edge | `add_listener`, `accept_from`, `passive_open`, `flush`, `read_socket`, `tick`'s `poll`, `tcpadapter.cc`; `UDPForwarder` ctor, `read_fd`, `deliver` | — | `REQ1/FWD-4` |
-| **a stream's process** | start the process at one end; become what the program gives it (since 2026-11-17 the seam's `applications` names `@copy`, `@stdio`, `@sh`) | edge | `stream_child`, `become`, `stdio_pump`, `streamchild.cc:80-235` | — | `REQ1/CP-7` |
+| **a stream's process** | start the process at one end; become what the program gives it (since 2026-11-17 the seam's `applications` names `@copy`, `@stdio`, `@sh`, and `@connect` for `-W`) | edge | `stream_child`, `become`, `stdio_pump`, `streamchild.cc:80-235` | — | `REQ1/CP-7` |
 | **forwarding** (the whole) | own the forwards of each kind; give each arriving payload to its kind; one surface for a program's loop | edge, thin | `forwarding.h` | `SideChannelMux` (a `switch` on five fixed kinds) | all of the above |
 
 *Where the pieces stand, since 2026-11-14 (the owner: "forwarding seems a little too pooled";
@@ -718,10 +718,18 @@ good for 30 days. That is the shape owning any of it would take, if ever (`REQ19
 decisions*).
 
 **Two ways of using ssh better, neither of them owning it:**
-- **ssh over gosh** (`REQ19/FWD-6`, `-W`, not yet built): a ProxyCommand that carries ssh inside a
+- **ssh over gosh** (`REQ19/FWD-6`, `-W`, built 2026-11-17): a ProxyCommand that carries ssh inside a
   gosh session, so that ssh and everything that uses it roams. Each `-W` logs in once to start
   its session (jobs 1 to 4), and the ssh inside logs in again; a session shared by many is not yet.
   A ProxyCommand that is gosh is why job 6 has its exception: gosh's own login must not run it.
+  How: `-W` is `--stdio` with a different far end. The stream (forward 0, so it survives as a
+  forward does) has `@stdio` here and `@connect HOST PORT` at the server, a fourth application in
+  the seam's `applications.*`; nothing new in forwarding. `@connect` joins the stream and the
+  TCP connection both ways, each way ending on its own, so what the target says after its input
+  ends (an ssh server's goodbye) still arrives; `@stdio`'s loop stops when the stream ends, which is
+  right only at the client. *Not done:* when the connection cannot be made the server says why on
+  its own standard error, which nobody sees; the stream carries bytes only, so the client ends
+  with status 0 and says nothing.
 - **One ssh connection shared** (ssh's `ControlMaster`; a question in `REQ19`, *Not yet answered*):
   the relay and the ticket would reuse the login's connection, and job 1 could ask a password once.
 

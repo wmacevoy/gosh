@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7: the gosh command, from its command line to a byte at the target.
+"""REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7, REQ19/FWD-6: the gosh command, from its command line to a byte at the target.
 
 usage: gosh-command.py GOSH SERVER
 
@@ -18,6 +18,10 @@ here needs an ssh server or asks anything of the network.
                        every byte value go to the command and come back the
                        same; and it finishes even when whoever started it had
                        child signals ignored, which the fork does not.
+  ssh's way in         "gosh -W HOST:PORT host" (REQ19/FWD-6): two megabytes to a
+                       target that sends them back come back the same on standard
+                       output, with nothing else; to a port nothing listens on, it
+                       ends, with nothing on standard output.
 
 This is the thin slice of queue item 5 seen from outside: every layer between
 the command line and the target is in it.
@@ -195,6 +199,37 @@ def stdio(command, data, ignore_children=False):
     return done.returncode, done.stdout
 
 
+def dash_w(data, listening=True):
+    """Runs "gosh -W 127.0.0.1:PORT localhost" with data on its input, PORT a target that sends back
+    what it gets (or nothing, if not listening). Returns (status, output, what the target got), or None."""
+    target = socket.socket()
+    target.bind(("127.0.0.1", 0))
+    got = []
+    if listening:
+        target.listen(1)
+
+        def echo():
+            conn, _ = target.accept()
+            while True:
+                chunk = conn.recv(65536)
+                if not chunk:
+                    break
+                got.append(chunk)
+                conn.sendall(chunk)
+            conn.close()
+
+        threading.Thread(target=echo, daemon=True).start()
+    try:
+        done = subprocess.run([gosh, "--ssh=" + ssh, "--server=" + server_path, "--experimental-remote-ip=local",
+                               "-W", "127.0.0.1:%d" % target.getsockname()[1], "localhost"],
+                              env=env, input=data, capture_output=True, timeout=PATIENCE * 4)
+    except subprocess.TimeoutExpired:
+        return None
+    finally:
+        target.close()
+    return done.returncode, done.stdout, b"".join(got)
+
+
 before = our_servers()
 try:
     data = random.Random(11).randbytes(2 * 1000 * 1000)  # seeded: the same bytes every run
@@ -205,6 +240,14 @@ try:
     got = stdio(["echo", "hello"], b"", ignore_children=True)
     check("gosh --stdio: it finishes when started with child signals ignored",
           got is not None and got[1] == b"hello\n", repr(got))
+
+    got = dash_w(data)
+    check("gosh -W: two megabytes reach the target, and come back the same, and nothing else",
+          got is not None and got[0] == 0 and got[2] == data and got[1] == data,
+          "timed out" if got is None else "status %d, %d bytes there, %d back" % (got[0], len(got[2]), len(got[1])))
+    got = dash_w(b"hello", listening=False)
+    check("gosh -W: to a port nothing listens on, it ends, with nothing on standard output",
+          got is not None and got[1] == b"", repr(got))
 
     for how in ("proxy", "remote", "local"):
         drawn, tail = session_draws(how)
@@ -239,5 +282,5 @@ finally:
             pass
 
 if failures:
-    sys.exit("FAIL REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7, REQ19/CMD-5: %s" % "; ".join(failures))
-print("PASS REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7, REQ19/CMD-5: the gosh command, a session, a forward and a stream, by the user's own way to the host")
+    sys.exit("FAIL REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7, REQ19/CMD-5, REQ19/FWD-6: %s" % "; ".join(failures))
+print("PASS REQ1/CMD-1, REQ6/NAME-1, REQ1/FWD-1, REQ1/CP-7, REQ19/CMD-5, REQ19/FWD-6: the gosh command, a session, a forward, a stream and -W, by the user's own way to the host")

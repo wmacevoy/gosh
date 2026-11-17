@@ -21,7 +21,7 @@ listening port, between a socket the client already has and one the server makes
 - `streamchild.*` starts the process at each end, and makes it what the program gives it: a
   function of the socket, run in the new process. A stream's words say which (`stream_words`
   splits them), but what each name is, forwarding does not know: `@copy …` (one end of a file
-  copy), `@stdio` and `@sh COMMAND` are named in `../seam/applications.*`, so that the part that
+  copy), `@stdio`, `@sh COMMAND` and `@connect HOST PORT` (`-W`) are named in `../seam/applications.*`, so that the part that
   carries knows no application (the layers, `../README.md`; until 2026-11-17 this file included
   copy and ran it). **Carried, not reshaped**: it forks and reads `HOME`.
 - `stream.h` is the one decision, as logic: the client is finished when its process has ended and

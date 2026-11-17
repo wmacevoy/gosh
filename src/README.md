@@ -25,7 +25,7 @@ Two of the seam's files are tooling, not glue, and any part may include them:
 
 **Where the applications meet carrying:** a stream's process (`forwarding/stream/streamchild.*`)
 runs whatever the program gives it; `seam/applications.*` names each application a stream can be
-between (`@copy`, `@stdio`, `@sh`) and says what it becomes. Until 2026-11-17 forwarding included
+between (`@copy`, `@stdio`, `@sh`, `@connect`) and says what it becomes. Until 2026-11-17 forwarding included
 copy and named the three itself, the one crossing of the layers.
 
 *(The layer names are the owner's choice of 2026-11-17, on the agent's proposal: "yes, do 1-3 with

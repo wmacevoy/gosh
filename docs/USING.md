@@ -150,6 +150,20 @@ gosh --relay=always user@host               # over ssh only, from the start, not
 gosh -6 user@host                           # IPv6 only
 ```
 
+**ssh itself over gosh** (`REQ19/FWD-6`): ssh, and everything that runs it (scp, rsync, git, an
+editor's remote ssh), roams with a line in `~/.ssh/config` on your machine:
+
+```
+Host myserver
+    HostName myserver.example.edu
+    ProxyCommand gosh -W localhost:22 %h
+```
+
+`ssh myserver` then logs in through a gosh session, which survives a change of network or a
+sleep as a terminal does. Each `ssh` starts its own gosh session (and so logs in twice: once for
+gosh, once inside it). If port 22 cannot be reached from the server, ssh says only that the
+connection was closed: gosh does not yet say why.
+
 `gosh --help` lists everything. With nothing more said, a session tries UDP, falls back to ssh
 after 3 seconds of silence, looks for a way straight through from there, and asks no server on
 the Internet anything (`REQ1/PATH-7`).

@@ -16,11 +16,17 @@
  *   @copy WORDS...   one end of a file copy (src/copy/filecopy.h)
  *   @stdio           this program's own standard input and output
  *   @sh COMMAND      a command, run by the user's shell as ssh would run it
+ *   @connect HOST PORT  a TCP connection to HOST:PORT from this end, joined to the stream both
+ *                    ways, each way ending on its own (-W, REQ19/FWD-6); if it cannot be made,
+ *                    it says why on standard error and the stream ends
  */
 namespace Gosh {
 
 /* Whether the words name an application, with words it takes. */
 bool stream_words_valid( const std::vector<std::string>& words );
+
+/* A port as @connect takes it: decimal, 1 to 65535. */
+bool connect_port_valid( const std::string& port );
 
 /* What the words name, to be started by Network::stream_child. The words must be valid. */
 Network::StreamApplication stream_application( const std::vector<std::string>& words, bool local );
