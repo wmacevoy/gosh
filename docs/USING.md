@@ -106,6 +106,30 @@ shell files add it only for a login. That matters only to other programs, such a
 `mosh-server` and `mosh-client` links to gosh's where the host has none (`REQ17/CMD-4`); a stock
 `mosh` finds that link only if told: `mosh --server=.local/bin/mosh-server host`.)
 
+**Or install a release** in place of steps 1 and 2: each release has packages for Linux (x86-64,
+ARM64) and macOS, and an `install.sh` that checks them against the release's `SHA256SUMS` and puts
+the same four names in `~/.local/bin`. While the repository is private, its downloads need your
+GitHub login; with `gh`:
+
+```sh
+mkdir -p ~/gosh-release/v0.2
+gh release download v0.2 -R wmacevoy/gosh -D ~/gosh-release/v0.2 \
+    -p install.sh -p 'gosh-0.2-*' -p SHA256SUMS
+GOSH_RELEASES=file://$HOME/gosh-release sh ~/gosh-release/v0.2/install.sh
+```
+
+**On macOS, a popup says gosh is untrusted** if the files came through a browser: the programs are
+not signed with an Apple Developer ID nor notarized, and macOS refuses such a program when a
+browser has marked it as downloaded. `install.sh` checked the files against `SHA256SUMS`, so clear
+the mark:
+
+```sh
+xattr -d com.apple.quarantine ~/.local/bin/gosh-client ~/.local/bin/gosh-server
+```
+
+(or run `gosh` once, then choose **Allow Anyway** in System Settings, Privacy & Security).
+A download by `curl`, as `install.sh` makes its own, is not marked.
+
 gosh reaches a host the way your own ssh does: a `ProxyJump` or `ProxyCommand` in `~/.ssh/config`
 is kept, and a meetup may be named by an alias there (`REQ19/CMD-5`).
 
