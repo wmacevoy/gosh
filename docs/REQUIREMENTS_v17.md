@@ -26,7 +26,8 @@ day, "ipv6 is important for the server --- ow the server costs more for the stud
 fix. 2. say and leave it."). **Accepted by the client on 2026-11-15: "accept v16".** v17 is the client's answers of 2026-11-16
 to three questions the work raised, written out by the agent: "1. yes. 2. yes. 3. drop in
 requirement."; and, after the three were argued again the same day, "ok do all three, full range"
-(PATH-8 below, rewritten in place before v17 was accepted). **Not yet accepted.**
+(PATH-8 below, rewritten in place before v17 was accepted). **Accepted by the client on
+2026-11-17: "accept v17".**
 
 **What changed from v16.**
 
