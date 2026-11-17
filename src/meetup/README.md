@@ -2,7 +2,7 @@
 
 A machine with a public address, typically the student's own server, where the two ends of a
 session that cannot reach each other learn where they appear to be, and through which their
-datagrams are passed when they find no way to each other (`REQ15/PATH-4`, `REQ15/PATH-5`; design
+datagrams are passed when they find no way to each other (`REQ15/PATH-4`, `REQ18/PATH-5`; design
 v2, 2.2; `docs/PROPOSAL_meetup-registration.md`, revision 10). ssh is its only authority: a
 session uses it with a ticket that whoever can log in to its machine is given.
 
@@ -67,10 +67,11 @@ both families whose IPv6 does not work is not tried by IPv4. Name it by its IPv4
 **Fuzzed** (queue item 21): `registrations-fuzzer.cc`, new (the fork's meetup was fuzzed by
 nothing), with `registrations-fuzzer-corpus/`. Anything from anyone, messages sealed under two
 tickets by either end from anywhere with any counter, messages sent again, STUN requests; held to
-`REQ15/PATH-5` by a model of what the meetup's own answers have shown: answered only where a
+`REQ18/PATH-5` by a model of what the meetup's own answers have shown: answered only where a
 REGISTER was sealed and came from; passed only from where an end registered, only to the other end
 of its ticket where that registered; a sealed message acted on once at most, and an end's counter
-taken once at most, while the meetup holds the ticket ("passed on no second time"); nothing for a
+taken once at most, even after the meetup has let the ticket go ("passed on no second time"; since
+2026-11-17, `REQ18/PATH-5`); nothing for a
 ticket that has run out (ticket 1 runs out within reach); never more than `MAX_TICKETS` held (kind 4
 registers 256 more). `make check` replays the corpus and 200 seeded changes of each input,
 `tools/asan-replay.sh` under AddressSanitizer, and CI runs it under libFuzzer (`tools/fuzz.sh`).
@@ -79,14 +80,34 @@ Seen red with a PASS taken from anywhere (`registrations.h`); and, since the rev
 PASS counter, the REGISTER counter (the reviewer's `register-replay`), the expiry check (`expired`),
 and `make_room` (`full-table`).
 
-**Not closed, found by that fuzzer** (the owner's to decide): a ticket the meetup has let go, after
-two minutes with neither end registering, or put out to make room, takes its counters with it. A
-REGISTER recorded earlier and sent again from the address sealed in it is then taken again, and
-after it a recorded PASS. Shown: the fuzzer's record of "once", kept across the meetup letting the
-ticket go, aborts on a REGISTER, two minutes and a quarter of quiet, and the same REGISTER again.
-It needs someone who saw the end's datagrams and can send from its address; what they gain is a
-replayed sealed datagram, which the session refuses as one it has had. `REQ15/PATH-5` says "passed
-on no second time" without that limit.
+**Closed 2026-11-17 (`REQ18/PATH-5`), found by that fuzzer:** a ticket the meetup let go, after two
+minutes with neither end registering, or put out to make room, took its counters with it, and a
+REGISTER recorded earlier, sent again from the address sealed in it, was taken again, and after it
+a recorded PASS. Now, in version 2 of the messages:
 
-It does not check "never with more bytes than it was sent" (requirements, threat model): a STUN
-request of 20 bytes gets an answer of 32 (IPv4) or 44 (IPv6), so that sentence is untrue today.
+- **REGISTER carries its time by the meetup's clock**, and one more than `CLOCK_SLACK` (60 s) from
+  it is not taken. An end is let go only `END_IDLE` (120 s, twice the slack) after its last REGISTER
+  was taken, so every REGISTER it was taken with is by then too old.
+- **TIME:** a REGISTER sealed under the ticket's key, from where it says, whose time is too far off,
+  is answered with the meetup's time and the counter of the REGISTER it answers. The end takes it
+  only as the answer to its latest REGISTER, sets its reckoning of the meetup's clock, and registers
+  again at once. So an end needs no right clock of its own: the meetup's is the only one that counts
+  (the owner, 2026-11-17: "the refusal contains the server's roughtime").
+- **The first REGISTER of an end held afresh is the lowest counter taken from it**, so no PASS
+  sealed before it is passed.
+- **A full table takes no new ticket** until one goes quiet, rather than put out one that may still
+  be replayed (until then, the one that had gone longest without passing a datagram went).
+- **What the meetup seals is numbered from its start time** (ms, times 1024) across every ticket.
+  Until then each ticket taken counted from 0 again, so a ticket let go and taken again had
+  REGISTERED sealed under one key with a nonce used before (found while closing the above).
+
+**Not closed:** a meetup just started remembers nothing, so for its first minute it takes again a
+REGISTER copied in the minute before it started, and after it the PASSes copied with it. Closing
+it would need the meetup to write down when it was last running and refuse REGISTERs for a minute
+after a start that follows soon after one; it was left for the owner (a minute's outage after each
+quick restart, a file kept, and two meetups sharing a home making each other wait).
+`registrations-test` shows it, so that closing it shows too.
+
+Seen red: `registrations-test` with each of the four guards broken; `finding-test` with an end
+that ignores TIME, or believes one that answers no REGISTER of its own; the fuzzer with the time
+check broken (its input is `registrations-fuzzer-corpus/replay-after-let-go`).

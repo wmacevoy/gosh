@@ -7,6 +7,30 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-17 — The meetup's replay after letting a ticket go, closed; and a nonce it reused
+
+- **What happened (1):** the replay found on 2026-11-16 (below) was closed by the owner's choice, the
+  meetup's clock, with the refusal carrying the meetup's time (`REQ18/PATH-5`; `src/meetup/README.md`).
+  The first thought was that the counter could carry the time, since it starts from the time of day;
+  it cannot: it starts from when the relay started and only counts up, so a long session's REGISTER
+  looks as old as the session. REGISTER now carries its time apart from the counter.
+- **What happened (2):** while closing it: what the meetup sealed for a ticket (REGISTERED) was
+  numbered by a counter kept with the ticket, from 0. A ticket let go and taken again started at 0
+  again, under the same key, so REGISTERED went out twice with one nonce and different words.
+  Under OCB that tells an onlooker how the two differ, and weakens the seal. Shown by
+  `registrations-test` (red with the counter from 0); now one counter for everything the meetup
+  seals, from its start time in milliseconds times 1024.
+- **What happened (3):** the first thought for a restarted meetup (refuse every REGISTER for a
+  minute after starting) would have meant a minute's outage on every start and a minute's wait in
+  every test that starts one; left, and said in `REQ18/PATH-5`.
+- **Kind:** (1) K1, then a K3 caught by reading before building ("the counter is a time"). (2) K3:
+  the fuzzer's model reset its record when a ticket was let go, so it could not see a nonce used
+  again either; the meetup's tests never let a ticket go and took it again.
+- **Findable by:** (2) a test that lets a ticket go, takes it again, and compares what is sealed;
+  now in `registrations-test`.
+- **Changed:** messages version 2 (REGISTER's time, TIME); the meetup's guards and their tests,
+  each seen red; the fuzzer holds "once" for good; requirements v18.
+
 ## 2026-11-16 — Reviews of the command, the extension and the fuzzers; what the stronger fuzzers found
 
 - **What happened:** three sessions, each given only the code and the requirements, reviewed items

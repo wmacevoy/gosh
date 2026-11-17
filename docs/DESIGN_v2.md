@@ -286,7 +286,7 @@ owner (section 8, question 9).
 - `--client=PATH` is accepted and never read (`moshwrapper.cc:243`; no `value( "client" )`).
 - A meetup's proof has no freshness. Any proof once seen is good for ever (`meetup_proof_ok`,
   `punch.cc:107`; the `proofs` cache, `:154`), and it travels in clear. Whoever sees one request can
-  use the meetup. This bears on `REQ15/PATH-5`.
+  use the meetup. This bears on `REQ18/PATH-5`.
 - The receiver of a copy checks names (`safe_relative_path`) but opens and renames through whatever
   is already in the destination, a symbolic link included. This bears on `REQ1/CP-6`.
 - `tcpadapter.h:76-78` says window scaling is left out; the code does it (`WINDOW_SHIFT`).
@@ -485,7 +485,7 @@ is `stun.h`, **punch** and **registering** are `PathFinding` in `finding.h` (log
 datagrams to send), and the edge is `Punch` in `punch.*`. Since requirements v16 it is IPv4 and
 IPv6 (`REQ17/PATH-8`): one socket for both where the system allows, IPv6 first.*
 
-| **registering** | the meetup: where it sees us, REGISTER under the ticket, again every 25 s, asking again after three unanswered; PASS and PASSED | logic, in `PathFinding` (`use_meetup`, `tend_meetup`, `from_meetup`); its bytes are meetup's `messages` | written for gosh | `REQ15/PATH-4`, `REQ15/PATH-5` |
+| **registering** | the meetup: where it sees us, REGISTER under the ticket, again every 25 s, asking again after three unanswered; PASS and PASSED | logic, in `PathFinding` (`use_meetup`, `tend_meetup`, `from_meetup`); its bytes are meetup's `messages` | written for gosh | `REQ15/PATH-4`, `REQ18/PATH-5` |
 
 Tests today: (u) `stun-test`; `finding-test` (no socket, no clock); `punch-test` (straight;
 through a meetup; a forged ticket; an oversized probe);
@@ -500,17 +500,23 @@ are gone from it, and from path-finding. Since requirements v16 it listens by IP
 
 | Piece | Purpose | Kind | From | Serves |
 | --- | --- | --- | --- | --- |
-| **ticket** | a ticket's id, its key from the master key, when it stops being good, its text | logic | written for gosh | `REQ15/PATH-5` |
-| **messages** | REGISTER, REGISTERED, PASS, PASSED at exact lengths; sealing and opening under a ticket's key | logic | written for gosh | `REQ15/PATH-5` |
-| **registrations** | who is where for each ticket; which counters are used; whom a datagram goes to; forgetting; room for 64 | logic, given `now` in seconds | written for gosh; the fork's `Pair` table (`punch.cc:139-222`) was its place | `REQ15/PATH-4`, `REQ15/PATH-5` |
+| **ticket** | a ticket's id, its key from the master key, when it stops being good, its text | logic | written for gosh | `REQ18/PATH-5` |
+| **messages** | REGISTER (with its time), REGISTERED, PASS, PASSED, TIME at exact lengths (version 2); sealing and opening under a ticket's key | logic | written for gosh | `REQ18/PATH-5` |
+| **registrations** | who is where for each ticket; which counters are used; whom a datagram goes to; forgetting; room for 64 | logic, given `now` in seconds | written for gosh; the fork's `Pair` table (`punch.cc:139-222`) was its place | `REQ15/PATH-4`, `REQ18/PATH-5` |
 | **answer** | recognising a STUN request and writing the answer; the rate limit | logic | `punch.cc:231-271`; `PER_SECOND`, `:159,237-244` | `REQ15/PATH-4` |
-| **master** | the master key's file in gosh's directory | edge | written for gosh | `REQ15/PATH-5` |
+| **master** | the master key's file in gosh's directory | edge | written for gosh | `REQ18/PATH-5` |
 | **serve** | `gosh-server meetup PORT`: the socket and the loop | edge | `meetup_serve`, `punch.cc:117-138,160-170` | `REQ15/PATH-4` |
 
 Contracts and failures: without a ticket the meetup made, nothing but STUN is answered and
-nothing passed on (`REQ15/PATH-5`). A REGISTER is taken only from the address sealed in it, and any
+nothing passed on (`REQ18/PATH-5`). A REGISTER is taken only from the address sealed in it, and any
 sealed message only with a counter not used, so a copied datagram moves nothing and is passed no
-second time. Absent other end → the datagram is dropped. Lying: it cannot read or alter what it
+second time. Since 2026-11-17 that holds after the meetup lets a ticket go too: a REGISTER carries
+its time by the meetup's clock and is taken only within 60 s of it, an end is let go 120 s after
+its last REGISTER, and an end with a wrong clock is told the meetup's (TIME). Why the meetup's
+clock alone, and not Roughtime or the ends' agreeing: Roughtime would be a third party on the
+Internet (requirements v15, "no third party") and a new protocol to carry; the end's clock need
+not be right, only told; and a challenge from the meetup on every REGISTER would close it without
+clocks at the cost of a round trip and more messages (`src/meetup/README.md`). Absent other end → the datagram is dropped. Lying: it cannot read or alter what it
 passes; it can drop it. One test writes an answer with meetup's `answer` and reads it with
 path-finding's `STUN`: the format is in two parts and this is what keeps them one format.
 
@@ -628,7 +634,7 @@ Logic pieces call only logic pieces. Edges call their own part's logic and the e
 | client ↔ local relay; remote relay ↔ server | UDP on the machine | the session's datagrams, untouched |
 | local relay ↔ remote relay | ssh, a byte stream | length (2) + datagram; `\0MOSHPCH` + words |
 | relay ↔ relay, punched | UDP | `\0MOSHPCH` + sealed probe; session datagrams, untouched |
-| an end ↔ a meetup | UDP | a STUN request and its answer; since 2026-11-15, REGISTER, REGISTERED, PASS and PASSED under a ticket (`src/meetup/messages.h`; the fork's `\0MOSHFWD` + proof is gone) |
+| an end ↔ a meetup | UDP | a STUN request and its answer; since 2026-11-15, REGISTER, REGISTERED, PASS and PASSED under a ticket, and since 2026-11-17 TIME (`src/meetup/messages.h`, version 2; the fork's `\0MOSHFWD` + proof is gone) |
 | an end → a public STUN server | UDP | a STUN request |
 | a program → a stream's process | fork; a socket pair | the stream's words; then bytes |
 | copy ↔ copy | the stream | `mocp-1` messages: type (1), length (4), body |

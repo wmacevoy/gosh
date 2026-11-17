@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
-"""REQ15/PATH-4, REQ15/PATH-5: a meetup answers the STUN question, and passes datagrams for a ticket's two ends.
+"""REQ15/PATH-4, REQ18/PATH-5: a meetup answers the STUN question, and passes datagrams for a ticket's two ends.
 
 usage: meetup-tickets.py SERVER
 
@@ -13,6 +13,8 @@ AES-OCB, RFC 7253), so that what gosh writes is read by code that is not gosh's.
   the STUN question     answered to anyone, with where the asker is
   a ticket's two ends   each registers, from where it is; a datagram from one goes to the other
   an onlooker           a REGISTER copied and sent from elsewhere gets nothing, and moves nothing
+  the meetup's clock    a REGISTER whose time is ten minutes off is answered TIME, the meetup's
+                        own, which only the ticket's ends can read (REQ18/PATH-5)
   the master key        made once, its owner's alone; --new makes another; a file others may
                         read is refused
 
@@ -83,8 +85,9 @@ def receive(s, wait=1.0):
 
 COOKIE = 0x2112A442
 STUN = struct.pack(">HHI", 1, 0, COOKIE) + b"twelve bytes"
-MARKS = {"REG": b"\0goshREG", "RGD": b"\0goshRGD", "PAS": b"\0goshPAS", "PSD": b"\0goshPSD"}
-KINDS = {"REG": 1, "RGD": 2, "PAS": 3}
+MARKS = {"REG": b"\0goshREG", "RGD": b"\0goshRGD", "PAS": b"\0goshPAS", "PSD": b"\0goshPSD", "TIM": b"\0goshTIM"}
+KINDS = {"REG": 1, "RGD": 2, "PAS": 3, "TIM": 5}
+VERSION = b"\x02"  # since 2026-11-17: REGISTER carries its time (REQ18/PATH-5)
 
 
 def where(s):
@@ -97,7 +100,23 @@ def where(s):
 def seal(key, mark, ticket, end, from_meetup, counter, text):
     nonce = (((2 if from_meetup else 0) + end) << 62) | counter
     sealed = AESOCB3(key).encrypt(bytes(4) + struct.pack(">Q", nonce), bytes([KINDS[mark]]) + text, None)
-    return MARKS[mark] + b"\x01" + ticket + bytes([end]) + struct.pack(">Q", nonce) + sealed
+    return MARKS[mark] + VERSION + ticket + bytes([end]) + struct.pack(">Q", nonce) + sealed
+
+
+def registering(s, off=0):
+    """REGISTER's text: where s is, and the time by the meetup's clock (this machine's, here), off by off seconds."""
+    return where(s) + struct.pack(">Q", int((time.time() + off) * 1000))
+
+
+def open_time(key, data, ticket, end):
+    """TIME, opened: (the counter it answers, the meetup's time in ms), or None."""
+    if not data or len(data) != 67 or data[:8] != MARKS["TIM"] or data[8:9] != VERSION or data[9:25] != ticket or data[25] != end:
+        return None
+    nonce = data[26:34]
+    if struct.unpack(">Q", nonce)[0] >> 62 != 2 + end:
+        return None
+    text = AESOCB3(key).decrypt(bytes(4) + nonce, data[34:], None)
+    return struct.unpack(">QQ", text[1:]) if text[:1] == bytes([KINDS["TIM"]]) and len(text) == 17 else None
 
 
 def open_registered(key, data, ticket, end):
@@ -158,27 +177,35 @@ try:
         a, b, onlooker = sock(), sock(), sock()
         meet = ("127.0.0.1", port)
 
-        a.sendto(seal(key, "REG", tid, 0, False, 0, where(a)), meet)
+        a.sendto(seal(key, "REG", tid, 0, False, 0, registering(a)), meet)
         check("end 0 registers, and the meetup's answer says where it was seen",
               open_registered(key, receive(a), tid, 0) == where(a))
-        b.sendto(seal(key, "REG", tid, 1, False, 0, where(b)), meet)
+        b.sendto(seal(key, "REG", tid, 1, False, 0, registering(b)), meet)
         check("end 1 registers", open_registered(key, receive(b), tid, 1) == where(b))
 
         a.sendto(seal(key, "PAS", tid, 0, False, 1, b"hello from end 0"), meet)
-        check("end 0's datagram reaches end 1, as PASSED", receive(b) == MARKS["PSD"] + b"\x01" + b"hello from end 0")
+        check("end 0's datagram reaches end 1, as PASSED", receive(b) == MARKS["PSD"] + VERSION + b"hello from end 0")
         b.sendto(seal(key, "PAS", tid, 1, False, 1, b"and back"), meet)
-        check("and end 1's reaches end 0", receive(a) == MARKS["PSD"] + b"\x01" + b"and back")
+        check("and end 1's reaches end 0", receive(a) == MARKS["PSD"] + VERSION + b"and back")
 
-        copied = seal(key, "REG", tid, 0, False, 2, where(a))
+        copied = seal(key, "REG", tid, 0, False, 2, registering(a))
         onlooker.sendto(copied, meet)
         check("a REGISTER copied and sent from elsewhere gets nothing", receive(onlooker, 0.5) is None)
         b.sendto(seal(key, "PAS", tid, 1, False, 2, b"still yours"), meet)
-        check("and end 1's datagrams still go to end 0", receive(a) == MARKS["PSD"] + b"\x01" + b"still yours")
+        check("and end 1's datagrams still go to end 0", receive(a) == MARKS["PSD"] + VERSION + b"still yours")
         check("and none to the onlooker", receive(onlooker, 0.3) is None)
 
         wrong = bytes(16)
-        onlooker.sendto(seal(wrong, "REG", tid, 0, False, 9, where(onlooker)), meet)
+        onlooker.sendto(seal(wrong, "REG", tid, 0, False, 9, registering(onlooker)), meet)
         check("a REGISTER sealed without the ticket's key gets nothing", receive(onlooker, 0.5) is None)
+
+        # REQ18/PATH-5: a clock ten minutes off is told the meetup's.
+        a.sendto(seal(key, "REG", tid, 0, False, 20, registering(a, -600)), meet)
+        told = open_time(key, receive(a), tid, 0)
+        check("a REGISTER ten minutes behind is answered TIME: the counter it answers, and the meetup's time",
+              told is not None and told[0] == 20 and abs(told[1] / 1000 - time.time()) < 5, repr(told))
+        a.sendto(seal(key, "REG", tid, 0, False, 21, registering(a)), meet)
+        check("and by that time, it registers", open_registered(key, receive(a), tid, 0) == where(a))
 
         # REQ17/PATH-8: the same, by IPv6, with a ticket of its own.
         if not have_ipv6():
@@ -189,13 +216,13 @@ try:
             key6 = base64.b64decode(text6[35:57] + "==")
             a6, b6 = sock(socket.AF_INET6), sock(socket.AF_INET6)
             meet6 = ("::1", port)
-            a6.sendto(seal(key6, "REG", tid6, 0, False, 0, where(a6)), meet6)
+            a6.sendto(seal(key6, "REG", tid6, 0, False, 0, registering(a6)), meet6)
             check("by IPv6: end 0 registers, and is told where it was seen (REQ17/PATH-8)",
                   open_registered(key6, receive(a6), tid6, 0) == where(a6))
-            b6.sendto(seal(key6, "REG", tid6, 1, False, 0, where(b6)), meet6)
+            b6.sendto(seal(key6, "REG", tid6, 1, False, 0, registering(b6)), meet6)
             check("by IPv6: end 1 registers", open_registered(key6, receive(b6), tid6, 1) == where(b6))
             a6.sendto(seal(key6, "PAS", tid6, 0, False, 1, b"by IPv6"), meet6)
-            check("by IPv6: a datagram from end 0 reaches end 1", receive(b6) == MARKS["PSD"] + b"\x01" + b"by IPv6")
+            check("by IPv6: a datagram from end 0 reaches end 1", receive(b6) == MARKS["PSD"] + VERSION + b"by IPv6")
             asker6 = sock(socket.AF_INET6)
             asker6.sendto(STUN, meet6)
             got6 = receive(asker6)
@@ -206,7 +233,7 @@ try:
         new = subprocess.run([server, "meetup-key", "--new"], env=env, capture_output=True, text=True, timeout=20)
         check('"meetup-key --new" makes a new master key', new.returncode == 0, new.stderr)
         meetup, port = start()
-        a.sendto(seal(key, "REG", tid, 0, False, 3, where(a)), ("127.0.0.1", port))
+        a.sendto(seal(key, "REG", tid, 0, False, 30, registering(a)), ("127.0.0.1", port))
         check("and a ticket made under the old one gets nothing", receive(a, 0.5) is None)
 
     for m in meetups:
@@ -229,5 +256,5 @@ finally:
     shutil.rmtree(home, ignore_errors=True)
 
 if failures:
-    sys.exit("FAIL REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: %s" % "; ".join(failures))
-print("PASS REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: a meetup answers the question, and passes for a ticket's two ends alone")
+    sys.exit("FAIL REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: %s" % "; ".join(failures))
+print("PASS REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: a meetup answers the question, and passes for a ticket's two ends alone")

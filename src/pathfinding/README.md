@@ -6,7 +6,7 @@ A way straight between the two relays when both ends are behind NATs (`REQ1/PATH
 **Switched on** (2026-11-15). `punch.h` and `punch.cc` are the fork's at `mosh-1.4.0-pf.7`, from
 `src/network/`, but at the places marked (gosh):
 
-- **The meetup half is tickets** (`REQ15/PATH-4`, `REQ15/PATH-5`; `src/meetup/`). Given a meetup's
+- **The meetup half is tickets** (`REQ15/PATH-4`, `REQ18/PATH-5`; `src/meetup/`). Given a meetup's
   address and a ticket (`use_meetup`), an end asks the meetup where it appears to be, registers
   from there, sealed under the ticket's key, again every 25 s, and sends through it as PASS. The
   initiator is end 0, the other end 1. Counters start from the time of day, so that a ticket used

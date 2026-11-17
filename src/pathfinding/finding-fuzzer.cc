@@ -110,7 +110,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   const Gosh::Ticket ticket = Gosh::make_ticket( MASTER, "random!!", 4000000000ULL );
   a.use_meetup( MEETUP_AT, ticket, 1700000000000ULL );
   b.use_meetup( MEETUP_AT, ticket, 1700000000000ULL );
-  Gosh::Registrations meetup;
+  Gosh::Registrations meetup( 0 ); /* (its clock, now / 1000, is far from the ends', which they learn by TIME: REQ18/PATH-5) */
   const Addr meetup_at = at( MEETUP_AT );
 
   /* A datagram an end sent to the meetup, from its address there: answered or passed on as the meetup would. */

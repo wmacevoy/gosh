@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5: path-finding's logic (finding.h), with no socket and
+ * REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5: path-finding's logic (finding.h), with no socket and
  * no clock. Two ends and a meetup on a network made of a few lines here: addresses are numbers,
  * time moves when the test says, and "the NAT" is whether datagrams straight between the two ends
  * are let through, and where each end appears to be. The meetup is the meetup's own logic
@@ -39,6 +39,9 @@ Addr at( const std::string& ip_port )
   return a;
 }
 
+/* The meetup's clock: UTC seconds, far from the ends' (whose time of day is given as 1 ms), so that each must learn it (REQ18/PATH-5). */
+const uint64_t MEETUP_CLOCK = 1000000;
+
 std::string key_of( const std::string& id )
 {
   return Gosh::ticket_key( MASTER, id );
@@ -59,13 +62,14 @@ struct Net
   std::string a_got, b_got;
   int b_goodbyes;
   int meetup_passed;
+  int meetup_told_time; /* (REQ18/PATH-5) TIMEs the meetup answered: the ends' clocks here are 1970's */
   int straight_sent;
 
   Net( PathFinding& s_a, PathFinding& s_b )
     : a( s_a ), b( s_b ), a_at( at( "203.0.113.1:4000" ) ), b_at( at( "198.51.100.2:5000" ) ),
       a_at6(), b_at6(), meetup_at( at( "192.0.2.9:3478" ) ), straight( true ), a_to_b4_lost( false ), a_to_b6_lost( false ),
-      meetup(), now( 1000 ), a_got(), b_got(),
-      b_goodbyes( 0 ), meetup_passed( 0 ), straight_sent( 0 )
+      meetup( MEETUP_CLOCK - 1000 ), now( 1000 ), a_got(), b_got(),
+      b_goodbyes( 0 ), meetup_passed( 0 ), meetup_told_time( 0 ), straight_sent( 0 )
   {}
 
   void to_end( bool to_a, const std::string& bytes, const Addr& from )
@@ -104,13 +108,13 @@ struct Net
               continue;
             }
             const Gosh::Registrations::Send s
-              = meetup.datagram( bytes.data(), bytes.size(), Gosh::meetup_where_of( from_at ), now / 1000, key_of );
+              = meetup.datagram( bytes.data(), bytes.size(), Gosh::meetup_where_of( from_at ), MEETUP_CLOCK + now / 1000, key_of );
             Addr dest;
             socklen_t len;
-            if ( s.any && Gosh::meetup_addr_of( s.to, dest, len ) ) {
-              if ( s.bytes.size() != Gosh::MEETUP_ADDRESS_MESSAGE ) {
-                meetup_passed++;
-              }
+            Gosh::MeetupHeader h;
+            if ( s.any && Gosh::meetup_addr_of( s.to, dest, len ) && Gosh::meetup_read_header( s.bytes.data(), s.bytes.size(), h ) ) {
+              meetup_passed += h.kind == Gosh::MEETUP_PASSED;
+              meetup_told_time += h.kind == Gosh::MEETUP_TIME;
               if ( is( dest, true ) ) {
                 to_end( true, s.bytes, meetup_at );
               } else if ( is( dest, false ) ) {
@@ -186,6 +190,40 @@ int main()
     check( "a goodbye reaches the other end", net.b_goodbyes == 1 );
   }
 
+  /* REQ18/PATH-5: a TIME is believed only as the answer to our last REGISTER, so an old one sent again moves no clock. */
+  {
+    PathFinding a( true, key, 1000 ), b( false, key, 1000 );
+    Net net( a, b );
+    net.straight = false;
+    a.use_meetup( "192.0.2.9:3478", ticket, 1 );
+    b.use_meetup( "192.0.2.9:3478", ticket, 1 );
+    net.pass( 1000 );
+    Crypto::Session as_meetup( Gosh::raw_key( ticket.key ) );
+    const uint64_t wrong = ( MEETUP_CLOCK + 86400 ) * 1000; /* a day ahead */
+    net.to_end( true, Gosh::meetup_seal( as_meetup, Gosh::MEETUP_TIME, ticket.id, 0, true, 99999, Gosh::meetup_time_text( 7, wrong ) ),
+                net.meetup_at );
+    std::string reg;
+    for ( int i = 0; i < 1000 && reg.empty(); i++ ) {
+      net.now += 50;
+      a.tick( net.now );
+      const std::vector<PathFinding::Outgoing> out = a.take_outbox();
+      for ( size_t j = 0; j < out.size(); j++ ) {
+        Gosh::MeetupHeader h;
+        if ( Gosh::meetup_read_header( out[j].bytes.data(), out[j].bytes.size(), h ) && h.kind == Gosh::MEETUP_REGISTER ) {
+          reg = out[j].bytes;
+        }
+      }
+    }
+    Gosh::MeetupHeader h;
+    uint64_t counter = 0, said = 0;
+    std::string text, where;
+    const bool opened = Gosh::meetup_read_header( reg.data(), reg.size(), h ) && Gosh::meetup_open( as_meetup, h, false, counter, text )
+                        && Gosh::meetup_read_register( text, where, said );
+    const uint64_t meetup_ms = ( MEETUP_CLOCK + net.now / 1000 ) * 1000;
+    check( "a TIME that answers no REGISTER of ours is not believed: the next REGISTER keeps the meetup's clock",
+           a.meetup_registered() && opened && said + 5000 > meetup_ms && said < meetup_ms + 5000 );
+  }
+
   {
     PathFinding a( true, key, 1000 ), b( false, key, 1000 );
     Net net( a, b );
@@ -197,8 +235,10 @@ int main()
     check( "and not at what is not one", !a.use_meetup( "meetup.example:1", ticket, 1 ) );
     a.use_meetup( "192.0.2.9:3478", ticket, 1 );
     net.pass( 1000 );
-    check( "nothing straight gets through, and both register with the meetup (REQ15/PATH-5)",
+    check( "nothing straight gets through, and both register with the meetup (REQ18/PATH-5)",
            a.meetup_registered() && b.meetup_registered() );
+    check( "each by the meetup's clock, which it was told (TIME), its own being far off (REQ18/PATH-5)",
+           net.meetup_told_time == 2 );
     net.pass( 1000 );
     check( "and find each other through it: open, and not straight (REQ15/PATH-4)",
            a.open( net.now ) && b.open( net.now ) && !a.direct() && !b.direct()
@@ -442,9 +482,9 @@ int main()
   }
 
   if ( failures ) {
-    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: %d checks of path-finding's logic failed\n", failures );
+    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: %d checks of path-finding's logic failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: path-finding's logic\n" );
+  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: path-finding's logic\n" );
   return 0;
 }

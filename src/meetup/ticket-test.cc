@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * REQ15/PATH-5: a ticket (ticket.h), with the real cipher: its key comes only from the master key
+ * REQ18/PATH-5: a ticket (ticket.h), with the real cipher: its key comes only from the master key
  * and the whole id, it stops being good when its id says, and its text goes there and back.
  */
 
@@ -57,9 +57,9 @@ int main()
            && !parse_ticket( text.substr( 0, 34 ) + "!" + text.substr( 35 ), back ) );
 
   if ( failures ) {
-    printf( "FAIL REQ15/PATH-5: %d checks of tickets failed\n", failures );
+    printf( "FAIL REQ18/PATH-5: %d checks of tickets failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ15/PATH-5: tickets\n" );
+  printf( "PASS REQ18/PATH-5: tickets\n" );
   return 0;
 }

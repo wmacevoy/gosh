@@ -178,7 +178,7 @@ int Network::meetup_serve( const char* port, const std::string& master )
     return 1;
   }
 
-  Gosh::Registrations registrations;
+  Gosh::Registrations registrations( time( NULL ) );
   Gosh::AnswerRate rate;
   const KeyOf key_of = { master };
   std::map<std::string, Here> heard_at; /* an end's "where" -> the address of ours it sent to */

@@ -1,5 +1,7 @@
 # Requirements — v17
 
+**Superseded by `REQUIREMENTS_v18.md`** (2026-11-17), in which a datagram copied off the network is no use even after a meetup lets its ticket go, by the meetup's clock (PATH-5). Kept as it was written.
+
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v18.md`); a spelling or lint fix is not. See
 [SE1/R1–R11](../vendor/se1/guide/04-requirements.md).

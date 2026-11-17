@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * meetup, registrations: what a meetup does with REGISTER and PASS (REQ15/PATH-5; the proposal,
+ * meetup, registrations: what a meetup does with REGISTER and PASS (REQ18/PATH-5; the proposal,
  * revision 10, section 4). Logic: a datagram, where it came from and the time in; what to send,
  * and to where, out. No socket, no clock, no file: the ticket key is asked of the caller.
  *
@@ -12,19 +12,31 @@
  * to the ticket's other end. So a datagram copied off the network moves no registration and is
  * passed on no second time (the fork's meetup took whoever last named a pair as its end).
  *
+ * Even once the meetup has let a ticket go (REQ18/PATH-5): a REGISTER carries its time by the
+ * meetup's clock, and one more than CLOCK_SLACK from it is not taken. An end is let go only
+ * END_IDLE (twice CLOCK_SLACK) after its last REGISTER was taken, so by then every REGISTER it was
+ * taken with is too old to be taken again. (Not closed: a meetup just started remembers nothing,
+ * so for CLOCK_SLACK it would take again a REGISTER copied in the CLOCK_SLACK before it started;
+ * README.) The first REGISTER of an end held afresh
+ * is the lowest counter taken from it, so no PASS sealed before it is passed. And a full table
+ * takes no new ticket, rather than let go of one that may still be replayed. A REGISTER whose time
+ * is too far off, but which is otherwise right, is answered with TIME: the meetup's own time,
+ * sealed, so that an end with a wrong clock can register by the meetup's.
+ *
  * Absent: the other end not registered, or not heard for two minutes: nothing is passed. Late: an
  * end that has not registered again for two minutes is dropped; a ticket past its time is refused
  * and dropped. Wrong: anything that is not a message at its exact length, or whose seal does not
  * open as its kind, direction and end: dropped, unanswered. Lying: a REGISTER from anywhere but
- * the address sealed in it, or a counter used already: dropped. More than MAX_TICKETS tickets: a
- * new one puts out the one that has gone longest without passing a datagram. Nothing is answered
- * to a ticket the meetup did not make, and nothing for a PASS costs a key computation.
+ * the address sealed in it, or a counter used already: dropped. MAX_TICKETS tickets held, each with
+ * an end registered within END_IDLE: a new one is not taken until one goes quiet. Nothing is
+ * answered to a ticket the meetup did not make, and nothing for a PASS costs a key computation.
  */
 
 #ifndef GOSH_MEETUP_REGISTRATIONS_H
 #define GOSH_MEETUP_REGISTRATIONS_H
 
 #include <cstdint>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <string>
@@ -35,7 +47,8 @@
 
 namespace Gosh {
 
-/* Which counters an end has used, of the last WINDOW: the highest, and a mark for each below it. */
+/* Which counters an end has used, of the last WINDOW: the highest, and a mark for each below it.
+ * The first counter taken is the lowest ever taken: nothing sealed before it is. */
 class CounterWindow
 {
 public:
@@ -59,7 +72,7 @@ public:
     if ( !any ) {
       any = true;
       top = c;
-      set( c );
+      memset( seen, 0xff, sizeof( seen ) ); /* everything behind it, as if used */
       return true;
     }
     if ( c > top ) {
@@ -82,7 +95,10 @@ class Registrations
 {
 public:
   static const size_t MAX_TICKETS = 64;
-  static const uint64_t END_IDLE = 120; /* seconds an end is kept without registering again */
+  static const uint64_t CLOCK_SLACK = 60;           /* seconds a REGISTER's time may be from the meetup's */
+  static const uint64_t END_IDLE = 2 * CLOCK_SLACK; /* seconds an end is kept without registering again:
+                                                       at least twice CLOCK_SLACK, or a REGISTER could be
+                                                       taken again once its end is let go */
 
   /* What to do with a datagram: nothing; or send these bytes to this address ("where"). */
   struct Send
@@ -105,11 +121,13 @@ private:
   {
     std::unique_ptr<Crypto::Session> session;
     End ends[2];
-    uint64_t sent;     /* the meetup's own counter, for REGISTERED */
-    uint64_t passed;   /* when it last passed a datagram; when made, if never */
-    Entry() : session(), ends(), sent( 0 ), passed( 0 ) {}
+    Entry() : session(), ends() {}
   };
   std::map<std::string, Entry> entries;
+  /* The counter of what the meetup seals, for every ticket: from the time it started, in ms, times
+   * 1024, so that it is never used twice under one key, across tickets let go and taken again and
+   * across restarts (until 2026-11-17 each ticket taken counted from 0 again). */
+  uint64_t sealed;
 
   bool live( const End& e, uint64_t now ) const { return !e.where.empty() && now - e.registered <= END_IDLE; }
 
@@ -126,23 +144,9 @@ private:
     }
   }
 
-  /* Room for one more: the ticket that has gone longest without passing a datagram goes. */
-  void make_room( void )
-  {
-    if ( entries.size() < MAX_TICKETS ) {
-      return;
-    }
-    std::map<std::string, Entry>::iterator oldest = entries.begin();
-    for ( std::map<std::string, Entry>::iterator i = entries.begin(); i != entries.end(); i++ ) {
-      if ( i->second.passed < oldest->second.passed ) {
-        oldest = i;
-      }
-    }
-    entries.erase( oldest );
-  }
-
 public:
-  Registrations() : entries() {}
+  /* started: when the meetup started, UTC seconds. */
+  explicit Registrations( uint64_t started ) : entries(), sealed( ( started * 1000 ) << 10 ) {}
 
   /*
    * A datagram has arrived.
@@ -184,7 +188,6 @@ public:
       if ( !live( other, now ) ) {
         return nothing;
       }
-      entry.passed = now;
       Send s;
       s.any = true;
       s.to = other.where;
@@ -205,16 +208,25 @@ public:
       fresh.reset( new Crypto::Session( raw_key( key ) ) );
       session = fresh.get();
     }
-    uint64_t counter;
-    std::string believed;
-    if ( !meetup_open( *session, h, false, counter, believed ) || believed != from ) {
+    uint64_t counter, time_ms;
+    std::string text, believed;
+    if ( !meetup_open( *session, h, false, counter, text ) || !meetup_read_register( text, believed, time_ms ) || believed != from ) {
       return nothing;
     }
+    const uint64_t time_s = time_ms / 1000;
+    if ( time_s + CLOCK_SLACK < now || time_s > now + CLOCK_SLACK ) {
+      Send s; /* sealed by an end with the key, from where it says: tell it the time */
+      s.any = true;
+      s.to = from;
+      s.bytes = meetup_seal( *session, MEETUP_TIME, h.ticket, h.end, true, sealed++, meetup_time_text( counter, now * 1000 ) );
+      return s;
+    }
     if ( found == entries.end() ) {
-      make_room();
+      if ( entries.size() >= MAX_TICKETS ) {
+        return nothing;
+      }
       found = entries.insert( std::make_pair( h.ticket, Entry() ) ).first;
       found->second.session = std::move( fresh );
-      found->second.passed = now;
     }
     Entry& entry = found->second;
     End& self = entry.ends[h.end];
@@ -226,7 +238,7 @@ public:
     Send s;
     s.any = true;
     s.to = from;
-    s.bytes = meetup_seal( *entry.session, MEETUP_REGISTERED, h.ticket, h.end, true, entry.sent++, from );
+    s.bytes = meetup_seal( *entry.session, MEETUP_REGISTERED, h.ticket, h.end, true, sealed++, from );
     return s;
   }
 

@@ -11,7 +11,7 @@ namespace Network {
  * A meetup: a machine with a public address, typically the student's own server, where the two
  * ends of a session that cannot reach each other find where they appear to be, and through which
  * their datagrams are passed when they can find no way to each other ("gosh-server meetup PORT";
- * REQ15/PATH-4, REQ15/PATH-5). It does two things.
+ * REQ15/PATH-4, REQ18/PATH-5). It does two things.
  *
  * It answers the STUN question, to anyone: it says where a request came from, never with more
  * bytes than it was sent, and no more than a few hundred times a second (answer.h).

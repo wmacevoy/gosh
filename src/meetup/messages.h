@@ -1,11 +1,14 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * meetup, messages: the datagrams between an end and a meetup, as bytes (REQ15/PATH-5; the
+ * meetup, messages: the datagrams between an end and a meetup, as bytes (REQ18/PATH-5; the
  * proposal, revision 10, section 4). Logic: bytes and a cipher in, bytes out; no socket, no clock.
  *
- *   REGISTER    mark | version | ticket id (16) | end (1) | sealed { kind, where the end believes it is }   70 bytes
+ *   REGISTER    mark | version | ticket id (16) | end (1) | sealed { kind, where the end believes it is,
+ *                                                                     the time by the meetup's clock (8) }   78 bytes
  *   REGISTERED  mark | version | ticket id (16) | end (1) | sealed { kind, where the end was seen }        70 bytes
+ *   TIME        mark | version | ticket id (16) | end (1) | sealed { kind, the counter of the REGISTER
+ *                                                                     it answers (8), the meetup's time (8) } 67 bytes
  *   PASS        mark | version | ticket id (16) | end (1) | sealed { kind, the datagram }      52 to 1,551 bytes
  *   PASSED      mark | version | the datagram                                                  10 to 1,509 bytes
  *
@@ -14,7 +17,11 @@
  * no two of the four senders under one key ever use the same nonce, and a message sealed one way
  * cannot be taken for one sealed another. "where" is 19 bytes: a family (4 or 6), an address of
  * 16 (an IPv4 address in the first four, most significant first, zeros after; or an IPv6 address)
- * and a port of 2 (REQ17/PATH-8).
+ * and a port of 2 (REQ17/PATH-8). A time is milliseconds since 1970, UTC, most significant byte first.
+ *
+ * Version 2 (2026-11-17, REQ18/PATH-5): REGISTER carries a time, so that a meetup that has let a
+ * ticket go cannot be given an old REGISTER again; and a meetup whose clock the time is too far
+ * from answers TIME, saying its own, so that an end need not have a right clock to register.
  *
  * Wrong input: anything not exactly one of these lengths, with its mark and version, is not read
  * (false); a seal that does not open, or opens to the wrong kind or direction, is refused. Lengths
@@ -38,19 +45,24 @@ enum MeetupKind
   MEETUP_REGISTER = 1,
   MEETUP_REGISTERED = 2,
   MEETUP_PASS = 3,
-  MEETUP_PASSED = 4
+  MEETUP_PASSED = 4,
+  MEETUP_TIME = 5
 };
 
-static const char MEETUP_MARKS[4][8] = { { 0, 'g', 'o', 's', 'h', 'R', 'E', 'G' },
-                                         { 0, 'g', 'o', 's', 'h', 'R', 'G', 'D' },
-                                         { 0, 'g', 'o', 's', 'h', 'P', 'A', 'S' },
-                                         { 0, 'g', 'o', 's', 'h', 'P', 'S', 'D' } };
-static const unsigned char MEETUP_VERSION = 1;
+static const int MEETUP_KINDS = 5;
+static const char MEETUP_MARKS[MEETUP_KINDS][8] = { { 0, 'g', 'o', 's', 'h', 'R', 'E', 'G' },
+                                                    { 0, 'g', 'o', 's', 'h', 'R', 'G', 'D' },
+                                                    { 0, 'g', 'o', 's', 'h', 'P', 'A', 'S' },
+                                                    { 0, 'g', 'o', 's', 'h', 'P', 'S', 'D' },
+                                                    { 0, 'g', 'o', 's', 'h', 'T', 'I', 'M' } };
+static const unsigned char MEETUP_VERSION = 2;
 
 static const size_t MEETUP_WHERE_LEN = 19;
 static const size_t MEETUP_HEADER = 8 + 1 + 16 + 1; /* mark, version, ticket id, end */
 static const size_t MEETUP_SEAL = 8 + 16;           /* the nonce, the tag */
-static const size_t MEETUP_ADDRESS_MESSAGE = MEETUP_HEADER + MEETUP_SEAL + 1 + MEETUP_WHERE_LEN; /* 70 */
+static const size_t MEETUP_ADDRESS_MESSAGE = MEETUP_HEADER + MEETUP_SEAL + 1 + MEETUP_WHERE_LEN; /* 70: REGISTERED */
+static const size_t MEETUP_REGISTER_MESSAGE = MEETUP_ADDRESS_MESSAGE + 8;                        /* 78 */
+static const size_t MEETUP_TIME_MESSAGE = MEETUP_HEADER + MEETUP_SEAL + 1 + 8 + 8;               /* 67 */
 static const size_t MEETUP_MAX_DATAGRAM = 1500;
 static const size_t MEETUP_PASS_MIN = MEETUP_HEADER + MEETUP_SEAL + 1 + 1;
 static const size_t MEETUP_PASS_MAX = MEETUP_HEADER + MEETUP_SEAL + 1 + MEETUP_MAX_DATAGRAM;
@@ -124,6 +136,54 @@ inline bool meetup_addr_of( const std::string& w, Network::Addr& a, socklen_t& l
   return true;
 }
 
+/* Eight bytes, most significant first, and back. */
+inline std::string meetup_u64( uint64_t v )
+{
+  std::string s( 8, '\0' );
+  for ( int i = 0; i < 8; i++ ) {
+    s[i] = static_cast<char>( ( v >> ( 56 - 8 * i ) ) & 0xff );
+  }
+  return s;
+}
+inline uint64_t meetup_u64_of( const char* p )
+{
+  uint64_t v = 0;
+  for ( int i = 0; i < 8; i++ ) {
+    v = ( v << 8 ) | static_cast<unsigned char>( p[i] );
+  }
+  return v;
+}
+
+/* REGISTER's text: where the end believes it is, and the time (ms) by the meetup's clock, as the end reckons it. */
+inline std::string meetup_register_text( const std::string& where, uint64_t time_ms )
+{
+  return where + meetup_u64( time_ms );
+}
+inline bool meetup_read_register( const std::string& text, std::string& where, uint64_t& time_ms )
+{
+  if ( text.size() != MEETUP_WHERE_LEN + 8 ) {
+    return false;
+  }
+  where = text.substr( 0, MEETUP_WHERE_LEN );
+  time_ms = meetup_u64_of( text.data() + MEETUP_WHERE_LEN );
+  return true;
+}
+
+/* TIME's text: the counter of the REGISTER it answers, and the meetup's time (ms). */
+inline std::string meetup_time_text( uint64_t answering, uint64_t time_ms )
+{
+  return meetup_u64( answering ) + meetup_u64( time_ms );
+}
+inline bool meetup_read_time( const std::string& text, uint64_t& answering, uint64_t& time_ms )
+{
+  if ( text.size() != 16 ) {
+    return false;
+  }
+  answering = meetup_u64_of( text.data() );
+  time_ms = meetup_u64_of( text.data() + 8 );
+  return true;
+}
+
 /* A message's header, once its length, mark and version have been found right. */
 struct MeetupHeader
 {
@@ -134,14 +194,14 @@ struct MeetupHeader
   size_t sealed_len;
 };
 
-/* True, and its header, if these bytes are one of the four messages at its exact length. */
+/* True, and its header, if these bytes are one of the messages at its exact length. */
 inline bool meetup_read_header( const char* data, size_t n, MeetupHeader& h )
 {
   if ( n < 9 || static_cast<unsigned char>( data[8] ) != MEETUP_VERSION ) {
     return false;
   }
   int kind = 0;
-  for ( int k = 0; k < 4; k++ ) {
+  for ( int k = 0; k < MEETUP_KINDS; k++ ) {
     if ( memcmp( data, MEETUP_MARKS[k], 8 ) == 0 ) {
       kind = k + 1;
     }
@@ -160,8 +220,11 @@ inline bool meetup_read_header( const char* data, size_t n, MeetupHeader& h )
   if ( kind == 0 ) {
     return false;
   }
-  const bool address_message = kind == MEETUP_REGISTER || kind == MEETUP_REGISTERED;
-  if ( address_message ? n != MEETUP_ADDRESS_MESSAGE : ( n < MEETUP_PASS_MIN || n > MEETUP_PASS_MAX ) ) {
+  const bool right_length = kind == MEETUP_REGISTER     ? n == MEETUP_REGISTER_MESSAGE
+                            : kind == MEETUP_REGISTERED ? n == MEETUP_ADDRESS_MESSAGE
+                            : kind == MEETUP_TIME       ? n == MEETUP_TIME_MESSAGE
+                                                        : ( n >= MEETUP_PASS_MIN && n <= MEETUP_PASS_MAX );
+  if ( !right_length ) {
     return false;
   }
   const unsigned char end = static_cast<unsigned char>( data[25] );

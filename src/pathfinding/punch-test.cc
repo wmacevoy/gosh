@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5: path-finding's two ends (punch.h), with real sockets
+ * REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5: path-finding's two ends (punch.h), with real sockets
  * on loopback and the real cipher: a way straight through when each knows where the other is;
  * a way through a meetup when neither does, with a ticket; and a probe of the wrong length not
  * opened (the fifth security fault: the cipher guards its buffers with an assert alone).
@@ -59,7 +59,7 @@ struct Meetup
   int passed;
 
   explicit Meetup( int s_family = AF_INET )
-    : family( s_family ), sock( socket( s_family, SOCK_DGRAM, 0 ) ), registrations(), passed( 0 )
+    : family( s_family ), sock( socket( s_family, SOCK_DGRAM, 0 ) ), registrations( time( NULL ) - 1000 ), passed( 0 )
   {
     Network::Addr a;
     memset( &a, 0, sizeof( a ) );
@@ -101,7 +101,8 @@ struct Meetup
     socklen_t to_len;
     if ( s.any && Gosh::meetup_addr_of( s.to, to, to_len ) ) {
       sendto( sock, s.bytes.data(), s.bytes.size(), 0, &to.sa, to_len );
-      passed += s.bytes.size() != Gosh::MEETUP_ADDRESS_MESSAGE;
+      Gosh::MeetupHeader h;
+      passed += Gosh::meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == Gosh::MEETUP_PASSED;
     }
   }
 };
@@ -163,7 +164,7 @@ int main()
     check( "and not at what is not an address", !a.use_meetup( "meetup.example:1", t ) );
     a.use_meetup( m.where(), t );
     const bool registered = run( a, b, &m, 3000, [&]( uint64_t ) { return a.meetup_registered() && b.meetup_registered(); } );
-    check( "neither knowing where the other is, both register with the meetup (REQ15/PATH-5)", registered );
+    check( "neither knowing where the other is, both register with the meetup (REQ18/PATH-5)", registered );
     const bool open = run( a, b, &m, 3000, [&]( uint64_t now ) { return a.open( now ) && b.open( now ); } );
     check( "and find each other through it: a way through, not straight (REQ15/PATH-4)",
            open && !a.direct() && !b.direct() && a.where().find( "meetup" ) != std::string::npos );
@@ -243,9 +244,9 @@ int main()
   }
 
   if ( failures ) {
-    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: %d checks of path-finding failed\n", failures );
+    printf( "FAIL REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: %d checks of path-finding failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: path-finding, straight and through a meetup\n" );
+  printf( "PASS REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: path-finding, straight and through a meetup\n" );
   return 0;
 }

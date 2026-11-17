@@ -1,27 +1,34 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * REQ15/PATH-5: fuzzes the meetup's logic as the Internet sees it (registrations.h, answer.h): a
+ * REQ18/PATH-5: fuzzes the meetup's logic as the Internet sees it (registrations.h, answer.h): a
  * meetup's port is open to anyone. The meetup is given datagrams of any kind from any of a few
  * addresses (IPv4 and IPv6); messages sealed under the keys of two good tickets, by either end,
- * from where the sender says it is or from somewhere else, with any counter; earlier messages
- * again, from anywhere; and STUN requests.
+ * from where the sender says it is or from somewhere else, with any counter and, for a REGISTER,
+ * a time up to two minutes either side of the meetup's; earlier messages again, from anywhere,
+ * any time later; and STUN requests.
  *
- * Besides looking for crashes, it holds the meetup to REQ15/PATH-5, keeping a model of what the
+ * Besides looking for crashes, it holds the meetup to REQ18/PATH-5, keeping a model of what the
  * meetup's own answers have shown:
  *   - an end is registered at an address once the meetup has answered its REGISTER there;
- *   - REGISTERED goes only to where the REGISTER came from, and only if it was sealed there;
+ *   - REGISTERED goes only to where the REGISTER came from, and only if it was sealed there, with
+ *     a time within CLOCK_SLACK of the meetup's; TIME only for one sealed there with a time
+ *     further off, answering it with the meetup's time, and moving nothing;
  *   - PASSED goes only from an end's registered address, only to the other end of the same
  *     ticket at its registered address, and carries what was sealed;
  *   - nothing at all is sent for bytes that were not sealed under a ticket's key (junk); and a
  *     message sent again, from anywhere, is held to the same rules as when it was first sent: it
  *     can do no more than its sender could;
  *   - a sealed message is acted on once at most, and an end's counter taken once at most ("passed
- *     on no second time"), for as long as the meetup holds its ticket (once it may have let the
- *     ticket go, after two minutes with neither end registering, or to make room, the record is
- *     begun again: the meetup's README, "not closed");
+ *     on no second time"), even after the meetup has let the ticket go. The one exception is the
+ *     end's own doing, not a copier's: an end held afresh, whose REGISTER's counter is at or below
+ *     counters it sealed before (an end that holds the key and counts backwards), may have those
+ *     counters taken again, in other messages; the very bytes of one acted on, never. (Until 2026-11-17 the record began again whenever the meetup might have let a
+ *     ticket go, and so did not hold the meetup to this; held to it, it found the meetup taking
+ *     an old REGISTER again.);
  *   - a ticket that has run out is used for nothing (ticket 1 runs out within reach);
- *   - the meetup never holds more than MAX_TICKETS tickets (kind 4 registers many);
+ *   - the meetup never holds more than MAX_TICKETS tickets, and takes no new one when full (kind
+ *     4 registers many);
  *   - an answer to STUN is a whole answer, of the length for its family.
  *
  * New in gosh (queue item 21); the fork's meetup was fuzzed by nothing.
@@ -30,7 +37,7 @@
  *   0  bytes from anyone (body[0] says from where; the rest are the datagram), or, if body[0] has
  *      its top bit, the last sealed message again, from there
  *   1  a REGISTER: body[0] ticket and end, body[1] from where, body[2] a step for its counter,
- *      body[3] where it says it is
+ *      body[3] where it says it is, body[4] its time, as seconds from the meetup's (signed)
  *   2  a PASS: body[0] ticket and end, body[1] from where, body[2] a step for its counter; the
  *      rest is the datagram
  *   3  time passes (body[0] seconds), and a STUN request from body[1]'s address
@@ -135,7 +142,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   Crypto::Session session1( raw_key( tickets[1].key ) );
   Crypto::Session* sessions[2] = { &session0, &session1 };
 
-  Registrations meetup;
+  Registrations meetup( START - 1000 );
   AnswerRate rate;
   const KeyOf key_of = KeyOf();
   uint64_t now = START;
@@ -143,24 +150,19 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   std::map<int, std::string> registered; /* ticket * 2 + end: where the meetup's answer showed it registered */
   Sealed last;                           /* the last message sealed, to be sent again */
   std::map<int, uint64_t> registered_at; /* ticket * 2 + end: when the meetup last answered its REGISTER */
-  std::set<std::string> acted[2];        /* each ticket's sealed messages the meetup has acted on */
-  std::set<uint64_t> used[2][2];         /* each end's counters the meetup has taken */
+  std::map<std::string, uint64_t> acted[2][2]; /* each end's sealed messages the meetup has acted on, and their counters */
+  std::set<uint64_t> used[2][2];               /* each end's counters the meetup has taken */
 
-  /* The meetup may have let ticket t go, and the counters it had seen with it: its record begins again. */
-  auto forgotten = [&]( int t, bool and_where ) {
-    acted[t].clear();
-    used[t][0].clear();
-    used[t][1].clear();
-    if ( and_where ) {
-      registered.erase( t * 2 );
-      registered.erase( t * 2 + 1 );
-      registered_at.erase( t * 2 );
-      registered_at.erase( t * 2 + 1 );
-    }
+  /* The meetup has let ticket t go (it keeps the record of what it acted on: that is the point). */
+  auto let_go = [&]( int t ) {
+    registered.erase( t * 2 );
+    registered.erase( t * 2 + 1 );
+    registered_at.erase( t * 2 );
+    registered_at.erase( t * 2 + 1 );
   };
   auto live = [&]( int me ) { return registered_at.count( me ) && now - registered_at[me] <= Registrations::END_IDLE; };
 
-  /* What the meetup sent, if anything, for this sealed message from this address: held to REQ15/PATH-5. */
+  /* What the meetup sent, if anything, for this sealed message from this address: held to REQ18/PATH-5. */
   auto held = [&]( const Sealed& m, const std::string& from, const Registrations::Send& s ) {
     if ( !s.any ) {
       return;
@@ -168,16 +170,46 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
     const int me = m.ticket * 2 + m.end, other = m.ticket * 2 + 1 - m.end;
     /* nothing under a ticket that has run out */
     require( now <= untils[m.ticket] );
-    /* acted on once at most, and its counter taken once at most */
     MeetupHeader mh;
     uint64_t c;
     std::string ignored;
     require( meetup_read_header( m.bytes.data(), m.bytes.size(), mh ) && meetup_open( *sessions[m.ticket], mh, false, c, ignored ) );
-    require( acted[m.ticket].insert( m.bytes ).second );
-    require( used[m.ticket][m.end].insert( c ).second );
+    std::string said;
+    uint64_t said_ms = 0;
+    const bool time_right = m.kind == MEETUP_REGISTER && meetup_read_register( m.text, said, said_ms )
+                            && said_ms / 1000 + Registrations::CLOCK_SLACK >= now && said_ms / 1000 <= now + Registrations::CLOCK_SLACK;
     if ( m.kind == MEETUP_REGISTER ) {
       /* answered only where it came from, and only if it was sealed there */
-      require( s.to == from && m.text == from );
+      require( s.to == from && said == from );
+      MeetupHeader h;
+      uint64_t counter, answering, its_ms;
+      std::string seen;
+      if ( !time_right ) {
+        /* its time too far from the meetup's: told the meetup's, for this REGISTER, and nothing more */
+        require( meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == MEETUP_TIME
+                 && meetup_open( *sessions[m.ticket], h, true, counter, seen ) && meetup_read_time( seen, answering, its_ms )
+                 && answering == c && its_ms == now * 1000 );
+        return;
+      }
+      if ( !registered.count( me ) ) {
+        /* held afresh: its counters from this one up, taken before, can only be its own counting backwards
+           (a copy has the very bytes, and those stay in acted) */
+        for ( std::set<uint64_t>::iterator u = used[m.ticket][m.end].lower_bound( c ); u != used[m.ticket][m.end].end(); ) {
+          used[m.ticket][m.end].erase( u++ );
+        }
+        for ( std::map<std::string, uint64_t>::iterator a = acted[m.ticket][m.end].begin(); a != acted[m.ticket][m.end].end(); ) {
+          if ( a->second > c ) {
+            acted[m.ticket][m.end].erase( a++ );
+          } else {
+            a++;
+          }
+        }
+      }
+    }
+    /* acted on once at most, and its counter taken once at most */
+    require( acted[m.ticket][m.end].insert( std::make_pair( m.bytes, c ) ).second );
+    require( used[m.ticket][m.end].insert( c ).second );
+    if ( m.kind == MEETUP_REGISTER ) {
       MeetupHeader h;
       uint64_t counter;
       std::string seen;
@@ -196,13 +228,14 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   std::map<int, std::unique_ptr<Crypto::Session>> further; /* kind 4's tickets, by number */
   std::map<int, Ticket> further_ticket;
   std::map<int, uint64_t> further_counter;
+  std::map<int, uint64_t> further_at; /* when the meetup last answered a further ticket's REGISTER */
 
   size_t i = 0;
   while ( i + 2 <= size ) {
     /* a ticket with neither end registered for two minutes is let go by the meetup at its next datagram */
     for ( int t = 0; t < 2; t++ ) {
       if ( !live( t * 2 ) && !live( t * 2 + 1 ) ) {
-        forgotten( t, true );
+        let_go( t );
       }
     }
     const unsigned int kind = data[i] % 5;
@@ -230,7 +263,9 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         m.end = ( byte_at( body, 0 ) >> 1 ) & 1;
         const std::string from = where( byte_at( body, 1 ) );
         counters[m.ticket][m.end] += static_cast<int8_t>( byte_at( body, 2 ) );
-        m.text = kind == 1 ? where( byte_at( body, 3 ) ) : ( body.size() > 3 ? body.substr( 3 ) : std::string() );
+        const uint64_t at = now + static_cast<int8_t>( byte_at( body, 4 ) );
+        m.text = kind == 1 ? meetup_register_text( where( byte_at( body, 3 ) ), at * 1000 )
+                           : ( body.size() > 3 ? body.substr( 3 ) : std::string() );
         m.bytes = meetup_seal( *sessions[m.ticket], m.kind, tickets[m.ticket].id, m.end, false, counters[m.ticket][m.end], m.text );
         last = m;
         held( m, from, meetup.datagram( m.bytes.data(), m.bytes.size(), from, now, key_of ) );
@@ -258,14 +293,21 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
           further_counter[k] = 1000;
         }
         const std::string bytes
-          = meetup_seal( *further[k], MEETUP_REGISTER, further_ticket[k].id, 0, false, further_counter[k]++, from );
-        const size_t before = meetup.ticket_count();
+          = meetup_seal( *further[k], MEETUP_REGISTER, further_ticket[k].id, 0, false, further_counter[k]++,
+                         meetup_register_text( from, now * 1000 ) );
+        /* the tickets the meetup still holds, by what its answers have shown: a ticket is held while an end has registered within END_IDLE */
+        auto further_live = [&]( int f ) { return further_at.count( f ) && now - further_at[f] <= Registrations::END_IDLE; };
+        size_t held_now = ( live( 0 ) || live( 1 ) ) + ( live( 2 ) || live( 3 ) );
+        for ( std::map<int, uint64_t>::iterator f = further_at.begin(); f != further_at.end(); f++ ) {
+          held_now += further_live( f->first );
+        }
+        const bool was_held = further_live( k );
         const Registrations::Send s = meetup.datagram( bytes.data(), bytes.size(), from, now, key_of );
         require( !s.any || s.to == from );
-        if ( s.any && before == Registrations::MAX_TICKETS ) {
-          /* one was put out to make room, perhaps ticket 0 or 1: their record of "once" begins again */
-          forgotten( 0, false );
-          forgotten( 1, false );
+        /* a full table takes no new ticket: none is put out that might still be replayed */
+        require( !( s.any && !was_held && held_now >= Registrations::MAX_TICKETS ) );
+        if ( s.any ) {
+          further_at[k] = now;
         }
         break;
       }

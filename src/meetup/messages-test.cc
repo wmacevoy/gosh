@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * REQ15/PATH-5: the messages between an end and a meetup (messages.h), with the real cipher: each
+ * REQ18/PATH-5: the messages between an end and a meetup (messages.h), with the real cipher: each
  * at its exact length, and none read, or opened, as anything it was not sealed as.
  */
 
@@ -33,9 +33,33 @@ int main()
          where.size() == 19 && where[0] == 4 && where.substr( 1, 4 ) == std::string( "\x7f\x00\x00\x01", 4 )
            && where.substr( 5, 12 ) == std::string( 12, '\0' ) && where.substr( 17 ) == "\xea\x61" );
 
-  const std::string reg = meetup_seal( session, MEETUP_REGISTER, t.id, 1, false, 5, where );
+  const std::string said = meetup_register_text( where, 1763337600123ULL );
+  const std::string reg = meetup_seal( session, MEETUP_REGISTER, t.id, 1, false, 5, said );
   const std::string answer = meetup_seal( session, MEETUP_REGISTERED, t.id, 1, true, 0, where );
-  check( "REGISTER and REGISTERED are each 70 bytes", reg.size() == 70 && answer.size() == 70 );
+  check( "REGISTER is 78 bytes and REGISTERED 70 (REQ18/PATH-5: REGISTER carries a time)", reg.size() == 78 && answer.size() == 70 );
+  std::string where_back;
+  uint64_t time_back = 0;
+  check( "REGISTER's text: where, then the time, eight bytes most significant first",
+         said.size() == 27 && said.substr( 19 ) == std::string( "\x00\x00\x01\x9a\x8f\x1c\x7c\x7b", 8 )
+           && meetup_read_register( said, where_back, time_back ) && where_back == where && time_back == 1763337600123ULL );
+  check( "and a text of another length is not one", !meetup_read_register( where, where_back, time_back ) );
+  const std::string told = meetup_seal( session, MEETUP_TIME, t.id, 1, true, 1, meetup_time_text( 5, 1763337600000ULL ) );
+  MeetupHeader th;
+  uint64_t tc = 0, answering = 0, its_time = 0;
+  std::string tt;
+  check( "TIME is 67 bytes, and opens, as the meetup's, to the counter it answers and the meetup's time",
+         told.size() == 67 && meetup_read_header( told.data(), told.size(), th ) && th.kind == MEETUP_TIME
+           && meetup_open( session, th, true, tc, tt ) && meetup_read_time( tt, answering, its_time ) && answering == 5
+           && its_time == 1763337600000ULL );
+  bool no_time_reads = true;
+  for ( size_t n = 0; n < 100; n++ ) {
+    if ( n != 67 ) {
+      std::string resized = told;
+      resized.resize( n, '\0' );
+      no_time_reads = no_time_reads && !( meetup_read_header( resized.data(), resized.size(), th ) && th.kind == MEETUP_TIME );
+    }
+  }
+  check( "a TIME of any length but 67 is not read as one", no_time_reads );
 
   MeetupHeader h;
   check( "REGISTER's header reads: its kind, its ticket, its end",
@@ -43,7 +67,7 @@ int main()
   uint64_t counter = 0;
   std::string text;
   check( "and it opens, as sealed by end 1, to its counter and where",
-         meetup_open( session, h, false, counter, text ) && counter == 5 && text == where );
+         meetup_open( session, h, false, counter, text ) && counter == 5 && text == said );
   check( "not under another key", !meetup_open( other, h, false, counter, text ) );
   check( "not as sealed by the meetup", !meetup_open( session, h, true, counter, text ) );
   std::string as_end0 = reg;
@@ -57,22 +81,22 @@ int main()
 
   bool none_reads = true;
   for ( size_t n = 0; n < 200; n++ ) {
-    if ( n != 70 ) {
+    if ( n != 78 ) {
       std::string resized = reg;
       resized.resize( n, '\0' );
       none_reads = none_reads && !meetup_read_header( resized.data(), resized.size(), h );
     }
   }
-  check( "a REGISTER of any length but 70 is not read", none_reads );
+  check( "a REGISTER of any length but 78 is not read", none_reads );
   std::string bad = reg;
-  bad[8] = 2;
-  check( "nor of another version", !meetup_read_header( bad.data(), bad.size(), h ) );
+  bad[8] = 1;
+  check( "nor of another version (1: before REGISTER carried a time)", !meetup_read_header( bad.data(), bad.size(), h ) );
   bad = reg;
   bad[25] = 2;
   check( "nor for an end that is neither 0 nor 1", !meetup_read_header( bad.data(), bad.size(), h ) );
   bad = reg;
   bad[3] = 'X';
-  check( "nor with a mark that is none of the four", !meetup_read_header( bad.data(), bad.size(), h ) );
+  check( "nor with a mark that is none of the five", !meetup_read_header( bad.data(), bad.size(), h ) );
 
   const std::string small = meetup_seal( session, MEETUP_PASS, t.id, 0, false, 9, "x" );
   const std::string big = meetup_seal( session, MEETUP_PASS, t.id, 0, false, 10, std::string( 1500, 'y' ) );
@@ -120,9 +144,9 @@ int main()
   check( "where of another family is no address", !meetup_addr_of( std::string( 19, '\x05' ), back, len ) );
 
   if ( failures ) {
-    printf( "FAIL REQ15/PATH-5, REQ17/PATH-8: %d checks of the meetup's messages failed\n", failures );
+    printf( "FAIL REQ18/PATH-5, REQ17/PATH-8: %d checks of the meetup's messages failed\n", failures );
     return 1;
   }
-  printf( "PASS REQ15/PATH-5, REQ17/PATH-8: the meetup's messages\n" );
+  printf( "PASS REQ18/PATH-5, REQ17/PATH-8: the meetup's messages\n" );
   return 0;
 }

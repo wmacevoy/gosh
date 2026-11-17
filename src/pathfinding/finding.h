@@ -3,7 +3,7 @@
 /*
  * path-finding, the logic: where the other end might be, the probes sealed and numbered that find
  * out, which way is open, and the meetup registered with and passed through (REQ1/PATH-3,
- * REQ15/PATH-4, REQ15/PATH-5, REQ1/PATH-6; design v2, 2.2, path-finding's punch). Logic: the
+ * REQ15/PATH-4, REQ18/PATH-5, REQ1/PATH-6; design v2, 2.2, path-finding's punch). Logic: the
  * time and datagrams (with where each came from) in; datagrams to send, and to where, out. No
  * socket, no clock, no randomness: punch.cc is its edge, and sends what it says.
  *
@@ -104,6 +104,19 @@ private:
   bool registered;
   int register_tries; /* REGISTERs not answered since we last asked where we are */
   uint64_t registered_at, last_register, last_meetup_stun;
+  /* (gosh, REQ18/PATH-5) The meetup's clock, as we reckon it: the time of day when the meetup was
+   * taken up, `now` then (taken at the first tick after), and what the meetup's TIME has told us
+   * to add. And the counter of our last REGISTER, which a TIME must answer to be believed. */
+  uint64_t meetup_wall, meetup_since;
+  bool meetup_since_known;
+  int64_t meetup_offset;
+  uint64_t last_register_counter;
+  bool time_wanted;
+
+  uint64_t meetup_time( uint64_t now ) const
+  {
+    return static_cast<uint64_t>( static_cast<int64_t>( meetup_wall + ( now - meetup_since ) ) + meetup_offset );
+  }
 
   void out( const Addr& to, const std::string& bytes )
   {
@@ -154,6 +167,10 @@ private:
     if ( !meetup_known ) {
       return;
     }
+    if ( !meetup_since_known ) {
+      meetup_since = now;
+      meetup_since_known = true;
+    }
     if ( registered && now - registered_at > REGISTER_EVERY + OPEN_FOR ) {
       registered = false; /* not answered for a while: perhaps we have moved; ask again where we are */
       believed.clear();
@@ -177,7 +194,11 @@ private:
       }
       register_tries++;
       last_register = now;
-      out( meetup, Gosh::meetup_seal( *meetup_session, Gosh::MEETUP_REGISTER, ticket.id, end, false, meetup_counter++, believed ) );
+      last_register_counter = meetup_counter;
+      time_wanted = true;
+      out( meetup,
+           Gosh::meetup_seal( *meetup_session, Gosh::MEETUP_REGISTER, ticket.id, end, false, meetup_counter++,
+                              Gosh::meetup_register_text( believed, meetup_time( now ) ) ) );
     }
   }
 
@@ -207,6 +228,18 @@ private:
         register_tries = 0;
       }
     }
+    std::string text;
+    uint64_t answering, its_time;
+    if ( h.kind == Gosh::MEETUP_TIME && h.ticket == ticket.id && h.end == end && time_wanted
+         && Gosh::meetup_open( *meetup_session, h, true, counter, text ) && Gosh::meetup_read_time( text, answering, its_time )
+         && answering == last_register_counter ) {
+      /* (gosh, REQ18/PATH-5) Our REGISTER's time was too far from the meetup's clock: take its
+       * word, which answers our last REGISTER and so is not an old one, and register again now. */
+      meetup_offset += static_cast<int64_t>( its_time - meetup_time( now ) );
+      time_wanted = false;
+      register_tries = 0;
+      last_register = 0;
+    }
     return true;
   }
 
@@ -217,7 +250,8 @@ public:
       candidates(), local_new(), local_all(), peer(), peer_via( false ), locked( false ), heard( 0 ), started( now ),
       last_probe( 0 ), last_direct_probe( 0 ), answered( 0 ), last_asked_back( 0 ), outbox(), meetup_known( false ), meetup(), ticket(),
       end( s_initiator ? 0 : 1 ), meetup_session(), meetup_counter( 0 ), believed(), registered( false ),
-      register_tries( 0 ), registered_at( 0 ), last_register( 0 ), last_meetup_stun( 0 )
+      register_tries( 0 ), registered_at( 0 ), last_register( 0 ), last_meetup_stun( 0 ), meetup_wall( 0 ), meetup_since( 0 ),
+      meetup_since_known( false ), meetup_offset( 0 ), last_register_counter( 0 ), time_wanted( false )
   {}
 
   /* One of this machine's own addresses, with our port ("ip:port"): where the other end might reach us on our network. */
@@ -251,7 +285,7 @@ public:
    * (gosh) Use a meetup as well: at this address ("ip:port"), with this ticket. False if the
    * address or ticket is not one. wall_ms: the time of day, in ms; the counter its messages are
    * numbered by starts from it, so that a ticket used again by a new PathFinding is not taken
-   * for an old one.
+   * for an old one; and a REGISTER's time is reckoned from it until the meetup says otherwise.
    */
   bool use_meetup( const std::string& ip_port, const Gosh::Ticket& t, uint64_t wall_ms )
   {
@@ -264,6 +298,10 @@ public:
     meetup_known = true;
     ticket = t;
     meetup_counter = wall_ms << 10;
+    meetup_wall = wall_ms;
+    meetup_since_known = false;
+    meetup_offset = 0;
+    time_wanted = false;
     believed.clear();
     registered = false;
     register_tries = 0;

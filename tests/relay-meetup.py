@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH.
-"""REQ15/PATH-4, REQ15/PATH-5: a session that falls back to the relay gets a ticket, and both relays register with the meetup.
+"""REQ15/PATH-4, REQ18/PATH-5: a session that falls back to the relay gets a ticket, and both relays register with the meetup.
 
 usage: relay-meetup.py SERVER CLIENT [ADDRESS [MEETUP_ADDRESS]]
 
@@ -168,5 +168,5 @@ finally:
     os.remove(relay_log)
 
 if failures:
-    sys.exit("FAIL REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: %s" % "; ".join(failures))
-print("PASS REQ15/PATH-4, REQ15/PATH-5, REQ17/PATH-8: a relay that falls back fetches a ticket, and both relays register")
+    sys.exit("FAIL REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: %s" % "; ".join(failures))
+print("PASS REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: a relay that falls back fetches a ticket, and both relays register")

@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * meetup, ticket: what lets one session's two ends use a meetup (REQ15/PATH-5; the proposal,
+ * meetup, ticket: what lets one session's two ends use a meetup (REQ18/PATH-5; the proposal,
  * revision 10, section 3). Logic: bytes in, bytes out; no clock, no randomness, no file.
  *
  * A ticket is an id and a key. The id is 8 bytes the maker chose at random and the instant it
