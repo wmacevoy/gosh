@@ -18,7 +18,7 @@
 namespace Gosh {
 
 /* (strong/stunrequest.h; under this name too, for those who ask it here) */
-using Strong::is_stun_request;
+using Strong::is_stun_request_checked;
 
 /*
  * The answer to a request that came from this IPv4 address and port (both as numbers, in the

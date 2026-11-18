@@ -95,7 +95,7 @@ struct Net
             continue; /* it has no address of that family: nothing goes */
           }
           if ( Network::same_ip_port( to, meetup_at ) ) {
-            if ( Gosh::is_stun_request( bytes.data(), bytes.size() ) ) {
+            if ( Gosh::is_stun_request_checked( bytes.data(), bytes.size() ) ) {
               const std::string answer = Gosh::stun_answer_to( bytes.data(), Gosh::meetup_where_of( from_at ) );
               to_end( side == 0, answer, meetup_at );
               continue;

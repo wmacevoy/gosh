@@ -15,7 +15,9 @@ Three rules, and the proving refuses gosh if one is broken:
    `pre( condition )`; that is proved at each call from another proved class, and nothing tests it
    when the program runs (g++ 16 does, in gosh's check: `tools/gcc16.sh`). A proved method takes,
    makes and calls nothing named `_checked`.
-3. **Everything else in gosh comes in by what expects nothing.** The core (mosh), ssh, and every
+3. **Everything else in gosh comes in by a name that ends `_checked`, and by no other.** Even
+   where nothing can fail: `StunAnswer::parse_checked` reads anything and answers. So every place
+   that is not proved touches what is, is found by that word. The core (mosh), ssh, and every
    other part of gosh are not proved. They may make a `_checked` value, and call a `_checked` method: each tests what it is given when
    the program runs, and **the process ends** if it is not so, saying who called (`caller.h`). It is
    not an answer and not an exception. So they hand over only what they have made right
@@ -27,8 +29,8 @@ Three rules, and the proving refuses gosh if one is broken:
 | `bounded.h` | `bounded<a, b, type>`: a number from a to b, both included, as a type; making one expects that of the caller. `bounded_checked<a, b, type>`: made from any number, it tests, and the process ends if it is not within the bounds. Each proved once, for every type and bounds | `meetupcounter.h` |
 | `meetupcounter.h` | `MeetupCounter`, a counter of 62 bits, and `MeetupCounterChecked`: names for the two above at 0 to 2^62 - 1 | `counterwindow.h`, `meetup/messages.h` |
 | `counterwindow.h` | `CounterWindow`: which of an end's last 1024 counters are used. `take` expects a `MeetupCounter`; `take_checked` takes a checked one. Proved: memory, ending, and that the highest counter kept is one. Not proved: that no counter is taken twice | `meetup/registrations.h` |
-| `stunanswer.h` | `StunAnswer`: a STUN answer read, from bytes sent by anyone | `pathfinding/stun.h` |
-| `stunrequest.h` | `is_stun_request`: whether bytes are a STUN Binding Request | `meetup/answer.h` and its users |
+| `stunanswer.h` | `StunAnswer`: a STUN answer read, from bytes sent by anyone. Every method is a way in (`parse_checked`, `kept_..._checked`): its one user is not proved | `pathfinding/stun.h` |
+| `stunrequest.h` | `is_stun_request_checked`: whether bytes are a STUN Binding Request | `meetup/answer.h` and its users |
 
 Tests: each is tested through the part that uses it (`registrations-test.cc`, `stun-test.cc`,
 `answer-test.cc`) and its fuzzer; there is no test here, and no Makefile: these are headers.

@@ -120,7 +120,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
     Addr dest;
     socklen_t len;
     bool to_a;
-    if ( Gosh::is_stun_request( bytes.data(), bytes.size() ) ) {
+    if ( Gosh::is_stun_request_checked( bytes.data(), bytes.size() ) ) {
       reply = Gosh::stun_answer_to( bytes.data(), from );
       to_a = from_a;
     } else {

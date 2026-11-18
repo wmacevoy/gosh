@@ -208,7 +208,7 @@ int Network::meetup_serve( const char* port, const std::string& master )
       }
       const uint64_t now = time( NULL );
 
-      if ( Gosh::is_stun_request( request, n ) ) {
+      if ( Gosh::is_stun_request_checked( request, n ) ) {
         if ( rate.allow( now ) ) {
           send_from( socks[s], Gosh::stun_answer_to( request, where ), from, from_len, here );
         }
