@@ -62,13 +62,10 @@ public:
     return true;
   }
 
-  /* The same, for code that is not proved: any number, tested when it was made (meetupcounter.h). False,
-     and nothing marked, if it was not a counter at all. */
+  /* The same, for code that is not proved: a counter that was tested when it was made
+     (meetupcounter.h; the process ended there if it was not one). */
   bool take_checked( MeetupCounterChecked given )
   {
-    if ( !given.ok() ) {
-      return false;
-    }
     MeetupCounter counter( given.number() );
     return take( counter );
   }

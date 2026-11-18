@@ -18,11 +18,13 @@
  * the compiler is asked that the bounds themselves are finite. (A floating bound needs C++20.)
  *
  * Two ways to make one. bounded, for a proved class: nothing tested. bounded_checked, below, for
- * everything else: tested when the program runs.
+ * everything else: tested when the program runs, and the process ends if the test fails.
  */
 
 #ifndef GOSH_STRONG_BOUNDED_H
 #define GOSH_STRONG_BOUNDED_H
+
+#include "src/strong/caller.h"
 
 #ifndef __cpp_contracts
 #define pre( condition )
@@ -52,11 +54,11 @@ template <auto A, auto B, typename T> using bounded = bounded_of<T, T{ A }, T{ B
 
 /*
  * The way in from code that is not proved. bounded_checked<a, b, type> is made from any number,
- * and expects nothing: it tests the number, when the program runs, and says whether it is within
- * the bounds (ok). Code that is not proved may make one and ask ok, and hand it to a method that
- * expects nothing (a `_checked` one); it may not make a bounded itself, nor ask this for its
- * number, which expects ok of its caller as a proved class may. The proving refuses the program
- * otherwise (strong-domain-driven-design: tools/check.sh, "ingress").
+ * and expects nothing: it tests the number, when the program runs, and the process ends if it is
+ * not within the bounds, saying who made it (caller.h). So one that exists is within its bounds,
+ * as a bounded is; what differs is who may make one, and what that costs. Code that is not proved
+ * may not make a bounded itself: the proving refuses the program (strong-domain-driven-design:
+ * tools/check.sh, "ingress").
  */
 template <typename T, T A, T B>
 class bounded_checked_of
@@ -64,17 +66,17 @@ class bounded_checked_of
   static_assert( A - A == 0 && B - B == 0, "a bound that is not a finite number" );
 
 private:
-  bool good;
   T value;
 
 public:
-  explicit bounded_checked_of( T raw ) : good( A <= raw && raw <= B ), value( raw ) {}
+  explicit bounded_checked_of( T raw, caller from = caller() ) : value( raw )
+  {
+    STRONG_CHECK( A <= raw && raw <= B, from );
+  }
 
-  bool ok( void ) const { return good; }
+  T number( void ) const { return value; }
 
-  T number( void ) const pre( good ) { return value; }
-
-  bool invariant() const { return !good || ( A <= value && value <= B ); }
+  bool invariant() const { return A <= value && value <= B; }
 };
 
 template <auto A, auto B, typename T> using bounded_checked = bounded_checked_of<T, T{ A }, T{ B }>;

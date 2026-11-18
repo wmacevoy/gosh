@@ -10,21 +10,23 @@ proved.**
 Three rules, and the proving refuses gosh if one is broken:
 
 1. **Everything here is proved.** A file under `strong/` holds proved classes and functions, and
-   names for types and numbers; nothing else with a body.
+   names for types and numbers; nothing else with a body, but `caller.h`.
 2. **What is proved tests nothing it could prove.** A method may say what it expects of its caller,
    `pre( condition )`; that is proved at each call from another proved class, and nothing tests it
    when the program runs (g++ 16 does, in gosh's check: `tools/gcc16.sh`). A proved method takes,
    makes and calls nothing named `_checked`.
 3. **Everything else in gosh comes in by what expects nothing.** The core (mosh), ssh, and every
-   other part of gosh are not proved. They may make a `_checked` value from anything, and call a
-   `_checked` method, which tests when the program runs and says no; they make no bounded number
-   themselves, and call nothing that says `pre`.
+   other part of gosh are not proved. They may make a `_checked` value, and call a `_checked` method: each tests what it is given when
+   the program runs, and **the process ends** if it is not so, saying who called (`caller.h`). It is
+   not an answer and not an exception. So they hand over only what they have made right
+   themselves; they make no bounded number, and call nothing that says `pre`.
 
 | File | What it is | Used by |
 | --- | --- | --- |
-| `bounded.h` | `bounded<a, b, type>`: a number from a to b, both included, as a type; making one expects that of the caller. `bounded_checked<a, b, type>`: made from any number, it tests, and says `ok`. Each proved once, for every type and bounds | `meetupcounter.h` |
+| `caller.h` | who called a `_checked` way in, and the end of the process when what it tests is not so. The one file here that is not proved | `bounded.h` |
+| `bounded.h` | `bounded<a, b, type>`: a number from a to b, both included, as a type; making one expects that of the caller. `bounded_checked<a, b, type>`: made from any number, it tests, and the process ends if it is not within the bounds. Each proved once, for every type and bounds | `meetupcounter.h` |
 | `meetupcounter.h` | `MeetupCounter`, a counter of 62 bits, and `MeetupCounterChecked`: names for the two above at 0 to 2^62 - 1 | `counterwindow.h`, `meetup/messages.h` |
-| `counterwindow.h` | `CounterWindow`: which of an end's last 1024 counters are used. `take` expects a `MeetupCounter`; `take_checked` takes any number, tested. Proved: memory, ending, and that the highest counter kept is one. Not proved: that no counter is taken twice | `meetup/registrations.h` |
+| `counterwindow.h` | `CounterWindow`: which of an end's last 1024 counters are used. `take` expects a `MeetupCounter`; `take_checked` takes a checked one. Proved: memory, ending, and that the highest counter kept is one. Not proved: that no counter is taken twice | `meetup/registrations.h` |
 | `stunanswer.h` | `StunAnswer`: a STUN answer read, from bytes sent by anyone | `pathfinding/stun.h` |
 | `stunrequest.h` | `is_stun_request`: whether bytes are a STUN Binding Request | `meetup/answer.h` and its users |
 
