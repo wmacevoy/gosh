@@ -94,6 +94,17 @@ public:
     return true;
   }
 
+  /* The same, for code that is not proved: any number, tested when it was made (counter.h). False,
+     and nothing marked, if it was not a counter at all. */
+  bool take_checked( MeetupCounterChecked given )
+  {
+    if ( !given.ok() ) {
+      return false;
+    }
+    MeetupCounter counter( given.number() );
+    return take( counter );
+  }
+
   /* The highest counter taken is a counter: at most 2^62 - 1. True only because of what take() is
      given; so `top + 1` above is never past the end of 64 bits. */
   bool invariant() const { return !any || top <= MEETUP_COUNTER_MOST; }
@@ -189,7 +200,7 @@ public:
       }
       uint64_t counter;
       std::string datagram;
-      if ( !meetup_open( *entry.session, h, false, counter, datagram ) || datagram.empty() || !self.counters.take( MeetupCounter( counter ) ) ) {
+      if ( !meetup_open( *entry.session, h, false, counter, datagram ) || datagram.empty() || !self.counters.take_checked( MeetupCounterChecked( counter ) ) ) {
         return nothing;
       }
       const End& other = entry.ends[1 - h.end];
@@ -238,7 +249,7 @@ public:
     }
     Entry& entry = found->second;
     End& self = entry.ends[h.end];
-    if ( !self.counters.take( MeetupCounter( counter ) ) ) {
+    if ( !self.counters.take_checked( MeetupCounterChecked( counter ) ) ) {
       return nothing;
     }
     self.where = from;
