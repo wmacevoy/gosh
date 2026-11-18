@@ -14,6 +14,11 @@ record of how it came to be are in `../mosh-dev`; nothing is changed there.
 
 **The full check:** `tools/check.sh`
 
+**With g++ 16, as C++26 with contracts** (branch `strong/gcc16`, 2026-11-18): `. tools/gcc16.sh`
+first, then the same two commands. It fetches the compiler with pixi, without root, and sets `CC`
+and `CXX`. The check passes that way on Debian 12, x86_64; nothing else has tried it, CI and the
+releases do not use it, and no contract is written in gosh yet.
+
 It prints PASS or says what failed, and CI runs the same command (`.github/workflows/ci.yml`). It
 takes about three and a half minutes here, more from nothing. In order it checks that:
 

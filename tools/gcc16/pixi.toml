@@ -1,0 +1,9 @@
+# g++ 16, for building gosh as C++26 with contracts (tools/gcc16.sh). Only the compiler comes from
+# here: gosh still builds against the system's own libraries.
+[workspace]
+name = "gosh-gcc16"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+gxx_linux-64 = "16.2.*"
