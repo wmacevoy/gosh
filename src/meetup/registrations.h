@@ -42,6 +42,7 @@
 #include <string>
 
 #include "src/crypto/crypto.h"
+#include "src/meetup/counter.h"
 #include "src/meetup/messages.h"
 #include "src/meetup/ticket.h"
 
@@ -66,9 +67,12 @@ private:
 public:
   CounterWindow() : any( false ), top( 0 ), seen() {}
 
-  /* True, and the counter marked used, if it has not been used and is not too far behind. */
-  bool take( uint64_t c )
+  /* True, and the counter marked used, if it has not been used and is not too far behind. What
+     it is given is at most 2^62 - 1: the type says so (counter.h), so `top + 1` and `i` below
+     never pass the end of 64 bits. */
+  bool take( MeetupCounter counter )
   {
+    const uint64_t c = counter.number();
     if ( !any ) {
       any = true;
       top = c;
@@ -89,6 +93,10 @@ public:
     set( c );
     return true;
   }
+
+  /* The highest counter taken is a counter: at most 2^62 - 1. True only because of what take() is
+     given; so `top + 1` above is never past the end of 64 bits. */
+  bool invariant() const { return !any || top <= MeetupCounter::MOST; }
 };
 
 class Registrations
@@ -181,7 +189,7 @@ public:
       }
       uint64_t counter;
       std::string datagram;
-      if ( !meetup_open( *entry.session, h, false, counter, datagram ) || datagram.empty() || !self.counters.take( counter ) ) {
+      if ( !meetup_open( *entry.session, h, false, counter, datagram ) || datagram.empty() || !self.counters.take( MeetupCounter( counter ) ) ) {
         return nothing;
       }
       const End& other = entry.ends[1 - h.end];
@@ -230,7 +238,7 @@ public:
     }
     Entry& entry = found->second;
     End& self = entry.ends[h.end];
-    if ( !self.counters.take( counter ) ) {
+    if ( !self.counters.take( MeetupCounter( counter ) ) ) {
       return nothing;
     }
     self.where = from;
