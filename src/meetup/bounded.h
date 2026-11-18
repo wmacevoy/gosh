@@ -1,0 +1,59 @@
+/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
+
+/*
+ * A number that is within its bounds, as a type (REQ6/SHAPE-5). Logic.
+ *
+ * bounded<a, b, type> is a `type` from a to b, both included (so that a whole type can be said:
+ * bounded<0, UINT64_MAX, uint64_t>). Nothing is tested when one is made or used. Making one from
+ * a number is what expects something, of whoever makes it: pre( a <= raw && raw <= b ). After that
+ * every use has, for nothing, that the number is within the bounds.
+ *
+ * "Expects" is C++26's contract. It is proved, not tested (the project strong-domain-driven-design):
+ * of this class once, for every type whose values compare by <= and every a and b; and of each
+ * class that makes one, that it gives the constructor what it expects. A compiler that knows
+ * contracts (g++ 16, tools/gcc16.sh) tests it too, and ends the program if it is not so; for any
+ * other, `pre` is nothing here, and nothing is tested.
+ *
+ * For a floating type, a number within finite bounds is not an infinity and is not "not a number":
+ * the compiler is asked that the bounds themselves are finite. (A floating bound needs C++20.)
+ *
+ * It is in meetup/ because meetup alone uses it today; pathfinding/ is of the same layer.
+ */
+
+#ifndef GOSH_MEETUP_BOUNDED_H
+#define GOSH_MEETUP_BOUNDED_H
+
+#ifndef __cpp_contracts
+#define pre( condition )
+#define GOSH_PRE_IS_NOTHING
+#endif
+
+namespace Gosh {
+
+template <typename T, T A, T B>
+class bounded_of
+{
+  static_assert( A - A == 0 && B - B == 0, "a bound that is not a finite number" );
+
+private:
+  T value;
+
+public:
+  explicit bounded_of( T raw ) pre( A <= raw && raw <= B ) : value( raw ) {}
+
+  T number( void ) const { return value; }
+
+  bool invariant() const { return A <= value && value <= B; }
+};
+
+/* The same, as it is said: the bounds first. A bound that the type cannot hold exactly does not compile. */
+template <auto A, auto B, typename T> using bounded = bounded_of<T, T{ A }, T{ B }>;
+
+}
+
+#ifdef GOSH_PRE_IS_NOTHING
+#undef pre
+#undef GOSH_PRE_IS_NOTHING
+#endif
+
+#endif
