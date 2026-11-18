@@ -36,7 +36,8 @@ A way straight between the two relays when both ends are behind NATs (`REQ1/PATH
 
 | File | What it holds | Test |
 | --- | --- | --- |
-| `stun.h` | STUN, asking: the request, an answer read, `a.b.c.d:p` as text. Logic | `stun-test.cc`, reading an answer the meetup's `answer.h` wrote |
+| `stunanswer.h` | `StunAnswer`: a STUN answer read, as a domain: private state, bytes read only below their length, nothing of the system. Logic, written so that a proof is derived from its text as it stands (branch `strong/stun-answer`, 2026-11-18; the project strong-domain-driven-design) | `stun-test.cc` and `stun-fuzzer.cc`, through `stun_parse` |
+| `stun.h` | STUN, asking: the request; `stun_parse`, the edge that makes what `StunAnswer` kept a socket address; `a.b.c.d:p` as text. Logic | `stun-test.cc`, reading an answer the meetup's `answer.h` wrote |
 | `finding.h` | `PathFinding`: candidates; probes sealed and numbered; which way is open; when to probe; the meetup registered with and passed through. Logic: the time and datagrams in, datagrams to send out | `finding-test.cc`: a network of a few lines, the meetup's own logic, time moved by the test |
 | `punch.*` | `Punch`: the socket, this machine's addresses, the time of day, the process that asks the STUN servers. An edge, around `PathFinding`, with the interface the relays had | `punch-test.cc`, real sockets on loopback |
 
