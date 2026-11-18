@@ -2,14 +2,15 @@
 
 /*
  * meetup, a counter: the number an end seals a message with, 62 bits (REQ18/PATH-5; messages.h:
- * the two bits above them say who sealed it and for whom). Logic, and a type that says what its
- * users may expect: a MeetupCounter is at most MOST, however it was made, because its constructor
- * keeps only those 62 bits. Nothing is checked where one is used.
+ * the two bits above them say who sealed it and for whom). A type that says what its users may
+ * expect: a MeetupCounter is from 0 to MEETUP_COUNTER_MOST (bounded.h). Nothing is tested where
+ * one is made or used: whoever makes one owes that the number is within the bounds, and here that
+ * is meetup_open (messages.h), which gives a nonce's low 62 bits and nothing else.
  *
  * It is here so that what CounterWindow (registrations.h) expects of its caller is said by the type
  * it takes, and is proved, not trusted (the project strong-domain-driven-design): given any 64-bit
  * number, CounterWindow at 2^64 - 1 forgot counters it had taken (found there, 2026-11-18; never
- * reached, since every counter came through this mask already).
+ * reached, since every counter came through that mask already).
  */
 
 #ifndef GOSH_MEETUP_COUNTER_H
@@ -17,24 +18,13 @@
 
 #include <cstdint>
 
+#include "src/meetup/bounded.h"
+
 namespace Gosh {
 
-class MeetupCounter
-{
-public:
-  static const uint64_t MOST = 0x3fffffffffffffff; /* 2^62 - 1 */
+static const uint64_t MEETUP_COUNTER_MOST = 0x3fffffffffffffff; /* 2^62 - 1 */
 
-private:
-  uint64_t value;
-
-public:
-  /* The counter in a nonce: its low 62 bits. */
-  explicit MeetupCounter( uint64_t nonce ) : value( nonce & MOST ) {}
-
-  uint64_t number( void ) const { return value; }
-
-  bool invariant() const { return value <= MOST; }
-};
+typedef bounded<0, MEETUP_COUNTER_MOST, uint64_t> MeetupCounter;
 
 }
 

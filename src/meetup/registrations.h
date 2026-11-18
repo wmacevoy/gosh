@@ -96,7 +96,7 @@ public:
 
   /* The highest counter taken is a counter: at most 2^62 - 1. True only because of what take() is
      given; so `top + 1` above is never past the end of 64 bits. */
-  bool invariant() const { return !any || top <= MeetupCounter::MOST; }
+  bool invariant() const { return !any || top <= MEETUP_COUNTER_MOST; }
 };
 
 class Registrations
