@@ -23,6 +23,7 @@
 #include <netinet/in.h>
 
 #include "src/network/network.h"
+#include "src/pathfinding/stunanswer.h"
 
 namespace Network {
 
@@ -44,68 +45,32 @@ inline std::string stun_request( const char* txid )
   return m;
 }
 
-/* If this is an answer to one that says where we were seen: true, and where. */
+/* If this is an answer to one that says where we were seen: true, and where. The reading is
+ * StunAnswer's (stunanswer.h), which touches nothing of the system; here what it kept is made the
+ * socket address the system knows. (Until 2026-11-18 this function did both.) */
 inline bool stun_parse( const char* data, size_t len, Addr& mapped )
 {
-  const unsigned char* p = reinterpret_cast<const unsigned char*>( data );
-  /* a Binding Success Response, with our cookie in it */
-  if ( len < 20 || p[0] != 0x01 || p[1] != 0x01 || p[4] != 0x21 || p[5] != 0x12 || p[6] != 0xA4 || p[7] != 0x42 ) {
+  Gosh::StunAnswer answer;
+  if ( !answer.parse( reinterpret_cast<const unsigned char*>( data ), len ) ) {
     return false;
   }
-  const size_t body = ( static_cast<size_t>( p[2] ) << 8 ) | p[3];
-  if ( body > len - 20 ) {
-    return false;
+  memset( &mapped, 0, sizeof( mapped ) );
+  if ( answer.kept_family() == 4 ) {
+    mapped.sin.sin_family = AF_INET;
+    mapped.sin.sin_port = htons( static_cast<uint16_t>( answer.kept_port() ) );
+    unsigned char v4[4];
+    for ( uint32_t i = 0; i < 4; i++ ) {
+      v4[i] = static_cast<unsigned char>( answer.kept_byte( i ) );
+    }
+    memcpy( &mapped.sin.sin_addr.s_addr, v4, 4 );
+  } else {
+    mapped.sin6.sin6_family = AF_INET6;
+    mapped.sin6.sin6_port = htons( static_cast<uint16_t>( answer.kept_port() ) );
+    for ( uint32_t i = 0; i < 16; i++ ) {
+      mapped.sin6.sin6_addr.s6_addr[i] = static_cast<unsigned char>( answer.kept_byte( i ) );
+    }
   }
-  bool found = false;
-  for ( size_t at = 20; at + 4 <= 20 + body; ) {
-    const unsigned int type = ( p[at] << 8 ) | p[at + 1];
-    const size_t size = ( static_cast<size_t>( p[at + 2] ) << 8 ) | p[at + 3];
-    if ( at + 4 + size > 20 + body ) {
-      break;
-    }
-    const unsigned char* v = p + at + 4;
-    /* (gosh, REQ17/PATH-8) XOR-MAPPED-ADDRESS for IPv6: disguised with the cookie and the id, bytes 4 to 19 */
-    if ( type == 0x0020 && size >= 20 && v[1] == 0x02 ) {
-      Addr seen;
-      memset( &seen, 0, sizeof( seen ) );
-      seen.sin6.sin6_family = AF_INET6;
-      seen.sin6.sin6_port = htons( ( ( v[2] << 8 ) | v[3] ) ^ ( STUN_COOKIE >> 16 ) );
-      for ( int i = 0; i < 16; i++ ) {
-        seen.sin6.sin6_addr.s6_addr[i] = v[4 + i] ^ p[4 + i];
-      }
-      /* (gosh) believed only as far as parse_ip_port would take it as text: of one link alone, not at
-         all; IPv4 in IPv6's form, as the IPv4 address it is (found by the fuzzer, 2026-11-16) */
-      if ( IN6_IS_ADDR_V4MAPPED( &seen.sin6.sin6_addr ) ) {
-        const uint16_t port = seen.sin6.sin6_port;
-        uint32_t v4;
-        memcpy( &v4, seen.sin6.sin6_addr.s6_addr + 12, 4 );
-        memset( &seen, 0, sizeof( seen ) );
-        seen.sin.sin_family = AF_INET;
-        seen.sin.sin_addr.s_addr = v4;
-        seen.sin.sin_port = port;
-      }
-      if ( !( seen.sa.sa_family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL( &seen.sin6.sin6_addr ) ) ) {
-        mapped = seen;
-        found = true;
-      }
-    }
-    /* XOR-MAPPED-ADDRESS, or (from servers of an older kind) MAPPED-ADDRESS; for IPv4 */
-    if ( ( type == 0x0020 || type == 0x0001 ) && size >= 8 && v[1] == 0x01 && !( found && type == 0x0001 ) ) {
-      uint16_t port = ( v[2] << 8 ) | v[3];
-      uint32_t ip = ( static_cast<uint32_t>( v[4] ) << 24 ) | ( v[5] << 16 ) | ( v[6] << 8 ) | v[7];
-      if ( type == 0x0020 ) {
-        port ^= STUN_COOKIE >> 16;
-        ip ^= STUN_COOKIE;
-      }
-      memset( &mapped, 0, sizeof( mapped ) );
-      mapped.sin.sin_family = AF_INET;
-      mapped.sin.sin_port = htons( port );
-      mapped.sin.sin_addr.s_addr = htonl( ip );
-      found = true;
-    }
-    at += 4 + ( ( size + 3 ) & ~static_cast<size_t>( 3 ) );
-  }
-  return found;
+  return true;
 }
 
 /* "1.2.3.4:567" and "[2001:db8::1]:567" both ways. */

@@ -22,6 +22,7 @@ one end of a ticket.
 | File | What it holds | Test |
 | --- | --- | --- |
 | `ticket.h` | a ticket: its id, its key from the master key, when it stops being good, its text. Logic | `ticket-test.cc`, with the real cipher |
+| `counter.h` | `MeetupCounter`: a counter, 62 bits, as a type: at most 2^62 - 1 however it is made, so that what `CounterWindow` expects of its caller is said by what it takes, and proved (branch `strong/meetup-counter`, 2026-11-18). Logic | through `registrations-test.cc` and the fuzzer |
 | `messages.h` | REGISTER, REGISTERED, PASS, PASSED as bytes, each at its exact length; sealing and opening. Logic | `messages-test.cc` |
 | `registrations.h` | what the meetup does with REGISTER and PASS: who is where, which counters are used, what is passed to whom. Logic | `registrations-test.cc`: the fork's replay turned round |
 | `answer.h` | the STUN question answered, no more than 200 a second. Logic | `answer-test.cc` |
