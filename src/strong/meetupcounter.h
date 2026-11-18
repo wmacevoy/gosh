@@ -26,7 +26,8 @@ static const uint64_t MEETUP_COUNTER_MOST = 0x3fffffffffffffff; /* 2^62 - 1 */
 
 typedef bounded<0, MEETUP_COUNTER_MOST, uint64_t> MeetupCounter;
 
-/* Any number, tested: what code that is not proved hands to CounterWindow::take_checked. */
+/* Any number, tested where it is made, and the process ended if it is not a counter: what code
+   that is not proved hands to CounterWindow::take_checked. */
 typedef bounded_checked<0, MEETUP_COUNTER_MOST, uint64_t> MeetupCounterChecked;
 
 }
