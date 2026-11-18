@@ -3,7 +3,7 @@
 /*
  * path-finding, a STUN answer read (REQ1/PATH-3, REQ17/PATH-8; design v2, 2.2). Logic, and a domain:
  * a class whose state is private, that reads bytes only through `data[i]` with `i` below `len`, and
- * that uses nothing of the system (no socket address, no byte order: stun.h's stun_parse is that
+ * that uses nothing of the system (no socket address, no byte order: pathfinding/stun.h's stun_parse is that
  * edge). The bytes come from anyone on the Internet, before anything has checked them.
  *
  * It is written so that a proof can be derived from this text as it stands (the project
@@ -18,13 +18,13 @@
  * of id), then attributes, each a type, a length, the value, and padding to 4 bytes.
  */
 
-#ifndef GOSH_PATHFINDING_STUNANSWER_H
-#define GOSH_PATHFINDING_STUNANSWER_H
+#ifndef GOSH_STRONG_STUNANSWER_H
+#define GOSH_STRONG_STUNANSWER_H
 
 #include <cstddef>
 #include <cstdint>
 
-namespace Gosh {
+namespace Strong {
 
 class StunAnswer
 {

@@ -1,0 +1,32 @@
+# strong
+
+What is proved (`REQ6/SHAPE-5`). Every class and function here is in the namespace `Strong`, and
+of each it is shown, from this text as it stands and for every input: it reads and writes nothing
+outside its own memory, it ends, and it keeps what its `invariant()` says. The proving is another
+project's, strong-domain-driven-design, which reads these files as they are committed; nothing
+here knows of it. **Until a branch `strong/...` is gosh's main, what is on main is not what was
+proved.**
+
+Three rules, and the proving refuses gosh if one is broken:
+
+1. **Everything here is proved.** A file under `strong/` holds proved classes and functions, and
+   names for types and numbers; nothing else with a body.
+2. **What is proved tests nothing it could prove.** A method may say what it expects of its caller,
+   `pre( condition )`; that is proved at each call from another proved class, and nothing tests it
+   when the program runs (g++ 16 does, in gosh's check: `tools/gcc16.sh`). A proved method takes,
+   makes and calls nothing named `_checked`.
+3. **Everything else in gosh comes in by what expects nothing.** The core (mosh), ssh, and every
+   other part of gosh are not proved. They may make a `_checked` value from anything, and call a
+   `_checked` method, which tests when the program runs and says no; they make no bounded number
+   themselves, and call nothing that says `pre`.
+
+| File | What it is | Used by |
+| --- | --- | --- |
+| `bounded.h` | `bounded<a, b, type>`: a number from a to b, both included, as a type; making one expects that of the caller. `bounded_checked<a, b, type>`: made from any number, it tests, and says `ok`. Each proved once, for every type and bounds | `meetupcounter.h` |
+| `meetupcounter.h` | `MeetupCounter`, a counter of 62 bits, and `MeetupCounterChecked`: names for the two above at 0 to 2^62 - 1 | `counterwindow.h`, `meetup/messages.h` |
+| `counterwindow.h` | `CounterWindow`: which of an end's last 1024 counters are used. `take` expects a `MeetupCounter`; `take_checked` takes any number, tested. Proved: memory, ending, and that the highest counter kept is one. Not proved: that no counter is taken twice | `meetup/registrations.h` |
+| `stunanswer.h` | `StunAnswer`: a STUN answer read, from bytes sent by anyone | `pathfinding/stun.h` |
+| `stunrequest.h` | `is_stun_request`: whether bytes are a STUN Binding Request | `meetup/answer.h` and its users |
+
+Tests: each is tested through the part that uses it (`registrations-test.cc`, `stun-test.cc`,
+`answer-test.cc`) and its fuzzer; there is no test here, and no Makefile: these are headers.

@@ -19,19 +19,17 @@
  *
  * Two ways to make one. bounded, for a proved class: nothing tested. bounded_checked, below, for
  * everything else: tested when the program runs.
- *
- * It is in meetup/ because meetup alone uses it today; pathfinding/ is of the same layer.
  */
 
-#ifndef GOSH_MEETUP_BOUNDED_H
-#define GOSH_MEETUP_BOUNDED_H
+#ifndef GOSH_STRONG_BOUNDED_H
+#define GOSH_STRONG_BOUNDED_H
 
 #ifndef __cpp_contracts
 #define pre( condition )
 #define GOSH_PRE_IS_NOTHING
 #endif
 
-namespace Gosh {
+namespace Strong {
 
 template <typename T, T A, T B>
 class bounded_of

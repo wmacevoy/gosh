@@ -7,20 +7,20 @@
  * one is made or used: whoever makes one owes that the number is within the bounds, and only a
  * proved class may. Everything else makes a MeetupCounterChecked, which tests.
  *
- * It is here so that what CounterWindow (registrations.h) expects of its caller is said by the type
+ * It is here so that what CounterWindow (counterwindow.h) expects of its caller is said by the type
  * it takes, and is proved, not trusted (the project strong-domain-driven-design): given any 64-bit
  * number, CounterWindow at 2^64 - 1 forgot counters it had taken (found there, 2026-11-18; never
  * reached, since every counter came through that mask already).
  */
 
-#ifndef GOSH_MEETUP_COUNTER_H
-#define GOSH_MEETUP_COUNTER_H
+#ifndef GOSH_STRONG_MEETUPCOUNTER_H
+#define GOSH_STRONG_MEETUPCOUNTER_H
 
 #include <cstdint>
 
-#include "src/meetup/bounded.h"
+#include "src/strong/bounded.h"
 
-namespace Gosh {
+namespace Strong {
 
 static const uint64_t MEETUP_COUNTER_MOST = 0x3fffffffffffffff; /* 2^62 - 1 */
 

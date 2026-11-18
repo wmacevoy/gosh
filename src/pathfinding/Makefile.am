@@ -6,7 +6,7 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshpathfinding.a
 
-libgoshpathfinding_a_SOURCES = stun.h stunanswer.h finding.h punch.cc punch.h
+libgoshpathfinding_a_SOURCES = stun.h finding.h punch.cc punch.h
 
 check_PROGRAMS = stun-test finding-test punch-test stun-fuzzer finding-fuzzer
 TESTS = $(check_PROGRAMS)
