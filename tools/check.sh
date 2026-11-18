@@ -50,6 +50,8 @@ tools/build.sh || fail "tools/build.sh"
 . tools/env.sh
 # (every part there is: the directories of src/, as tools/fuzz.sh and tools/asan-replay.sh find their fuzzers)
 for part in $(cd src && ls -d */ | tr -d /); do
+    # (a part of headers alone has no build of its own: strong/, tested through the parts that use it)
+    [ -f "src/$part/Makefile.am" ] || { echo "unit tests: $part has none of its own (headers; tested through the parts that use them)"; continue; }
     if make -C ".build/core/src/$part" check >.build/unit-$part.log 2>&1; then
         echo "unit tests pass: $part ($(grep -c '^PASS:' .build/unit-$part.log))"
     else

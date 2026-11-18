@@ -5,7 +5,7 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshmeetup.a
 
-libgoshmeetup_a_SOURCES = ticket.h bounded.h counter.h messages.h registrations.h answer.h master.cc master.h serve.cc meetup.h
+libgoshmeetup_a_SOURCES = ticket.h messages.h registrations.h answer.h master.cc master.h serve.cc meetup.h
 
 check_PROGRAMS = ticket-test messages-test registrations-test answer-test registrations-fuzzer
 TESTS = $(check_PROGRAMS)

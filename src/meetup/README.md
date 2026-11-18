@@ -22,8 +22,6 @@ one end of a ticket.
 | File | What it holds | Test |
 | --- | --- | --- |
 | `ticket.h` | a ticket: its id, its key from the master key, when it stops being good, its text. Logic | `ticket-test.cc`, with the real cipher |
-| `bounded.h` | `bounded<a, b, type>`: a number within its bounds, both included, as a type. Nothing is tested: making one expects it (`pre`), and that is proved of whoever makes one; g++ 16 tests it too. `bounded_checked<a, b, type>` is the way in for code that is not proved: made from any number, it tests, and says `ok`. Both proved once, for every type and bounds. Logic | through `counter.h`'s users |
-| `counter.h` | `MeetupCounter`: a counter, 62 bits, as a type: a `bounded` number from 0 to 2^62 - 1, so that what `CounterWindow` expects of its caller is said by what it takes, and proved (2026-11-18). `MeetupCounterChecked`: any number, tested; what `Registrations`, which is not proved, hands to `CounterWindow::take_checked`. Logic | through `registrations-test.cc` and the fuzzer |
 | `messages.h` | REGISTER, REGISTERED, PASS, PASSED as bytes, each at its exact length; sealing and opening. Logic | `messages-test.cc` |
 | `registrations.h` | what the meetup does with REGISTER and PASS: who is where, which counters are used, what is passed to whom. Logic | `registrations-test.cc`: the fork's replay turned round |
 | `answer.h` | the STUN question answered, no more than 200 a second. Logic | `answer-test.cc` |

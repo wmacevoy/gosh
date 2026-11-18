@@ -35,7 +35,7 @@
 #include <cstring>
 #include <string>
 
-#include "src/meetup/counter.h"
+#include "src/strong/meetupcounter.h"
 #include "src/crypto/crypto.h"
 #include "src/network/network.h"
 
@@ -67,7 +67,7 @@ static const size_t MEETUP_TIME_MESSAGE = MEETUP_HEADER + MEETUP_SEAL + 1 + 8 + 
 static const size_t MEETUP_MAX_DATAGRAM = 1500;
 static const size_t MEETUP_PASS_MIN = MEETUP_HEADER + MEETUP_SEAL + 1 + 1;
 static const size_t MEETUP_PASS_MAX = MEETUP_HEADER + MEETUP_SEAL + 1 + MEETUP_MAX_DATAGRAM;
-static const uint64_t MEETUP_COUNTER_MASK = Gosh::MEETUP_COUNTER_MOST; /* 2^62 - 1 (counter.h) */
+static const uint64_t MEETUP_COUNTER_MASK = Strong::MEETUP_COUNTER_MOST; /* 2^62 - 1 (strong/meetupcounter.h) */
 
 /* Who sealed a message, and for whom: the top two bits of its nonce. */
 inline uint64_t meetup_direction( int end, bool from_meetup )
