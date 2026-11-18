@@ -17,6 +17,9 @@
  * For a floating type, a number within finite bounds is not an infinity and is not "not a number":
  * the compiler is asked that the bounds themselves are finite. (A floating bound needs C++20.)
  *
+ * Two ways to make one. bounded, for a proved class: nothing tested. bounded_checked, below, for
+ * everything else: tested when the program runs.
+ *
  * It is in meetup/ because meetup alone uses it today; pathfinding/ is of the same layer.
  */
 
@@ -48,6 +51,35 @@ public:
 
 /* The same, as it is said: the bounds first. A bound that the type cannot hold exactly does not compile. */
 template <auto A, auto B, typename T> using bounded = bounded_of<T, T{ A }, T{ B }>;
+
+/*
+ * The way in from code that is not proved. bounded_checked<a, b, type> is made from any number,
+ * and expects nothing: it tests the number, when the program runs, and says whether it is within
+ * the bounds (ok). Code that is not proved may make one and ask ok, and hand it to a method that
+ * expects nothing (a `_checked` one); it may not make a bounded itself, nor ask this for its
+ * number, which expects ok of its caller as a proved class may. The proving refuses the program
+ * otherwise (strong-domain-driven-design: tools/check.sh, "ingress").
+ */
+template <typename T, T A, T B>
+class bounded_checked_of
+{
+  static_assert( A - A == 0 && B - B == 0, "a bound that is not a finite number" );
+
+private:
+  bool good;
+  T value;
+
+public:
+  explicit bounded_checked_of( T raw ) : good( A <= raw && raw <= B ), value( raw ) {}
+
+  bool ok( void ) const { return good; }
+
+  T number( void ) const pre( good ) { return value; }
+
+  bool invariant() const { return !good || ( A <= value && value <= B ); }
+};
+
+template <auto A, auto B, typename T> using bounded_checked = bounded_checked_of<T, T{ A }, T{ B }>;
 
 }
 

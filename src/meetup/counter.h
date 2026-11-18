@@ -4,8 +4,8 @@
  * meetup, a counter: the number an end seals a message with, 62 bits (REQ18/PATH-5; messages.h:
  * the two bits above them say who sealed it and for whom). A type that says what its users may
  * expect: a MeetupCounter is from 0 to MEETUP_COUNTER_MOST (bounded.h). Nothing is tested where
- * one is made or used: whoever makes one owes that the number is within the bounds, and here that
- * is meetup_open (messages.h), which gives a nonce's low 62 bits and nothing else.
+ * one is made or used: whoever makes one owes that the number is within the bounds, and only a
+ * proved class may. Everything else makes a MeetupCounterChecked, which tests.
  *
  * It is here so that what CounterWindow (registrations.h) expects of its caller is said by the type
  * it takes, and is proved, not trusted (the project strong-domain-driven-design): given any 64-bit
@@ -25,6 +25,9 @@ namespace Gosh {
 static const uint64_t MEETUP_COUNTER_MOST = 0x3fffffffffffffff; /* 2^62 - 1 */
 
 typedef bounded<0, MEETUP_COUNTER_MOST, uint64_t> MeetupCounter;
+
+/* Any number, tested: what code that is not proved hands to CounterWindow::take_checked. */
+typedef bounded_checked<0, MEETUP_COUNTER_MOST, uint64_t> MeetupCounterChecked;
 
 }
 
