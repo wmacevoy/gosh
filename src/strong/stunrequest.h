@@ -13,7 +13,7 @@
 namespace Strong {
 
 /* a Binding Request, with the cookie: and nothing longer than one need be */
-inline bool is_stun_request( const char* request, size_t n )
+inline bool is_stun_request_checked( const char* request, size_t n )
 {
   const unsigned char* p = reinterpret_cast<const unsigned char*>( request );
   return !( n < 20 || n > 200 || p[0] != 0x00 || p[1] != 0x01 || p[4] != 0x21 || p[5] != 0x12 || p[6] != 0xA4

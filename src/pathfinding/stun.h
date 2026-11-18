@@ -51,23 +51,23 @@ inline std::string stun_request( const char* txid )
 inline bool stun_parse( const char* data, size_t len, Addr& mapped )
 {
   Strong::StunAnswer answer;
-  if ( !answer.parse( reinterpret_cast<const unsigned char*>( data ), len ) ) {
+  if ( !answer.parse_checked( reinterpret_cast<const unsigned char*>( data ), len ) ) {
     return false;
   }
   memset( &mapped, 0, sizeof( mapped ) );
-  if ( answer.kept_family() == 4 ) {
+  if ( answer.kept_family_checked() == 4 ) {
     mapped.sin.sin_family = AF_INET;
-    mapped.sin.sin_port = htons( static_cast<uint16_t>( answer.kept_port() ) );
+    mapped.sin.sin_port = htons( static_cast<uint16_t>( answer.kept_port_checked() ) );
     unsigned char v4[4];
     for ( uint32_t i = 0; i < 4; i++ ) {
-      v4[i] = static_cast<unsigned char>( answer.kept_byte( i ) );
+      v4[i] = static_cast<unsigned char>( answer.kept_byte_checked( i ) );
     }
     memcpy( &mapped.sin.sin_addr.s_addr, v4, 4 );
   } else {
     mapped.sin6.sin6_family = AF_INET6;
-    mapped.sin6.sin6_port = htons( static_cast<uint16_t>( answer.kept_port() ) );
+    mapped.sin6.sin6_port = htons( static_cast<uint16_t>( answer.kept_port_checked() ) );
     for ( uint32_t i = 0; i < 16; i++ ) {
-      mapped.sin6.sin6_addr.s6_addr[i] = static_cast<unsigned char>( answer.kept_byte( i ) );
+      mapped.sin6.sin6_addr.s6_addr[i] = static_cast<unsigned char>( answer.kept_byte_checked( i ) );
     }
   }
   return true;
