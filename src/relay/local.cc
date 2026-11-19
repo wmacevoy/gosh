@@ -88,7 +88,7 @@ private:
     fclose( list );
     const bool ours = Gosh::udp_sender_is_users( sockets, from.sin.sin_addr.s_addr, ntohs( from.sin.sin_port ), getuid() );
     if ( !ours ) {
-      say( "a datagram on the client's socket from port %d, which is not a socket of ours: not passed on",
+      say( "local", "a datagram on the client's socket from port %d, which is not a socket of ours: not passed on",
            static_cast<int>( ntohs( from.sin.sin_port ) ) );
     }
     return ours;
@@ -137,7 +137,7 @@ private:
     /* (What we had of a way through is no use, or we would not be here.  The new relay will have a new one.) */
     punch.reset();
     was_open = was_registered = false;
-    say( "starting the stream" );
+    say( "local", "starting the stream" );
 
     int in[2], out[2];
     if ( pipe( in ) < 0 ) {
@@ -283,7 +283,7 @@ private:
       return;
     }
     ticket_fd = out[0];
-    say( "fetching a ticket for the meetup at %s", meetup.c_str() );
+    say( "local", "fetching a ticket for the meetup at %s", meetup.c_str() );
   }
 
   /* (gosh) What the ticket's child printed, once it has finished. */
@@ -312,12 +312,12 @@ private:
     ticket_out.clear();
     Gosh::Ticket t;
     if ( at.empty() || !Gosh::parse_ticket( text, t ) ) {
-      say( "no ticket for the meetup at %s (could ssh log in there, and run gosh-server meetup-ticket?)", meetup.c_str() );
+      say( "local", "no ticket for the meetup at %s (could ssh log in there, and run gosh-server meetup-ticket?)", meetup.c_str() );
       return;
     }
     meetup_at = at;
     ticket = t;
-    say( "a ticket for the meetup at %s", meetup_at.c_str() );
+    say( "local", "a ticket for the meetup at %s", meetup_at.c_str() );
     meet();
   }
 
@@ -344,7 +344,7 @@ private:
         }
         backlog += control( "STUN" + servers ) + control( "KEY " + key )
                    + control( "PORT " + std::to_string( punch->local_port() ) );
-        say( "looking for a way through, from port %d", static_cast<int>( punch->local_port() ) );
+        say( "local", "looking for a way through, from port %d", static_cast<int>( punch->local_port() ) );
         meet();
         fetch_ticket();
       } catch ( const std::exception& e ) {
@@ -375,21 +375,21 @@ private:
     punch->tick( now );
     const std::vector<std::string> mine = punch->take_local_candidates();
     for ( size_t i = 0; i < mine.size(); i++ ) {
-      say( "we may be reached at %s", mine[i].c_str() );
+      say( "local", "we may be reached at %s", mine[i].c_str() );
       if ( to_child >= 0 ) {
         backlog += control( "CAND " + mine[i] );
       }
     }
     if ( punch->open( now ) != was_open ) {
       was_open = punch->open( now );
-      say( was_open ? "a way through is open, to %s" : "the way through to %s has closed", punch->where().c_str() );
+      say( "local", was_open ? "a way through is open, to %s" : "the way through to %s has closed", punch->where().c_str() );
     } else if ( was_open && punch->where() != was_where ) {
-      say( "the way through is now to %s", punch->where().c_str() ); /* (gosh, REQ17/PATH-8: as by IPv6, from IPv4) */
+      say( "local", "the way through is now to %s", punch->where().c_str() ); /* (gosh, REQ17/PATH-8: as by IPv6, from IPv4) */
     }
     was_where = punch->where();
     if ( punch->meetup_registered() != was_registered ) {
       was_registered = punch->meetup_registered();
-      say( was_registered ? "registered with the meetup at %s" : "no longer registered with the meetup at %s", meetup_at.c_str() );
+      say( "local", was_registered ? "registered with the meetup at %s" : "no longer registered with the meetup at %s", meetup_at.c_str() );
     }
   }
 
@@ -489,7 +489,7 @@ public:
             }
           }
         } else if ( n == 0 || ( errno != EINTR && errno != EAGAIN ) ) {
-          say( "the stream has ended" );
+          say( "local", "the stream has ended" );
           stop_child();
         }
       }
@@ -503,7 +503,7 @@ public:
        */
       const bool through_meetup = punch && punch->open( now ) && !punch->direct();
       if ( !through_meetup && paths.let_stream_go( now ) ) {
-        say( "the stream has not been needed for a while: closing it" );
+        say( "local", "the stream has not been needed for a while: closing it" );
         stop_child();
       }
     }
@@ -567,7 +567,6 @@ int Network::relay_start_local( const RelayOptions& options, int& keep_alive_fd,
         close( fd );
       }
     }
-    relay_log_who = "local";
     LocalRelay relay( options, client_fd, alive[0] );
     relay.run();
     _exit( 0 );

@@ -2,13 +2,25 @@
 
 #include "src/seam/session.h"
 
+#include <cstdio>
+#include <cstdlib>
+
+#include "vendor/retain/retain.hpp"
+
 /*
- * The one process-wide value the seam has (design v2, 4.2). It rests on "one mosh session per
- * process", which is true of both programs. It is made on first use, so its order among other
- * statics does not matter.
+ * The session of the frame that retained one (vendor/retain/README.md): gosh's main makes a Session
+ * and retains it before it calls the core's main, and the seam's hooks, which the core calls with
+ * nothing, find it here. It is that thread's, and ends with main's frame: nothing is the whole
+ * process's. (Until 2026-11-19 it was one static value; design v2, 4.2.)
+ *
+ * Expects that a Session is retained. If none is, that is a fault in gosh's own code, and the
+ * process ends saying so.
  */
 Gosh::Session& Gosh::session( void )
 {
-  static Session the_session;
-  return the_session;
+  if ( !retained<Session>() ) {
+    fprintf( stderr, "gosh: no session is retained (gosh's main retains one before the core runs)\n" );
+    abort();
+  }
+  return *recall<Session>();
 }

@@ -49,9 +49,8 @@ static const size_t MAX_DATAGRAM = 65535;
 /* (gosh) The times that decide a path are in paths.h, with the rules that use them. */
 /* how much may wait to go down a stream that is not taking it */
 static const size_t STREAM_BACKLOG = 256 * 1024;
-/* What the relays are doing, for whoever sets GOSH_RELAY_LOG to a file to hear of it. */
-static const char* relay_log_who = "";
-static void say( const char* format, ... )
+/* What the relays are doing, for whoever sets GOSH_RELAY_LOG to a file to hear it; `who` names the relay. */
+static void say( const char* who, const char* format, ... )
 {
   const char* path = getenv( "GOSH_RELAY_LOG" );
   if ( !path || !*path ) {
@@ -61,7 +60,7 @@ static void say( const char* format, ... )
   if ( !f ) {
     return;
   }
-  fprintf( f, "%s: ", relay_log_who );
+  fprintf( f, "%s: ", who );
   va_list args;
   va_start( args, format );
   vfprintf( f, format, args );

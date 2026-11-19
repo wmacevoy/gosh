@@ -18,23 +18,29 @@ void print_colorcount( void );
 
 namespace Gosh {
 
+/* The words a core's main is called with, and the pointers to them it is handed. Whoever calls
+   the core's main makes one and keeps it for as long as the core runs: the core keeps pointers into it. */
+struct CoreWords
+{
+  std::vector<std::string> kept;
+  std::vector<char*> argv;
+};
+
 /*
  * Calls one of the core's mains with `name` as its argv[0] and `words` after it.
- * The words are kept for the life of the process: the core keeps pointers into them.
+ * The words live in `held`, which the caller keeps for as long as the core runs: the core keeps pointers into them.
  */
-inline int call_core_main( int ( *core_main )( int, char*[] ), const std::string& name, const std::vector<std::string>& words )
+inline int call_core_main( int ( *core_main )( int, char*[] ), const std::string& name, const std::vector<std::string>& words, CoreWords& held )
 {
-  static std::vector<std::string> kept;
-  static std::vector<char*> argv;
-  kept.clear();
-  kept.push_back( name );
-  kept.insert( kept.end(), words.begin(), words.end() );
-  argv.clear();
-  for ( size_t i = 0; i < kept.size(); i++ ) {
-    argv.push_back( const_cast<char*>( kept[i].c_str() ) );
+  held.kept.clear();
+  held.kept.push_back( name );
+  held.kept.insert( held.kept.end(), words.begin(), words.end() );
+  held.argv.clear();
+  for ( size_t i = 0; i < held.kept.size(); i++ ) {
+    held.argv.push_back( const_cast<char*>( held.kept[i].c_str() ) );
   }
-  argv.push_back( NULL );
-  return core_main( static_cast<int>( kept.size() ), argv.data() );
+  held.argv.push_back( NULL );
+  return core_main( static_cast<int>( held.kept.size() ), held.argv.data() );
 }
 
 }

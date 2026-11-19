@@ -48,6 +48,7 @@ struct Session
   {}
 };
 
+/* The session that gosh's main retained (session.cc). Expects that one is. */
 Session& session( void );
 
 /* Whether this program may yet start a process: a stream's, or the relay. (It must not give up the right to.) */
