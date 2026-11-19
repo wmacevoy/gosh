@@ -10,6 +10,7 @@
 
 #include "src/meetup/messages.h"
 #include "src/meetup/ticket.h"
+#include "src/seam/proved.h"
 #include "vendor/facts/facts.h"
 /* REQ18/PATH-5, REQ17/PATH-8: the meetup's messages */
 FACTS( Messages )
@@ -97,9 +98,13 @@ FACTS( Messages )
            && h.kind == MEETUP_PASSED && std::string( h.sealed, h.sealed_len ) == std::string( 1500, 'y' ) ), "PASSED is the mark, the version and the datagram: shorter than the PASS it came in" );
   FACT_CHECK( !meetup_open( session, h, true, counter, text ), "PASSED is never opened" );
 
-  const std::string high = meetup_seal( session, MEETUP_PASS, t.id, 0, false, ~uint64_t( 0 ), "z" );
-  FACT_CHECK( ( meetup_read_header( high.data(), high.size(), h ) && meetup_open( session, h, false, counter, text )
-           && counter == MEETUP_COUNTER_MASK ), "a counter is 62 bits: what is above them cannot change who sealed it" );
+  /* (proved of every counter and sender; the seal and the open around it are tried by every fact above) */
+  if ( !proved_so_not_tried( "a counter is 62 bits: what is above them cannot change who sealed it",
+                             "Strong::MeetupNonce, proofs/MeetupNonce.proof.cpp" ) ) {
+    const std::string high = meetup_seal( session, MEETUP_PASS, t.id, 0, false, ~uint64_t( 0 ), "z" );
+    FACT_CHECK( ( meetup_read_header( high.data(), high.size(), h ) && meetup_open( session, h, false, counter, text )
+             && counter == MEETUP_COUNTER_MASK ), "a counter is 62 bits: what is above them cannot change who sealed it" );
+  }
 
   /* REQ17/PATH-8: an IPv6 address as "where", and back. */
   Network::Addr a6, back;

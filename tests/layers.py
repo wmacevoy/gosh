@@ -33,7 +33,7 @@ LAYERS = {
     "relay": "paths", "pathfinding": "paths", "meetup": "paths",
     "strong": "strong",     # what is proved: it includes nothing of gosh but itself (src/strong/README.md)
 }
-TOOLING = {"seam/fuzz-replay.h", "seam/gosh-version.h"}
+TOOLING = {"seam/fuzz-replay.h", "seam/gosh-version.h", "seam/proved.h"}
 
 src = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
 include = re.compile(r'^\s*#\s*include\s+"src/([^/"]+)/([^"]+)"')
