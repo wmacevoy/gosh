@@ -36,6 +36,7 @@
 #include <string>
 
 #include "src/strong/meetupcounter.h"
+#include "src/strong/meetupheader.h"
 #include "src/crypto/crypto.h"
 #include "src/network/network.h"
 
@@ -51,7 +52,7 @@ enum MeetupKind
 };
 
 static const int MEETUP_KINDS = 5;
-static const char MEETUP_MARKS[MEETUP_KINDS][8] = { { 0, 'g', 'o', 's', 'h', 'R', 'E', 'G' },
+static constexpr char MEETUP_MARKS[MEETUP_KINDS][8] = { { 0, 'g', 'o', 's', 'h', 'R', 'E', 'G' },
                                                     { 0, 'g', 'o', 's', 'h', 'R', 'G', 'D' },
                                                     { 0, 'g', 'o', 's', 'h', 'P', 'A', 'S' },
                                                     { 0, 'g', 'o', 's', 'h', 'P', 'S', 'D' },
@@ -195,48 +196,41 @@ struct MeetupHeader
   size_t sealed_len;
 };
 
-/* True, and its header, if these bytes are one of the messages at its exact length. */
+/* What strong/meetupheader.h writes out as numbers are these: the compiler is asked. */
+static_assert( MEETUP_VERSION == 2 && MEETUP_HEADER == 26 && MEETUP_REGISTER_MESSAGE == 78 && MEETUP_ADDRESS_MESSAGE == 70
+                 && MEETUP_TIME_MESSAGE == 67 && MEETUP_PASS_MIN == 52 && MEETUP_PASS_MAX == 1551 && MEETUP_MAX_DATAGRAM == 1500,
+               "strong/meetupheader.h says other lengths than these" );
+static_assert( MEETUP_MARKS[0][0] == 0 && MEETUP_MARKS[0][1] == 0x67 && MEETUP_MARKS[0][2] == 0x6f && MEETUP_MARKS[0][3] == 0x73
+                 && MEETUP_MARKS[0][4] == 0x68 && MEETUP_MARKS[0][5] == 0x52 && MEETUP_MARKS[0][6] == 0x45 && MEETUP_MARKS[0][7] == 0x47
+                 && MEETUP_MARKS[1][5] == 0x52 && MEETUP_MARKS[1][6] == 0x47 && MEETUP_MARKS[1][7] == 0x44 && MEETUP_MARKS[2][5] == 0x50
+                 && MEETUP_MARKS[2][6] == 0x41 && MEETUP_MARKS[2][7] == 0x53 && MEETUP_MARKS[3][5] == 0x50 && MEETUP_MARKS[3][6] == 0x53
+                 && MEETUP_MARKS[3][7] == 0x44 && MEETUP_MARKS[4][5] == 0x54 && MEETUP_MARKS[4][6] == 0x49 && MEETUP_MARKS[4][7] == 0x4d,
+               "strong/meetupheader.h says other marks than these" );
+static_assert( MEETUP_REGISTER == 1 && MEETUP_REGISTERED == 2 && MEETUP_PASS == 3 && MEETUP_PASSED == 4 && MEETUP_TIME == 5,
+               "strong/meetupheader.h says other kinds than these" );
+
+/*
+ * True, and its header, if these bytes are one of the messages at its exact length. What is a
+ * message, and where its parts are, is Strong::MeetupHeader's to say (strong/meetupheader.h),
+ * and is proved; here its numbers are made the pointers and the text the rest of gosh takes. The
+ * ticket is at 9 and what is sealed where the head says: both inside the datagram, of a head
+ * that was read.
+ */
 inline bool meetup_read_header( const char* data, size_t n, MeetupHeader& h )
 {
-  if ( n < 9 || static_cast<unsigned char>( data[8] ) != MEETUP_VERSION ) {
+  Strong::MeetupHeader head;
+  if ( !head.read_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( data ), n ) ) ) {
     return false;
   }
-  int kind = 0;
-  for ( int k = 0; k < MEETUP_KINDS; k++ ) {
-    if ( memcmp( data, MEETUP_MARKS[k], 8 ) == 0 ) {
-      kind = k + 1;
-    }
-  }
-  if ( kind == MEETUP_PASSED ) {
-    if ( n < 10 || n > 9 + MEETUP_MAX_DATAGRAM ) {
-      return false;
-    }
-    h.kind = MEETUP_PASSED;
+  h.kind = static_cast<MeetupKind>( head.kind_checked() );
+  if ( h.kind == MEETUP_PASSED ) {
     h.ticket.clear();
-    h.end = 0;
-    h.sealed = data + 9;
-    h.sealed_len = n - 9;
-    return true;
+  } else {
+    h.ticket.assign( data + 9, 16 );
   }
-  if ( kind == 0 ) {
-    return false;
-  }
-  const bool right_length = kind == MEETUP_REGISTER     ? n == MEETUP_REGISTER_MESSAGE
-                            : kind == MEETUP_REGISTERED ? n == MEETUP_ADDRESS_MESSAGE
-                            : kind == MEETUP_TIME       ? n == MEETUP_TIME_MESSAGE
-                                                        : ( n >= MEETUP_PASS_MIN && n <= MEETUP_PASS_MAX );
-  if ( !right_length ) {
-    return false;
-  }
-  const unsigned char end = static_cast<unsigned char>( data[25] );
-  if ( end > 1 ) {
-    return false;
-  }
-  h.kind = static_cast<MeetupKind>( kind );
-  h.ticket.assign( data + 9, 16 );
-  h.end = end;
-  h.sealed = data + MEETUP_HEADER;
-  h.sealed_len = n - MEETUP_HEADER;
+  h.end = static_cast<int>( head.end_checked() );
+  h.sealed = data + head.sealed_from_checked();
+  h.sealed_len = n - head.sealed_from_checked();
   return true;
 }
 
