@@ -13,7 +13,7 @@
  *   PASSED      mark | version | the datagram                                                  10 to 1,509 bytes
  *
  * "sealed" is mosh's cipher under the ticket's key: an 8-byte nonce, the text, a 16-byte tag. The
- * nonce is a counter whose top two bits say who sealed it and for whom (direction, below), so that
+ * nonce is a counter whose top two bits say who sealed it and for whom (strong/meetupnonce.h), so that
  * no two of the four senders under one key ever use the same nonce, and a message sealed one way
  * cannot be taken for one sealed another. "where" is 19 bytes: a family (4 or 6), an address of
  * 16 (an IPv4 address in the first four, most significant first, zeros after; or an IPv6 address)
@@ -37,6 +37,7 @@
 
 #include "src/strong/meetupcounter.h"
 #include "src/strong/meetupheader.h"
+#include "src/strong/meetupnonce.h"
 #include "src/crypto/crypto.h"
 #include "src/network/network.h"
 
@@ -70,11 +71,8 @@ static const size_t MEETUP_PASS_MIN = MEETUP_HEADER + MEETUP_SEAL + 1 + 1;
 static const size_t MEETUP_PASS_MAX = MEETUP_HEADER + MEETUP_SEAL + 1 + MEETUP_MAX_DATAGRAM;
 static const uint64_t MEETUP_COUNTER_MASK = Strong::MEETUP_COUNTER_MOST; /* 2^62 - 1 (strong/meetupcounter.h) */
 
-/* Who sealed a message, and for whom: the top two bits of its nonce. */
-inline uint64_t meetup_direction( int end, bool from_meetup )
-{
-  return uint64_t( ( from_meetup ? 2 : 0 ) + ( end ? 1 : 0 ) ) << 62;
-}
+/* Who sealed a message, and for whom, is the top two bits of its nonce: Strong::MeetupNonce
+   (strong/meetupnonce.h) says so, and is proved to lose nothing. */
 
 /* An IPv4 address and port (each in host order) as "where". */
 inline std::string meetup_where_v4( uint32_t address, uint16_t port )
@@ -247,8 +245,10 @@ inline std::string meetup_seal( Crypto::Session& session,
   out.push_back( static_cast<char>( MEETUP_VERSION ) );
   out += ticket;
   out.push_back( static_cast<char>( end ) );
-  const uint64_t nonce = meetup_direction( end, from_meetup ) | ( counter & MEETUP_COUNTER_MASK );
-  out += session.encrypt( Crypto::Message( Crypto::Nonce( nonce ), std::string( 1, static_cast<char>( kind ) ) + text ) );
+  Strong::MeetupNonce nonce;
+  nonce.set_checked( end ? 1 : 0, from_meetup ? 1 : 0, counter );
+  out += session.encrypt(
+    Crypto::Message( Crypto::Nonce( nonce.value_checked() ), std::string( 1, static_cast<char>( kind ) ) + text ) );
   return out;
 }
 
@@ -263,12 +263,13 @@ inline bool meetup_open( Crypto::Session& session, const MeetupHeader& h, bool f
   }
   try {
     const Crypto::Message m = session.decrypt( h.sealed, h.sealed_len );
-    const uint64_t nonce = m.nonce.val();
-    if ( ( nonce & ~MEETUP_COUNTER_MASK ) != meetup_direction( h.end, from_meetup ) || m.text.empty()
+    Strong::MeetupNonce nonce;
+    nonce.read_checked( m.nonce.val() );
+    if ( nonce.end_checked() != ( h.end ? 1u : 0u ) || nonce.by_meetup_checked() != ( from_meetup ? 1u : 0u ) || m.text.empty()
          || static_cast<unsigned char>( m.text[0] ) != h.kind ) {
       return false;
     }
-    counter = nonce & MEETUP_COUNTER_MASK;
+    counter = nonce.counter_checked();
     text = m.text.substr( 1 );
     return true;
   } catch ( const Crypto::CryptoException& ) {

@@ -31,6 +31,10 @@ Three rules, and the proving refuses gosh if one is broken:
 | `counterwindow.h` | `CounterWindow`: which of an end's last 1024 counters are used. `take` expects a `MeetupCounter`; `take_checked` takes a checked one. Proved: memory, ending, and that the highest counter kept is one. Not proved: that no counter is taken twice | `meetup/registrations.h` |
 | `stunanswer.h` | `StunAnswer`: a STUN answer read, from bytes sent by anyone. Every method is a way in (`parse_checked`, `kept_..._checked`): its one user is not proved | `pathfinding/stun.h` |
 | `stunrequest.h` | `is_stun_request_checked`: whether bytes are a STUN Binding Request | `meetup/answer.h` and its users |
+| `subarray.h` | `subarray<iterator>( a, n )`: the n elements from a, read by `at( i )`. What making one expects (the elements are there, and stay) is held before the program runs, by the lint of strong-domain-driven-design. Not proved: it keeps a pointer | `datagram.h` |
+| `datagram.h` | `Datagram`: a `subarray` of bytes, as they were received | `stunanswer.h`, `stunrequest.h`, `meetupheader.h` and their users |
+| `meetupheader.h` | `MeetupHeader`: what a datagram at the meetup's door is taken for: a kind, an end, a length, and where what is sealed begins, as numbers | `meetup/messages.h` |
+| `meetupnonce.h` | `MeetupNonce`: what a meetup message is sealed with: who sealed it, for which end, and a counter of 62 bits. Proved to lose nothing either way, so no two senders under one key make one nonce. Not proved: that a sender's counter is never used twice | `meetup/messages.h` |
 
 Tests: each is tested through the part that uses it (`registrations-test.cc`, `stun-test.cc`,
 `answer-test.cc`) and its fuzzer; there is no test here, and no Makefile: these are headers.
