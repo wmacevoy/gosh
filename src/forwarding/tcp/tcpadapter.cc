@@ -57,7 +57,11 @@ static void close_with_reset( int fd )
 }
 
 AdapterPort::AdapterPort( SegmentSink* s_sink, bool s_client )
-  : sink( s_sink ), listeners(), targets(), sockets(), prng(), counted( false ), next_sequence( 0 ), logic( s_client )
+  : listeners(), edge( s_sink ), logic( s_client )
+{}
+
+AdapterPort::Edge::Edge( SegmentSink* s_sink )
+  : sink( s_sink ), targets(), sockets(), prng(), counted( false ), next_sequence( 0 )
 {}
 
 AdapterPort::~AdapterPort()
@@ -65,7 +69,7 @@ AdapterPort::~AdapterPort()
   for ( std::vector<Listener>::iterator i = listeners.begin(); i != listeners.end(); i++ ) {
     ::close( i->fd );
   }
-  for ( std::map<Id, int>::iterator i = sockets.begin(); i != sockets.end(); i++ ) {
+  for ( std::map<Id, int>::iterator i = edge.sockets.begin(); i != edge.sockets.end(); i++ ) {
     ::close( i->second );
   }
 }
@@ -119,33 +123,33 @@ std::string AdapterPort::add_listener( uint8_t forward, const Gosh::ForwardSpec&
 
 void AdapterPort::add_target( uint8_t forward, const Addr& addr, socklen_t len )
 {
-  if ( targets.size() <= forward ) {
-    targets.resize( forward + 1 );
+  if ( edge.targets.size() <= forward ) {
+    edge.targets.resize( forward + 1 );
   }
-  targets[forward].addr = addr;
-  targets[forward].len = len;
-  targets[forward].present = true;
+  edge.targets[forward].addr = addr;
+  edge.targets[forward].len = len;
+  edge.targets[forward].present = true;
 }
 
 void AdapterPort::add_spawner( uint8_t forward, const std::function<int()>& spawn )
 {
-  if ( targets.size() <= forward ) {
-    targets.resize( forward + 1 );
+  if ( edge.targets.size() <= forward ) {
+    edge.targets.resize( forward + 1 );
   }
-  targets[forward].spawn = spawn;
-  targets[forward].present = true;
+  edge.targets[forward].spawn = spawn;
+  edge.targets[forward].present = true;
 }
 
 Gosh::Link AdapterPort::link( void ) const
 {
   Gosh::Link l;
-  l.ready = sink->segment_ready();
-  l.in_contact = sink->link_up();
-  l.max_datagram = sink->max_datagram();
+  l.ready = edge.sink->segment_ready();
+  l.in_contact = edge.sink->link_up();
+  l.max_datagram = edge.sink->max_datagram();
   return l;
 }
 
-int AdapterPort::socket_of( Id id ) const
+int AdapterPort::Edge::socket_of( Id id ) const
 {
   const std::map<Id, int>::const_iterator i = sockets.find( id );
   return i == sockets.end() ? -1 : i->second;
@@ -154,12 +158,12 @@ int AdapterPort::socket_of( Id id ) const
 bool AdapterPort::open_with( uint8_t forward, int fd, uint64_t now )
 {
   Id id = 0;
-  if ( !logic.opened( forward, now, link(), *this, id ) ) {
+  if ( !logic.opened( forward, now, link(), edge, id ) ) {
     ::close( fd );
     return false;
   }
   prepare_socket( fd );
-  sockets[id] = fd;
+  edge.sockets[id] = fd;
   return true;
 }
 
@@ -172,19 +176,19 @@ void AdapterPort::accept_from( const Listener& listener, uint64_t now )
   }
 
   Id id = 0;
-  if ( !logic.opened( listener.forward, now, link(), *this, id ) ) {
+  if ( !logic.opened( listener.forward, now, link(), edge, id ) ) {
     /* no forwarding at the other end (yet), or too busy: connection refused */
     close_with_reset( fd );
     return;
   }
   prepare_socket( fd );
   no_delay( fd );
-  sockets[id] = fd;
+  edge.sockets[id] = fd;
 }
 
 void AdapterPort::from_network( uint8_t forward, const TCPInUDP& segment )
 {
-  logic.segment( forward, segment, timestamp(), link(), *this );
+  logic.segment( forward, segment, timestamp(), link(), edge );
 }
 
 std::vector<int> AdapterPort::fds( void ) const
@@ -196,7 +200,7 @@ std::vector<int> AdapterPort::fds( void ) const
   /* only those the logic has room to read from */
   const std::vector<Id> readable = logic.readable();
   for ( std::vector<Id>::const_iterator i = readable.begin(); i != readable.end(); i++ ) {
-    ret.push_back( socket_of( *i ) );
+    ret.push_back( edge.socket_of( *i ) );
   }
   return ret;
 }
@@ -212,7 +216,7 @@ void AdapterPort::read_fd( int fd )
     }
   }
 
-  for ( std::map<Id, int>::const_iterator i = sockets.begin(); i != sockets.end(); i++ ) {
+  for ( std::map<Id, int>::const_iterator i = edge.sockets.begin(); i != edge.sockets.end(); i++ ) {
     if ( i->second != fd ) {
       continue;
     }
@@ -224,11 +228,11 @@ void AdapterPort::read_fd( int fd )
     char buf[Logic::READ_AT_ONCE];
     const ssize_t n = recv( fd, buf, std::min( want, sizeof( buf ) ), MSG_DONTWAIT );
     if ( n >= 0 ) {
-      logic.read( id, buf, n, now, link(), *this ); /* (0: the application has finished writing) */
+      logic.read( id, buf, n, now, link(), edge ); /* (0: the application has finished writing) */
     } else if ( errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR ) {
       /* nothing there after all */
     } else {
-      logic.failed( id, link(), *this );
+      logic.failed( id, link(), edge );
     }
     return;
   }
@@ -236,7 +240,7 @@ void AdapterPort::read_fd( int fd )
 
 void AdapterPort::tick( uint64_t now )
 {
-  logic.tick( now, link(), *this );
+  logic.tick( now, link(), edge );
 }
 
 int AdapterPort::wait_time( uint64_t now ) const
@@ -246,18 +250,18 @@ int AdapterPort::wait_time( uint64_t now ) const
 
 /* ---- what the logic asks for */
 
-void AdapterPort::send( uint8_t forward, const TCPInUDP& segment )
+void AdapterPort::Edge::send( uint8_t forward, const TCPInUDP& segment )
 {
   sink->to_network( forward, segment );
 }
 
-uint32_t AdapterPort::fresh_sequence( void )
+uint32_t AdapterPort::Edge::fresh_sequence( void )
 {
   return counted ? next_sequence++ : prng.uint32();
 }
 
 /* Connecting end: the other end wants a connection. See whether the target will have it. */
-bool AdapterPort::connect( Id id, uint8_t forward )
+bool AdapterPort::Edge::connect( Id id, uint8_t forward )
 {
   if ( forward >= targets.size() || !targets[forward].present ) {
     return false;
@@ -283,7 +287,7 @@ bool AdapterPort::connect( Id id, uint8_t forward )
   return true;
 }
 
-int AdapterPort::connecting( Id id )
+int AdapterPort::Edge::connecting( Id id )
 {
   struct pollfd p;
   p.fd = socket_of( id );
@@ -297,7 +301,7 @@ int AdapterPort::connecting( Id id )
   return ( getsockopt( p.fd, SOL_SOCKET, SO_ERROR, &error, &len ) == 0 && error == 0 ) ? 1 : -1;
 }
 
-long AdapterPort::deliver( Id id, const char* data, size_t length )
+long AdapterPort::Edge::deliver( Id id, const char* data, size_t length )
 {
   const ssize_t n = ::send( socket_of( id ), data, length, MSG_DONTWAIT | MSG_NOSIGNAL );
   if ( n > 0 ) {
@@ -309,12 +313,12 @@ long AdapterPort::deliver( Id id, const char* data, size_t length )
   return -1; /* the application has gone */
 }
 
-void AdapterPort::shut_write( Id id )
+void AdapterPort::Edge::shut_write( Id id )
 {
   shutdown( socket_of( id ), SHUT_WR );
 }
 
-void AdapterPort::close( Id id, bool reset )
+void AdapterPort::Edge::close( Id id, bool reset )
 {
   const std::map<Id, int>::iterator i = sockets.find( id );
   if ( i == sockets.end() ) {

@@ -35,7 +35,8 @@ namespace Network {
 class AdapterPort
 {
 private:
-  typedef Gosh::Connections<AdapterPort> Logic;
+  struct Edge;
+  typedef Gosh::Connections<Edge> Logic;
   typedef Logic::Id Id;
 
 public:
@@ -46,8 +47,6 @@ public:
   static constexpr uint32_t MIN_MSS = Logic::MIN_MSS;
 
 private:
-  friend class Gosh::Connections<AdapterPort>; /* it calls the seven functions below */
-
   struct Listener
   {
     uint8_t forward;
@@ -64,28 +63,40 @@ private:
     Target() : addr(), len( 0 ), present( false ), spawn() {}
   };
 
-  SegmentSink* sink;
+  /*
+   * The edge of the logic: the logic is handed this, never the AdapterPort that holds the logic, so
+   * it holds only what the logic's callbacks use: the sink, the targets, the sockets, the PRNG.
+   */
+  struct Edge
+  {
+    SegmentSink* sink;
+    std::vector<Target> targets; /* by forward index */
+    std::map<Id, int> sockets;   /* each connection's socket */
+    PRNG prng;
+    bool counted;          /* (tests and fuzzers only) sequence numbers counted from next_sequence, not drawn */
+    uint32_t next_sequence;
+
+    Edge( SegmentSink* s_sink );
+
+    int socket_of( Id id ) const; /* -1 if it has none */
+
+    /* What the logic asks for (connection.h says what each must do). */
+    void send( uint8_t forward, const TCPInUDP& segment );
+    uint32_t fresh_sequence( void );
+    bool connect( Id id, uint8_t forward );
+    int connecting( Id id );
+    long deliver( Id id, const char* data, size_t length );
+    void shut_write( Id id );
+    void close( Id id, bool reset );
+  };
+
   std::vector<Listener> listeners;
-  std::vector<Target> targets; /* by forward index */
-  std::map<Id, int> sockets;   /* each connection's socket */
-  PRNG prng;
-  bool counted;          /* (tests and fuzzers only) sequence numbers counted from next_sequence, not drawn */
-  uint32_t next_sequence;
+  Edge edge;
   Logic logic;
 
   /* What the session can do just now, for the logic. */
   Gosh::Link link( void ) const;
-  int socket_of( Id id ) const; /* -1 if it has none */
   void accept_from( const Listener& listener, uint64_t now );
-
-  /* What the logic asks for (connection.h says what each must do). */
-  void send( uint8_t forward, const TCPInUDP& segment );
-  uint32_t fresh_sequence( void );
-  bool connect( Id id, uint8_t forward );
-  int connecting( Id id );
-  long deliver( Id id, const char* data, size_t length );
-  void shut_write( Id id );
-  void close( Id id, bool reset );
 
   /* unused */
   AdapterPort( const AdapterPort& );
@@ -125,8 +136,8 @@ public:
      not drawn at random, so that a run can be had again. Never called by gosh's programs. */
   void count_sequences_from( uint32_t first )
   {
-    counted = true;
-    next_sequence = first;
+    edge.counted = true;
+    edge.next_sequence = first;
   }
 };
 

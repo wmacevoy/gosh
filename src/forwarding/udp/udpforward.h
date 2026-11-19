@@ -56,7 +56,7 @@ namespace Network {
  * (gosh) Since queue item 16 this class is the edge of UDP forwards: it owns the listeners and
  * the sockets to targets, reads the clock, and decides nothing. Which conversation a datagram
  * belongs to, fragments, replay and expiry are Gosh::Conversations (conversations.h), which
- * this class is the Out of. Its public face is the fork's, so the fork's unit test still drives it.
+ * its Edge is the Out of. Its public face is the fork's, so the fork's unit test still drives it.
  */
 class UDPForwarder : public SideChannelSink, public Gosh::ConversationRules
 {
@@ -88,24 +88,33 @@ private:
     int fd;
   };
 
-  SideChannelLink* link;
-  Role role;
-  unsigned int verbose;
+  /*
+   * The edge of the logic: the logic is handed this, never the UDPForwarder that holds the logic, so
+   * it holds only what the logic's callbacks use: the side channel, the forwards, the sockets, verbose.
+   */
+  struct Edge
+  {
+    SideChannelLink* link;
+    unsigned int verbose;
+    std::vector<Forward> forwards;
+    std::vector<Socket> sockets;
 
-  std::vector<Forward> forwards;
-  std::vector<Socket> sockets;
-  Gosh::Conversations<UDPForwarder> conversations;
+    Edge( SideChannelLink* s_link );
+
+    /* What the logic asks of its edge (conversations.h). */
+    void send( const std::string& payload ) { link->sidechannel_send( payload ); }
+    bool open( uint32_t handle, uint8_t forward, uint16_t id );
+    void close( uint32_t handle );
+    void to_target( uint32_t handle, const std::string& datagram );
+    void to_application( uint8_t forward, const std::string& peer, const std::string& datagram );
+  };
+
+  Role role;
+  Edge edge;
+  Gosh::Conversations<Edge> conversations;
 
   Gosh::DatagramLink link_now( void ) const;
   void say_if_dropped( uint64_t dropped_before, size_t len );
-
-  /* What the logic asks of its edge (conversations.h). */
-  friend class Gosh::Conversations<UDPForwarder>;
-  void send( const std::string& payload ) { link->sidechannel_send( payload ); }
-  bool open( uint32_t handle, uint8_t forward, uint16_t id );
-  void close( uint32_t handle );
-  void to_target( uint32_t handle, const std::string& datagram );
-  void to_application( uint8_t forward, const std::string& peer, const std::string& datagram );
 
   /* unused */
   UDPForwarder( const UDPForwarder& );
@@ -125,7 +134,7 @@ public:
                 bool reverse = false );
   ~UDPForwarder();
 
-  void set_verbose( unsigned int s_verbose ) { verbose = s_verbose; }
+  void set_verbose( unsigned int s_verbose ) { edge.verbose = s_verbose; }
 
   /* When to add parity to the datagrams we fragment.  (What we receive may have it regardless.) */
   void set_parity_mode( ParityMode s_mode ) { conversations.set_parity_mode( s_mode ); }

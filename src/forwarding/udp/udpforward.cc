@@ -62,8 +62,7 @@ UDPForwarder::UDPForwarder( SideChannelLink* s_link,
                             Role s_role,
                             const std::vector<std::string>& specs,
                             bool reverse )
-  : link( s_link ), role( s_role ), verbose( 0 ), forwards(), sockets(),
-    conversations( s_role == LISTEN, reverse, specs.size() )
+  : role( s_role ), edge( s_link ), conversations( s_role == LISTEN, reverse, specs.size() )
 {
   if ( specs.size() > MAX_FORWARDS ) {
     throw NetworkException( "UDP forwarding: too many forwarding specifications", 0 );
@@ -88,7 +87,7 @@ UDPForwarder::UDPForwarder( SideChannelLink* s_link,
           throw NetworkException( "UDP forwarding: socket", errno );
         }
         set_cloexec( forward.listen_fd );
-        forwards.push_back( forward ); /* now owned; closed by the destructor */
+        edge.forwards.push_back( forward ); /* now owned; closed by the destructor */
 
         if ( bind( forward.listen_fd, ai.res->ai_addr, ai.res->ai_addrlen ) < 0 ) {
           throw NetworkException( "UDP forwarding: bind " + where, errno );
@@ -103,11 +102,11 @@ UDPForwarder::UDPForwarder( SideChannelLink* s_link,
         }
         memcpy( &forward.target, ai.res->ai_addr, ai.res->ai_addrlen );
         forward.target_len = ai.res->ai_addrlen;
-        forwards.push_back( forward );
+        edge.forwards.push_back( forward );
       }
     }
   } catch ( ... ) {
-    for ( std::vector<Forward>::iterator i = forwards.begin(); i != forwards.end(); i++ ) {
+    for ( std::vector<Forward>::iterator i = edge.forwards.begin(); i != edge.forwards.end(); i++ ) {
       if ( i->listen_fd >= 0 ) {
         ::close( i->listen_fd );
       }
@@ -116,14 +115,18 @@ UDPForwarder::UDPForwarder( SideChannelLink* s_link,
   }
 }
 
+UDPForwarder::Edge::Edge( SideChannelLink* s_link )
+  : link( s_link ), verbose( 0 ), forwards(), sockets()
+{}
+
 UDPForwarder::~UDPForwarder()
 {
-  for ( std::vector<Forward>::iterator i = forwards.begin(); i != forwards.end(); i++ ) {
+  for ( std::vector<Forward>::iterator i = edge.forwards.begin(); i != edge.forwards.end(); i++ ) {
     if ( i->listen_fd >= 0 ) {
       ::close( i->listen_fd );
     }
   }
-  for ( std::vector<Socket>::iterator i = sockets.begin(); i != sockets.end(); i++ ) {
+  for ( std::vector<Socket>::iterator i = edge.sockets.begin(); i != edge.sockets.end(); i++ ) {
     ::close( i->fd );
   }
 }
@@ -131,12 +134,12 @@ UDPForwarder::~UDPForwarder()
 std::vector<int> UDPForwarder::fds( void ) const
 {
   std::vector<int> ret;
-  for ( std::vector<Forward>::const_iterator i = forwards.begin(); i != forwards.end(); i++ ) {
+  for ( std::vector<Forward>::const_iterator i = edge.forwards.begin(); i != edge.forwards.end(); i++ ) {
     if ( i->listen_fd >= 0 ) {
       ret.push_back( i->listen_fd );
     }
   }
-  for ( std::vector<Socket>::const_iterator i = sockets.begin(); i != sockets.end(); i++ ) {
+  for ( std::vector<Socket>::const_iterator i = edge.sockets.begin(); i != edge.sockets.end(); i++ ) {
     ret.push_back( i->fd );
   }
   return ret;
@@ -145,15 +148,15 @@ std::vector<int> UDPForwarder::fds( void ) const
 Gosh::DatagramLink UDPForwarder::link_now( void ) const
 {
   Gosh::DatagramLink now;
-  now.ready = link->sidechannel_ready();
+  now.ready = edge.link->sidechannel_ready();
   /* (The fork asked for the size only of a session that was ready, and for the loss only when it had a
      datagram to fragment; here the loss is read each time. Both are plain values the session already holds.) */
-  now.max_payload = now.ready ? link->sidechannel_max_payload() : 0;
-  now.loss = now.ready ? link->sidechannel_loss() : 0;
+  now.max_payload = now.ready ? edge.link->sidechannel_max_payload() : 0;
+  now.loss = now.ready ? edge.link->sidechannel_loss() : 0;
   return now;
 }
 
-bool UDPForwarder::open( uint32_t handle, uint8_t forward, uint16_t id )
+bool UDPForwarder::Edge::open( uint32_t handle, uint8_t forward, uint16_t id )
 {
   const Forward& f = forwards[forward];
   Socket s;
@@ -174,7 +177,7 @@ bool UDPForwarder::open( uint32_t handle, uint8_t forward, uint16_t id )
   return true;
 }
 
-void UDPForwarder::close( uint32_t handle )
+void UDPForwarder::Edge::close( uint32_t handle )
 {
   for ( std::vector<Socket>::iterator i = sockets.begin(); i != sockets.end(); i++ ) {
     if ( i->handle == handle ) {
@@ -185,7 +188,7 @@ void UDPForwarder::close( uint32_t handle )
   }
 }
 
-void UDPForwarder::to_target( uint32_t handle, const std::string& datagram )
+void UDPForwarder::Edge::to_target( uint32_t handle, const std::string& datagram )
 {
   for ( std::vector<Socket>::iterator i = sockets.begin(); i != sockets.end(); i++ ) {
     if ( i->handle == handle ) {
@@ -195,7 +198,7 @@ void UDPForwarder::to_target( uint32_t handle, const std::string& datagram )
   }
 }
 
-void UDPForwarder::to_application( uint8_t forward, const std::string& peer, const std::string& datagram )
+void UDPForwarder::Edge::to_application( uint8_t forward, const std::string& peer, const std::string& datagram )
 {
   sendto( forwards[forward].listen_fd,
           datagram.data(),
@@ -207,7 +210,7 @@ void UDPForwarder::to_application( uint8_t forward, const std::string& peer, con
 
 void UDPForwarder::say_if_dropped( uint64_t dropped_before, size_t len )
 {
-  if ( verbose && !dropped_before && conversations.get_dropped_oversize() ) {
+  if ( edge.verbose && !dropped_before && conversations.get_dropped_oversize() ) {
     fprintf( stderr, "UDP forwarding: dropping %d-byte datagram (too many fragments)\n", static_cast<int>( len ) );
   }
 }
@@ -219,10 +222,10 @@ void UDPForwarder::read_fd( int fd )
 
   if ( role == LISTEN ) {
     size_t forward = 0;
-    while ( forward < forwards.size() && forwards[forward].listen_fd != fd ) {
+    while ( forward < edge.forwards.size() && edge.forwards[forward].listen_fd != fd ) {
       forward++;
     }
-    if ( forward == forwards.size() ) {
+    if ( forward == edge.forwards.size() ) {
       return;
     }
 
@@ -237,13 +240,13 @@ void UDPForwarder::read_fd( int fd )
 
       const uint64_t dropped = conversations.get_dropped_oversize();
       conversations.from_application(
-        forward, std::string( reinterpret_cast<const char*>( &from ), from_len ), buf, len, now, link_now(), *this );
+        forward, std::string( reinterpret_cast<const char*>( &from ), from_len ), buf, len, now, link_now(), edge );
       say_if_dropped( dropped, len );
     }
   } else {
     for ( int n = 0; n < MAX_READS_PER_WAKEUP; n++ ) {
       const Socket* s = NULL;
-      for ( std::vector<Socket>::const_iterator i = sockets.begin(); i != sockets.end(); i++ ) {
+      for ( std::vector<Socket>::const_iterator i = edge.sockets.begin(); i != edge.sockets.end(); i++ ) {
         if ( i->fd == fd ) {
           s = &*i;
           break;
@@ -260,7 +263,7 @@ void UDPForwarder::read_fd( int fd )
       }
 
       const uint64_t dropped = conversations.get_dropped_oversize();
-      conversations.from_target( s->handle, buf, len, now, link_now(), *this );
+      conversations.from_target( s->handle, buf, len, now, link_now(), edge );
       say_if_dropped( dropped, len );
     }
   }
@@ -268,5 +271,5 @@ void UDPForwarder::read_fd( int fd )
 
 void UDPForwarder::sidechannel_recv( const std::string& payload )
 {
-  conversations.payload( payload, timestamp(), *this );
+  conversations.payload( payload, timestamp(), edge );
 }

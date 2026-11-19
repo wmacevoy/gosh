@@ -615,11 +615,12 @@ FACTS( Remote )
   snprintf( spec, sizeof( spec ), "%d:127.0.0.1:%d", remote_port, target_port );
   const std::vector<std::string> remote_specs( 1, spec );
   const std::vector<std::string> none;
+  const std::vector<std::string> none_remote;
 
   /* each end has both kinds, sharing one side channel */
   TestLink to_server, to_client;
-  Forwarding client( &to_server, true, local_specs, none, none, remote_specs );
-  Forwarding server( &to_client, false, local_specs, none, none, remote_specs );
+  Forwarding client( &to_server, true, local_specs, none, none_remote, remote_specs );
+  Forwarding server( &to_client, false, local_specs, none, none_remote, remote_specs );
   to_server.peer = server.sink();
   to_client.peer = client.sink();
 

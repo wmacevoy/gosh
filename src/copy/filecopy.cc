@@ -312,7 +312,7 @@ protected:
   }
 
   /* A file has arrived, or gone: said at the user's end. */
-  void report( const char* what, const std::string& path, uint64_t size )
+  void report( const char* what, std::string path, uint64_t size )
   {
     if ( !options.local || options.quiet ) {
       return;
@@ -335,7 +335,7 @@ protected:
   }
 
   /* How far along a large file is, if someone is watching. */
-  void progress( const std::string& path, uint64_t done, uint64_t total )
+  void progress( std::string path, uint64_t done, uint64_t total )
   {
     if ( !options.local || options.quiet || total < 4 * CHUNK || !isatty( STDERR_FILENO ) ) {
       return;
@@ -558,7 +558,7 @@ private:
     }
   }
 
-  void send_file( const Want& want )
+  void send_file( Want want )
   {
     const Entry& e = entries[want.index];
     bool ok = true;
@@ -737,7 +737,7 @@ private:
   Hash hash;
   uint64_t at;
 
-  void result( uint32_t which, bool good, const std::string& why )
+  void result( uint32_t which, bool good, std::string why )
   {
     if ( good ) {
       copied++;

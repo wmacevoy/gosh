@@ -118,7 +118,7 @@ private:
     return static_cast<uint64_t>( static_cast<int64_t>( meetup_wall + ( now - meetup_since ) ) + meetup_offset );
   }
 
-  void out( const Addr& to, const std::string& bytes )
+  void out( Addr to, const std::string& bytes )
   {
     Outgoing o;
     o.to = to;
@@ -127,7 +127,7 @@ private:
   }
 
   /* Straight to an address; or to the meetup, to be passed on to the other end. */
-  void transmit( const std::string& packet, const Addr& to, bool via )
+  void transmit( const std::string& packet, Addr to, bool via )
   {
     if ( !via ) {
       out( to, packet );
@@ -136,7 +136,7 @@ private:
     }
   }
 
-  void probe( char type, const Addr& to, bool via )
+  void probe( char type, Addr to, bool via )
   {
     const uint64_t seq = ( ++send_seq ) | ( initiator ? 0 : DIRECTION );
     std::string packet( PUNCH_MARK, sizeof( PUNCH_MARK ) );
