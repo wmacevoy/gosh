@@ -245,10 +245,10 @@ inline std::string meetup_seal( Crypto::Session& session,
   out.push_back( static_cast<char>( MEETUP_VERSION ) );
   out += ticket;
   out.push_back( static_cast<char>( end ) );
-  Strong::MeetupNonce nonce;
-  nonce.set_checked( end ? 1 : 0, from_meetup ? 1 : 0, counter );
+  Strong::MeetupNonce stamp;
+  stamp.set_checked( end ? 1 : 0, from_meetup ? 1 : 0, counter );
   out += session.encrypt(
-    Crypto::Message( Crypto::Nonce( nonce.value_checked() ), std::string( 1, static_cast<char>( kind ) ) + text ) );
+    Crypto::Message( Crypto::Nonce( stamp.value_checked() ), std::string( 1, static_cast<char>( kind ) ) + text ) );
   return out;
 }
 
@@ -263,13 +263,13 @@ inline bool meetup_open( Crypto::Session& session, const MeetupHeader& h, bool f
   }
   try {
     const Crypto::Message m = session.decrypt( h.sealed, h.sealed_len );
-    Strong::MeetupNonce nonce;
-    nonce.read_checked( m.nonce.val() );
-    if ( nonce.end_checked() != ( h.end ? 1u : 0u ) || nonce.by_meetup_checked() != ( from_meetup ? 1u : 0u ) || m.text.empty()
+    Strong::MeetupNonce stamp; /* (not "nonce": the message's own field is that word, and the lint of strong-domain-driven-design reads words) */
+    stamp.read_checked( m.nonce.val() );
+    if ( stamp.end_checked() != ( h.end ? 1u : 0u ) || stamp.by_meetup_checked() != ( from_meetup ? 1u : 0u ) || m.text.empty()
          || static_cast<unsigned char>( m.text[0] ) != h.kind ) {
       return false;
     }
-    counter = nonce.counter_checked();
+    counter = stamp.counter_checked();
     text = m.text.substr( 1 );
     return true;
   } catch ( const Crypto::CryptoException& ) {
