@@ -11,14 +11,27 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <string>
 
+#include "src/strong/datagram.h"
 #include "src/strong/stunrequest.h"
 
 namespace Gosh {
 
 /* (strong/stunrequest.h; under this name too, for those who ask it here) */
 using Strong::is_stun_request_checked;
+
+/* For bytes that are not in an array of their own (a string's): copied into one, then asked. */
+inline bool is_stun_request( const char* request, size_t n )
+{
+  if ( n > Strong::DATAGRAM_MOST ) {
+    return false;
+  }
+  unsigned char copy[Strong::DATAGRAM_MOST];
+  memcpy( copy, request, n );
+  return is_stun_request_checked( Strong::DatagramChecked( copy, n ) );
+}
 
 /*
  * The answer to a request that came from this IPv4 address and port (both as numbers, in the

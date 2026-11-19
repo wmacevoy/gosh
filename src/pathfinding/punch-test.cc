@@ -84,7 +84,7 @@ struct Meetup
       return;
     }
     const std::string w = Gosh::meetup_where_of( from );
-    if ( Gosh::is_stun_request_checked( buf, n ) ) {
+    if ( Gosh::is_stun_request( buf, n ) ) {
       const std::string a = Gosh::stun_answer_to( buf, w );
       sendto( sock, a.data(), a.size(), 0, &from.sa, len );
       return;

@@ -50,8 +50,14 @@ inline std::string stun_request( const char* txid )
  * socket address the system knows. (Until 2026-11-18 this function did both.) */
 inline bool stun_parse( const char* data, size_t len, Addr& mapped )
 {
+  if ( len > Strong::DATAGRAM_MOST ) {
+    return false;
+  }
+  /* the bytes are copied into an array of their own, because what StunAnswer takes is a window on an array (strong/datagram.h) */
+  unsigned char copy[Strong::DATAGRAM_MOST];
+  memcpy( copy, data, len );
   Strong::StunAnswer answer;
-  if ( !answer.parse_checked( reinterpret_cast<const unsigned char*>( data ), len ) ) {
+  if ( !answer.parse_checked( Strong::DatagramChecked( copy, len ) ) ) {
     return false;
   }
   memset( &mapped, 0, sizeof( mapped ) );

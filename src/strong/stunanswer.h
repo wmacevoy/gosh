@@ -2,14 +2,14 @@
 
 /*
  * path-finding, a STUN answer read (REQ1/PATH-3, REQ17/PATH-8; design v2, 2.2). Logic, and a domain:
- * a class whose state is private, that reads bytes only through `data[i]` with `i` below `len`, and
+ * a class whose state is private, that reads bytes only through `data.at( i )` with `i` below `data.size()`, and
  * that uses nothing of the system (no socket address, no byte order: pathfinding/stun.h's stun_parse is that
  * edge). The bytes come from anyone on the Internet, before anything has checked them.
  *
  * It is written so that a proof can be derived from this text as it stands (the project
- * strong-domain-driven-design): unsigned numbers only, no pointer but `data`, no call out. What is
+ * strong-domain-driven-design): unsigned numbers only, no pointer, no call out but to `data`. What is
  * proved of it there, for every sequence of bytes of any length:
- *   - parse() ends, and reads nothing outside the `len` bytes;
+ *   - parse() ends, and reads nothing outside the datagram;
  *   - what is kept is nothing, IPv4 or IPv6, and never an IPv6 address of one link alone
  *     (fe80::/10): invariant(), below.
  * IPv4 in IPv6's form (::ffff:a.b.c.d) is kept as the IPv4 address it is (tested, not proved).
@@ -24,6 +24,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "src/strong/datagram.h"
+
 namespace Strong {
 
 class StunAnswer
@@ -36,55 +38,55 @@ private:
 public:
   StunAnswer() : family( 0 ), port( 0 ), addr() {}
 
-  /* True, and where we were seen is kept, if these `len` bytes are an answer that says so; else
-     false, and what is kept is as it was. `data` is `len` bytes that may be read: no more is asked. */
-  bool parse_checked( const unsigned char* data, size_t len )
+  /* True, and where we were seen is kept, if this datagram is an answer that says so; else
+     false, and what is kept is as it was. */
+  bool parse_checked( DatagramChecked data )
   {
-    if ( len < 20 ) {
+    if ( data.size() < 20 ) {
       return false;
     }
     /* a Binding Success Response, with our cookie in it */
-    if ( data[0] != 0x01 || data[1] != 0x01 ) {
+    if ( data.at( 0 ) != 0x01 || data.at( 1 ) != 0x01 ) {
       return false;
     }
-    if ( data[4] != 0x21 || data[5] != 0x12 || data[6] != 0xA4 || data[7] != 0x42 ) {
+    if ( data.at( 4 ) != 0x21 || data.at( 5 ) != 0x12 || data.at( 6 ) != 0xA4 || data.at( 7 ) != 0x42 ) {
       return false;
     }
-    uint64_t body = ( static_cast<uint64_t>( data[2] ) << 8 ) | data[3];
-    if ( body > len - 20 ) {
+    uint64_t body = ( static_cast<uint64_t>( data.at( 2 ) ) << 8 ) | data.at( 3 );
+    if ( body > data.size() - 20 ) {
       return false;
     }
     uint32_t found = 0;
     uint64_t at = 20;
     while ( at + 4 <= 20 + body ) {
-      uint32_t type = ( static_cast<uint32_t>( data[at] ) << 8 ) | data[at + 1];
-      uint64_t size = ( static_cast<uint64_t>( data[at + 2] ) << 8 ) | data[at + 3];
+      uint32_t type = ( static_cast<uint32_t>( data.at( at ) ) << 8 ) | data.at( at + 1 );
+      uint64_t size = ( static_cast<uint64_t>( data.at( at + 2 ) ) << 8 ) | data.at( at + 3 );
       if ( at + 4 + size > 20 + body ) {
         break;
       }
       uint64_t v = at + 4;
-      if ( type == 0x0020 && size >= 20 && data[v + 1] == 0x02 ) {
+      if ( type == 0x0020 && size >= 20 && data.at( v + 1 ) == 0x02 ) {
         /* (REQ17/PATH-8) XOR-MAPPED-ADDRESS for IPv6: disguised with the cookie and the id, bytes 4 to 19 */
-        uint32_t port6 = ( ( static_cast<uint32_t>( data[v + 2] ) << 8 ) | data[v + 3] ) ^ 0x2112;
+        uint32_t port6 = ( ( static_cast<uint32_t>( data.at( v + 2 ) ) << 8 ) | data.at( v + 3 ) ) ^ 0x2112;
         uint32_t zeros = 1;
         for ( uint64_t i = 0; i < 10; i++ ) {
-          if ( ( data[v + 4 + i] ^ data[4 + i] ) != 0 ) {
+          if ( ( data.at( v + 4 + i ) ^ data.at( 4 + i ) ) != 0 ) {
             zeros = 0;
           }
         }
-        uint32_t b0 = data[v + 4] ^ data[4];
-        uint32_t b1 = data[v + 5] ^ data[5];
-        uint32_t b10 = data[v + 14] ^ data[14];
-        uint32_t b11 = data[v + 15] ^ data[15];
+        uint32_t b0 = data.at( v + 4 ) ^ data.at( 4 );
+        uint32_t b1 = data.at( v + 5 ) ^ data.at( 5 );
+        uint32_t b10 = data.at( v + 14 ) ^ data.at( 14 );
+        uint32_t b11 = data.at( v + 15 ) ^ data.at( 15 );
         /* believed only as far as parse_ip_port would take it as text: of one link alone, not at
            all; IPv4 in IPv6's form, as the IPv4 address it is (found by the fuzzer, 2026-11-16) */
         if ( zeros == 1 && b10 == 0xff && b11 == 0xff ) {
           family = 4;
           port = port6;
-          addr[0] = data[v + 16] ^ data[16];
-          addr[1] = data[v + 17] ^ data[17];
-          addr[2] = data[v + 18] ^ data[18];
-          addr[3] = data[v + 19] ^ data[19];
+          addr[0] = data.at( v + 16 ) ^ data.at( 16 );
+          addr[1] = data.at( v + 17 ) ^ data.at( 17 );
+          addr[2] = data.at( v + 18 ) ^ data.at( 18 );
+          addr[3] = data.at( v + 19 ) ^ data.at( 19 );
           for ( uint32_t j = 4; j < 16; j++ ) {
             addr[j] = 0;
           }
@@ -93,18 +95,18 @@ public:
           family = 6;
           port = port6;
           for ( uint64_t k = 0; k < 16; k++ ) {
-            addr[k] = data[v + 4 + k] ^ data[4 + k];
+            addr[k] = data.at( v + 4 + k ) ^ data.at( 4 + k );
           }
           found = 1;
         }
       }
       /* XOR-MAPPED-ADDRESS, or (from servers of an older kind) MAPPED-ADDRESS; for IPv4 */
-      if ( ( type == 0x0020 || type == 0x0001 ) && size >= 8 && data[v + 1] == 0x01 && !( found == 1 && type == 0x0001 ) ) {
-        uint32_t port4 = ( static_cast<uint32_t>( data[v + 2] ) << 8 ) | data[v + 3];
-        uint32_t a0 = data[v + 4];
-        uint32_t a1 = data[v + 5];
-        uint32_t a2 = data[v + 6];
-        uint32_t a3 = data[v + 7];
+      if ( ( type == 0x0020 || type == 0x0001 ) && size >= 8 && data.at( v + 1 ) == 0x01 && !( found == 1 && type == 0x0001 ) ) {
+        uint32_t port4 = ( static_cast<uint32_t>( data.at( v + 2 ) ) << 8 ) | data.at( v + 3 );
+        uint32_t a0 = data.at( v + 4 );
+        uint32_t a1 = data.at( v + 5 );
+        uint32_t a2 = data.at( v + 6 );
+        uint32_t a3 = data.at( v + 7 );
         if ( type == 0x0020 ) {
           port4 = port4 ^ 0x2112;
           a0 = a0 ^ 0x21;

@@ -276,7 +276,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         now += byte_at( body, 0 );
         const std::string from = where( byte_at( body, 1 ) );
         const std::string request = body.size() > 2 ? body.substr( 2 ) : std::string();
-        if ( is_stun_request_checked( request.data(), request.size() ) && rate.allow( now ) ) {
+        if ( is_stun_request( request.data(), request.size() ) && rate.allow( now ) ) {
           const std::string answer = stun_answer_to( request.data(), from );
           require( answer.size() == ( from[0] == 4 ? 32u : 44u ) );
         }

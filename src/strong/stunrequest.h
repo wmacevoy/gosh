@@ -2,22 +2,21 @@
 
 /*
  * Whether bytes are a STUN Binding Request (REQ15/PATH-4, REQ18/PATH-5): the first thing a meetup
- * asks of a datagram from anyone. Logic, and a domain: it reads only below the length it is given.
+ * asks of a datagram from anyone. Logic, and a domain: it reads only below the datagram's size (datagram.h).
  */
 
 #ifndef GOSH_STRONG_STUNREQUEST_H
 #define GOSH_STRONG_STUNREQUEST_H
 
-#include <cstddef>
+#include "src/strong/datagram.h"
 
 namespace Strong {
 
 /* a Binding Request, with the cookie: and nothing longer than one need be */
-inline bool is_stun_request_checked( const char* request, size_t n )
+inline bool is_stun_request_checked( DatagramChecked request )
 {
-  const unsigned char* p = reinterpret_cast<const unsigned char*>( request );
-  return !( n < 20 || n > 200 || p[0] != 0x00 || p[1] != 0x01 || p[4] != 0x21 || p[5] != 0x12 || p[6] != 0xA4
-            || p[7] != 0x42 );
+  return !( request.size() < 20 || request.size() > 200 || request.at( 0 ) != 0x00 || request.at( 1 ) != 0x01
+            || request.at( 4 ) != 0x21 || request.at( 5 ) != 0x12 || request.at( 6 ) != 0xA4 || request.at( 7 ) != 0x42 );
 }
 
 }
