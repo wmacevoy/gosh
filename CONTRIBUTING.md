@@ -14,6 +14,8 @@ record of how it came to be are in `../mosh-dev`; nothing is changed there.
 
 **The full check:** `tools/check.sh`
 
+**While working:** `tools/check.sh --lite [PART...]` builds, and runs the unit tests and outside tests of the parts of `src/` named (with none named: every part's unit tests and a terminal session). It leaves out the doctor, the fuzzers under AddressSanitizer, the reference and the NAT lab, and any fact a test marks as proved (`src/seam/proved.h`); it ends `PASS (lite: ...)` and says what it left out. It is never the whole check: a merge, CI and a release are held to `tools/check.sh` alone.
+
 **With g++ 16, as C++26 with contracts** (branch `strong/gcc16`, 2026-11-18): `. tools/gcc16.sh`
 first, then the same two commands. It fetches the compiler with pixi, without root, and sets `CC`
 and `CXX`. The check passes that way on Debian 12, x86_64; nothing else has tried it, CI and the
