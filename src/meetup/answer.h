@@ -22,15 +22,10 @@ namespace Gosh {
 /* (strong/stunrequest.h; under this name too, for those who ask it here) */
 using Strong::is_stun_request_checked;
 
-/* For bytes that are not in an array of their own (a string's): copied into one, then asked. */
+/* The same, of bytes by where they are and how many: the datagram is made here. */
 inline bool is_stun_request( const char* request, size_t n )
 {
-  if ( n > Strong::DATAGRAM_MOST ) {
-    return false;
-  }
-  unsigned char copy[Strong::DATAGRAM_MOST];
-  memcpy( copy, request, n );
-  return is_stun_request_checked( Strong::DatagramChecked( copy, n ) );
+  return is_stun_request_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( request ), n ) );
 }
 
 /*

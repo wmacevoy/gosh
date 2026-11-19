@@ -40,7 +40,7 @@ public:
 
   /* True, and where we were seen is kept, if this datagram is an answer that says so; else
      false, and what is kept is as it was. */
-  bool parse_checked( DatagramChecked data )
+  bool parse_checked( Datagram data )
   {
     if ( data.size() < 20 ) {
       return false;

@@ -1,26 +1,23 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
 /*
- * A window on an array, as a type (REQ6/SHAPE-5). Logic.
+ * A window on elements that stand one after another, as a type (REQ6/SHAPE-5). Logic.
  *
- * subarray<type, size> is the first `count` elements of an array of `size` of `type`: it is made
- * from the array itself, whose size the compiler knows, and a count that is at most that size. So
- * what it says may be read is there to be read, and whoever takes one owes nothing more than to
- * keep its index below size(): no pointer and length that could say more than is there.
+ * subarray<iterator>( a, n ) is the n elements from a: at( i ) is *( a + i ), for i below n. So
+ * whoever takes one owes nothing but to keep its index below size(): no pointer and length handed
+ * over apart, to be believed apart.
  *
- * Making one expects count <= size, and at( i ) expects i < size(). Both are proved, not tested
- * (the project strong-domain-driven-design), as bounded.h says of `pre`.
+ * Making one expects what no test can show when the program runs: that those n elements are
+ * there, one after another, and that they stay where they are, unchanged in place, for as long as
+ * the subarray exists. That is whoever makes it to keep, and it is held before the program runs
+ * (the project strong-domain-driven-design): by proof where a proved class makes one; by the
+ * lint, which lets one be only a local or a parameter (never a field, a global or what a
+ * function gives back), and lets nothing change what it was made from while it is in scope; and
+ * where code that is not proved makes one, by that code, each place listed. at( i ) expects
+ * i < size(), which is proved of every reader.
  *
- * It is not proved itself: like caller.h it is what the proofs rest on, read by a person. It keeps
- * a pointer, which no proved class may. What makes that sound is the array's own type, and that a
- * subarray does not outlive its array: one is a local or a parameter, never a field, a global or
- * what a function gives back (the proving refuses the program otherwise: "lint").
- *
- * The array may be of another type of the same size (char for unsigned char), read as `type`.
- *
- * Two ways to make one, as for a bounded. subarray, for a proved class: nothing tested.
- * subarray_checked, for everything else: the count is tested when the program runs, and the
- * process ends if it is more than the array, saying who made it (caller.h).
+ * It is not proved itself: like caller.h it is what the proofs rest on, read by a person. It
+ * keeps a pointer, which no proved class may.
  */
 
 #ifndef GOSH_STRONG_SUBARRAY_H
@@ -28,8 +25,7 @@
 
 #include <cstddef>
 #include <cstdint>
-
-#include "src/strong/caller.h"
+#include <iterator>
 
 #ifndef __cpp_contracts
 #define pre( condition )
@@ -38,45 +34,19 @@
 
 namespace Strong {
 
-template <typename T, size_t N>
+template <typename Iterator>
 class subarray
 {
 private:
-  const T* first;
+  Iterator first;
   uint64_t count;
 
 public:
-  template <typename U>
-  subarray( U ( &array )[N], uint64_t s_count ) pre( s_count <= N )
-    : first( reinterpret_cast<const T*>( array ) ), count( s_count )
-  {
-    static_assert( sizeof( U ) == sizeof( T ), "an array of another size of element" );
-  }
+  subarray( Iterator a, uint64_t n ) : first( a ), count( n ) {}
 
   uint64_t size( void ) const { return count; }
 
-  T at( uint64_t i ) const pre( i < count ) { return first[i]; }
-};
-
-template <typename T, size_t N>
-class subarray_checked
-{
-private:
-  const T* first;
-  uint64_t count;
-
-public:
-  template <typename U>
-  subarray_checked( U ( &array )[N], uint64_t s_count, caller from = caller() )
-    : first( reinterpret_cast<const T*>( array ) ), count( s_count )
-  {
-    static_assert( sizeof( U ) == sizeof( T ), "an array of another size of element" );
-    STRONG_CHECK( s_count <= N, from );
-  }
-
-  uint64_t size( void ) const { return count; }
-
-  T at( uint64_t i ) const pre( i < count ) { return first[i]; }
+  typename std::iterator_traits<Iterator>::value_type at( uint64_t i ) const pre( i < count ) { return *( first + i ); }
 };
 
 }
