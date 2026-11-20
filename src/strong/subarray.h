@@ -8,7 +8,7 @@
  * over apart, to be believed apart.
  *
  * subarray<iterator, of> is the same, and says by its type what the elements are: of is a name and
- * nothing else (opened.h: Opened<MeetupRegister>, the text a REGISTER opened to). Nothing reads it:
+ * nothing else (opened.h: Opened<Meetup::Register>, the text a REGISTER opened to). Nothing reads it:
  * the compiler keeps windows of different kinds apart, and the proofs read every one alike, so
  * what is proved of a reader of bytes is proved of it whatever they are said to be.
  *

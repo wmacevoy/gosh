@@ -10,7 +10,7 @@
  * If the condition is not so, the process ends there: it says which line called and what was
  * expected, and aborts. It is not an answer and not an exception: nothing can catch it, and
  * nothing goes on. So code that is not proved hands a way in only what it has itself made right;
- * what comes from anyone is first read by what is proved to read anything (stunanswer.h), or
+ * what comes from anyone is first read by what is proved to read anything (pathfinding/stunanswer.h), or
  * tested by the code that hands it over. `from` is a Strong::caller, the last parameter of the
  * way in, with a default: the compiler fills it in with the line of whoever called.
  *

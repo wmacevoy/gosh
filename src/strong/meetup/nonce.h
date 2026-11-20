@@ -10,7 +10,7 @@
  * of a nonce say the sender (bit 63: the meetup sealed it; bit 62: which end it is from, or
  * for), and the 62 bits below are that sender's counter.
  *
- * What is proved of it (the project strong-domain-driven-design, proofs/MeetupNonce.proof.cpp):
+ * What is proved of it (the project strong-domain-driven-design, proofs/Nonce.proof.cpp):
  * every 64-bit nonce reads as one sender and one counter, and written again is the same nonce;
  * and a sender and a counter below 2^62, written as a nonce and read again, are the same. So two
  * senders, or two counters of one sender, never make one nonce.
@@ -19,16 +19,17 @@
  * keeps the low 62 bits of whatever it is handed, as meetup_seal always did.
  */
 
-#ifndef GOSH_STRONG_MEETUPNONCE_H
-#define GOSH_STRONG_MEETUPNONCE_H
+#ifndef GOSH_STRONG_MEETUP_NONCE_H
+#define GOSH_STRONG_MEETUP_NONCE_H
 
 #include <cstdint>
 
-#include "src/strong/meetupcounter.h"
+#include "src/strong/meetup/counter.h"
 
 namespace Strong {
+namespace Meetup {
 
-class MeetupNonce
+class Nonce
 {
 private:
   uint32_t end;       /* 0 or 1: the end it is from, or for */
@@ -36,7 +37,7 @@ private:
   uint64_t counter;   /* at most 2^62 - 1 */
 
 public:
-  MeetupNonce() : end( 0 ), by_meetup( 0 ), counter( 0 ) {}
+  Nonce() : end( 0 ), by_meetup( 0 ), counter( 0 ) {}
 
   /* This sender, and this counter's low 62 bits. An end, or a sealer, that is not 0 is 1. */
   void set_checked( uint32_t an_end, uint32_t sealed_by_meetup, uint64_t a_counter )
@@ -49,7 +50,7 @@ public:
     if ( sealed_by_meetup != 0 ) {
       by_meetup = 1;
     }
-    counter = a_counter & MEETUP_COUNTER_MOST;
+    counter = a_counter & COUNTER_MOST;
   }
 
   /* The sender and the counter this nonce says. Every nonce says one of each. */
@@ -57,7 +58,7 @@ public:
   {
     end = static_cast<uint32_t>( ( nonce >> 62 ) & 1 );
     by_meetup = static_cast<uint32_t>( nonce >> 63 );
-    counter = nonce & MEETUP_COUNTER_MOST;
+    counter = nonce & COUNTER_MOST;
   }
 
   /* The nonce to seal with. */
@@ -73,9 +74,10 @@ public:
   uint64_t counter_checked( void ) const { return counter; }
 
   /* A sender there is, and a counter of 62 bits: so value_checked() loses nothing. */
-  bool invariant() const { return end <= 1 && by_meetup <= 1 && counter <= MEETUP_COUNTER_MOST; }
+  bool invariant() const { return end <= 1 && by_meetup <= 1 && counter <= COUNTER_MOST; }
 };
 
+}
 }
 
 #endif

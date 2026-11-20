@@ -6,15 +6,16 @@
  * meetup/registrations.h, which is not proved, and comes in by take_checked.
  */
 
-#ifndef GOSH_STRONG_COUNTERWINDOW_H
-#define GOSH_STRONG_COUNTERWINDOW_H
+#ifndef GOSH_STRONG_MEETUP_COUNTERWINDOW_H
+#define GOSH_STRONG_MEETUP_COUNTERWINDOW_H
 
 #include <cstdint>
 #include <cstring>
 
-#include "src/strong/meetupcounter.h"
+#include "src/strong/meetup/counter.h"
 
 namespace Strong {
+namespace Meetup {
 
 /* Which counters an end has used, of the last WINDOW: the highest, and a mark for each below it.
  * The first counter taken is the lowest ever taken: nothing sealed before it is. */
@@ -38,7 +39,7 @@ public:
   /* True, and the counter marked used, if it has not been used and is not too far behind. What
      it is given is at most 2^62 - 1: the type says so (meetupcounter.h), so `top + 1` and `i` below
      never pass the end of 64 bits. */
-  bool take( MeetupCounter counter )
+  bool take( Counter counter )
   {
     const uint64_t c = counter.number();
     if ( !any ) {
@@ -64,17 +65,18 @@ public:
 
   /* The same, for code that is not proved: a counter that was tested when it was made
      (meetupcounter.h; the process ended there if it was not one). */
-  bool take_checked( MeetupCounterChecked given )
+  bool take_checked( CounterChecked given )
   {
-    MeetupCounter counter( given.number() );
+    Counter counter( given.number() );
     return take( counter );
   }
 
   /* The highest counter taken is a counter: at most 2^62 - 1. True only because of what take() is
      given; so `top + 1` above is never past the end of 64 bits. */
-  bool invariant() const { return !any || top <= MEETUP_COUNTER_MOST; }
+  bool invariant() const { return !any || top <= COUNTER_MOST; }
 };
 
+}
 }
 
 #endif

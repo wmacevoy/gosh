@@ -44,7 +44,7 @@
 #include "src/crypto/crypto.h"
 #include "src/meetup/messages.h"
 #include "src/meetup/ticket.h"
-#include "src/strong/counterwindow.h"
+#include "src/strong/meetup/counterwindow.h"
 
 namespace Gosh {
 
@@ -71,7 +71,7 @@ private:
   {
     std::string where; /* empty: not registered */
     uint64_t registered;
-    Strong::CounterWindow counters;
+    Strong::Meetup::CounterWindow counters;
     End() : where(), registered( 0 ), counters() {}
   };
   struct Entry
@@ -138,7 +138,7 @@ public:
       }
       uint64_t counter;
       std::string datagram;
-      if ( !meetup_open( *entry.session, h, false, counter, datagram ) || datagram.empty() || !self.counters.take_checked( Strong::MeetupCounterChecked( counter ) ) ) {
+      if ( !meetup_open( *entry.session, h, false, counter, datagram ) || datagram.empty() || !self.counters.take_checked( Strong::Meetup::CounterChecked( counter ) ) ) {
         return nothing;
       }
       const End& other = entry.ends[1 - h.end];
@@ -187,7 +187,7 @@ public:
     }
     Entry& entry = found->second;
     End& self = entry.ends[h.end];
-    if ( !self.counters.take_checked( Strong::MeetupCounterChecked( counter ) ) ) {
+    if ( !self.counters.take_checked( Strong::Meetup::CounterChecked( counter ) ) ) {
       return nothing;
     }
     self.where = from;

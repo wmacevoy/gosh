@@ -4,7 +4,7 @@
  * what its readers may expect (subarray.h): that many bytes are there to be read, and they stay as
  * they are while the reader runs. Whoever makes one keeps that: nothing tests it.
  *
- * Opened<T> is the text of a T: T is the proved class that reads it (Opened<MeetupRegister>), so
+ * Opened<T> is the text of a T: T is the proved class that reads it (Opened<Meetup::Register>), so
  * the compiler refuses a datagram, or the text of another kind, where it is wanted. It says nothing
  * of who sealed them.
  */

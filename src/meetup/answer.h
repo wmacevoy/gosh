@@ -15,12 +15,12 @@
 #include <string>
 
 #include "src/strong/datagram.h"
-#include "src/strong/stunrequest.h"
+#include "src/strong/pathfinding/stunrequest.h"
 
 namespace Gosh {
 
-/* (strong/stunrequest.h; under this name too, for those who ask it here) */
-using Strong::is_stun_request_checked;
+/* (strong/pathfinding/stunrequest.h; under this name too, for those who ask it here) */
+using Strong::Pathfinding::is_stun_request_checked;
 
 /* The same, of bytes by where they are and how many: the datagram is made here. */
 inline bool is_stun_request( const char* request, size_t n )

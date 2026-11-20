@@ -100,7 +100,7 @@ FACTS( Messages )
 
   /* (proved of every counter and sender; the seal and the open around it are tried by every fact above) */
   if ( !proved_so_not_tried( "a counter is 62 bits: what is above them cannot change who sealed it",
-                             "Strong::MeetupNonce, proofs/MeetupNonce.proof.cpp" ) ) {
+                             "Strong::Meetup::Nonce, proofs/MeetupNonce.proof.cpp" ) ) {
     const std::string high = meetup_seal( session, MEETUP_PASS, t.id, 0, false, ~uint64_t( 0 ), "z" );
     FACT_CHECK( ( meetup_read_header( high.data(), high.size(), h ) && meetup_open( session, h, false, counter, text )
              && counter == MEETUP_COUNTER_MASK ), "a counter is 62 bits: what is above them cannot change who sealed it" );
