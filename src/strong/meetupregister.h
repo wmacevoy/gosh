@@ -22,7 +22,7 @@
 
 #include <cstdint>
 
-#include "src/strong/subarray.h"
+#include "src/strong/opened.h"
 
 namespace Strong {
 
@@ -37,7 +37,7 @@ public:
 
   /* True, and the family and time are kept, if this is a REGISTER's text; else false, and what is
      kept is as it was. */
-  bool read_checked( subarray<const unsigned char*> text )
+  bool read_checked( Opened text )
   {
     if ( text.size() != 27 ) {
       return false;

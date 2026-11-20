@@ -166,7 +166,7 @@ static_assert( MEETUP_WHERE_LEN == 19, "strong/meetupregister.h says another len
 inline bool meetup_read_register( const std::string& text, std::string& where, uint64_t& time_ms )
 {
   Strong::MeetupRegister r;
-  if ( !r.read_checked( Strong::subarray<const unsigned char*>( reinterpret_cast<const unsigned char*>( text.data() ), text.size() ) ) ) {
+  if ( !r.read_checked( Strong::Opened( reinterpret_cast<const unsigned char*>( text.data() ), text.size() ) ) ) {
     return false;
   }
   where = text.substr( 0, MEETUP_WHERE_LEN );
