@@ -7,6 +7,11 @@
  * whoever takes one owes nothing but to keep its index below size(): no pointer and length handed
  * over apart, to be believed apart.
  *
+ * subarray<iterator, of> is the same, and says by its type what the elements are: of is a name and
+ * nothing else (opened.h: Opened<MeetupRegister>, the text a REGISTER opened to). Nothing reads it:
+ * the compiler keeps windows of different kinds apart, and the proofs read every one alike, so
+ * what is proved of a reader of bytes is proved of it whatever they are said to be.
+ *
  * Making one expects what no test can show when the program runs: that those n elements are
  * there, one after another, and that they stay where they are, unchanged in place, for as long as
  * the subarray exists. That is whoever makes it to keep, and it is held before the program runs
@@ -34,7 +39,7 @@
 
 namespace Strong {
 
-template <typename Iterator>
+template <typename Iterator, typename Of = void>
 class subarray
 {
 private:
