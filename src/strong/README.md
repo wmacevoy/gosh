@@ -40,7 +40,7 @@ every part is written with; in a directory named for a part of gosh, that part's
 | `bounded.h` | `bounded<a, b, type>`: a number from a to b, both included, as a type; making one expects that of the caller. `bounded_checked<a, b, type>`: made from any number, it tests, and the process ends if it is not within the bounds. Each proved once, for every type and bounds | `meetup/counter.h` |
 | `subarray.h` | `subarray<iterator>( a, n )`: the n elements from a, read by `at( i )`; `subarray<iterator, of>` says by its type what they are, to the compiler only (the proofs read every window alike, so what is proved of a reader is proved whatever its window is said to hold). What making one expects (the elements are there, and stay) is held before the program runs, by the lint of strong-domain-driven-design. Not proved: it keeps a pointer | `datagram.h` |
 | `datagram.h` | `Datagram`: a `subarray` of bytes, as they were received | `pathfinding/stunanswer.h`, `pathfinding/stunrequest.h`, `meetup/header.h` and their users |
-| `opened.h` | `Opened<T>`: a `subarray` of bytes, as the cipher gave them back, opened, and the text of a T, the proved class that reads it: the compiler refuses a `Datagram`, or another kind's text, where `Opened<Meetup::Register>` is wanted. It says nothing of who sealed them | `meetup/register.h` |
+| `opened.h` | `Opened<T>`: a `subarray` of bytes, as the cipher gave them back, opened, and the text of a T, the proved class that reads it: the compiler refuses a `Datagram`, or another kind's text, where `Opened<Meetup::Register>` is wanted. It says nothing of who sealed them | `meetup/register.h`; made by `src/meetup/sealed.h` |
 
 **`meetup/`**: the meetup's door
 
