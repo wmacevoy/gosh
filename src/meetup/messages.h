@@ -33,6 +33,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <string>
 
 #include "src/strong/meetup/counter.h"
@@ -40,6 +41,7 @@
 #include "src/strong/meetup/nonce.h"
 #include "src/strong/meetup/register.h"
 #include "src/crypto/crypto.h"
+#include "src/meetup/sealed.h"
 #include "src/network/network.h"
 
 namespace Gosh {
@@ -160,19 +162,6 @@ inline std::string meetup_register_text( const std::string& where, uint64_t time
 {
   return where + meetup_u64( time_ms );
 }
-/* What is a REGISTER's text, and its time, is Strong::Meetup::Register's to say (strong/meetup/register.h),
-   and is proved; here where is its first 19 bytes, of a text that was read. */
-static_assert( MEETUP_WHERE_LEN == 19, "strong/meetup/register.h says another length of where than this" );
-inline bool meetup_read_register( const std::string& text, std::string& where, uint64_t& time_ms )
-{
-  Strong::Meetup::Register r;
-  if ( !r.read_checked( Strong::Opened<Strong::Meetup::Register>( reinterpret_cast<const unsigned char*>( text.data() ), text.size() ) ) ) {
-    return false;
-  }
-  where = text.substr( 0, MEETUP_WHERE_LEN );
-  time_ms = r.time_checked();
-  return true;
-}
 
 /* TIME's text: the counter of the REGISTER it answers, and the meetup's time (ms). */
 inline std::string meetup_time_text( uint64_t answering, uint64_t time_ms )
@@ -280,6 +269,79 @@ inline bool meetup_open( Crypto::Session& session, const MeetupHeader& h, bool f
   } catch ( const Crypto::CryptoException& ) {
     return false;
   }
+}
+
+/* Who may have sealed a meetup message, for the end its header names: the ticket's cipher, and whether the meetup. */
+struct MeetupSealer
+{
+  Crypto::Session& session;
+  bool by_meetup;
+};
+
+/* The kind of message whose text a T reads. */
+template <typename T>
+struct MeetupKindOf;
+template <>
+struct MeetupKindOf<Strong::Meetup::Register>
+{
+  static const MeetupKind kind = MEETUP_REGISTER;
+};
+
+/*
+ * A meetup message of the kind a T reads, whose header was read. unseal opens it into `out` if the
+ * seal opens under this cipher, and it was sealed as this kind, for the header's end, by whom it
+ * should have been: as meetup_open does, but owning what the cipher gave back, with no copy.
+ */
+template <typename T>
+class Sealed<T, MeetupSealer>
+{
+private:
+  const MeetupHeader& head;
+
+public:
+  explicit Sealed( const MeetupHeader& h ) : head( h ) {}
+
+  bool unseal( const MeetupSealer& by, std::optional<Unsealed<T>>& out ) const
+  {
+    out.reset();
+    if ( head.kind != MeetupKindOf<T>::kind || head.sealed_len < MEETUP_SEAL + 1 ) {
+      return false;
+    }
+    try {
+      out.emplace( typename Unsealed<T>::Key(), by.session, head.sealed, head.sealed_len, 1 );
+    } catch ( const Crypto::CryptoException& ) {
+      return false;
+    }
+    const std::string& text = out->message.text;
+    Strong::Meetup::Nonce stamp;
+    stamp.read_checked( out->message.nonce.val() );
+    if ( stamp.end_checked() != ( head.end ? 1u : 0u ) || stamp.by_meetup_checked() != ( by.by_meetup ? 1u : 0u ) || text.empty()
+         || static_cast<unsigned char>( text[0] ) != head.kind ) {
+      out.reset();
+      return false;
+    }
+    out->counter_of = stamp.counter_checked();
+    return true;
+  }
+};
+
+/* What is a REGISTER's text, and its time, is Strong::Meetup::Register's to say (strong/meetup/register.h),
+   and is proved: true, and its time, if it reads. */
+static_assert( MEETUP_WHERE_LEN == 19, "strong/meetup/register.h says another length of where than this" );
+inline bool meetup_read_register( const Unsealed<Strong::Meetup::Register>& opened, uint64_t& time_ms )
+{
+  Strong::Meetup::Register r;
+  if ( !opened.read( r ) ) {
+    return false;
+  }
+  time_ms = r.time_checked();
+  return true;
+}
+
+/* Whether a REGISTER that reads says it is from here: where, its first 19 bytes, compared where it lies. */
+inline bool meetup_register_from( const Unsealed<Strong::Meetup::Register>& opened, const std::string& where )
+{
+  return where.size() == MEETUP_WHERE_LEN && opened.starts_with( where );
 }
 
 /* PASSED: what the meetup sends on. Not sealed: the datagram is the session's, sealed already. */
