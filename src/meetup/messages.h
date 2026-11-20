@@ -38,6 +38,7 @@
 #include "src/strong/meetupcounter.h"
 #include "src/strong/meetupheader.h"
 #include "src/strong/meetupnonce.h"
+#include "src/strong/meetupregister.h"
 #include "src/crypto/crypto.h"
 #include "src/network/network.h"
 
@@ -159,13 +160,17 @@ inline std::string meetup_register_text( const std::string& where, uint64_t time
 {
   return where + meetup_u64( time_ms );
 }
+/* What is a REGISTER's text, and its time, is Strong::MeetupRegister's to say (strong/meetupregister.h),
+   and is proved; here where is its first 19 bytes, of a text that was read. */
+static_assert( MEETUP_WHERE_LEN == 19, "strong/meetupregister.h says another length of where than this" );
 inline bool meetup_read_register( const std::string& text, std::string& where, uint64_t& time_ms )
 {
-  if ( text.size() != MEETUP_WHERE_LEN + 8 ) {
+  Strong::MeetupRegister r;
+  if ( !r.read_checked( Strong::Opened( reinterpret_cast<const unsigned char*>( text.data() ), text.size() ) ) ) {
     return false;
   }
   where = text.substr( 0, MEETUP_WHERE_LEN );
-  time_ms = meetup_u64_of( text.data() + MEETUP_WHERE_LEN );
+  time_ms = r.time_checked();
   return true;
 }
 

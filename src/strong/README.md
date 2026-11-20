@@ -34,6 +34,8 @@ Three rules, and the proving refuses gosh if one is broken:
 | `subarray.h` | `subarray<iterator>( a, n )`: the n elements from a, read by `at( i )`. What making one expects (the elements are there, and stay) is held before the program runs, by the lint of strong-domain-driven-design. Not proved: it keeps a pointer | `datagram.h` |
 | `datagram.h` | `Datagram`: a `subarray` of bytes, as they were received | `stunanswer.h`, `stunrequest.h`, `meetupheader.h` and their users |
 | `meetupheader.h` | `MeetupHeader`: what a datagram at the meetup's door is taken for: a kind, an end, a length, and where what is sealed begins, as numbers | `meetup/messages.h` |
+| `opened.h` | `Opened`: a `subarray` of bytes, as the cipher gave them back, opened; it says nothing of who sealed them | `meetupregister.h` |
+| `meetupregister.h` | `MeetupRegister`: what a REGISTER says once opened: the family of where the end believes it is, 4 or 6, and the time by the meetup's clock as the end reckons it. Proved: memory, ending, the family kept is 0, 4 or 6, and one other than 0 is kept only from a text of 27 bytes. Not proved: that the time is its last eight bytes, most significant first | `meetup/messages.h` |
 | `meetupnonce.h` | `MeetupNonce`: what a meetup message is sealed with: who sealed it, for which end, and a counter of 62 bits. Proved to lose nothing either way, so no two senders under one key make one nonce. Not proved: that a sender's counter is never used twice | `meetup/messages.h` |
 
 Tests: each is tested through the part that uses it (`registrations-test.cc`, `stun-test.cc`,
