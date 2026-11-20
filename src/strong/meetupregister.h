@@ -38,7 +38,7 @@ public:
 
   /* True, and the family and time are kept, if this is a REGISTER's text; else false, and what is
      kept is as it was. */
-  bool read_checked( Opened text )
+  bool read_checked( Opened<MeetupRegister> text )
   {
     if ( text.size() != 27 ) {
       return false;
