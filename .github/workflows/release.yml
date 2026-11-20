@@ -111,7 +111,7 @@ jobs:
               cmake --install /tmp/protobuf-build
             fi
             export PATH="$PWD/protobuf/bin:$PATH" PKG_CONFIG_PATH="$PWD/protobuf/lib/pkgconfig"
-            GOSH_LDFLAGS=-static GOSH_CONFIGURE="--enable-static-libraries --without-utempter" tools/build.sh \
+            GOSH_LDFLAGS=-static GOSH_CONFIGURE="--without-utempter" tools/build.sh \
               || { grep -n -A12 "checking for gettimeofday" .build/core/config.log | head -40; tail -40 .build/core/config.log; exit 1; }
             file .build/bin/gosh-client .build/bin/gosh-server
             python3 tests/headless-smoke.py .build/bin/gosh-server .build/bin/gosh-client
