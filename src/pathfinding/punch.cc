@@ -64,8 +64,30 @@ static socklen_t to_socket( int family, const Addr& a, Addr& out )
   return a.sa.sa_family == AF_INET6 ? sizeof( a.sin6 ) : sizeof( a.sin );
 }
 
+/* Bound to a port from low to high, the first free; or, with none free or no range (0), to any. */
+static bool bind_in( int fd, struct sockaddr* any, socklen_t len, int low, int high )
+{
+  for ( int port = low; low > 0 && port <= high; port++ ) {
+    const uint16_t p = htons( static_cast<uint16_t>( port ) );
+    if ( any->sa_family == AF_INET6 ) {
+      reinterpret_cast<struct sockaddr_in6*>( any )->sin6_port = p;
+    } else {
+      reinterpret_cast<struct sockaddr_in*>( any )->sin_port = p;
+    }
+    if ( bind( fd, any, len ) == 0 ) {
+      return true;
+    }
+  }
+  if ( any->sa_family == AF_INET6 ) {
+    reinterpret_cast<struct sockaddr_in6*>( any )->sin6_port = 0;
+  } else {
+    reinterpret_cast<struct sockaddr_in*>( any )->sin_port = 0;
+  }
+  return bind( fd, any, len ) == 0;
+}
+
 /* A socket for both families if there can be one, or else for IPv4; and which it is. */
-static int both_families( int& family )
+static int both_families( int& family, int low, int high )
 {
   family = AF_INET6;
   int fd = socket( AF_INET6, SOCK_DGRAM, 0 );
@@ -74,7 +96,7 @@ static int both_families( int& family )
     struct sockaddr_in6 any;
     memset( &any, 0, sizeof( any ) );
     any.sin6_family = AF_INET6;
-    if ( bind( fd, reinterpret_cast<struct sockaddr*>( &any ), sizeof( any ) ) == 0 ) {
+    if ( bind_in( fd, reinterpret_cast<struct sockaddr*>( &any ), sizeof( any ), low, high ) ) {
       return fd;
     }
   }
@@ -86,7 +108,7 @@ static int both_families( int& family )
   struct sockaddr_in any;
   memset( &any, 0, sizeof( any ) );
   any.sin_family = AF_INET;
-  if ( fd >= 0 && bind( fd, reinterpret_cast<struct sockaddr*>( &any ), sizeof( any ) ) < 0 ) {
+  if ( fd >= 0 && !bind_in( fd, reinterpret_cast<struct sockaddr*>( &any ), sizeof( any ), low, high ) ) {
     close( fd );
     fd = -1;
   }
@@ -154,10 +176,15 @@ static void ask_stun( int sock, int family, const std::vector<std::string>& serv
   _exit( 0 );
 }
 
-Punch::Punch( bool s_initiator, const std::string& key, const std::vector<std::string>& ask, uint64_t now )
+Punch::Punch( bool s_initiator,
+              const std::string& key,
+              const std::vector<std::string>& ask,
+              uint64_t now,
+              int port_low,
+              int port_high )
   : sock( -1 ), family( AF_INET ), finding( s_initiator, key, now )
 {
-  sock = both_families( family );
+  sock = both_families( family, port_low, port_high );
   if ( sock < 0 ) {
     throw NetworkException( "punch: socket", errno );
   }

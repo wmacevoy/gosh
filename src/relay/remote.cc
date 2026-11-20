@@ -129,7 +129,11 @@ int Network::relay_remote( const char* address, const char* port )
             }
           } else if ( words.size() == 2 && words[0] == "KEY" ) {
             try {
-              punch.reset( new Punch( false, words[1], ask, now ) );
+              /*
+               * In the ports a server's firewall already lets in for sessions (issue #2):
+               * mosh-server's own range, private in core/src/network/network.h.
+               */
+              punch.reset( new Punch( false, words[1], ask, now, 60001, 60999 ) );
               if ( !ticket.id.empty() ) {
                 punch->use_meetup( meetup_at, ticket );
               }

@@ -144,6 +144,11 @@ take it, and if not their datagrams go through the meetup by UDP. Through the me
 (`GOSH_RELAY_LOG=FILE`) says each step: "a ticket for the meetup at ...", "registered with the
 meetup at ...".
 
+**A way straight to the home machine** needs its firewall to let in UDP 60000–61000, as for a
+session in case 1: since v0.3.1 the relay at home looks for the way from a port in that range
+(issue #2). With that closed the session stays on the meetup, which works, only more slowly. The
+log says "the way through is now to ..." when it leaves the meetup.
+
 **Not tried yet:** this case between real machines, with the tunnel above (queue item 8, "two
 machines in one room"). How gosh finds the home machine's address through `ProxyJump` has not been
 checked either; if the session does not come up, the relay's log says how far it got. (Not
