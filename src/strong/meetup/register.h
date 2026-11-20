@@ -18,8 +18,8 @@
  * The numbers are meetup/messages.h's, written out: it asks the compiler that they are the same.
  */
 
-#ifndef GOSH_STRONG_MEETUPREGISTER_H
-#define GOSH_STRONG_MEETUPREGISTER_H
+#ifndef GOSH_STRONG_MEETUP_REGISTER_H
+#define GOSH_STRONG_MEETUP_REGISTER_H
 
 #include <cstdint>
 

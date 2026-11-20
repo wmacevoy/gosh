@@ -6,13 +6,13 @@
  * meetup/registrations.h, which is not proved, and comes in by take_checked.
  */
 
-#ifndef GOSH_STRONG_COUNTERWINDOW_H
-#define GOSH_STRONG_COUNTERWINDOW_H
+#ifndef GOSH_STRONG_MEETUP_COUNTERWINDOW_H
+#define GOSH_STRONG_MEETUP_COUNTERWINDOW_H
 
 #include <cstdint>
 #include <cstring>
 
-#include "src/strong/meetupcounter.h"
+#include "src/strong/meetup/counter.h"
 
 namespace Strong {
 

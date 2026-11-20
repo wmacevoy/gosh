@@ -19,12 +19,12 @@
  * keeps the low 62 bits of whatever it is handed, as meetup_seal always did.
  */
 
-#ifndef GOSH_STRONG_MEETUPNONCE_H
-#define GOSH_STRONG_MEETUPNONCE_H
+#ifndef GOSH_STRONG_MEETUP_NONCE_H
+#define GOSH_STRONG_MEETUP_NONCE_H
 
 #include <cstdint>
 
-#include "src/strong/meetupcounter.h"
+#include "src/strong/meetup/counter.h"
 
 namespace Strong {
 

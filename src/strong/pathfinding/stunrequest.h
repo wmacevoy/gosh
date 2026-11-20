@@ -5,8 +5,8 @@
  * asks of a datagram from anyone. Logic, and a domain: it reads only below the datagram's size (datagram.h).
  */
 
-#ifndef GOSH_STRONG_STUNREQUEST_H
-#define GOSH_STRONG_STUNREQUEST_H
+#ifndef GOSH_STRONG_PATHFINDING_STUNREQUEST_H
+#define GOSH_STRONG_PATHFINDING_STUNREQUEST_H
 
 #include "src/strong/datagram.h"
 

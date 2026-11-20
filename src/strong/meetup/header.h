@@ -19,8 +19,8 @@
  * The numbers are meetup/messages.h's, written out: it asks the compiler that they are the same.
  */
 
-#ifndef GOSH_STRONG_MEETUPHEADER_H
-#define GOSH_STRONG_MEETUPHEADER_H
+#ifndef GOSH_STRONG_MEETUP_HEADER_H
+#define GOSH_STRONG_MEETUP_HEADER_H
 
 #include <cstddef>
 #include <cstdint>

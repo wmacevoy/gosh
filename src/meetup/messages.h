@@ -13,7 +13,7 @@
  *   PASSED      mark | version | the datagram                                                  10 to 1,509 bytes
  *
  * "sealed" is mosh's cipher under the ticket's key: an 8-byte nonce, the text, a 16-byte tag. The
- * nonce is a counter whose top two bits say who sealed it and for whom (strong/meetupnonce.h), so that
+ * nonce is a counter whose top two bits say who sealed it and for whom (strong/meetup/nonce.h), so that
  * no two of the four senders under one key ever use the same nonce, and a message sealed one way
  * cannot be taken for one sealed another. "where" is 19 bytes: a family (4 or 6), an address of
  * 16 (an IPv4 address in the first four, most significant first, zeros after; or an IPv6 address)
@@ -35,10 +35,10 @@
 #include <cstring>
 #include <string>
 
-#include "src/strong/meetupcounter.h"
-#include "src/strong/meetupheader.h"
-#include "src/strong/meetupnonce.h"
-#include "src/strong/meetupregister.h"
+#include "src/strong/meetup/counter.h"
+#include "src/strong/meetup/header.h"
+#include "src/strong/meetup/nonce.h"
+#include "src/strong/meetup/register.h"
 #include "src/crypto/crypto.h"
 #include "src/network/network.h"
 
@@ -70,10 +70,10 @@ static const size_t MEETUP_TIME_MESSAGE = MEETUP_HEADER + MEETUP_SEAL + 1 + 8 + 
 static const size_t MEETUP_MAX_DATAGRAM = 1500;
 static const size_t MEETUP_PASS_MIN = MEETUP_HEADER + MEETUP_SEAL + 1 + 1;
 static const size_t MEETUP_PASS_MAX = MEETUP_HEADER + MEETUP_SEAL + 1 + MEETUP_MAX_DATAGRAM;
-static const uint64_t MEETUP_COUNTER_MASK = Strong::MEETUP_COUNTER_MOST; /* 2^62 - 1 (strong/meetupcounter.h) */
+static const uint64_t MEETUP_COUNTER_MASK = Strong::MEETUP_COUNTER_MOST; /* 2^62 - 1 (strong/meetup/counter.h) */
 
 /* Who sealed a message, and for whom, is the top two bits of its nonce: Strong::MeetupNonce
-   (strong/meetupnonce.h) says so, and is proved to lose nothing. */
+   (strong/meetup/nonce.h) says so, and is proved to lose nothing. */
 
 /* An IPv4 address and port (each in host order) as "where". */
 inline std::string meetup_where_v4( uint32_t address, uint16_t port )
@@ -160,9 +160,9 @@ inline std::string meetup_register_text( const std::string& where, uint64_t time
 {
   return where + meetup_u64( time_ms );
 }
-/* What is a REGISTER's text, and its time, is Strong::MeetupRegister's to say (strong/meetupregister.h),
+/* What is a REGISTER's text, and its time, is Strong::MeetupRegister's to say (strong/meetup/register.h),
    and is proved; here where is its first 19 bytes, of a text that was read. */
-static_assert( MEETUP_WHERE_LEN == 19, "strong/meetupregister.h says another length of where than this" );
+static_assert( MEETUP_WHERE_LEN == 19, "strong/meetup/register.h says another length of where than this" );
 inline bool meetup_read_register( const std::string& text, std::string& where, uint64_t& time_ms )
 {
   Strong::MeetupRegister r;
@@ -199,22 +199,22 @@ struct MeetupHeader
   size_t sealed_len;
 };
 
-/* What strong/meetupheader.h writes out as numbers are these: the compiler is asked. */
+/* What strong/meetup/header.h writes out as numbers are these: the compiler is asked. */
 static_assert( MEETUP_VERSION == 2 && MEETUP_HEADER == 26 && MEETUP_REGISTER_MESSAGE == 78 && MEETUP_ADDRESS_MESSAGE == 70
                  && MEETUP_TIME_MESSAGE == 67 && MEETUP_PASS_MIN == 52 && MEETUP_PASS_MAX == 1551 && MEETUP_MAX_DATAGRAM == 1500,
-               "strong/meetupheader.h says other lengths than these" );
+               "strong/meetup/header.h says other lengths than these" );
 static_assert( MEETUP_MARKS[0][0] == 0 && MEETUP_MARKS[0][1] == 0x67 && MEETUP_MARKS[0][2] == 0x6f && MEETUP_MARKS[0][3] == 0x73
                  && MEETUP_MARKS[0][4] == 0x68 && MEETUP_MARKS[0][5] == 0x52 && MEETUP_MARKS[0][6] == 0x45 && MEETUP_MARKS[0][7] == 0x47
                  && MEETUP_MARKS[1][5] == 0x52 && MEETUP_MARKS[1][6] == 0x47 && MEETUP_MARKS[1][7] == 0x44 && MEETUP_MARKS[2][5] == 0x50
                  && MEETUP_MARKS[2][6] == 0x41 && MEETUP_MARKS[2][7] == 0x53 && MEETUP_MARKS[3][5] == 0x50 && MEETUP_MARKS[3][6] == 0x53
                  && MEETUP_MARKS[3][7] == 0x44 && MEETUP_MARKS[4][5] == 0x54 && MEETUP_MARKS[4][6] == 0x49 && MEETUP_MARKS[4][7] == 0x4d,
-               "strong/meetupheader.h says other marks than these" );
+               "strong/meetup/header.h says other marks than these" );
 static_assert( MEETUP_REGISTER == 1 && MEETUP_REGISTERED == 2 && MEETUP_PASS == 3 && MEETUP_PASSED == 4 && MEETUP_TIME == 5,
-               "strong/meetupheader.h says other kinds than these" );
+               "strong/meetup/header.h says other kinds than these" );
 
 /*
  * True, and its header, if these bytes are one of the messages at its exact length. What is a
- * message, and where its parts are, is Strong::MeetupHeader's to say (strong/meetupheader.h),
+ * message, and where its parts are, is Strong::MeetupHeader's to say (strong/meetup/header.h),
  * and is proved; here its numbers are made the pointers and the text the rest of gosh takes. The
  * ticket is at 9 and what is sealed where the head says: both inside the datagram, of a head
  * that was read.

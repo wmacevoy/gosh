@@ -44,7 +44,7 @@
 #include "src/crypto/crypto.h"
 #include "src/meetup/messages.h"
 #include "src/meetup/ticket.h"
-#include "src/strong/counterwindow.h"
+#include "src/strong/meetup/counterwindow.h"
 
 namespace Gosh {
 

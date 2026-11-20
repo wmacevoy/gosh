@@ -18,8 +18,8 @@
  * of id), then attributes, each a type, a length, the value, and padding to 4 bytes.
  */
 
-#ifndef GOSH_STRONG_STUNANSWER_H
-#define GOSH_STRONG_STUNANSWER_H
+#ifndef GOSH_STRONG_PATHFINDING_STUNANSWER_H
+#define GOSH_STRONG_PATHFINDING_STUNANSWER_H
 
 #include <cstddef>
 #include <cstdint>

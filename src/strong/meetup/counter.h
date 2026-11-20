@@ -13,8 +13,8 @@
  * reached, since every counter came through that mask already).
  */
 
-#ifndef GOSH_STRONG_MEETUPCOUNTER_H
-#define GOSH_STRONG_MEETUPCOUNTER_H
+#ifndef GOSH_STRONG_MEETUP_COUNTER_H
+#define GOSH_STRONG_MEETUP_COUNTER_H
 
 #include <cstdint>
 
