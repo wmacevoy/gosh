@@ -117,14 +117,14 @@ struct KeyOf
 };
 
 /* A message sealed by an end, as sent: its kind, ticket and end, what it says, and its bytes. */
-struct Sealed
+struct SealedMessage
 {
   MeetupKind kind;
   int ticket;
   int end;
   std::string text;
   std::string bytes;
-  Sealed() : kind( MEETUP_REGISTER ), ticket( 0 ), end( 0 ), text(), bytes() {}
+  SealedMessage() : kind( MEETUP_REGISTER ), ticket( 0 ), end( 0 ), text(), bytes() {}
 };
 
 uint8_t byte_at( const std::string& s, size_t i )
@@ -148,7 +148,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   uint64_t now = START;
   uint64_t counters[2][2] = { { 1000, 1000 }, { 1000, 1000 } };
   std::map<int, std::string> registered; /* ticket * 2 + end: where the meetup's answer showed it registered */
-  Sealed last;                           /* the last message sealed, to be sent again */
+  SealedMessage last;                           /* the last message sealed, to be sent again */
   std::map<int, uint64_t> registered_at; /* ticket * 2 + end: when the meetup last answered its REGISTER */
   std::map<std::string, uint64_t> acted[2][2]; /* each end's sealed messages the meetup has acted on, and their counters */
   std::set<uint64_t> used[2][2];               /* each end's counters the meetup has taken */
@@ -163,7 +163,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   auto live = [&]( int me ) { return registered_at.count( me ) && now - registered_at[me] <= Registrations::END_IDLE; };
 
   /* What the meetup sent, if anything, for this sealed message from this address: held to REQ18/PATH-5. */
-  auto held = [&]( const Sealed& m, const std::string& from, const Registrations::Send& s ) {
+  auto held = [&]( const SealedMessage& m, const std::string& from, const Registrations::Send& s ) {
     if ( !s.any ) {
       return;
     }
@@ -174,9 +174,12 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
     uint64_t c;
     std::string ignored;
     require( meetup_read_header( m.bytes.data(), m.bytes.size(), mh ) && meetup_open( *sessions[m.ticket], mh, false, c, ignored ) );
-    std::string said;
-    uint64_t said_ms = 0;
-    const bool time_right = m.kind == MEETUP_REGISTER && meetup_read_register( m.text, said, said_ms )
+    /* what this REGISTER said, read from the fuzzer's own record of what it sealed, not by the reader under test:
+       where (19 bytes, a family of 4 or 6), then the time, eight bytes most significant first */
+    const bool reads = m.kind == MEETUP_REGISTER && m.text.size() == 27 && ( m.text[0] == 4 || m.text[0] == 6 );
+    const std::string said = reads ? m.text.substr( 0, MEETUP_WHERE_LEN ) : std::string();
+    const uint64_t said_ms = reads ? meetup_u64_of( m.text.data() + MEETUP_WHERE_LEN ) : 0;
+    const bool time_right = reads
                             && said_ms / 1000 + Registrations::CLOCK_SLACK >= now && said_ms / 1000 <= now + Registrations::CLOCK_SLACK;
     if ( m.kind == MEETUP_REGISTER ) {
       /* answered only where it came from, and only if it was sealed there */
@@ -257,7 +260,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
 
       case 1:   /* a REGISTER */
       case 2: { /* a PASS */
-        Sealed m;
+        SealedMessage m;
         m.kind = kind == 1 ? MEETUP_REGISTER : MEETUP_PASS;
         m.ticket = byte_at( body, 0 ) & 1;
         m.end = ( byte_at( body, 0 ) >> 1 ) & 1;
