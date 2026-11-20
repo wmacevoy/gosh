@@ -11,8 +11,9 @@
  * first 19, which the caller copies out.
  *
  * Proved of it (the project strong-domain-driven-design), for every sequence of bytes of any length:
- * read ends and reads nothing outside the text; it reads only a text of 27 bytes whose first is 4 or
- * 6; and the time it keeps is the last eight read most significant first.
+ * read ends and reads nothing outside the text; the family kept is 0, 4 or 6; and a family other
+ * than 0 is kept only from a text of 27 bytes. Not proved: that the time kept is the last eight
+ * bytes, most significant first.
  *
  * The numbers are meetup/messages.h's, written out: it asks the compiler that they are the same.
  */
