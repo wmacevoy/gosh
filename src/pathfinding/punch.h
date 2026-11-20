@@ -60,9 +60,17 @@ public:
   /*
    * key: as Crypto::Base64Key prints it. The end that made it up is the initiator. ask:
    * "host:port" of STUN servers, asked (from another process, so as not to wait on name lookups)
-   * where we appear to be. Throws NetworkException if there is no socket to be had.
+   * where we appear to be. port_low, port_high: the socket's port is the first free one in this
+   * range, or any port if none is free or the range is 0 (issue #2: a server's firewall lets in
+   * the ports sessions use, and a probe from a NAT that changes ports gets through only to one of
+   * those). Throws NetworkException if there is no socket to be had.
    */
-  Punch( bool s_initiator, const std::string& key, const std::vector<std::string>& ask, uint64_t now );
+  Punch( bool s_initiator,
+         const std::string& key,
+         const std::vector<std::string>& ask,
+         uint64_t now,
+         int port_low = 0,
+         int port_high = 0 );
   ~Punch();
 
   int fd( void ) const { return sock; }
