@@ -165,11 +165,13 @@ public:
       fresh.reset( new Crypto::Session( raw_key( key ) ) );
       session = fresh.get();
     }
-    uint64_t counter, time_ms;
-    std::string text, believed;
-    if ( !meetup_open( *session, h, false, counter, text ) || !meetup_read_register( text, believed, time_ms ) || believed != from ) {
+    std::optional<Unsealed<Strong::Meetup::Register>> opened;
+    uint64_t time_ms;
+    if ( !Sealed<Strong::Meetup::Register, MeetupSealer>( h ).unseal( MeetupSealer{ *session, false }, opened )
+         || !meetup_read_register( *opened, time_ms ) || !meetup_register_from( *opened, from ) ) {
       return nothing;
     }
+    const uint64_t counter = opened->counter();
     const uint64_t time_s = time_ms / 1000;
     if ( time_s + CLOCK_SLACK < now || time_s > now + CLOCK_SLACK ) {
       Send s; /* sealed by an end with the key, from where it says: tell it the time */

@@ -207,10 +207,11 @@ FACTS( Finding )
       }
     }
     Gosh::MeetupHeader h;
-    uint64_t counter = 0, said = 0;
-    std::string text, where;
-    const bool opened = Gosh::meetup_read_header( reg.data(), reg.size(), h ) && Gosh::meetup_open( as_meetup, h, false, counter, text )
-                        && Gosh::meetup_read_register( text, where, said );
+    uint64_t said = 0;
+    std::optional<Gosh::Unsealed<Strong::Meetup::Register>> text;
+    const bool opened = Gosh::meetup_read_header( reg.data(), reg.size(), h )
+                        && Gosh::Sealed<Strong::Meetup::Register, Gosh::MeetupSealer>( h ).unseal( Gosh::MeetupSealer{ as_meetup, false }, text )
+                        && Gosh::meetup_read_register( *text, said );
     const uint64_t meetup_ms = ( MEETUP_CLOCK + net.now / 1000 ) * 1000;
     FACT_CHECK( ( a.meetup_registered() && opened && said + 5000 > meetup_ms && said < meetup_ms + 5000 ), "a TIME that answers no REGISTER of ours is not believed: the next REGISTER keeps the meetup's clock" );
   }

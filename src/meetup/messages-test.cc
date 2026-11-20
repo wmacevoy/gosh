@@ -28,11 +28,19 @@ FACTS( Messages )
   const std::string reg = meetup_seal( session, MEETUP_REGISTER, t.id, 1, false, 5, said );
   const std::string answer = meetup_seal( session, MEETUP_REGISTERED, t.id, 1, true, 0, where );
   FACT_CHECK( ( reg.size() == 78 && answer.size() == 70 ), "REGISTER is 78 bytes and REGISTERED 70 (REQ18/PATH-5: REGISTER carries a time)" );
-  std::string where_back;
   uint64_t time_back = 0;
+  MeetupHeader rh;
+  std::optional<Unsealed<Strong::Meetup::Register>> opened;
   FACT_CHECK( ( said.size() == 27 && said.substr( 19 ) == std::string( "\x00\x00\x01\x9a\x8f\x1c\x7c\x7b", 8 )
-           && meetup_read_register( said, where_back, time_back ) && where_back == where && time_back == 1763337600123ULL ), "REGISTER's text: where, then the time, eight bytes most significant first" );
-  FACT_CHECK( !meetup_read_register( where, where_back, time_back ), "and a text of another length is not one" );
+           && meetup_read_header( reg.data(), reg.size(), rh ) && Sealed<Strong::Meetup::Register, MeetupSealer>( rh ).unseal( MeetupSealer{ session, false }, opened )
+           && opened->counter() == 5 && meetup_read_register( *opened, time_back ) && meetup_register_from( *opened, where )
+           && time_back == 1763337600123ULL ), "REGISTER's text: where, then the time, eight bytes most significant first, read where the cipher left it" );
+  FACT_CHECK( !meetup_register_from( *opened, meetup_where_v4( 0x7F000001, 60002 ) ) && !meetup_register_from( *opened, "" ), "and it is from where it says, and nowhere else" );
+  FACT_CHECK( ( !Sealed<Strong::Meetup::Register, MeetupSealer>( rh ).unseal( MeetupSealer{ other, false }, opened ) && !opened
+           && !Sealed<Strong::Meetup::Register, MeetupSealer>( rh ).unseal( MeetupSealer{ session, true }, opened ) && !opened ), "a REGISTER does not unseal under another key, or as sealed by the meetup" );
+  const std::string short_reg = meetup_seal( session, MEETUP_REGISTER, t.id, 1, false, 6, where );
+  MeetupHeader sh;
+  FACT_CHECK( ( !meetup_read_header( short_reg.data(), short_reg.size(), sh ) ), "a REGISTER whose text is of another length is not even read as one" );
   const std::string told = meetup_seal( session, MEETUP_TIME, t.id, 1, true, 1, meetup_time_text( 5, 1763337600000ULL ) );
   MeetupHeader th;
   uint64_t tc = 0, answering = 0, its_time = 0;
