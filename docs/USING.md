@@ -170,4 +170,4 @@ the Internet anything (`REQ1/PATH-7`).
 
 **A meetup** is for the case where the server has no public address, a desktop at home, and no
 way straight through can be found: datagrams then go through a server of yours that both ends can
-reach. Name it with `--meetup=USER@HOST:PORT`; [`AWS.md`](AWS.md) sets one up.
+reach. Name it with `--meetup=USER@HOST:PORT`, or `--meetup=USER@HOST` for port 3478; [`AWS.md`](AWS.md) sets one up.
