@@ -7,7 +7,7 @@ v2, 2.2; `docs/PROPOSAL_meetup-registration.md`, revision 10). ssh is its only a
 session uses it with a ticket that whoever can log in to its machine is given.
 
 ```
-gosh-server meetup PORT        answers STUN, and passes datagrams for the two ends of a ticket
+gosh-server meetup [PORT]      answers STUN (port 3478 if none), and passes datagrams for the two ends of a ticket
 gosh-server meetup-ticket      prints a ticket, good for 30 days: "gosh-ticket ID KEY"
 gosh-server meetup-key --new   a new master key: every ticket made under the old one is no good
                                once the meetup is started again

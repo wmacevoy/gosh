@@ -59,8 +59,9 @@ and nothing by UDP, or never. ssh must be able to log in without asking.
 \fB\-\-punch\fR={\fBauto\fR|\fBnever\fR}
 On the relay, look for a way straight to the server through the NATs in between (default: auto).
 .TP
-\fB\-\-meetup\fR=[\fIuser\fB@\fR]\fIhost\fB:\fIport\fR
-A meetup of your own (\fBgosh-server meetup\fR \fIport\fR on a machine ssh logs you in to), through
+\fB\-\-meetup\fR=[\fIuser\fB@\fR]\fIhost\fR[\fB:\fIport\fR]
+A meetup of your own (\fBgosh-server meetup\fR [\fIport\fR] on a machine ssh logs you in to; the port
+is 3478 when not given), through
 which the session goes by UDP when the two ends find no way to each other. Its ticket is fetched
 over ssh.
 .TP

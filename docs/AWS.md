@@ -91,7 +91,7 @@ blocked by the network you are on, the session falls back to ssh after 3 seconds
 
 ## 3. Case 2: the server as your meetup
 
-The meetup is `gosh-server meetup PORT`, left running on the server. It answers the question
+The meetup is `gosh-server meetup PORT` (3478 if no PORT is given, as `--meetup` takes), left running on the server. It answers the question
 "where do I appear to be?" for anyone (at most 200 a second), and passes datagrams between the
 two ends of a ticket. A ticket comes from `gosh-server meetup-ticket`, run by ssh: whoever can
 log in to the server can have one, and nobody else can use the meetup (`REQ18/PATH-5`). There is
