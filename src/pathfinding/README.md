@@ -16,6 +16,10 @@ A way straight between the two relays when both ends are behind NATs (`REQ1/PATH
   probe-marked datagram of up to 65,528 bytes to the cipher, whose 2,048-byte buffer is guarded by
   an `assert` alone: the fifth security fault (`docs/FINDINGS.md`). Seen red: without the check,
   `punch-test` aborts in that assert.
+- **The remote relay's socket is in the sessions' ports** (60001 to 60999, mosh-server's own;
+  v0.3.1, issue #2), or any port if none is free. A server whose firewall lets in sessions then
+  takes a probe from a client behind a NAT that changes ports, and answers it where it came from.
+  `punch-test.cc` has both, each seen red.
 - **No STUN server unless named** (`REQ1/PATH-7`; `src/relay/settings.h`).
 - **IPv4 and IPv6** (`REQ17/PATH-8`). One socket takes both families where the system allows
   (IPv4 addresses then come in IPv6's form, and `punch.cc` turns them back before the logic sees

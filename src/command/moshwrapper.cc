@@ -113,9 +113,10 @@ const char USAGE[] = R"USAGE(Usage: %s [options] [--] [user@]host [command...]
                                 look for a way straight to the server by
                                 UDP through the NATs in between, and use
                                 it instead (default: auto)
-        --meetup=[USER@]HOST:PORT  a meetup of your own for that (gosh-server
-                                meetup PORT, on a machine ssh logs you in
-                                to): it says where each end appears to be,
+        --meetup=[USER@]HOST[:PORT]  a meetup of your own for that (gosh-server
+                                meetup [PORT], port 3478 if none, on a
+                                machine ssh logs you in to): it says
+                                where each end appears to be,
                                 and passes the session on by UDP when the
                                 ends can find no way to each other; its
                                 ticket is fetched over ssh
@@ -346,7 +347,7 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
     set_variables( relay_variables( choices,
                                     startup.stock,
                                     relay_command( ssh, local, pick_server, server, userhost, startup.ip, startup.port ),
-                                    ticket_command( ssh, pick_server, server, choices.meetup_login ) ) );
+                                    ticket_command( ssh, choices.meetup_login ) ) );
 
     client_args = client_words( args, server_args.forwards, session, startup.ip, startup.port );
     return true;

@@ -45,7 +45,9 @@ gosh_version=$(git -C "$GOSH" describe --tags --always --dirty 2>/dev/null || ec
 printf '#define GOSH_VERSION "%s"\n' "$gosh_version" > "$BUILD/core/src/seam/gosh-version.h"
 ./autogen.sh >../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED at autogen (log: $BUILD/build.log)"; exit 1; }
 eval ./configure $CONFIGURE_DEPS ${GOSH_CONFIGURE:-} >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED at configure (log: $BUILD/build.log)"; exit 1; }
-make -j"$(nproc 2>/dev/null || echo 2)" >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED (log: $BUILD/build.log)"; exit 1; }
+# src/ alone, and the version stamp it reads: the core's scripts/ is upstream's Perl mosh, which gosh
+# does not ship (REQ1/CMD-1) and whose check needs Perl's diagnostics; man/ and conf/ are not shipped either.
+{ make VERSION.stamp && make -C src -j"$(nproc 2>/dev/null || echo 2)"; } >>../build.log 2>&1 || { tail -30 ../build.log; echo "build: FAILED (log: $BUILD/build.log)"; exit 1; }
 cp src/frontend/mosh-client "$BUILD/bin/gosh-client"
 cp src/frontend/mosh-server "$BUILD/bin/gosh-server"
 # gosh and gocp are gosh-client under those names (REQ6/NAME-1; src/seam/client-main.cc).

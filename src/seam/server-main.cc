@@ -81,10 +81,10 @@ int main( int argc, char* argv[] )
       }
       return 0;
     }
-    const bool serve = args.size() == 2 && args[0] == "meetup";
+    const bool serve = ( args.size() == 1 || args.size() == 2 ) && args[0] == "meetup";
     const bool ticket = args.size() == 1 && args[0] == "meetup-ticket";
     if ( !serve && !ticket ) {
-      fprintf( stderr, "usage: %s meetup PORT | meetup-ticket | meetup-key --new\n", name.c_str() );
+      fprintf( stderr, "usage: %s meetup [PORT] | meetup-ticket | meetup-key --new\n", name.c_str() );
       return 1;
     }
     if ( !Gosh::meetup_master( master, error ) ) {
@@ -92,7 +92,8 @@ int main( int argc, char* argv[] )
       return 1;
     }
     if ( serve ) {
-      return Network::meetup_serve( args[1].c_str(), master );
+      /* (issue #1) the port the command takes when --meetup names none */
+      return Network::meetup_serve( args.size() == 2 ? args[1].c_str() : "3478", master );
     }
     char random8[8];
     PRNG().fill( random8, sizeof( random8 ) );

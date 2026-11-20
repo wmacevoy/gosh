@@ -236,7 +236,11 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
   /* (gosh) The meetup's address for UDP is its host and port; its ssh login, all before the port. */
   /* (REQ15/PATH-4, REQ1/PATH-7) --stun=none keeps the session off the meetup: no ticket is fetched */
   if ( s.has( "meetup" ) && s.value( "stun" ) != "none" ) {
-    const std::string meetup = s.value( "meetup" );
+    /* (issue #1) no port is 3478, STUN's, where docs/AWS.md runs its meetup; "2001:db8::1" without brackets still refused */
+    std::string meetup = s.value( "meetup" );
+    if ( meetup.find( ':' ) == std::string::npos || ( !meetup.empty() && meetup[meetup.size() - 1] == ']' ) ) {
+      meetup += ":3478";
+    }
     const size_t colon = meetup.rfind( ':' );
     /* (REQ17/PATH-8) HOST is a name, an IPv4 address, or an IPv6 one in brackets; PORT is 1 to 65535 */
     const size_t user = meetup.rfind( '@', colon == std::string::npos ? std::string::npos : colon );
@@ -251,7 +255,7 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
     if ( !( bracketed || plain ) || meetup.empty() || meetup[0] == '-' || port.size() > 5
          || port.find_first_not_of( "0123456789" ) != std::string::npos
          || atol( port.c_str() ) < 1 || atol( port.c_str() ) > 65535 ) {
-      throw Failure( name + ": --meetup needs HOST:PORT.", true );
+      throw Failure( name + ": --meetup needs HOST[:PORT].", true );
     }
     c.meetup_login = meetup.substr( 0, colon );
     const size_t at = c.meetup_login.rfind( '@' );

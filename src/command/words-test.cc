@@ -192,10 +192,10 @@ FACTS( Words )
   FACT_CHECK( relay_command( { "ssh" }, false, false, "/opt/gs", "h", "1.2.3.4", "5" ).back() == "/opt/gs relay '1.2.3.4' '5'", "a relay with a server the user named runs that one" );
   FACT_CHECK( joined( relay_command( { "ssh" }, true, false, "/opt/gs", "h", "1.2.3.4", "5" ) )
                                                  == "sh|-c|/opt/gs relay '1.2.3.4' '5'", "--local: the relay by a shell here" );
-  const Words ticket = ticket_command( { "ssh" }, true, "ignored", "me@meet" );
+  const Words ticket = ticket_command( { "ssh" }, "me@meet" );
   FACT_CHECK( ( joined( Words( ticket.begin(), ticket.end() - 1 ) ) == "ssh|-T|-o|BatchMode=yes|me@meet|--"
            && ticket.back().find( "exec gosh-server meetup-ticket" ) != std::string::npos ), "the ticket: ssh to the meetup with nothing to be asked, for gosh-server's meetup-ticket" );
-  FACT_CHECK( ticket_command( { "ssh" }, false, "/opt/gs", "m" ).back() == "/opt/gs meetup-ticket", "a ticket with a server the user named" );
+  /* (issue #5) no case for --server: it is not passed in, so it cannot reach the meetup */
 
   /* ---- the client */
   FACT_CHECK( joined( client_words( { "-N", "srv" }, { "-L", "1:a:1" }, hs, "10.0.0.1", "60001" ) )

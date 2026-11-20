@@ -123,17 +123,21 @@ FACTS( Options )
   parse_options( { "--meetup=me@meet.example:3478", "--stun=none" }, false, s = Settings() );
   m = choose( s, "gosh", NULL );
   FACT_CHECK( ( m.meetup_login.empty() && m.relays_read.size() == 1 && m.relays_read[0].first == "GOSH_STUN" ), "--stun=none keeps the session off the meetup: no ticket's login, no meetup for the relays (REQ15/PATH-4)" );
-  FACT_CHECK( ( refused( { "--meetup=-oProxyCommand=touch x@h:22", "h" } ) == "!+gosh: --meetup needs HOST:PORT."
-           && refused( { "--meetup=-h:22", "h" } ) == "!+gosh: --meetup needs HOST:PORT." ), "a meetup whose login begins with - is refused: ssh would take it for an option (the review of item 10)" );
-  FACT_CHECK( refused( { "--meetup=meet.example", "h" } ) == "!+gosh: --meetup needs HOST:PORT.", "a meetup with no port is refused" );
-  FACT_CHECK( refused( { "--meetup=:3478", "h" } ) == "!+gosh: --meetup needs HOST:PORT.", "nor with nothing before its port" );
+  FACT_CHECK( ( refused( { "--meetup=-oProxyCommand=touch x@h:22", "h" } ) == "!+gosh: --meetup needs HOST[:PORT]."
+           && refused( { "--meetup=-h:22", "h" } ) == "!+gosh: --meetup needs HOST[:PORT]." ), "a meetup whose login begins with - is refused: ssh would take it for an option (the review of item 10)" );
+  parse_options( { "--meetup=me@meet.example" }, false, s = Settings() );
+  m = choose( s, "gosh", NULL );
+  FACT_CHECK( ( m.meetup_login == "me@meet.example" && m.relays_read[0].second == "meet.example:3478" ), "a meetup with no port is at 3478 (issue #1)" );
+  FACT_CHECK( refused( { "--meetup=:3478", "h" } ) == "!+gosh: --meetup needs HOST[:PORT].", "nor with nothing before its port" );
   /* (REQ17/PATH-8; found by review, 2026-11-16: these were taken, and made an ssh login of "[2001:db8:") */
-  FACT_CHECK( refused( { "--meetup=[2001:db8::1]", "h" } ) == "!+gosh: --meetup needs HOST:PORT.", "an IPv6 meetup with no port is refused" );
-  FACT_CHECK( refused( { "--meetup=2001:db8::1", "h" } ) == "!+gosh: --meetup needs HOST:PORT.", "nor an IPv6 address without its brackets" );
-  FACT_CHECK( refused( { "--meetup=me@[2001:db8::1]", "h" } ) == "!+gosh: --meetup needs HOST:PORT.", "nor with a user and no port" );
-  FACT_CHECK( refused( { "--meetup=[2001:db8::1]:", "h" } ) == "!+gosh: --meetup needs HOST:PORT.", "nor with an empty port" );
-  FACT_CHECK( ( refused( { "--meetup=meet.example:99999", "h" } ) == "!+gosh: --meetup needs HOST:PORT."
-                                         && refused( { "--meetup=meet.example:x1", "h" } ) == "!+gosh: --meetup needs HOST:PORT." ), "nor a port that is not one" );
+  parse_options( { "--meetup=[2001:db8::1]" }, false, s = Settings() );
+  m = choose( s, "gosh", NULL );
+  FACT_CHECK( ( m.meetup_login == "2001:db8::1" && m.relays_read[0].second == "[2001:db8::1]:3478" ), "and an IPv6 one in brackets with no port (issue #1)" );
+  FACT_CHECK( refused( { "--meetup=2001:db8::1", "h" } ) == "!+gosh: --meetup needs HOST[:PORT].", "nor an IPv6 address without its brackets" );
+  FACT_CHECK( refused( { "--meetup=me@[2001:db8::1]", "h" } ).empty(), "and with a user" );
+  FACT_CHECK( refused( { "--meetup=[2001:db8::1]:", "h" } ) == "!+gosh: --meetup needs HOST[:PORT].", "nor with an empty port" );
+  FACT_CHECK( ( refused( { "--meetup=meet.example:99999", "h" } ) == "!+gosh: --meetup needs HOST[:PORT]."
+                                         && refused( { "--meetup=meet.example:x1", "h" } ) == "!+gosh: --meetup needs HOST[:PORT]." ), "nor a port that is not one" );
 
   /* ---- the server's port, or range */
   FACT_CHECK( ( refused( { "-p", "60001", "h" } ).empty() && refused( { "-p", "60001:60010", "h" } ).empty()

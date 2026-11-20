@@ -91,7 +91,7 @@ blocked by the network you are on, the session falls back to ssh after 3 seconds
 
 ## 3. Case 2: the server as your meetup
 
-The meetup is `gosh-server meetup PORT`, left running on the server. It answers the question
+The meetup is `gosh-server meetup PORT` (3478 if no PORT is given, as `--meetup` takes), left running on the server. It answers the question
 "where do I appear to be?" for anyone (at most 200 a second), and passes datagrams between the
 two ends of a ticket. A ticket comes from `gosh-server meetup-ticket`, run by ssh: whoever can
 log in to the server can have one, and nobody else can use the meetup (`REQ18/PATH-5`). There is
@@ -143,6 +143,11 @@ take it, and if not their datagrams go through the meetup by UDP. Through the me
 "fallen back": the ssh connection stays open in case the meetup stops answering. The relay's log
 (`GOSH_RELAY_LOG=FILE`) says each step: "a ticket for the meetup at ...", "registered with the
 meetup at ...".
+
+**A way straight to the home machine** needs its firewall to let in UDP 60000–61000, as for a
+session in case 1: since v0.3.1 the relay at home looks for the way from a port in that range
+(issue #2). With that closed the session stays on the meetup, which works, only more slowly. The
+log says "the way through is now to ..." when it leaves the meetup.
 
 **Not tried yet:** this case between real machines, with the tunnel above (queue item 8, "two
 machines in one room"). How gosh finds the home machine's address through `ProxyJump` has not been

@@ -202,6 +202,26 @@ FACTS( Punch )
   loop6.sin6.sin6_family = AF_INET6;
   loop6.sin6.sin6_addr = in6addr_loopback;
   const bool have6 = probe6 >= 0 && bind( probe6, &loop6.sa, sizeof( loop6.sin6 ) ) == 0;
+  {
+    /* issue #2: a port asked for is the one bound; a range all taken still gives a socket */
+    int free_port = 0;
+    {
+      Punch any( false, key, nobody, now_ms() );
+      free_port = any.local_port();
+    }
+    Punch b( false, key, nobody, now_ms(), free_port, free_port );
+    FACT_CHECK( b.local_port() == free_port, "the remote end's socket is in the range it is given" );
+    Punch c( false, key, nobody, now_ms(), free_port, free_port );
+    FACT_CHECK( ( c.local_port() != free_port && c.local_port() != 0 ), "with the range taken, a socket on another port" );
+  }
+  {
+    /* issue #2: the server's candidate for the client is wrong (its NAT changed the port), but the client can reach the server */
+    Punch a( true, key, nobody, now_ms() ), b( false, key, nobody, now_ms() );
+    a.add_candidate( "127.0.0.1:" + std::to_string( b.local_port() ) );
+    b.add_candidate( "127.0.0.1:" + std::to_string( a.local_port() == 65535 ? 65534 : a.local_port() + 1 ) );
+    const bool open = run( a, b, NULL, 3000, [&]( uint64_t now ) { return a.open( now ) && b.open( now ); } );
+    FACT_CHECK( ( open && a.direct() && b.direct() ), "the client's probe, answered where it came from: a way straight through, both ways" );
+  }
   if ( probe6 >= 0 ) {
     close( probe6 );
   }

@@ -401,8 +401,7 @@ Gosh::Command::Words Gosh::Command::relay_command( const Words& ssh, bool local,
   return words;
 }
 
-Gosh::Command::Words Gosh::Command::ticket_command( const Words& ssh, bool pick_server, const std::string& server,
-                                  const std::string& meetup_login )
+Gosh::Command::Words Gosh::Command::ticket_command( const Words& ssh, const std::string& meetup_login )
 {
   Words fetch = ssh;
   fetch.push_back( "-T" );
@@ -410,7 +409,8 @@ Gosh::Command::Words Gosh::Command::ticket_command( const Words& ssh, bool pick_
   fetch.push_back( "BatchMode=yes" );
   fetch.push_back( meetup_login );
   fetch.push_back( "--" );
-  fetch.push_back( pick_server ? helper_command( "meetup-ticket" ) : server + " meetup-ticket" );
+  /* (issue #5) never --server: that names the program on the session's server, and the meetup is another machine */
+  fetch.push_back( helper_command( "meetup-ticket" ) );
   return fetch;
 }
 
