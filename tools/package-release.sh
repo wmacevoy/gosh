@@ -13,7 +13,8 @@
 # Refuses a program that needs a library the system does not ship (REQ1/SHAPE-3): the point is
 # that it is copied to another machine and runs there. Build for it with
 #     GOSH_CONFIGURE="--enable-static-libraries --without-utempter" tools/build.sh
-# and on musl with GOSH_LDFLAGS=-static as well.
+# and on musl with GOSH_LDFLAGS=-static and GOSH_CONFIGURE="--without-utempter" (with -static, the
+# -Wl,-Bdynamic that --enable-static-libraries ends with makes the linker refuse every program).
 #
 # Carried from the fork's scripts/package-release.sh (mosh-1.4.0-pf.7), with gosh's names.
 
