@@ -26,19 +26,20 @@
 #include "src/strong/opened.h"
 
 namespace Strong {
+namespace Meetup {
 
-class MeetupRegister
+class Register
 {
 private:
   uint32_t family; /* 0: nothing read; else 4 or 6, where's first byte */
   uint64_t time;   /* ms by the meetup's clock, as the end reckons it; 0 if nothing read */
 
 public:
-  MeetupRegister() : family( 0 ), time( 0 ) {}
+  Register() : family( 0 ), time( 0 ) {}
 
   /* True, and the family and time are kept, if this is a REGISTER's text; else false, and what is
      kept is as it was. */
-  bool read_checked( Opened<MeetupRegister> text )
+  bool read_checked( Opened<Register> text )
   {
     if ( text.size() != 27 ) {
       return false;
@@ -69,6 +70,7 @@ public:
   bool invariant() const { return ( family == 0 && time == 0 ) || family == 4 || family == 6; }
 };
 
+}
 }
 
 #endif

@@ -70,9 +70,9 @@ static const size_t MEETUP_TIME_MESSAGE = MEETUP_HEADER + MEETUP_SEAL + 1 + 8 + 
 static const size_t MEETUP_MAX_DATAGRAM = 1500;
 static const size_t MEETUP_PASS_MIN = MEETUP_HEADER + MEETUP_SEAL + 1 + 1;
 static const size_t MEETUP_PASS_MAX = MEETUP_HEADER + MEETUP_SEAL + 1 + MEETUP_MAX_DATAGRAM;
-static const uint64_t MEETUP_COUNTER_MASK = Strong::MEETUP_COUNTER_MOST; /* 2^62 - 1 (strong/meetup/counter.h) */
+static const uint64_t MEETUP_COUNTER_MASK = Strong::Meetup::COUNTER_MOST; /* 2^62 - 1 (strong/meetup/counter.h) */
 
-/* Who sealed a message, and for whom, is the top two bits of its nonce: Strong::MeetupNonce
+/* Who sealed a message, and for whom, is the top two bits of its nonce: Strong::Meetup::Nonce
    (strong/meetup/nonce.h) says so, and is proved to lose nothing. */
 
 /* An IPv4 address and port (each in host order) as "where". */
@@ -160,13 +160,13 @@ inline std::string meetup_register_text( const std::string& where, uint64_t time
 {
   return where + meetup_u64( time_ms );
 }
-/* What is a REGISTER's text, and its time, is Strong::MeetupRegister's to say (strong/meetup/register.h),
+/* What is a REGISTER's text, and its time, is Strong::Meetup::Register's to say (strong/meetup/register.h),
    and is proved; here where is its first 19 bytes, of a text that was read. */
 static_assert( MEETUP_WHERE_LEN == 19, "strong/meetup/register.h says another length of where than this" );
 inline bool meetup_read_register( const std::string& text, std::string& where, uint64_t& time_ms )
 {
-  Strong::MeetupRegister r;
-  if ( !r.read_checked( Strong::Opened<Strong::MeetupRegister>( reinterpret_cast<const unsigned char*>( text.data() ), text.size() ) ) ) {
+  Strong::Meetup::Register r;
+  if ( !r.read_checked( Strong::Opened<Strong::Meetup::Register>( reinterpret_cast<const unsigned char*>( text.data() ), text.size() ) ) ) {
     return false;
   }
   where = text.substr( 0, MEETUP_WHERE_LEN );
@@ -214,14 +214,14 @@ static_assert( MEETUP_REGISTER == 1 && MEETUP_REGISTERED == 2 && MEETUP_PASS == 
 
 /*
  * True, and its header, if these bytes are one of the messages at its exact length. What is a
- * message, and where its parts are, is Strong::MeetupHeader's to say (strong/meetup/header.h),
+ * message, and where its parts are, is Strong::Meetup::Header's to say (strong/meetup/header.h),
  * and is proved; here its numbers are made the pointers and the text the rest of gosh takes. The
  * ticket is at 9 and what is sealed where the head says: both inside the datagram, of a head
  * that was read.
  */
 inline bool meetup_read_header( const char* data, size_t n, MeetupHeader& h )
 {
-  Strong::MeetupHeader head;
+  Strong::Meetup::Header head;
   if ( !head.read_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( data ), n ) ) ) {
     return false;
   }
@@ -250,7 +250,7 @@ inline std::string meetup_seal( Crypto::Session& session,
   out.push_back( static_cast<char>( MEETUP_VERSION ) );
   out += ticket;
   out.push_back( static_cast<char>( end ) );
-  Strong::MeetupNonce stamp;
+  Strong::Meetup::Nonce stamp;
   stamp.set_checked( end ? 1 : 0, from_meetup ? 1 : 0, counter );
   out += session.encrypt(
     Crypto::Message( Crypto::Nonce( stamp.value_checked() ), std::string( 1, static_cast<char>( kind ) ) + text ) );
@@ -268,7 +268,7 @@ inline bool meetup_open( Crypto::Session& session, const MeetupHeader& h, bool f
   }
   try {
     const Crypto::Message m = session.decrypt( h.sealed, h.sealed_len );
-    Strong::MeetupNonce stamp; /* (not "nonce": the message's own field is that word, and the lint of strong-domain-driven-design reads words) */
+    Strong::Meetup::Nonce stamp; /* (not "nonce": the message's own field is that word, and the lint of strong-domain-driven-design reads words) */
     stamp.read_checked( m.nonce.val() );
     if ( stamp.end_checked() != ( h.end ? 1u : 0u ) || stamp.by_meetup_checked() != ( from_meetup ? 1u : 0u ) || m.text.empty()
          || static_cast<unsigned char>( m.text[0] ) != h.kind ) {

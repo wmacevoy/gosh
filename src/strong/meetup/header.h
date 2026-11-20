@@ -28,8 +28,9 @@
 #include "src/strong/datagram.h"
 
 namespace Strong {
+namespace Meetup {
 
-class MeetupHeader
+class Header
 {
 private:
   uint32_t kind;        /* 0: nothing read. 1 REGISTER, 2 REGISTERED, 3 PASS, 4 PASSED, 5 TIME */
@@ -80,7 +81,7 @@ private:
   }
 
 public:
-  MeetupHeader() : kind( 0 ), end( 0 ), whole( 0 ), sealed_from( 0 ) {}
+  Header() : kind( 0 ), end( 0 ), whole( 0 ), sealed_from( 0 ) {}
 
   /* True, and the head is kept, if this datagram is one of the five messages at its exact
      length; else false, and what is kept is as it was. */
@@ -143,6 +144,7 @@ public:
   }
 };
 
+}
 }
 
 #endif

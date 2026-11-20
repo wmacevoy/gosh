@@ -27,6 +27,7 @@
 #include "src/strong/datagram.h"
 
 namespace Strong {
+namespace Pathfinding {
 
 class StunAnswer
 {
@@ -151,6 +152,7 @@ public:
   }
 };
 
+}
 }
 
 #endif

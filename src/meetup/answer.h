@@ -20,7 +20,7 @@
 namespace Gosh {
 
 /* (strong/pathfinding/stunrequest.h; under this name too, for those who ask it here) */
-using Strong::is_stun_request_checked;
+using Strong::Pathfinding::is_stun_request_checked;
 
 /* The same, of bytes by where they are and how many: the datagram is made here. */
 inline bool is_stun_request( const char* request, size_t n )
