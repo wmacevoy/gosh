@@ -44,7 +44,7 @@ struct End
   Crypto::Session session;
   uint64_t counter;
 
-  End( const Gosh::Ticket& t, int e, const std::string& w ) : End( t, e, w, t.key ) {}
+  End( const Gosh::Ticket& t, int e, const std::string& w ) : End( t, e, w, std::string( t.key ) ) {}
   End( const Gosh::Ticket& t, int e, const std::string& w, const std::string& key )
     : ticket( t ), end( e ), where( w ), session( Gosh::raw_key( key ) ), counter( 0 )
   {}

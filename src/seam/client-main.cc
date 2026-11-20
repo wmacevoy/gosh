@@ -17,6 +17,8 @@
 #include <string>
 #include <vector>
 
+#include "src/seam/session.h"
+#include "vendor/retain/retain.hpp"
 #include "src/command/moshwrapper.h"
 #include "src/forwarding/stream/streamchild.h"
 #include "src/seam/applications.h"
@@ -27,6 +29,10 @@
 
 int main( int argc, char* argv[] )
 {
+  /* The session, for everything this calls: the seam's hooks recall it (session.cc). */
+  Gosh::Session the_session;
+  retain<Gosh::Session> as( &the_session );
+
   const std::string name( argc > 0 ? argv[0] : "gosh-client" );
   std::vector<std::string> args( argv + ( argc > 0 ? 1 : 0 ), argv + argc );
 
@@ -98,5 +104,6 @@ int main( int argc, char* argv[] )
     Gosh::session().relay.server_port = where[1];
   }
 
-  return Gosh::call_core_main( mosh_client_main, name, rest );
+  Gosh::CoreWords held;
+  return Gosh::call_core_main( mosh_client_main, name, rest, held );
 }

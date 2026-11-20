@@ -13,6 +13,7 @@ directory) and fails on one that crosses layers. The layers:
   carrying     forwarding           its own layer only
   paths        relay, pathfinding,  its own layer only
                meetup
+  strong       strong               its own layer only; and any part may include it
 
 Any part may include the core's directories, and two of the seam's files that are tooling, not
 glue: fuzz-replay.h (the fuzzers' replay main) and gosh-version.h (written by the build). A part
@@ -30,8 +31,9 @@ LAYERS = {
     "copy": "application",
     "forwarding": "carrying",
     "relay": "paths", "pathfinding": "paths", "meetup": "paths",
+    "strong": "strong",     # what is proved: it includes nothing of gosh but itself (src/strong/README.md)
 }
-TOOLING = {"seam/fuzz-replay.h", "seam/gosh-version.h"}
+TOOLING = {"seam/fuzz-replay.h", "seam/gosh-version.h", "seam/proved.h"}
 
 src = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
 include = re.compile(r'^\s*#\s*include\s+"src/([^/"]+)/([^"]+)"')
@@ -55,6 +57,8 @@ for part in sorted(os.listdir(src)):
                     other = m.group(1)
                     if other not in LAYERS or "%s/%s" % (other, m.group(2)) in TOOLING:
                         continue  # the core's, or tooling
+                    if LAYERS[other] == "strong":
+                        continue  # what is proved: anything may use it
                     if LAYERS[part] != "glue" and LAYERS[other] != LAYERS[part]:
                         failures.append("%s:%d: %s (%s) includes %s (%s)" % (
                             os.path.relpath(path, os.path.join(src, "..")), number, part, LAYERS[part], other, LAYERS[other]))

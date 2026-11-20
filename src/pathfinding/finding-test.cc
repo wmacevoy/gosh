@@ -65,7 +65,7 @@ struct Net
       b_goodbyes( 0 ), meetup_passed( 0 ), meetup_told_time( 0 ), straight_sent( 0 )
   {}
 
-  void to_end( bool to_a, const std::string& bytes, const Addr& from )
+  void to_end( bool to_a, const std::string& bytes, Addr from )
   {
     std::string d;
     const PathFinding::Got got = ( to_a ? a : b ).receive( now, bytes.data(), bytes.size(), from, d );

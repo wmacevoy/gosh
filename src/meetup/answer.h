@@ -11,16 +11,21 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <string>
+
+#include "src/strong/datagram.h"
+#include "src/strong/stunrequest.h"
 
 namespace Gosh {
 
-/* a Binding Request, with the cookie: and nothing longer than one need be */
+/* (strong/stunrequest.h; under this name too, for those who ask it here) */
+using Strong::is_stun_request_checked;
+
+/* The same, of bytes by where they are and how many: the datagram is made here. */
 inline bool is_stun_request( const char* request, size_t n )
 {
-  const unsigned char* p = reinterpret_cast<const unsigned char*>( request );
-  return !( n < 20 || n > 200 || p[0] != 0x00 || p[1] != 0x01 || p[4] != 0x21 || p[5] != 0x12 || p[6] != 0xA4
-            || p[7] != 0x42 );
+  return is_stun_request_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( request ), n ) );
 }
 
 /*

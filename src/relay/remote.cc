@@ -56,7 +56,6 @@ int Network::relay_remote( const char* address, const char* port )
   setsid();
   signal( SIGHUP, SIG_IGN );
   signal( SIGPIPE, SIG_IGN );
-  relay_log_who = "remote";
 
   /* the client's address as ssh saw it: where its relay may be found, for all we know */
   std::string client_ip;
@@ -138,7 +137,7 @@ int Network::relay_remote( const char* address, const char* port )
                 punch->use_meetup( meetup_at, ticket );
               }
               stream_ended = stream_ended || !write_all( STDOUT_FILENO, control( "PORT " + std::to_string( punch->local_port() ) ) );
-              say( "looking for a way through, from port %d", static_cast<int>( punch->local_port() ) );
+              say( "remote", "looking for a way through, from port %d", static_cast<int>( punch->local_port() ) );
             } catch ( const std::exception& e ) {
               punch.reset();
             }
@@ -155,7 +154,7 @@ int Network::relay_remote( const char* address, const char* port )
       Punch::Got got;
       while ( ( got = punch->receive( now, datagram ) ) != Punch::NOTHING ) {
         if ( got == Punch::GOODBYE ) {
-          say( "the other end has finished" );
+          say( "remote", "the other end has finished" );
           return 0;
         }
         if ( got == Punch::DATA ) {
@@ -167,21 +166,21 @@ int Network::relay_remote( const char* address, const char* port )
       punch->tick( now );
       const std::vector<std::string> mine = punch->take_local_candidates();
       for ( size_t i = 0; i < mine.size(); i++ ) {
-        say( "we may be reached at %s", mine[i].c_str() );
+        say( "remote", "we may be reached at %s", mine[i].c_str() );
         if ( stream_open && !stream_ended ) {
           stream_ended = !write_all( STDOUT_FILENO, control( "CAND " + mine[i] ) );
         }
       }
       if ( punch->open( now ) != was_open ) {
         was_open = punch->open( now );
-        say( was_open ? "a way through is open, to %s" : "the way through to %s has closed", punch->where().c_str() );
+        say( "remote", was_open ? "a way through is open, to %s" : "the way through to %s has closed", punch->where().c_str() );
       } else if ( was_open && punch->where() != was_where ) {
-        say( "the way through is now to %s", punch->where().c_str() ); /* (gosh, REQ17/PATH-8: as by IPv6, from IPv4) */
+        say( "remote", "the way through is now to %s", punch->where().c_str() ); /* (gosh, REQ17/PATH-8: as by IPv6, from IPv4) */
       }
       was_where = punch->where();
       if ( punch->meetup_registered() != was_registered ) {
         was_registered = punch->meetup_registered();
-        say( was_registered ? "registered with the meetup at %s" : "no longer registered with the meetup at %s", meetup_at.c_str() );
+        say( "remote", was_registered ? "registered with the meetup at %s" : "no longer registered with the meetup at %s", meetup_at.c_str() );
       }
     }
 
@@ -233,7 +232,7 @@ int Network::relay_remote( const char* address, const char* port )
        * was started, which whoever started it (sshd, say) may be waiting
        * to see finish.  The stream's descriptors are no more use.
        */
-      say( "the stream has ended; staying for the way through" );
+      say( "remote", "the stream has ended; staying for the way through" );
       if ( fork() > 0 ) {
         _exit( 0 );
       }
@@ -248,7 +247,7 @@ int Network::relay_remote( const char* address, const char* port )
       }
     }
     if ( !stream_open && Gosh::remote_finished( now, punch->last_heard(), stream_closed ) ) {
-      say( "nothing heard for a minute: finished" );
+      say( "remote", "nothing heard for a minute: finished" );
       return 0;
     }
   }

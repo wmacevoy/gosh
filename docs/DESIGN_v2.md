@@ -776,6 +776,11 @@ What it costs, said plainly: one process-wide value, set once before the core's 
 rests on "one session per process", which is true of both programs **(read)**. And gosh's `main`
 must not disturb `getopt`'s state for the core's `main`; it should not use `getopt` at all.
 
+*(Since 2026-11-19, on the branch `strong/main`: that value is no longer the process's. gosh's
+`main` makes the `Session` as a local and retains it (`vendor/retain/`), and the hooks recall it:
+it is the thread's, and ends with `main`'s frame. The seam's patches did not change. What it
+rests on is now "the core's `main` and its hooks run in the frame that retained a session".)*
+
 ### 4.3 Where a refactor of the core is warranted
 
 **Nowhere, for this model.** Every row above is an addition or a guard. That is a finding, not a
