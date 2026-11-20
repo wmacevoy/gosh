@@ -4,8 +4,14 @@ What is proved (`REQ6/SHAPE-5`). Every class and function here is in the namespa
 of each it is shown, from this text as it stands and for every input: it reads and writes nothing
 outside its own memory, it ends, and it keeps what its `invariant()` says. The proving is another
 project's, strong-domain-driven-design, which reads these files as they are committed; nothing
-here knows of it. **Until a branch `strong/...` is gosh's main, what is on main is not what was
-proved.**
+here knows of it.
+
+Branches, a staging workflow (the owner, 2026-11-20: "strong/* to strengthen, strong/main to stage,
+main to version and merge outside of the strong workflow"): a change to what is proved is made on a
+branch `strong/...`; it is merged into `strong/main` once proved and once gosh's check passes by
+both compilers; `strong/main` is merged into `main`, which is versioned and takes every change
+that is not of the strong work. **What is on main is what was proved only as of its last merge
+from `strong/main`.**
 
 Three rules, and the proving refuses gosh if one is broken:
 
