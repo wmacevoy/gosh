@@ -97,7 +97,7 @@ jobs:
       - name: Build, test and package, in Alpine
         run: |
           docker run --rm -v "$PWD:/src" -w /src -e LANG=C.UTF-8 -e PROTOBUF_VERSION -e VERSION="${GITHUB_REF_NAME#v}" "$ALPINE" sh -euc '
-            apk add -q build-base autoconf automake pkgconf cmake curl git perl perl-doc python3 binutils file linux-headers tar patch coreutils findutils \
+            apk add -q build-base autoconf automake pkgconf cmake curl git python3 binutils file linux-headers tar patch coreutils findutils \
               ncurses-dev ncurses-static zlib-dev zlib-static openssl-dev openssl-libs-static
             git config --global --add safe.directory "*"
             if [ ! -x protobuf/bin/protoc ]; then
