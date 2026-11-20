@@ -5,6 +5,8 @@
 #
 #   gosh-VERSION-linux-x86_64.tar.gz      programs needing only the C library, built on Ubuntu
 #   gosh-VERSION-linux-aarch64.tar.gz       22.04 so that they run on anything newer
+#   gosh-VERSION-linux-x86_64-musl.tar.gz   programs needing nothing, built on Alpine (musl)
+#   gosh-VERSION-linux-aarch64-musl.tar.gz    with every library linked in, the C library too
 #   gosh-VERSION-macos-universal.tar.gz   if it builds: no gosh part has been built on macOS before
 #   install.sh                            tools/install.sh, knowing its version
 #   SHA256SUMS                            of each of these, install.sh included
@@ -62,6 +64,63 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}
+          path: dist/
+
+  # Alpine: musl, so the glibc build above does not run there. Built in an Alpine container, with
+  # Protocol Buffers built here as the macOS job does (Alpine ships no static libprotobuf that we
+  # have checked), and linked fully static. The checkout is the runner's, not the container's:
+  # the runner's own actions do not all run inside Alpine.
+  alpine:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      ALPINE: "alpine:3.20"
+      PROTOBUF_VERSION: "21.12"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0 # (build.sh names the build by its tag: git describe)
+      - name: Cache Protocol Buffers
+        id: protobuf
+        uses: actions/cache@v4
+        with:
+          path: protobuf
+          key: protobuf-${{ env.PROTOBUF_VERSION }}-alpine-3.20-${{ matrix.arch }}-1
+      - name: Build, test and package, in Alpine
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src -e LANG=C.UTF-8 -e PROTOBUF_VERSION -e VERSION="${GITHUB_REF_NAME#v}" "$ALPINE" sh -euc '
+            apk add -q build-base autoconf automake pkgconf cmake curl git perl python3 binutils file linux-headers \
+              ncurses-dev ncurses-static zlib-dev zlib-static openssl-dev openssl-libs-static
+            git config --global --add safe.directory "*"
+            if [ ! -x protobuf/bin/protoc ]; then
+              curl -fsSL -o /tmp/protobuf.tar.gz \
+                "https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOBUF_VERSION/protobuf-cpp-3.$PROTOBUF_VERSION.tar.gz"
+              mkdir /tmp/protobuf-src && tar -xzf /tmp/protobuf.tar.gz -C /tmp/protobuf-src --strip-components 1
+              cmake -S /tmp/protobuf-src -B /tmp/protobuf-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=17 \
+                -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX="$PWD/protobuf" -DCMAKE_INSTALL_LIBDIR=lib \
+                -Dprotobuf_BUILD_SHARED_LIBS=OFF -Dprotobuf_BUILD_TESTS=OFF
+              cmake --build /tmp/protobuf-build -j "$(nproc)"
+              cmake --install /tmp/protobuf-build
+            fi
+            export PATH="$PWD/protobuf/bin:$PATH" PKG_CONFIG_PATH="$PWD/protobuf/lib/pkgconfig"
+            GOSH_LDFLAGS=-static GOSH_CONFIGURE="--enable-static-libraries --without-utempter" tools/build.sh
+            file .build/bin/gosh-client .build/bin/gosh-server
+            python3 tests/headless-smoke.py .build/bin/gosh-server .build/bin/gosh-client
+            python3 tests/headless-smoke.py .build/bin/gosh-server .build/bin/gosh-client 127.0.0.1 blocked
+            tools/package-release.sh "$VERSION" dist
+            chown -R "'"$(id -u):$(id -g)"'" dist protobuf .build
+          '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alpine-${{ matrix.arch }}
           path: dist/
 
   # One build for Apple Silicon and Intel, as the fork's: Protocol Buffers built here and linked
@@ -125,8 +184,8 @@ jobs:
           path: notes/
 
   publish:
-    if: always() && github.ref_type == 'tag' && needs.linux.result == 'success'
-    needs: [linux, macos]
+    if: always() && github.ref_type == 'tag' && needs.linux.result == 'success' && needs.alpine.result == 'success'
+    needs: [linux, alpine, macos]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
