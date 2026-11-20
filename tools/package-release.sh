@@ -5,13 +5,15 @@
 #
 #     tools/package-release.sh VERSION OUTPUT_DIRECTORY
 #
-# Writes OUTPUT_DIRECTORY/gosh-VERSION-linux-ARCH.tar.gz or gosh-VERSION-macos-universal.tar.gz,
+# Writes OUTPUT_DIRECTORY/gosh-VERSION-linux-ARCH.tar.gz (gosh-VERSION-linux-ARCH-musl.tar.gz on
+# musl, as Alpine) or gosh-VERSION-macos-universal.tar.gz,
 # laid out as tools/install.sh reads it: bin/ (gosh-client, gosh-server, and gosh and gocp as
 # links), share/man/man1/, COPYING, LICENSE-GOSH, LICENSE-MOSH, README.md.
 #
 # Refuses a program that needs a library the system does not ship (REQ1/SHAPE-3): the point is
 # that it is copied to another machine and runs there. Build for it with
 #     GOSH_CONFIGURE="--enable-static-libraries --without-utempter" tools/build.sh
+# and on musl with GOSH_LDFLAGS=-static as well.
 #
 # Carried from the fork's scripts/package-release.sh (mosh-1.4.0-pf.7), with gosh's names.
 
@@ -29,6 +31,17 @@ case "$(uname -s)" in
             *) arch=$(uname -m) ;;
         esac
         name="gosh-$version-linux-$arch"
+        if [ -e "/lib/ld-musl-$(uname -m).so.1" ]; then
+            # musl (Alpine): built with every library linked in, the C library too, so it needs nothing.
+            name="$name-musl"
+            for program in $programs; do
+                if readelf -d "$program" | grep -q NEEDED; then
+                    echo "package-release.sh: $program is not built static (GOSH_LDFLAGS=-static):" >&2
+                    readelf -d "$program" | grep NEEDED >&2
+                    exit 1
+                fi
+            done
+        fi
         for program in $programs; do
             # Only the C library and its companions.
             if ldd "$program" | grep '=>' \

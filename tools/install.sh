@@ -56,6 +56,8 @@ case "$(uname -m)" in
     *) fail "no package for $(uname -m); build from source: https://wmacevoy.github.io/gosh/USING.html" ;;
 esac
 [ "$os" = macos ] && arch=universal
+# musl (Alpine) cannot run the glibc build; its own package is static.
+[ "$os" = linux ] && [ -e "/lib/ld-musl-$(uname -m).so.1" ] && arch="$arch-musl"
 
 tmp=$(mktemp -d 2>/dev/null || mktemp -d -t gosh-install)
 # (and what was staged in $prefix/bin, if it stopped before that was renamed into place)
