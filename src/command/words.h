@@ -97,8 +97,9 @@ Words login_words( const Words& ssh, bool ssh_pty, const Choices& choices, const
 Words relay_command( const Words& ssh, bool local, bool pick_server, const std::string& server,
                      const std::string& userhost, const std::string& ip, const std::string& port );
 
-/* The command that fetches a ticket from the meetup (REQ15/PATH-4): ssh to it, as to the server. */
-Words ticket_command( const Words& ssh, bool pick_server, const std::string& server, const std::string& meetup_login );
+/* The command that fetches a ticket from the meetup (REQ15/PATH-4): ssh to it, as to the server, for
+   gosh-server's meetup-ticket whatever --server is, since that names the program on another machine. */
+Words ticket_command( const Words& ssh, const std::string& meetup_login );
 
 /*
  * The client's words: its name, what was asked (for whoever lists processes), the forwards, the

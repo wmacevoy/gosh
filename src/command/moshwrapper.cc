@@ -347,7 +347,7 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
     set_variables( relay_variables( choices,
                                     startup.stock,
                                     relay_command( ssh, local, pick_server, server, userhost, startup.ip, startup.port ),
-                                    ticket_command( ssh, pick_server, server, choices.meetup_login ) ) );
+                                    ticket_command( ssh, choices.meetup_login ) ) );
 
     client_args = client_words( args, server_args.forwards, session, startup.ip, startup.port );
     return true;
