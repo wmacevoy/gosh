@@ -2,7 +2,8 @@
 
 *(In gosh since 2026-11-21, at the owner's word ("the proofs and prover should be here, next to
 tests"): copied as it stood in the project strong-domain-driven-design at 0744065, and brought
-up to its main at 56969b3 (2026-11-21: a const method that loops, named in a PROVE, is given fuel);
+up to its main at ee7f4ef (2026-11-21: a const method that loops, named in a PROVE, is given fuel;
+a proof file also runs small);
 unchanged here, its history is there. gosh runs it by `tools/proofs.sh`, over the domains that stand beside gosh's
 classes under `src/strong` (CONTRIBUTING.md). What follows is as it was written there: its
 `docs/...` are that project's.)*
@@ -337,8 +338,12 @@ loop's own variable. So what a later round rests on is written as a `PROVE` at t
 loop (the last line above); take it away, and the loop is not proved (`test_prooc.py` does).
 
 **What is trusted for this, besides what is trusted above:** that `proofs.py` reads the test
-rightly. It is 300 lines, reads a small subset and refuses the rest; nothing compares its reading
-with a run, since nothing can run it.
+rightly. It is 300 lines, reads a small subset and refuses the rest. Nothing can run a proof file
+whole, but it can be run small (since 2026-11-21): compiled with `PROOC_RUN`, `model/forall.h` takes
+each loop over whole numbers at its first and last 8 values, and each over bytes at a fixed seeded
+sample, and a false `PROVE` says which and where. `prove.sh` runs it so, with the byte view checked
+and under the sanitizers, after `proofs.py` has read the file (what it does not know is refused, not
+run) and before Lean: a claim that is false when run is not proved, and fails in a second. That sets the reading against a run; it does not prove the reading.
 
 A class read from another program has its proof file in that domain (`proofs/C.proof.cpp`, which
 includes the program's own header). And a loop may be over every sequence of bytes there is,
