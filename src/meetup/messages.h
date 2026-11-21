@@ -40,6 +40,7 @@
 #include "src/strong/meetup/header.h"
 #include "src/strong/meetup/nonce.h"
 #include "src/strong/meetup/register.h"
+#include "src/strong/meetup/time.h"
 #include "src/crypto/crypto.h"
 #include "src/meetup/sealed.h"
 #include "src/network/network.h"
@@ -168,15 +169,6 @@ inline std::string meetup_time_text( uint64_t answering, uint64_t time_ms )
 {
   return meetup_u64( answering ) + meetup_u64( time_ms );
 }
-inline bool meetup_read_time( const std::string& text, uint64_t& answering, uint64_t& time_ms )
-{
-  if ( text.size() != 16 ) {
-    return false;
-  }
-  answering = meetup_u64_of( text.data() );
-  time_ms = meetup_u64_of( text.data() + 8 );
-  return true;
-}
 
 /* A message's header, once its length, mark and version have been found right. */
 struct MeetupHeader
@@ -286,6 +278,11 @@ struct MeetupKindOf<Strong::Meetup::Register>
 {
   static const MeetupKind kind = MEETUP_REGISTER;
 };
+template <>
+struct MeetupKindOf<Strong::Meetup::Time>
+{
+  static const MeetupKind kind = MEETUP_TIME;
+};
 
 /*
  * A meetup message of the kind a T reads, whose header was read. unseal opens it into `out` if the
@@ -342,6 +339,19 @@ inline bool meetup_read_register( const Unsealed<Strong::Meetup::Register>& open
 inline bool meetup_register_from( const Unsealed<Strong::Meetup::Register>& opened, const std::string& where )
 {
   return where.size() == MEETUP_WHERE_LEN && opened.starts_with( where );
+}
+
+/* What is a TIME's text is Strong::Meetup::Time's to say (strong/meetup/time.h), and is proved: true,
+   the counter it answers and the meetup's time, if it reads. */
+inline bool meetup_read_time( const Unsealed<Strong::Meetup::Time>& opened, uint64_t& answering, uint64_t& time_ms )
+{
+  Strong::Meetup::Time t;
+  if ( !opened.read( t ) ) {
+    return false;
+  }
+  answering = t.answering_checked();
+  time_ms = t.time_checked();
+  return true;
 }
 
 /* PASSED: what the meetup sends on. Not sealed: the datagram is the session's, sealed already. */

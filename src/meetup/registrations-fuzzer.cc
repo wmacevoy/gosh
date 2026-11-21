@@ -188,9 +188,11 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
       uint64_t counter, answering, its_ms;
       std::string seen;
       if ( !time_right ) {
+        std::optional<Unsealed<Strong::Meetup::Time>> told;
         /* its time too far from the meetup's: told the meetup's, for this REGISTER, and nothing more */
         require( meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == MEETUP_TIME
-                 && meetup_open( *sessions[m.ticket], h, true, counter, seen ) && meetup_read_time( seen, answering, its_ms )
+                 && Sealed<Strong::Meetup::Time, MeetupSealer>( h ).unseal( MeetupSealer{ *sessions[m.ticket], true }, told )
+                 && meetup_read_time( *told, answering, its_ms )
                  && answering == c && its_ms == now * 1000 );
         return;
       }

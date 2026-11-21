@@ -43,11 +43,23 @@ FACTS( Messages )
   FACT_CHECK( ( !meetup_read_header( short_reg.data(), short_reg.size(), sh ) ), "a REGISTER whose text is of another length is not even read as one" );
   const std::string told = meetup_seal( session, MEETUP_TIME, t.id, 1, true, 1, meetup_time_text( 5, 1763337600000ULL ) );
   MeetupHeader th;
-  uint64_t tc = 0, answering = 0, its_time = 0;
-  std::string tt;
+  uint64_t answering = 0, its_time = 0;
+  std::optional<Unsealed<Strong::Meetup::Time>> tt;
   FACT_CHECK( ( told.size() == 67 && meetup_read_header( told.data(), told.size(), th ) && th.kind == MEETUP_TIME
-           && meetup_open( session, th, true, tc, tt ) && meetup_read_time( tt, answering, its_time ) && answering == 5
-           && its_time == 1763337600000ULL ), "TIME is 67 bytes, and opens, as the meetup's, to the counter it answers and the meetup's time" );
+           && Sealed<Strong::Meetup::Time, MeetupSealer>( th ).unseal( MeetupSealer{ session, true }, tt )
+           && meetup_read_time( *tt, answering, its_time ) && answering == 5 && its_time == 1763337600000ULL && tt->counter() == 1 ),
+           "TIME is 67 bytes, and opens, as the meetup's, to the counter it answers and the meetup's time" );
+  FACT_CHECK( ( !Sealed<Strong::Meetup::Time, MeetupSealer>( th ).unseal( MeetupSealer{ session, false }, tt ) && !tt ),
+              "a TIME does not unseal as sealed by an end" );
+  FACT_CHECK( ( !Sealed<Strong::Meetup::Register, MeetupSealer>( th ).unseal( MeetupSealer{ session, true }, opened ) && !opened ),
+              "nor as a REGISTER" );
+  const std::string beyond = meetup_seal( session, MEETUP_TIME, t.id, 1, true, 2, meetup_time_text( Strong::Meetup::COUNTER_MOST + 1, 1 ) );
+  const std::string most = meetup_seal( session, MEETUP_TIME, t.id, 1, true, 3, meetup_time_text( Strong::Meetup::COUNTER_MOST, 1 ) );
+  MeetupHeader bh, mh;
+  FACT_CHECK( ( meetup_read_header( beyond.data(), beyond.size(), bh ) && Sealed<Strong::Meetup::Time, MeetupSealer>( bh ).unseal( MeetupSealer{ session, true }, tt )
+           && !meetup_read_time( *tt, answering, its_time ) ), "a TIME that answers a counter of 2^62, which no REGISTER has, opens and is not read" );
+  FACT_CHECK( ( meetup_read_header( most.data(), most.size(), mh ) && Sealed<Strong::Meetup::Time, MeetupSealer>( mh ).unseal( MeetupSealer{ session, true }, tt )
+           && meetup_read_time( *tt, answering, its_time ) && answering == Strong::Meetup::COUNTER_MOST ), "one that answers 2^62 - 1 is read" );
   bool no_time_reads = true;
   for ( size_t n = 0; n < 100; n++ ) {
     if ( n != 67 ) {
