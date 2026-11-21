@@ -13,10 +13,14 @@
 # class, what it is written with), D.claims.lean (the proof of what is owed), and, if there are any,
 # D.proof.cpp (what is claimed of it, as a test that cannot be run), D.proof-claims.lean (the proof of
 # those claims) and D.script.py (more calls for the comparison of model and C++). The prover is
-# tools/prover (its README says what each step is); what it writes goes to .build/proofs.
+# tools/prover (its README says what each step is), a copy of strong-domain-driven-design's, where
+# it is made and tested; what it writes goes to .build/proofs. (PROVER and PROOFS_OUT run another
+# prover, writing elsewhere: strong-domain-driven-design's check runs gosh's proofs by its own.)
 #
-# Needs: Lean 4.36.0 (LEAN, or .tools/lean-4.36.0-linux), a Python with libclang (PYTHON), and gosh
-# built (tools/build.sh: the lint reads mosh's core and its config.h). CONTRIBUTING.md says how.
+# Needs: Lean 4.36.0 and a Python with libclang, which strong-domain-driven-design owns: found in a
+# checkout of it beside gosh (STRONG_DOMAINS; its tools/lean.sh and pixi install make them), else
+# set LEAN and PYTHON; in CI, its image has both. And gosh built (tools/build.sh: the lint reads
+# mosh's core and its config.h). CONTRIBUTING.md says how.
 set -e
 cd "$(dirname "$0")/.."
 MODE=heavy; ONLY=
@@ -30,7 +34,9 @@ for a in "$@"; do
 done
 [ "$MODE" = lite ] || [ -z "$ONLY" ] || { echo "proofs: cannot start: a domain is named ($ONLY ), and that is for --lite"; exit 2; }
 LEAN_VERSION=4.36.0
-: "${LEAN:=$PWD/.tools/lean-$LEAN_VERSION-linux/bin/lean}" "${PYTHON:=python3}"
+: "${STRONG_DOMAINS:=$PWD/../strong-domain-driven-design}"
+: "${LEAN:=$STRONG_DOMAINS/.tools/lean-$LEAN_VERSION-linux/bin/lean}"
+[ -n "$PYTHON" ] || { [ -x "$STRONG_DOMAINS/.pixi/envs/default/bin/python" ] && PYTHON=$STRONG_DOMAINS/.pixi/envs/default/bin/python; } || PYTHON=python3
 export LEAN PYTHON
 CORE=$PWD/.build/core
 missing=
@@ -58,7 +64,7 @@ FOUND=$(find "$STRONG" -name '*.from' | sed 's|.*/||; s|\.from$||' | sort)
 # The prover reads a domain as a directory (from/, claims/, proofs/, scripts/); it is put together
 # in .build/proofs from the files beside each class. And it reads gosh's src as it stands in this
 # working tree, without the proof files, which are not the program.
-W=$PWD/.build/proofs
+W=${PROOFS_OUT:-$PWD/.build/proofs}
 rm -rf "$W/from" "$W/claims" "$W/proofs" "$W/scripts" "$W/subject"
 mkdir -p "$W/from" "$W/claims" "$W/proofs" "$W/scripts" "$W/subject"
 for f in $(find "$STRONG" -name '*.from'); do
@@ -73,7 +79,7 @@ tar -c --exclude='*.from' --exclude='*.lean' --exclude='*.proof.cpp' --exclude='
 SUBJECT=$W/subject
 SUBJECT_COMMIT="$(git rev-parse HEAD)$(git diff --quiet HEAD -- src || echo ', and changed since')"
 export SUBJECT SUBJECT_COMMIT
-PROVER=$PWD/tools/prover
+PROVER=${PROVER:-$PWD/tools/prover}; export PROVER
 
 # The full compile of what is proved has three steps, in this order: the C++ compiler, the lint,
 # the prover. Each refuses the program; the later ones rest on the earlier.
@@ -119,7 +125,7 @@ if [ "$MODE" = lite ]; then
     fi
     DOMAIN="$W" "$PROVER/prove.sh" $PROVE
     if [ -n "$ONLY" ]; then DOMAIN="$W" RED_ONLY="$ONLY" "$PYTHON" tools/proofs-red.py; fi
-    echo "proofs: PASS (lite: proved:$PROVE; NOT run: the lint of all of gosh$([ -n "$ONLY" ] && echo ", the other domains' proofs, the rules' red cases" || echo ", any red case"), the prover's own tests. The whole is tools/proofs.sh)"
+    echo "proofs: PASS (lite: proved:$PROVE; NOT run: the lint of all of gosh$([ -n "$ONLY" ] && echo ", the other domains' proofs, the rules' red cases" || echo ", any red case"). The whole is tools/proofs.sh)"
     exit 0
 fi
 STRONG=$STRONG INCLUDE="$LINT_INCLUDE" "$PYTHON" "$PROVER/lint.py"
@@ -128,7 +134,5 @@ STRONG=$STRONG INCLUDE="$LINT_INCLUDE" "$PYTHON" "$PROVER/lint.py"
 DOMAIN="$W" "$PROVER/prove.sh" $DOMAINS
 # Each proof fails when its class is broken, and each rule refuses a gosh that breaks it.
 DOMAIN="$W" "$PYTHON" tools/proofs-red.py
-# And the prover's own tests: what it reads, refuses and proves of classes written for them.
-PATH="$(dirname "$LEAN"):$PATH" "$PYTHON" "$PROVER/test_prooc.py" > "$W/prover-tests.log" 2>&1 || { tail -n 20 "$W/prover-tests.log"; echo "proofs: FAIL: the prover's own tests (log: $W/prover-tests.log)"; exit 1; }
-echo "prover: its own tests pass ($(grep -c . "$W/prover-tests.log") lines: $W/prover-tests.log)"
+# (The prover's own tests are strong-domain-driven-design's check: they test the prover, not gosh.)
 echo "proofs: PASS"

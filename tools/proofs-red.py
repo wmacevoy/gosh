@@ -17,7 +17,8 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOMAIN = os.environ["DOMAIN"]
-PROVE = os.path.join(ROOT, "tools", "prover", "prove.sh")
+PROVER = os.environ.get("PROVER") or os.path.join(ROOT, "tools", "prover")
+PROVE = os.path.join(PROVER, "prove.sh")
 
 # (the class, its file's text as it is, the text broken, what is owed that no longer holds)
 # "CLASS:FILE" breaks FILE, one of the files the class is written with, and not the class's own.
@@ -122,9 +123,9 @@ for case in CASES:
         failures += not ok
         ran += 1
 
-# REQ1/SHAPE-4: code that is not proved, making a counter itself where it is to hand over a checked
+# REQ6/SHAPE-5 (strong-domain-driven-design: REQ1/SHAPE-4): code that is not proved, making a counter itself where it is to hand over a checked
 # one: the rule refuses the program. In a copy of gosh's src, with what the check just generated.
-INGRESS = os.path.join(ROOT, "tools", "prover", "ingress.py")
+INGRESS = os.path.join(PROVER, "ingress.py")
 if not ONLY:
     with tempfile.TemporaryDirectory() as d:
         shutil.copytree(os.environ["SUBJECT"], os.path.join(d, "subject"))
@@ -160,10 +161,10 @@ if not ONLY:
                   % ("the program is refused, ok" if ok else "FAIL (exit %d) %s" % (r.returncode, r.stdout.strip()[-300:])))
             failures += not ok
             ran += 1
-# REQ1/SHAPE-4: code that is not proved reads a window on an array itself, where it may only make
+# REQ6/SHAPE-5 (strong-domain-driven-design: REQ1/SHAPE-4): code that is not proved reads a window on an array itself, where it may only make
 # one and hand it over: the lint refuses the program. In a copy of what is proved and the one file that calls it (the
 # whole of gosh's src was linted as it is by the check, just before).
-LINT = os.path.join(ROOT, "tools", "prover", "lint.py")
+LINT = os.path.join(PROVER, "lint.py")
 if not ONLY:
     with tempfile.TemporaryDirectory() as d:
         shutil.copytree(os.path.join(os.environ["SUBJECT"], "src", "strong"), os.path.join(d, "subject", "src", "strong"))
@@ -187,7 +188,7 @@ if not ONLY:
                   % ("the program is refused, ok" if ok else "FAIL (exit %d) %s" % (r.returncode, r.stdout.strip()[-300:])))
             failures += not ok
             ran += 1
-# REQ1/SHAPE-3: what is claimed of StunAnswer in C++ (proofs/StunAnswer.proof.cpp) claims more than is
+# REQ6/SHAPE-5 (strong-domain-driven-design: REQ1/SHAPE-3): what is claimed of StunAnswer in C++ (proofs/StunAnswer.proof.cpp) claims more than is
 # so: that nothing kept is IPv6. The proof file is not proved.
 if wanted("StunAnswer"):
     with tempfile.TemporaryDirectory() as d:
