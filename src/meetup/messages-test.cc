@@ -52,6 +52,17 @@ FACTS( FixedLength )
     only_16 = only_16 && meetup_read_time( *opened, answering, its_time ) == ( n == 16 );
   }
   FACT_CHECK( only_16, "a TIME's text is read at 16 bytes, and at no other length" );
+
+  bool sent_only_read = true;
+  for ( size_t n : { 0, 1, 1500, 1501 } ) {
+    const std::string sealed = meetup_seal( session, MEETUP_PASS, t.id, 0, false, n, std::string( n, 'p' ) ).substr( MEETUP_HEADER );
+    std::optional<Unsealed<Strong::Meetup::Pass>> opened;
+    Sealed<Strong::Meetup::Pass, AnyLength>( sealed ).unseal( AnyLength{ session }, opened );
+    std::string out;
+    const bool reads = meetup_passed( *opened, out );
+    sent_only_read = sent_only_read && reads == ( n >= 1 && n <= 1500 ) && ( !reads || out == meetup_passed( std::string( n, 'p' ) ) );
+  }
+  FACT_CHECK( sent_only_read, "a PASS's datagram is sent on at 1 to 1,500 bytes, as it was sealed, and at no other length" );
 }
 
 /* REQ18/PATH-5, REQ17/PATH-8: the meetup's messages */
@@ -127,17 +138,15 @@ FACTS( Messages )
 
   MeetupHeader h;
   FACT_CHECK( ( meetup_read_header( reg.data(), reg.size(), h ) && h.kind == MEETUP_REGISTER && h.ticket == t.id && h.end == 1 ), "REGISTER's header reads: its kind, its ticket, its end" );
-  uint64_t counter = 0;
-  std::string text;
-  FACT_CHECK( ( meetup_open( session, h, false, counter, text ) && counter == 5 && text == said ), "and it opens, as sealed by end 1, to its counter and where" );
-  FACT_CHECK( !meetup_open( other, h, false, counter, text ), "not under another key" );
-  FACT_CHECK( !meetup_open( session, h, true, counter, text ), "not as sealed by the meetup" );
   std::string as_end0 = reg;
   as_end0[25] = 0;
-  FACT_CHECK( ( meetup_read_header( as_end0.data(), as_end0.size(), h ) && !meetup_open( session, h, false, counter, text ) ), "not as end 0's, if its end byte is changed" );
+  FACT_CHECK( ( meetup_read_header( as_end0.data(), as_end0.size(), h )
+           && !Sealed<Strong::Meetup::Register, MeetupSealer>( h ).unseal( MeetupSealer{ session, false }, opened ) && !opened ), "a REGISTER does not unseal as end 0's, if its end byte is changed" );
   std::string as_pass = reg;
   as_pass.replace( 0, 8, MEETUP_MARKS[MEETUP_PASS - 1], 8 );
-  FACT_CHECK( ( meetup_read_header( as_pass.data(), as_pass.size(), h ) && !meetup_open( session, h, false, counter, text ) ), "not as a PASS, if its mark is changed" );
+  std::optional<Unsealed<Strong::Meetup::Pass>> carried;
+  FACT_CHECK( ( meetup_read_header( as_pass.data(), as_pass.size(), h ) && h.kind == MEETUP_PASS
+           && !Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ session, false }, carried ) && !carried ), "nor as a PASS, if its mark is changed: the kind sealed inside it says REGISTER" );
 
   bool none_reads = true;
   for ( size_t n = 0; n < 200; n++ ) {
@@ -162,8 +171,14 @@ FACTS( Messages )
   const std::string big = meetup_seal( session, MEETUP_PASS, t.id, 0, false, 10, std::string( 1500, 'y' ) );
   const std::string too_big = meetup_seal( session, MEETUP_PASS, t.id, 0, false, 11, std::string( 1501, 'y' ) );
   FACT_CHECK( ( small.size() == 52 && big.size() == 1551 ), "a PASS is 51 bytes and its datagram: 52 to 1,551" );
-  FACT_CHECK( ( meetup_read_header( big.data(), big.size(), h ) && meetup_open( session, h, false, counter, text )
-           && text == std::string( 1500, 'y' ) && counter == 10 ), "both read and open to their datagrams" );
+  std::string sent;
+  FACT_CHECK( ( meetup_read_header( small.data(), small.size(), h ) && Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ session, false }, carried )
+           && carried->counter() == 9 && meetup_passed( *carried, sent ) && sent == meetup_passed( "x" ) )
+           && ( meetup_read_header( big.data(), big.size(), h ) && Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ session, false }, carried )
+           && carried->counter() == 10 && meetup_passed( *carried, sent ) && sent == meetup_passed( std::string( 1500, 'y' ) ) ),
+           "both read, open, and are sent on as PASSED with their datagrams, copied from where the cipher left them" );
+  FACT_CHECK( ( !Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ session, true }, carried ) && !carried
+           && !Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ other, false }, carried ) && !carried ), "a PASS does not unseal as sealed by the meetup, or under another key" );
   FACT_CHECK( !meetup_read_header( too_big.data(), too_big.size(), h ), "one with a datagram over 1,500 bytes is not read" );
   const std::string empty = meetup_seal( session, MEETUP_PASS, t.id, 0, false, 12, "" );
   FACT_CHECK( !meetup_read_header( empty.data(), empty.size(), h ), "nor one with none" );
@@ -171,14 +186,14 @@ FACTS( Messages )
   const std::string passed = meetup_passed( std::string( 1500, 'y' ) );
   FACT_CHECK( ( passed.size() == 1509 && passed.size() < big.size() && meetup_read_header( passed.data(), passed.size(), h )
            && h.kind == MEETUP_PASSED && std::string( h.sealed, h.sealed_len ) == std::string( 1500, 'y' ) ), "PASSED is the mark, the version and the datagram: shorter than the PASS it came in" );
-  FACT_CHECK( !meetup_open( session, h, true, counter, text ), "PASSED is never opened" );
+  FACT_CHECK( ( !Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ session, true }, carried ) && !carried ), "PASSED is never opened" );
 
   /* (proved of every counter and sender; the seal and the open around it are tried by every fact above) */
   if ( !proved_so_not_tried( "a counter is 62 bits: what is above them cannot change who sealed it",
                              "Strong::Meetup::Nonce, proofs/MeetupNonce.proof.cpp" ) ) {
     const std::string high = meetup_seal( session, MEETUP_PASS, t.id, 0, false, ~uint64_t( 0 ), "z" );
-    FACT_CHECK( ( meetup_read_header( high.data(), high.size(), h ) && meetup_open( session, h, false, counter, text )
-             && counter == MEETUP_COUNTER_MASK ), "a counter is 62 bits: what is above them cannot change who sealed it" );
+    FACT_CHECK( ( meetup_read_header( high.data(), high.size(), h ) && Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ session, false }, carried )
+             && carried->counter() == MEETUP_COUNTER_MASK ), "a counter is 62 bits: what is above them cannot change who sealed it" );
   }
 
   /* REQ17/PATH-8: an IPv6 address as "where", and back. */

@@ -39,6 +39,7 @@
 #include "src/strong/meetup/counter.h"
 #include "src/strong/meetup/header.h"
 #include "src/strong/meetup/nonce.h"
+#include "src/strong/meetup/pass.h"
 #include "src/strong/meetup/register.h"
 #include "src/strong/meetup/registered.h"
 #include "src/strong/meetup/time.h"
@@ -239,31 +240,6 @@ inline std::string meetup_seal( Crypto::Session& session,
   return out;
 }
 
-/*
- * Opens a message whose header was read: true, its counter and its text, if the seal opens under
- * this cipher, and it was sealed as this kind, for this end, by whom it should have been.
- */
-inline bool meetup_open( Crypto::Session& session, const MeetupHeader& h, bool from_meetup, uint64_t& counter, std::string& text )
-{
-  if ( h.kind == MEETUP_PASSED || h.sealed_len < MEETUP_SEAL + 1 ) {
-    return false;
-  }
-  try {
-    const Crypto::Message m = session.decrypt( h.sealed, h.sealed_len );
-    Strong::Meetup::Nonce stamp; /* (not "nonce": the message's own field is that word, and the lint of strong-domain-driven-design reads words) */
-    stamp.read_checked( m.nonce.val() );
-    if ( stamp.end_checked() != ( h.end ? 1u : 0u ) || stamp.by_meetup_checked() != ( from_meetup ? 1u : 0u ) || m.text.empty()
-         || static_cast<unsigned char>( m.text[0] ) != h.kind ) {
-      return false;
-    }
-    counter = stamp.counter_checked();
-    text = m.text.substr( 1 );
-    return true;
-  } catch ( const Crypto::CryptoException& ) {
-    return false;
-  }
-}
-
 /* Who may have sealed a meetup message, for the end its header names: the ticket's cipher, and whether the meetup. */
 struct MeetupSealer
 {
@@ -285,6 +261,11 @@ struct MeetupKindOf<Strong::Meetup::Registered>
   static const MeetupKind kind = MEETUP_REGISTERED;
 };
 template <>
+struct MeetupKindOf<Strong::Meetup::Pass>
+{
+  static const MeetupKind kind = MEETUP_PASS;
+};
+template <>
 struct MeetupKindOf<Strong::Meetup::Time>
 {
   static const MeetupKind kind = MEETUP_TIME;
@@ -293,7 +274,7 @@ struct MeetupKindOf<Strong::Meetup::Time>
 /*
  * A meetup message of the kind a T reads, whose header was read. unseal opens it into `out` if the
  * seal opens under this cipher, and it was sealed as this kind, for the header's end, by whom it
- * should have been: as meetup_open does, but owning what the cipher gave back, with no copy.
+ * should have been, owning what the cipher gave back, with no copy.
  */
 template <typename T>
 class Sealed<T, MeetupSealer>
@@ -373,6 +354,20 @@ inline bool meetup_read_time( const Unsealed<Strong::Meetup::Time>& opened, uint
 inline std::string meetup_passed( const std::string& datagram )
 {
   return std::string( MEETUP_MARKS[MEETUP_PASSED - 1], 8 ) + std::string( 1, static_cast<char>( MEETUP_VERSION ) ) + datagram;
+}
+
+/* What is a PASS's text is Strong::Meetup::Pass's to say (strong/meetup/pass.h), and is proved: true,
+   and out the PASSED that sends its datagram on, if it reads. The datagram is copied once, from where
+   the cipher left it into out; nothing else is. */
+static_assert( Strong::Meetup::DATAGRAM_MOST == MEETUP_MAX_DATAGRAM, "strong/meetup/pass.h says another most a datagram may be than this" );
+inline bool meetup_passed( const Unsealed<Strong::Meetup::Pass>& opened, std::string& out )
+{
+  Strong::Meetup::Pass p;
+  out.clear();
+  out.reserve( 9 + MEETUP_MAX_DATAGRAM );
+  out.append( MEETUP_MARKS[MEETUP_PASSED - 1], 8 );
+  out.push_back( static_cast<char>( MEETUP_VERSION ) );
+  return opened.read_onto( p, out );
 }
 
 }

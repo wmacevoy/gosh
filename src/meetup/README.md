@@ -22,7 +22,7 @@ one end of a ticket.
 | File | What it holds | Test |
 | --- | --- | --- |
 | `ticket.h` | a ticket: its id, its key from the master key, when it stops being good, its text. Logic | `ticket-test.cc`, with the real cipher |
-| `messages.h` | REGISTER, REGISTERED, PASS, PASSED as bytes, each at its exact length; sealing and opening. A REGISTER is opened by `Sealed<Strong::Meetup::Register, MeetupSealer>`, the others by `meetup_open`. Logic | `messages-test.cc` |
+| `messages.h` | REGISTER, REGISTERED, PASS, PASSED as bytes, each at its exact length; sealing and opening. Each sealed kind is opened by `Sealed<T, MeetupSealer>`, T the proved class that reads its text (`Strong::Meetup::Register`, `Registered`, `Pass`, `Time`), and read where the cipher left it. Logic | `messages-test.cc` |
 | `sealed.h` | `Sealed<T, Creds>` and `Unsealed<T>`: sealed text, and what it opened to, owned where the cipher left it and never copied; only a `Sealed` makes an `Unsealed`, and a T reads it in place as an `Opened<T>`. Not proved: it calls the cipher | `messages-test.cc` |
 | `registrations.h` | what the meetup does with REGISTER and PASS: who is where, which counters are used, what is passed to whom. Logic | `registrations-test.cc`: the fork's replay turned round |
 | `answer.h` | the STUN question answered, no more than 200 a second. Logic | `answer-test.cc` |

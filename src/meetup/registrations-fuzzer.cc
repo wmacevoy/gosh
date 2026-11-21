@@ -171,9 +171,13 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
     /* nothing under a ticket that has run out */
     require( now <= untils[m.ticket] );
     MeetupHeader mh;
-    uint64_t c;
-    std::string ignored;
-    require( meetup_read_header( m.bytes.data(), m.bytes.size(), mh ) && meetup_open( *sessions[m.ticket], mh, false, c, ignored ) );
+    std::optional<Unsealed<Strong::Meetup::Register>> as_register;
+    std::optional<Unsealed<Strong::Meetup::Pass>> as_pass;
+    const MeetupSealer by_end{ *sessions[m.ticket], false };
+    require( meetup_read_header( m.bytes.data(), m.bytes.size(), mh )
+             && ( mh.kind == MEETUP_REGISTER ? Sealed<Strong::Meetup::Register, MeetupSealer>( mh ).unseal( by_end, as_register )
+                                              : Sealed<Strong::Meetup::Pass, MeetupSealer>( mh ).unseal( by_end, as_pass ) ) );
+    const uint64_t c = as_register ? as_register->counter() : as_pass->counter();
     /* what this REGISTER said, read from the fuzzer's own record of what it sealed, not by the reader under test:
        where (19 bytes, a family of 4 or 6), then the time, eight bytes most significant first */
     const bool reads = m.kind == MEETUP_REGISTER && m.text.size() == 27 && ( m.text[0] == 4 || m.text[0] == 6 );
