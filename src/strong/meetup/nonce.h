@@ -10,7 +10,7 @@
  * of a nonce say the sender (bit 63: the meetup sealed it; bit 62: which end it is from, or
  * for), and the 62 bits below are that sender's counter.
  *
- * What is proved of it (the project strong-domain-driven-design, proofs/Nonce.proof.cpp):
+ * What is proved of it (MeetupNonce.proof.cpp, beside it; tools/proofs.sh):
  * every 64-bit nonce reads as one sender and one counter, and written again is the same nonce;
  * and a sender and a counter below 2^62, written as a nonce and read again, are the same. So two
  * senders, or two counters of one sender, never make one nonce.

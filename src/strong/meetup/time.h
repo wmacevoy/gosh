@@ -12,7 +12,7 @@
  * It reads the text as a fixed<16, Time> (subarray.h): that it has 16 bytes is its type, found
  * where it is made, so a text of another length never reaches it.
  *
- * Proved of it (the project strong-domain-driven-design), for every text of 16 bytes: read ends
+ * Proved of it (MeetupTime.proof.cpp, beside it; tools/proofs.sh), for every text of 16 bytes: read ends
  * and reads nothing outside the text, and the counter kept is a counter there can be. Not proved:
  * that the numbers kept are the text's, most significant first.
  */

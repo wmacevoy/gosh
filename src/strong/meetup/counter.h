@@ -8,7 +8,7 @@
  * proved class may. Everything else makes a CounterChecked, which tests.
  *
  * It is here so that what CounterWindow (counterwindow.h) expects of its caller is said by the type
- * it takes, and is proved, not trusted (the project strong-domain-driven-design): given any 64-bit
+ * it takes, and is proved, not trusted (CounterWindow.claims.lean; tools/proofs.sh): given any 64-bit
  * number, CounterWindow at 2^64 - 1 forgot counters it had taken (found there, 2026-11-18; never
  * reached, since every counter came through that mask already).
  */

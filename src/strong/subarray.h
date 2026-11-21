@@ -15,7 +15,7 @@
  * Making one expects what no test can show when the program runs: that those n elements are
  * there, one after another, and that they stay where they are, unchanged in place, for as long as
  * the subarray exists. That is whoever makes it to keep, and it is held before the program runs
- * (the project strong-domain-driven-design): by proof where a proved class makes one; by the
+ * (tools/proofs.sh): by proof where a proved class makes one; by the
  * lint, which lets one be only a local or a parameter (never a field, a global or what a
  * function gives back), and lets nothing change what it was made from while it is in scope; and
  * where code that is not proved makes one, by that code, each place listed. at( i ) expects

@@ -12,7 +12,7 @@
  * It reads the text as a fixed<19, Registered> (subarray.h): that it has 19 bytes is its type,
  * found where it is made, so a text of another length never reaches it.
  *
- * Proved of it (the project strong-domain-driven-design), for every text of 19 bytes: read ends
+ * Proved of it (MeetupRegistered.proof.cpp, beside it; tools/proofs.sh), for every text of 19 bytes: read ends
  * and reads nothing outside the text, and the family kept is 0, 4 or 6.
  */
 
