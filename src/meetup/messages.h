@@ -40,6 +40,7 @@
 #include "src/strong/meetup/header.h"
 #include "src/strong/meetup/nonce.h"
 #include "src/strong/meetup/register.h"
+#include "src/strong/meetup/registered.h"
 #include "src/strong/meetup/time.h"
 #include "src/crypto/crypto.h"
 #include "src/meetup/sealed.h"
@@ -279,6 +280,11 @@ struct MeetupKindOf<Strong::Meetup::Register>
   static const MeetupKind kind = MEETUP_REGISTER;
 };
 template <>
+struct MeetupKindOf<Strong::Meetup::Registered>
+{
+  static const MeetupKind kind = MEETUP_REGISTERED;
+};
+template <>
 struct MeetupKindOf<Strong::Meetup::Time>
 {
   static const MeetupKind kind = MEETUP_TIME;
@@ -339,6 +345,15 @@ inline bool meetup_read_register( const Unsealed<Strong::Meetup::Register>& open
 inline bool meetup_register_from( const Unsealed<Strong::Meetup::Register>& opened, const std::string& where )
 {
   return where.size() == MEETUP_WHERE_LEN && opened.starts_with( where );
+}
+
+/* What is a REGISTERED's text is Strong::Meetup::Registered's to say (strong/meetup/registered.h), and is
+   proved: true if it reads and says the end was seen where it believes it is, where's 19 bytes, compared
+   where they lie. */
+inline bool meetup_registered_at( const Unsealed<Strong::Meetup::Registered>& opened, const std::string& where )
+{
+  Strong::Meetup::Registered r;
+  return where.size() == MEETUP_WHERE_LEN && opened.read( r ) && opened.starts_with( where );
 }
 
 /* What is a TIME's text is Strong::Meetup::Time's to say (strong/meetup/time.h), and is proved: true,

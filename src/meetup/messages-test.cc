@@ -70,6 +70,19 @@ FACTS( Messages )
   const std::string reg = meetup_seal( session, MEETUP_REGISTER, t.id, 1, false, 5, said );
   const std::string answer = meetup_seal( session, MEETUP_REGISTERED, t.id, 1, true, 0, where );
   FACT_CHECK( ( reg.size() == 78 && answer.size() == 70 ), "REGISTER is 78 bytes and REGISTERED 70 (REQ18/PATH-5: REGISTER carries a time)" );
+  MeetupHeader gh;
+  std::optional<Unsealed<Strong::Meetup::Registered>> seen;
+  FACT_CHECK( ( meetup_read_header( answer.data(), answer.size(), gh ) && gh.kind == MEETUP_REGISTERED
+           && Sealed<Strong::Meetup::Registered, MeetupSealer>( gh ).unseal( MeetupSealer{ session, true }, seen )
+           && seen->counter() == 0 && meetup_registered_at( *seen, where ) ), "REGISTERED opens, as the meetup's, to where the end was seen, read where the cipher left it" );
+  FACT_CHECK( ( !meetup_registered_at( *seen, meetup_where_v4( 0x7F000001, 60002 ) ) && !meetup_registered_at( *seen, "" ) ), "and is at that where, and no other" );
+  FACT_CHECK( ( !Sealed<Strong::Meetup::Registered, MeetupSealer>( gh ).unseal( MeetupSealer{ session, false }, seen ) && !seen
+           && !Sealed<Strong::Meetup::Registered, MeetupSealer>( gh ).unseal( MeetupSealer{ other, true }, seen ) && !seen ), "a REGISTERED does not unseal as sealed by an end, or under another key" );
+  std::string nowhere = where;
+  nowhere[0] = 5;
+  const std::string answer5 = meetup_seal( session, MEETUP_REGISTERED, t.id, 1, true, 1, nowhere );
+  FACT_CHECK( ( meetup_read_header( answer5.data(), answer5.size(), gh ) && Sealed<Strong::Meetup::Registered, MeetupSealer>( gh ).unseal( MeetupSealer{ session, true }, seen )
+           && !meetup_registered_at( *seen, nowhere ) ), "one whose where is of a family there is not (5) opens and is not read, though it is the very bytes" );
   uint64_t time_back = 0;
   MeetupHeader rh;
   std::optional<Unsealed<Strong::Meetup::Register>> opened;

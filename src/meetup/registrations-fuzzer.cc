@@ -216,10 +216,10 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
     require( used[m.ticket][m.end].insert( c ).second );
     if ( m.kind == MEETUP_REGISTER ) {
       MeetupHeader h;
-      uint64_t counter;
-      std::string seen;
+      std::optional<Unsealed<Strong::Meetup::Registered>> seen;
       require( meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == MEETUP_REGISTERED
-               && meetup_open( *sessions[m.ticket], h, true, counter, seen ) && seen == from );
+               && Sealed<Strong::Meetup::Registered, MeetupSealer>( h ).unseal( MeetupSealer{ *sessions[m.ticket], true }, seen )
+               && meetup_registered_at( *seen, from ) );
       registered[me] = from;
       registered_at[me] = now;
     } else {

@@ -85,12 +85,11 @@ FACTS( TwoEndsAndTheReplay )
   FACT( s.to == laptop, "REGISTERED goes to where end 0 is" );
   FACT( s.bytes.size() == 70u, "REGISTERED is 70 bytes" );
   MeetupHeader h;
-  uint64_t counter;
-  std::string seen;
+  std::optional<Unsealed<Strong::Meetup::Registered>> seen;
   FACT( kind_of( s ) == MEETUP_REGISTERED );
   meetup_read_header( s.bytes.data(), s.bytes.size(), h );
-  FACT( meetup_open( a.session, h, true, counter, seen ), "end 0 opens it: sealed by the meetup" );
-  FACT( seen == laptop, "saying where end 0 was seen" );
+  FACT( ( Sealed<Strong::Meetup::Registered, MeetupSealer>( h ).unseal( MeetupSealer{ a.session, true }, seen ) ), "end 0 opens it: sealed by the meetup" );
+  FACT( meetup_registered_at( *seen, laptop ), "saying where end 0 was seen" );
   FACT( m.ticket_count() == 1u, "the ticket is held" );
   FACT( asked == 1, "its key computed once" );
 
@@ -195,9 +194,10 @@ FACTS( CopiesAfterLettingGo )
   const std::string copied_c = c.reg( now );
   Registrations::Send s = to( r, copied_c, laptop, now, key_of );
   MeetupHeader h;
-  uint64_t first_sealed = 0;
-  std::string where_seen;
-  meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && meetup_open( c.session, h, true, first_sealed, where_seen );
+  std::optional<Unsealed<Strong::Meetup::Registered>> seen;
+  meetup_read_header( s.bytes.data(), s.bytes.size(), h )
+    && Sealed<Strong::Meetup::Registered, MeetupSealer>( h ).unseal( MeetupSealer{ c.session, true }, seen );
+  const uint64_t first_sealed = seen ? seen->counter() : 0;
   to( r, d.reg( now ), desktop, now, key_of );
   const std::string copied_p = c.pass( "once" );
   FACT( to( r, copied_p, laptop, now, key_of ).any, "(a ticket held, both ends registered, a PASS passed)" );
@@ -210,10 +210,9 @@ FACTS( CopiesAfterLettingGo )
 
   s = to( r, c.reg( gone ), laptop, gone, key_of );
   FACT( kind_of( s ) == MEETUP_REGISTERED, "the end itself registers again, and is taken" );
-  uint64_t again_sealed = 0;
   meetup_read_header( s.bytes.data(), s.bytes.size(), h );
-  FACT( meetup_open( c.session, h, true, again_sealed, where_seen ) );
-  FACT( again_sealed > first_sealed, "what the meetup seals for the ticket taken again is not numbered as before (a nonce once only)" );
+  FACT( ( Sealed<Strong::Meetup::Registered, MeetupSealer>( h ).unseal( MeetupSealer{ c.session, true }, seen ) ) );
+  FACT( seen->counter() > first_sealed, "what the meetup seals for the ticket taken again is not numbered as before (a nonce once only)" );
   to( r, d.reg( gone ), desktop, gone, key_of );
   FACT( !to( r, copied_p, laptop, gone, key_of ).any, "a PASS sealed before that REGISTER is not passed, though the ticket is held afresh" );
   FACT( to( r, c.pass( "new" ), laptop, gone, key_of ).any, "while a new one is" );
