@@ -44,6 +44,11 @@ if [ "$MODE" = ready ]; then
 fi
 [ -z "$missing" ] || { echo "proofs: cannot start: $missing. CONTRIBUTING.md says how to get the prover's tools"; exit 2; }
 
+# (Not gosh's build CC and CXX, which . tools/gcc16.sh makes g++ 16 with its flags: these are the
+# usual compilers, here, in the prover's comparison of model and C++, and where the prover asks CC
+# for the compiler's own headers; g++ 16 is run beside them.)
+CC=${PROOFS_CC:-cc}; CXX=${PROOFS_CXX:-c++}; export CC CXX
+
 # Each domain, in the order it is proved: one it `uses` before it. Every D.from under src/strong is here.
 DOMAINS="StunAnswer bounded_of bounded_checked_of CounterWindow is_stun_request_checked MeetupHeader MeetupNonce MeetupRegister MeetupRegistered MeetupPass MeetupTime"
 STRONG=src/strong
@@ -75,7 +80,6 @@ PROVER=$PWD/tools/prover
 
 # 1. compile. What is proved compiles alone, with every warning an error: by the usual compiler,
 # which reads pre(...) as nothing, and by g++ 16, which compiles it as a contract.
-: "${CXX:=c++}"
 GXX16=$PWD/tools/gcc16/.pixi/envs/default/bin/x86_64-conda-linux-gnu-g++
 HEADERS=$(find "$SUBJECT/$STRONG" -name '*.h' | sort)
 for f in $HEADERS; do
