@@ -39,28 +39,26 @@ takes about three and a half minutes here, more from nothing. In order it checks
    `gosh-stock.py`, for what `gosh` does with a host that has only a stock mosh),
    and a gosh end works with a pf.7 end each way. These are the tests gosh's parts must pass when they land.
 7. what stands under `src/strong` is proved (`tools/proofs.sh`): it compiles alone, the lint of
-   all of `src` finds nothing a proof takes as given broken, each domain is proved, each proof and
-   rule is seen to fail when gosh is broken, and the prover's own tests pass. Only when the
-   prover's tools are there: else the check ends `PASS (NOT run: the proofs: ...)`, which is not
-   a pass of the whole.
+   all of `src` finds nothing a proof takes as given broken, each domain is proved, and each proof
+   and rule is seen to fail when gosh is broken. Only when the prover's tools are there: else the
+   check ends `PASS (NOT run: the proofs: ...)`, which is not a pass of the whole.
 
 **The proofs** (since 2026-11-21; before, in the project strong-domain-driven-design). A domain is a
 proved class and the files beside it, named by the domain (one header may hold two):
 `MeetupRegister.from` (which file and class, and what it is written with), `MeetupRegister.claims.lean`
 (the proof of what is owed), and where there are any `MeetupRegister.proof.cpp` (what is claimed of
 it, as a test that cannot be run), `MeetupRegister.proof-claims.lean` and `MeetupRegister.script.py`.
-The prover is `tools/prover/` (its `README.md`); the failure cases are `tools/proofs-red.py`.
-`tools/proofs.sh --lite DOMAIN...` proves and breaks those alone, while working. What the prover
-writes goes to `.build/proofs`. It needs:
+`tools/proofs.sh --lite DOMAIN...` proves and breaks those alone, while working (about ten seconds
+each); the whole takes a few minutes. The failure cases are `tools/proofs-red.py`. What the prover
+writes goes to `.build/proofs`.
 
-- **Lean 4.36.0**, unpacked at `.tools/lean-4.36.0-linux/` (not committed, 3 GB), or anywhere with
-  `LEAN` set to its `bin/lean`: the release `lean-4.36.0-linux.tar.zst` from
-  <https://github.com/leanprover/lean4/releases/tag/v4.36.0>. No Lean packages are needed.
-- **A Python with libclang** (`import clang.cindex`), named by `PYTHON`. The system's `python3`
-  here has none; oopc's pixi environment has one (`pixi install` in a checkout of oopc, then
-  `PYTHON=/path/to/oopc/.pixi/envs/default/bin/python`).
-- **gosh built** (`tools/build.sh`, which the check does first): the lint reads mosh's core and its
-  `config.h`. And g++ 16, if `. tools/gcc16.sh` has fetched it, compiles what is proved with contracts.
+The prover, `tools/prover/`, is a copy of strong-domain-driven-design's, where it is made and its
+own tests are run; that project's check runs gosh's proofs by its prover before gosh takes a new
+copy. It also owns the prover's tools, and `tools/proofs.sh` finds them in a checkout of it beside
+gosh (`../strong-domain-driven-design`, or `STRONG_DOMAINS`): there, `tools/lean.sh` fetches Lean
+4.36.0 (600 MB, 3 GB unpacked) and `pixi install` makes a Python with libclang. Or set `LEAN` and
+`PYTHON`. In CI the job `proofs` runs in that project's image, which holds both. gosh must be built
+first (the check does it): the lint reads mosh's core and its `config.h`.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
 `.build/bin`, with the seam applied (`seam/`, eight patches; `src/seam/`) and the fork's forwarding

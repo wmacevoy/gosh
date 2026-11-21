@@ -21,3 +21,22 @@ jobs:
           sudo apt-get install -y -q autoconf automake pkg-config protobuf-compiler libprotobuf-dev libncurses-dev libssl-dev zlib1g-dev mosh nftables iproute2 iputils-ping
           mosh-server --version | head -1
       - run: tools/check.sh
+  # The proofs (tools/proofs.sh; the whole check above ends "NOT run: the proofs" without the
+  # prover's tools). Run in strong-domain-driven-design's image, which holds Lean and a Python with
+  # libclang, so that nothing of them is fetched or installed here on each run.
+  # TODO before this is pushed: name the image by its digest once it is published, and let this
+  # repository read the package (its settings, "Manage Actions access").
+  proofs:
+    runs-on: ubuntu-24.04
+    container: ghcr.io/wmacevoy/strong-domains-prover:lean-4.36.0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true # core/: gosh is built, since the lint reads mosh's core and its config.h
+      - name: What the core needs to build
+        run: |
+          apt-get update -q
+          apt-get install -y -q autoconf automake pkg-config protobuf-compiler libprotobuf-dev libncurses-dev libssl-dev zlib1g-dev
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: tools/build.sh
+      - run: tools/proofs.sh
