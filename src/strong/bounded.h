@@ -8,7 +8,7 @@
  * a number is what expects something, of whoever makes it: pre( a <= raw && raw <= b ). After that
  * every use has, for nothing, that the number is within the bounds.
  *
- * "Expects" is C++26's contract. It is proved, not tested (the project strong-domain-driven-design):
+ * "Expects" is C++26's contract. It is proved, not tested (bounded_of.claims.lean, beside it; tools/proofs.sh):
  * of this class once, for every type whose values compare by <= and every a and b; and of each
  * class that makes one, that it gives the constructor what it expects. A compiler that knows
  * contracts (g++ 16, tools/gcc16.sh) tests it too, and ends the program if it is not so; for any
@@ -57,8 +57,8 @@ template <auto A, auto B, typename T> using bounded = bounded_of<T, T{ A }, T{ B
  * and expects nothing: it tests the number, when the program runs, and the process ends if it is
  * not within the bounds, saying who made it (caller.h). So one that exists is within its bounds,
  * as a bounded is; what differs is who may make one, and what that costs. Code that is not proved
- * may not make a bounded itself: the proving refuses the program (strong-domain-driven-design:
- * tools/check.sh, "ingress").
+ * may not make a bounded itself: the proving refuses the program (tools/proofs.sh,
+ * "ingress").
  */
 template <typename T, T A, T B>
 class bounded_checked_of

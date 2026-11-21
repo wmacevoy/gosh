@@ -13,7 +13,7 @@
  * It reads the text as a fixed<27, Register> (subarray.h): that it has 27 bytes is its type, found
  * where it is made, so a text of another length never reaches it.
  *
- * Proved of it (the project strong-domain-driven-design), for every text of 27 bytes: read ends
+ * Proved of it (MeetupRegister.proof.cpp, beside it; tools/proofs.sh), for every text of 27 bytes: read ends
  * and reads nothing outside the text, and the family kept is 0, 4 or 6. Not proved: that the time
  * kept is the last eight bytes, most significant first.
  *

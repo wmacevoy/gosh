@@ -6,8 +6,8 @@
  * that uses nothing of the system (no socket address, no byte order: pathfinding/stun.h's stun_parse is that
  * edge). The bytes come from anyone on the Internet, before anything has checked them.
  *
- * It is written so that a proof can be derived from this text as it stands (the project
- * strong-domain-driven-design): unsigned numbers only, no pointer, no call out but to `data`. What is
+ * It is written so that a proof can be derived from this text as it stands (StunAnswer.proof.cpp
+ * beside it; tools/proofs.sh): unsigned numbers only, no pointer, no call out but to `data`. What is
  * proved of it there, for every sequence of bytes of any length:
  *   - parse() ends, and reads nothing outside the datagram;
  *   - what is kept is nothing, IPv4 or IPv6, and never an IPv6 address of one link alone

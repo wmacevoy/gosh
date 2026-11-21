@@ -14,7 +14,7 @@ record of how it came to be are in `../mosh-dev`; nothing is changed there.
 
 **The full check:** `tools/check.sh`
 
-**While working:** `tools/check.sh --lite [PART...]` builds, and runs the unit tests and outside tests of the parts of `src/` named (with none named: every part's unit tests and a terminal session). It leaves out the doctor, the fuzzers under AddressSanitizer, the reference and the NAT lab, and any fact a test marks as proved (`src/seam/proved.h`); it ends `PASS (lite: ...)` and says what it left out. It is never the whole check: a merge, CI and a release are held to `tools/check.sh` alone.
+**While working:** `tools/check.sh --lite [PART...]` builds, and runs the unit tests and outside tests of the parts of `src/` named (with none named: every part's unit tests and a terminal session). It leaves out the doctor, the fuzzers under AddressSanitizer, the reference and the NAT lab, the proofs, and any fact a test marks as proved (`src/seam/proved.h`); it ends `PASS (lite: ...)` and says what it left out. It is never the whole check: a merge, CI and a release are held to `tools/check.sh` alone.
 
 **With g++ 16, as C++26 with contracts** (branch `strong/gcc16`, 2026-11-18): `. tools/gcc16.sh`
 first, then the same two commands. It fetches the compiler with pixi, without root, and sets `CC`
@@ -38,6 +38,29 @@ takes about three and a half minutes here, more from nothing. In order it checks
    `headless-smoke.py` with no relay and with the relay from the start, found when UDP is blocked, told a translated address, and left again when UDP returns, `mocp.test`, `copy-cut.py`, `gosh-command.py`, which goes from the `gosh` command line to a byte at a forward's target, and
    `gosh-stock.py`, for what `gosh` does with a host that has only a stock mosh),
    and a gosh end works with a pf.7 end each way. These are the tests gosh's parts must pass when they land.
+7. what stands under `src/strong` is proved (`tools/proofs.sh`): it compiles alone, the lint of
+   all of `src` finds nothing a proof takes as given broken, each domain is proved, each proof and
+   rule is seen to fail when gosh is broken, and the prover's own tests pass. Only when the
+   prover's tools are there: else the check ends `PASS (NOT run: the proofs: ...)`, which is not
+   a pass of the whole.
+
+**The proofs** (since 2026-11-21; before, in the project strong-domain-driven-design). A domain is a
+proved class and the files beside it, named by the domain (one header may hold two):
+`MeetupRegister.from` (which file and class, and what it is written with), `MeetupRegister.claims.lean`
+(the proof of what is owed), and where there are any `MeetupRegister.proof.cpp` (what is claimed of
+it, as a test that cannot be run), `MeetupRegister.proof-claims.lean` and `MeetupRegister.script.py`.
+The prover is `tools/prover/` (its `README.md`); the failure cases are `tools/proofs-red.py`.
+`tools/proofs.sh --lite DOMAIN...` proves and breaks those alone, while working. What the prover
+writes goes to `.build/proofs`. It needs:
+
+- **Lean 4.36.0**, unpacked at `.tools/lean-4.36.0-linux/` (not committed, 3 GB), or anywhere with
+  `LEAN` set to its `bin/lean`: the release `lean-4.36.0-linux.tar.zst` from
+  <https://github.com/leanprover/lean4/releases/tag/v4.36.0>. No Lean packages are needed.
+- **A Python with libclang** (`import clang.cindex`), named by `PYTHON`. The system's `python3`
+  here has none; oopc's pixi environment has one (`pixi install` in a checkout of oopc, then
+  `PYTHON=/path/to/oopc/.pixi/envs/default/bin/python`).
+- **gosh built** (`tools/build.sh`, which the check does first): the lint reads mosh's core and its
+  `config.h`. And g++ 16, if `. tools/gcc16.sh` has fetched it, compiles what is proved with contracts.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
 `.build/bin`, with the seam applied (`seam/`, eight patches; `src/seam/`) and the fork's forwarding

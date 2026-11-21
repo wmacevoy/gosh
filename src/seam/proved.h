@@ -24,8 +24,8 @@
 
 namespace Gosh {
 
-/* True, and a line saying so, in the lite check: the fact named is proved (by `proof`, in the
-   project strong-domain-driven-design) and is not tried now. False in every other run. */
+/* True, and a line saying so, in the lite check: the fact named is proved (by `proof`, beside the
+   class it is of; tools/proofs.sh) and is not tried now. False in every other run. */
 inline bool proved_so_not_tried( const char* fact, const char* proof )
 {
   const char* mode = getenv( "GOSH_CHECK" );

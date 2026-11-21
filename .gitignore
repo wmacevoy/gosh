@@ -2,3 +2,4 @@ __pycache__/
 /.build/
 /.deps/
 /tools/gcc16/.pixi/
+/.tools/

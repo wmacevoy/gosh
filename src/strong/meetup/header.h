@@ -10,7 +10,7 @@
  * marks, version 2, at an exact length for its kind (PASS and PASSED: within their bounds), and
  * for an end that is 0 or 1. Anything else is not read, and what was kept stays as it was.
  *
- * Proved of it (the project strong-domain-driven-design), for every sequence of bytes of any
+ * Proved of it (MeetupHeader.proof.cpp, beside it; tools/proofs.sh), for every sequence of bytes of any
  * length: read ends and reads nothing outside the datagram; and of a head that was read, the
  * ticket's 16 bytes at 9, the end at 25 and what is sealed all lie inside a datagram of the
  * length it kept. So whoever copies the ticket out, or hands what is sealed to the cipher, by

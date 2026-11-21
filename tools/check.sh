@@ -13,7 +13,10 @@
 #      part of gosh must then pass; until a part lands they say only that the
 #      test and the reference agree (queue item 4);
 #   6. gosh's own programs pass the ones they can so far, and a gosh end works
-#      with a pf.7 end each way.
+#      with a pf.7 end each way;
+#   7. what stands under src/strong is proved (tools/proofs.sh), when the prover's
+#      tools are there; when they are not, it ends "PASS (NOT run: the proofs ...)",
+#      never a bare PASS.
 #
 #     tools/check.sh                    all of it (--heavy): what CI, a merge and a release are held to
 #     tools/check.sh --lite [PART...]   while working: it builds, runs the unit tests of these parts
@@ -21,7 +24,8 @@
 #                                       part named: every part's unit tests, and a terminal session).
 #                                       Not run: the doctor, the fuzzers under AddressSanitizer, the
 #                                       reference (pf.7) and the NAT lab; and a fact a unit test marks
-#                                       as proved for every input (src/seam/proved.h) is not also tried.
+#                                       as proved for every input (src/seam/proved.h) is not also tried;
+#                                       nor are the proofs (tools/proofs.sh --lite DOMAIN... for those).
 # --lite ends "PASS (lite: ...)" and says what it left out: it is never the whole check.
 # A stock mosh 1.4.0 must be installed for 4 (Debian, Ubuntu: the mosh package);
 # STOCK_CLIENT and STOCK_SERVER say where, if not in /usr/bin.
@@ -229,8 +233,17 @@ fi
 # patches 01 and 02). Since then each takes the other for a stock mosh: the terminal works and
 # nothing more is asked (REQ8/CMD-3), which stock-session.py and gosh-stock.py test. pf.7 is
 # still run against itself above, as the reference.
+PROOFS=
+if [ "$MODE" != lite ]; then
+    if why=$(tools/proofs.sh --ready); then
+        tools/proofs.sh || fail "the proofs (tools/proofs.sh)"
+    else
+        echo "NOT RUN: the proofs: $why (CONTRIBUTING.md says how to get the prover's tools)"
+        PROOFS=" (NOT run: the proofs: $why)"
+    fi
+fi
 if [ "$MODE" = lite ]; then
-    echo "PASS (lite: of ${PARTS:- every part\'s unit tests and a terminal session}; NOT run: the doctor, the fuzzers under AddressSanitizer, the reference and the NAT lab, $NOT_RUN outside tests of other parts, and what the lines above say is proved. The whole check is tools/check.sh)"
+    echo "PASS (lite: of ${PARTS:- every part\'s unit tests and a terminal session}; NOT run: the doctor, the fuzzers under AddressSanitizer, the reference and the NAT lab, $NOT_RUN outside tests of other parts, the proofs, and what the lines above say is proved. The whole check is tools/check.sh)"
 else
-    echo "PASS"
+    echo "PASS$PROOFS"
 fi

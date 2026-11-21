@@ -12,7 +12,7 @@
  *
  * It reads the text as an Opened<Pass> (opened.h): its length is whatever the cipher gave back.
  *
- * Proved of it (the project strong-domain-driven-design), for every text: read ends and reads
+ * Proved of it (MeetupPass.proof.cpp, beside it; tools/proofs.sh), for every text: read ends and reads
  * nothing outside the text, the length kept is at most 1,500, and one kept is the text's.
  *
  * The number is meetup/messages.h's, written out: it asks the compiler that they are the same.
