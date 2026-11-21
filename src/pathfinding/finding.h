@@ -218,16 +218,14 @@ private:
       passed.assign( h.sealed, h.sealed_len );
       return true;
     }
-    uint64_t counter;
-    std::string seen;
+    std::optional<Gosh::Unsealed<Strong::Meetup::Registered>> seen;
+    /* (The meetup answers only from where we said we were; one that says otherwise is old, or lying.) */
     if ( h.kind == Gosh::MEETUP_REGISTERED && h.ticket == ticket.id && h.end == end
-         && Gosh::meetup_open( *meetup_session, h, true, counter, seen ) ) {
-      /* (The meetup answers only from where we said we were; one that says otherwise is old, or lying.) */
-      if ( seen == believed ) {
-        registered = true;
-        registered_at = now;
-        register_tries = 0;
-      }
+         && Gosh::Sealed<Strong::Meetup::Registered, Gosh::MeetupSealer>( h ).unseal( Gosh::MeetupSealer{ *meetup_session, true }, seen )
+         && Gosh::meetup_registered_at( *seen, believed ) ) {
+      registered = true;
+      registered_at = now;
+      register_tries = 0;
     }
     std::optional<Gosh::Unsealed<Strong::Meetup::Time>> told;
     uint64_t answering, its_time;

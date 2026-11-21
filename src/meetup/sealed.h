@@ -11,7 +11,8 @@
  * Unsealed<T> owns what the cipher gave back, made from it in place and never copied (the copy
  * constructor is deleted): a T reads it where it lies, by read: as a fixed<n, T> (strong/subarray.h)
  * where T's text has one length, found here once for every kind; else as an Opened<T>
- * (strong/opened.h).
+ * (strong/opened.h). What T has read may be sent on from there (read_onto): copied once, into what
+ * is sent.
  * The owner: "for performance it is crucial that data is not copied just because."
  */
 
@@ -52,6 +53,17 @@ public:
   /* T reads its text, where it lies: as a fixed<n, T> if its read_checked takes one, and then only
      a text of n bytes, so that T need not look; else as an Opened<T>, of any length. */
   bool read( T& reader ) const { return read_as( reader, &T::read_checked ); }
+
+  /* T reads its text, as read does; if it reads, the text is put at the end of out: the one copy,
+     into what is sent on. */
+  bool read_onto( T& reader, std::string& out ) const
+  {
+    if ( !read( reader ) ) {
+      return false;
+    }
+    out.append( message.text, begins, std::string::npos );
+    return true;
+  }
 
   /* Whether T's text begins with these bytes, compared where it lies. */
   bool starts_with( const std::string& bytes ) const

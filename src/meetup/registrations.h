@@ -136,9 +136,10 @@ public:
       if ( !live( self, now ) || self.where != from ) {
         return nothing;
       }
-      uint64_t counter;
-      std::string datagram;
-      if ( !meetup_open( *entry.session, h, false, counter, datagram ) || datagram.empty() || !self.counters.take_checked( Strong::Meetup::CounterChecked( counter ) ) ) {
+      std::optional<Unsealed<Strong::Meetup::Pass>> opened;
+      Strong::Meetup::Pass pass;
+      if ( !Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ *entry.session, false }, opened ) || !opened->read( pass )
+           || !self.counters.take_checked( Strong::Meetup::CounterChecked( opened->counter() ) ) ) {
         return nothing;
       }
       const End& other = entry.ends[1 - h.end];
@@ -146,9 +147,11 @@ public:
         return nothing;
       }
       Send s;
+      if ( !meetup_passed( *opened, s.bytes ) ) {
+        return nothing;
+      }
       s.any = true;
       s.to = other.where;
-      s.bytes = meetup_passed( datagram );
       return s;
     }
 
