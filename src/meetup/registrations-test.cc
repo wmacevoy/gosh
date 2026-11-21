@@ -234,10 +234,10 @@ FACTS( WrongClock )
   FACT( kind_of( s ) == MEETUP_TIME, "with TIME" );
   MeetupHeader h;
   meetup_read_header( s.bytes.data(), s.bytes.size(), h );
-  uint64_t counter = 0, answering = 0, its_time = 0;
-  std::string text;
-  FACT( meetup_open( c.session, h, true, counter, text ), "sealed for that end" );
-  FACT( meetup_read_time( text, answering, its_time ) );
+  uint64_t answering = 0, its_time = 0;
+  std::optional<Unsealed<Strong::Meetup::Time>> told;
+  FACT( ( Sealed<Strong::Meetup::Time, MeetupSealer>( h ).unseal( MeetupSealer{ c.session, true }, told ) ), "sealed for that end" );
+  FACT( meetup_read_time( *told, answering, its_time ) );
   FACT( answering == asking, "naming the REGISTER it answers" );
   FACT( its_time == now * 1000, "with the meetup's time" );
   FACT( to( r, c.reg( now + 600 ), laptop, now, key_of ).any, "and so is one ten minutes ahead" );

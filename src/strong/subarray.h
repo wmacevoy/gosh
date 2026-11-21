@@ -21,7 +21,12 @@
  * where code that is not proved makes one, by that code, each place listed. at( i ) expects
  * i < size(), which is proved of every reader.
  *
- * It is not proved itself: like caller.h it is what the proofs rest on, read by a person. It
+ * fixed<n, of>( a ) is the n bytes from a: a window whose length is its type. at( i ) expects
+ * i < n, and a proved class reads one only at an index written out below n (the prover refuses any
+ * other), so where a read falls is nothing to prove. Making one expects what making a subarray
+ * does, of n bytes; it is made where the length has just been found n (src/meetup/sealed.h).
+ *
+ * Neither is proved itself: like caller.h they are what the proofs rest on, read by a person. Each
  * keeps a pointer, which no proved class may.
  */
 
@@ -52,6 +57,20 @@ public:
   uint64_t size( void ) const { return count; }
 
   typename std::iterator_traits<Iterator>::value_type at( uint64_t i ) const pre( i < count ) { return *( first + i ); }
+};
+
+template <uint64_t N, typename Of = void>
+class fixed
+{
+private:
+  const unsigned char* first;
+
+public:
+  explicit fixed( const unsigned char* a ) : first( a ) {}
+
+  uint64_t size( void ) const { return N; }
+
+  unsigned char at( uint64_t i ) const pre( i < N ) { return first[i]; }
 };
 
 }

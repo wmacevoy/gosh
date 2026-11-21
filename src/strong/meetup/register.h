@@ -10,10 +10,12 @@
  * what was kept stays as it was. It keeps the family and the time, as numbers; where's bytes are its
  * first 19, which the caller copies out.
  *
- * Proved of it (the project strong-domain-driven-design), for every sequence of bytes of any length:
- * read ends and reads nothing outside the text; the family kept is 0, 4 or 6; and a family other
- * than 0 is kept only from a text of 27 bytes. Not proved: that the time kept is the last eight
- * bytes, most significant first.
+ * It reads the text as a fixed<27, Register> (subarray.h): that it has 27 bytes is its type, found
+ * where it is made, so a text of another length never reaches it.
+ *
+ * Proved of it (the project strong-domain-driven-design), for every text of 27 bytes: read ends
+ * and reads nothing outside the text, and the family kept is 0, 4 or 6. Not proved: that the time
+ * kept is the last eight bytes, most significant first.
  *
  * The numbers are meetup/messages.h's, written out: it asks the compiler that they are the same.
  */
@@ -23,7 +25,7 @@
 
 #include <cstdint>
 
-#include "src/strong/opened.h"
+#include "src/strong/subarray.h"
 
 namespace Strong {
 namespace Meetup {
@@ -39,11 +41,8 @@ public:
 
   /* True, and the family and time are kept, if this is a REGISTER's text; else false, and what is
      kept is as it was. */
-  bool read_checked( Opened<Register> text )
+  bool read_checked( fixed<27, Register> text )
   {
-    if ( text.size() != 27 ) {
-      return false;
-    }
     uint32_t f = text.at( 0 );
     if ( f != 4 && f != 6 ) {
       return false;

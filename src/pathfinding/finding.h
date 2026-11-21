@@ -33,6 +33,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -228,11 +229,11 @@ private:
         register_tries = 0;
       }
     }
-    std::string text;
+    std::optional<Gosh::Unsealed<Strong::Meetup::Time>> told;
     uint64_t answering, its_time;
     if ( h.kind == Gosh::MEETUP_TIME && h.ticket == ticket.id && h.end == end && time_wanted
-         && Gosh::meetup_open( *meetup_session, h, true, counter, text ) && Gosh::meetup_read_time( text, answering, its_time )
-         && answering == last_register_counter ) {
+         && Gosh::Sealed<Strong::Meetup::Time, Gosh::MeetupSealer>( h ).unseal( Gosh::MeetupSealer{ *meetup_session, true }, told )
+         && Gosh::meetup_read_time( *told, answering, its_time ) && answering == last_register_counter ) {
       /* (gosh, REQ18/PATH-5) Our REGISTER's time was too far from the meetup's clock: take its
        * word, which answers our last REGISTER and so is not an old one, and register again now. */
       meetup_offset += static_cast<int64_t>( its_time - meetup_time( now ) );
