@@ -44,7 +44,7 @@ jobs:
       - name: What the core needs to build
         run: |
           apt-get update -q
-          apt-get install -y -q autoconf automake pkg-config protobuf-compiler libprotobuf-dev libncurses-dev libssl-dev zlib1g-dev
+          apt-get install -y -q autoconf automake patch pkg-config protobuf-compiler libprotobuf-dev libncurses-dev libssl-dev zlib1g-dev
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: tools/build.sh
       - run: tools/proofs.sh
