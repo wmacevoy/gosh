@@ -1,8 +1,9 @@
 # prover — a spike: C++ is the source, and the product is a proof
 
 *(In gosh since 2026-11-21, at the owner's word ("the proofs and prover should be here, next to
-tests"): copied as it stood in the project strong-domain-driven-design at 0744065, unchanged; its
-history is there. gosh runs it by `tools/proofs.sh`, over the domains that stand beside gosh's
+tests"): copied as it stood in the project strong-domain-driven-design at 0744065, and brought
+up to its main at 56969b3 (2026-11-21: a const method that loops, named in a PROVE, is given fuel);
+unchanged here, its history is there. gosh runs it by `tools/proofs.sh`, over the domains that stand beside gosh's
 classes under `src/strong` (CONTRIBUTING.md). What follows is as it was written there: its
 `docs/...` are that project's.)*
 
