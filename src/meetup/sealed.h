@@ -9,7 +9,9 @@
  * Sealed can make, so the compiler holds it.
  *
  * Unsealed<T> owns what the cipher gave back, made from it in place and never copied (the copy
- * constructor is deleted): a T reads it where it lies, as an Opened<T> (strong/opened.h), by read.
+ * constructor is deleted): a T reads it where it lies, by read: as a fixed<n, T> (strong/subarray.h)
+ * where T's text has one length, found here once for every kind; else as an Opened<T>
+ * (strong/opened.h).
  * The owner: "for performance it is crucial that data is not copied just because."
  */
 
@@ -47,12 +49,9 @@ public:
   Unsealed( const Unsealed& ) = delete;
   Unsealed& operator=( const Unsealed& ) = delete;
 
-  /* T reads its text, where it lies. */
-  bool read( T& reader ) const
-  {
-    return reader.read_checked( Strong::Opened<T>( reinterpret_cast<const unsigned char*>( message.text.data() ) + begins,
-                                                   message.text.size() - begins ) );
-  }
+  /* T reads its text, where it lies: as a fixed<n, T> if its read_checked takes one, and then only
+     a text of n bytes, so that T need not look; else as an Opened<T>, of any length. */
+  bool read( T& reader ) const { return read_as( reader, &T::read_checked ); }
 
   /* Whether T's text begins with these bytes, compared where it lies. */
   bool starts_with( const std::string& bytes ) const
@@ -64,6 +63,19 @@ public:
   uint64_t counter( void ) const { return counter_of; }
 
 private:
+  const unsigned char* text( void ) const { return reinterpret_cast<const unsigned char*>( message.text.data() ) + begins; }
+
+  /* (n is the length T's reader says by its type: the one place it is found to be so.) */
+  template <uint64_t N>
+  bool read_as( T& reader, bool ( T::*)( Strong::fixed<N, T> ) ) const
+  {
+    return message.text.size() - begins == N && reader.read_checked( Strong::fixed<N, T>( text() ) );
+  }
+  bool read_as( T& reader, bool ( T::*)( Strong::Opened<T> ) ) const
+  {
+    return reader.read_checked( Strong::Opened<T>( text(), message.text.size() - begins ) );
+  }
+
   const Crypto::Message message;
   const size_t begins; /* at most message.text.size(): its Sealed keeps it no Unsealed otherwise */
   uint64_t counter_of;

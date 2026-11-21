@@ -9,10 +9,12 @@
  * first. A counter is under 2^62 (counter.h), so a text that names a larger one answers no REGISTER
  * there can be, and is not read. Anything else is not read, and what was kept stays as it was.
  *
- * Proved of it (the project strong-domain-driven-design), for every sequence of bytes of any length:
- * read ends and reads nothing outside the text; the counter kept is a counter there can be; and
- * anything but zeros is kept only from a text of 16 bytes. Not proved: that the numbers kept are
- * the text's, most significant first.
+ * It reads the text as a fixed<16, Time> (subarray.h): that it has 16 bytes is its type, found
+ * where it is made, so a text of another length never reaches it.
+ *
+ * Proved of it (the project strong-domain-driven-design), for every text of 16 bytes: read ends
+ * and reads nothing outside the text, and the counter kept is a counter there can be. Not proved:
+ * that the numbers kept are the text's, most significant first.
  */
 
 #ifndef GOSH_STRONG_MEETUP_TIME_H
@@ -21,7 +23,7 @@
 #include <cstdint>
 
 #include "src/strong/meetup/counter.h"
-#include "src/strong/opened.h"
+#include "src/strong/subarray.h"
 
 namespace Strong {
 namespace Meetup {
@@ -37,11 +39,8 @@ public:
 
   /* True, and the counter and time are kept, if this is a TIME's text; else false, and what is
      kept is as it was. */
-  bool read_checked( Opened<Time> text )
+  bool read_checked( fixed<16, Time> text )
   {
-    if ( text.size() != 16 ) {
-      return false;
-    }
     uint64_t a = text.at( 0 );
     a = ( a << 8 ) | text.at( 1 );
     a = ( a << 8 ) | text.at( 2 );

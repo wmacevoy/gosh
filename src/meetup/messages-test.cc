@@ -12,6 +12,48 @@
 #include "src/meetup/ticket.h"
 #include "src/seam/proved.h"
 #include "vendor/facts/facts.h"
+
+/* Credentials for this test alone: a sealed part taken as it is, of any length. No meetup message
+   reaches Unsealed with a text of the wrong length (the header is read at exact lengths), so this is
+   how what Unsealed does with one is seen. */
+struct AnyLength
+{
+  Crypto::Session& session;
+};
+namespace Gosh {
+template <typename T>
+class Sealed<T, AnyLength>
+{
+private:
+  const std::string& sealed;
+
+public:
+  explicit Sealed( const std::string& s ) : sealed( s ) {}
+  bool unseal( const AnyLength& by, std::optional<Unsealed<T>>& out ) const
+  {
+    out.emplace( typename Unsealed<T>::Key(), by.session, sealed.data(), sealed.size(), 1 );
+    return true;
+  }
+};
+}
+
+/* REQ6/SHAPE-5: a reader of one length is handed a text only of that length, found once, where it is made */
+FACTS( FixedLength )
+{
+  using namespace Gosh;
+  const Ticket t = make_ticket( "0123456789abcdef", "random!!", 1000000 );
+  Crypto::Session session( raw_key( t.key ) );
+  bool only_16 = true;
+  for ( size_t n = 0; n < 40; n++ ) {
+    const std::string sealed = meetup_seal( session, MEETUP_TIME, t.id, 1, true, n, std::string( n, '\0' ) ).substr( MEETUP_HEADER );
+    std::optional<Unsealed<Strong::Meetup::Time>> opened;
+    Sealed<Strong::Meetup::Time, AnyLength>( sealed ).unseal( AnyLength{ session }, opened );
+    uint64_t answering = 1, its_time = 1;
+    only_16 = only_16 && meetup_read_time( *opened, answering, its_time ) == ( n == 16 );
+  }
+  FACT_CHECK( only_16, "a TIME's text is read at 16 bytes, and at no other length" );
+}
+
 /* REQ18/PATH-5, REQ17/PATH-8: the meetup's messages */
 FACTS( Messages )
 {
@@ -151,6 +193,7 @@ FACTS( Messages )
 FACTS_REGISTER_ALL()
 {
   FACTS_REGISTER( Messages );
+  FACTS_REGISTER( FixedLength );
 }
 
 FACTS_MAIN
