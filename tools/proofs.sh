@@ -106,7 +106,7 @@ READ_ONLY=1 DOMAIN="$W" "$PROVER/prove.sh" $DOMAINS
 # number itself and calls nothing that says pre(...). And what is proved stands under src/strong,
 # in the namespace Strong, with nothing beside it there that is not proved.
 STRONG=$STRONG DOMAIN="$W" "$PYTHON" "$PROVER/ingress.py" $DOMAINS
-# And at a call of what is proved no two arguments are one thing, nothing starts a thread, and
+# And at a call nothing it may write has a second name, nothing starts a thread, and
 # nothing outside reaches a proved value's bytes. This reads every file of gosh's src as Clang
 # does, so it needs what they include: gosh's vendored headers, and mosh's core with its config.h.
 rm -rf "$W/include" && mkdir -p "$W/include" && ln -s "$PWD/vendor" "$W/include/vendor"     # vendor/ alone, not gosh's src a second time
