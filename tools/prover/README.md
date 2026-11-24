@@ -2,9 +2,11 @@
 
 *(In gosh since 2026-11-21, at the owner's word ("the proofs and prover should be here, next to
 tests"): copied as it stood in the project strong-domain-driven-design at 0744065, and brought
-up to its main at 5977abc (2026-11-21: a const method that loops, named in a PROVE, is given fuel;
-a proof file also runs small; the lint refuses a second name only for what a call may write);
-unchanged here, its history is there. gosh runs it by `tools/proofs.sh`, over the domains that stand beside gosh's
+up to its main at 1153a6f (2026-11-21: a const method that loops, named in a PROVE, is given fuel;
+a proof file also runs small; the lint refuses a second name only for what a call may write;
+2026-11-22: a proof file is of a set, its own domain and every one proved before it, with several
+objects, their functions, and const methods handed numbers); unchanged here, its history is there.
+gosh runs it by `tools/proofs.sh`, over the domains that stand beside gosh's
 classes under `src/strong` (CONTRIBUTING.md). What follows is as it was written there: its
 `docs/...` are that project's.)*
 
@@ -359,8 +361,16 @@ A method may be handed what a const method of the same object gives (`gauge.set(
 and a loop inside another knows the bounds of the one around it (both since 2026-11-19: the
 second had been left out, which made a statement ask more than the file said, never less).
 
-**Not yet:** more than one object in a proof; arithmetic in a condition; a method's result kept
-in a variable; a const method that takes something; a class with floats
+**A proof of a set** (since 2026-11-22). A domain is a set of classes and functions, the simplest
+one of either: "make the prover bend, not the world" (the owner). So a proof file is of the class
+whose file it is and of every domain proved before it in the run: it may make objects of any of
+their classes, each once, and call their functions (`sample/set/`: `proofs/Jar.proof.cpp` makes two
+jars and calls `fits`). Each class and function is still proved alone; the proof file is where
+what they do together is claimed. A function is called in a condition or to make what a method is
+handed, not as a statement, since what it gives would be kept nowhere.
+
+**Not yet:** arithmetic in a condition; a method's result kept
+in a variable; a class with floats
 (`sample/bottle/bottle.proof.cpp` is such a file, compiled and not proved: queue item 20).
 
 ## Another program's classes, read where they stand
