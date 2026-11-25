@@ -52,13 +52,16 @@ it, as a test that cannot be run), `MeetupRegister.proof-claims.lean` and `Meetu
 each); the whole takes a few minutes. The failure cases are `tools/proofs-red.py`. What the prover
 writes goes to `.build/proofs`.
 
-The prover, `tools/prover/`, is a copy of strong-domain-driven-design's, where it is made and its
-own tests are run; that project's check runs gosh's proofs by its prover before gosh takes a new
-copy. It also owns the prover's tools, and `tools/proofs.sh` finds them in a checkout of it beside
-gosh (`../strong-domain-driven-design`, or `STRONG_DOMAINS`): there, `tools/lean.sh` fetches Lean
-4.36.0 (600 MB, 3 GB unpacked) and `pixi install` makes a Python with libclang. Or set `LEAN` and
-`PYTHON`. In CI the job `proofs` runs in that project's image, which holds both. gosh must be built
-first (the check does it): the lint reads mosh's core and its `config.h`.
+The prover is strong-domain-driven-design's (https://github.com/wmacevoy/strong-domain-driven-design),
+where it is made and its own tests are run; that project's check runs gosh's proofs by its prover
+before gosh names a new commit of it. gosh is proved by its `prover/` at the commit
+`tools/prover.commit` names: `tools/proofs.sh` takes it from a checkout of that project beside gosh
+(`../strong-domain-driven-design`, or `STRONG_DOMAINS`) by `git archive`, whatever the checkout has
+open, into `.build/prover-COMMIT`, and fetches the commit if the checkout lacks it. That checkout
+also holds the prover's tools: there, `tools/lean.sh` fetches Lean 4.36.0 (600 MB, 3 GB unpacked)
+and `pixi install` makes a Python with libclang. Or set `LEAN` and `PYTHON`. In CI the job `proofs`
+clones that project and runs in its image, which holds both. gosh must be built first (the check
+does it): the lint reads mosh's core and its `config.h`.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
 `.build/bin`, with the seam applied (`seam/`, eight patches; `src/seam/`) and the fork's forwarding

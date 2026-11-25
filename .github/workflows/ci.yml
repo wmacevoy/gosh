@@ -23,7 +23,8 @@ jobs:
       - run: tools/check.sh
   # The proofs (tools/proofs.sh; the whole check above ends "NOT run: the proofs" without the
   # prover's tools). Run in strong-domain-driven-design's image, which holds Lean and a Python with
-  # libclang, so that nothing of them is fetched or installed here on each run.
+  # libclang, so that nothing of them is fetched or installed here on each run. The prover itself is
+  # that project's prover/ at the commit tools/prover.commit names, from a clone of it (public).
   # The image is named by its digest (lean-4.36.0, built 2026-11-21 by that project's run
   # 44900650796), so a new one is taken by a change here. This repository must be let read the
   # package (its settings on GitHub, "Manage Actions access").
@@ -47,4 +48,8 @@ jobs:
           apt-get install -y -q autoconf automake patch pkg-config protobuf-compiler libprotobuf-dev libncurses-dev libssl-dev zlib1g-dev
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: tools/build.sh
+      - name: strong-domain-driven-design, whose prover proves gosh
+        run: git clone -q https://github.com/wmacevoy/strong-domain-driven-design "$RUNNER_TEMP/strong-domain-driven-design"
       - run: tools/proofs.sh
+        env:
+          STRONG_DOMAINS: ${{ runner.temp }}/strong-domain-driven-design

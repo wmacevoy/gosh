@@ -17,7 +17,7 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOMAIN = os.environ["DOMAIN"]
-PROVER = os.environ.get("PROVER") or os.path.join(ROOT, "tools", "prover")
+PROVER = os.environ["PROVER"]       # tools/proofs.sh, which runs this, says which prover (tools/prover.commit)
 PROVE = os.path.join(PROVER, "prove.sh")
 
 # (the class, its file's text as it is, the text broken, what is owed that no longer holds)
