@@ -126,7 +126,8 @@ const char USAGE[] = R"USAGE(Usage: %s [options] [--] [user@]host [command...]
 
         --ssh=COMMAND        ssh command to run when setting up session
                                 (example: "ssh -p 2222")
-                                (default: "ssh")
+                                (default: "ssh"; a meetup's ticket is
+                                fetched by plain ssh, as its ssh config says)
 
         --no-ssh-pty         do not allocate a pseudo tty on ssh connection
 
@@ -347,7 +348,7 @@ bool MoshWrapper::run( const std::vector<std::string>& args,
     set_variables( relay_variables( choices,
                                     startup.stock,
                                     relay_command( ssh, local, pick_server, server, userhost, startup.ip, startup.port ),
-                                    ticket_command( ssh, choices.meetup_login ) ) );
+                                    ticket_command( choices.meetup_login ) ) );
 
     client_args = client_words( args, server_args.forwards, session, startup.ip, startup.port );
     return true;

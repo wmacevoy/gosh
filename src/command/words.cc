@@ -401,9 +401,11 @@ Gosh::Command::Words Gosh::Command::relay_command( const Words& ssh, bool local,
   return words;
 }
 
-Gosh::Command::Words Gosh::Command::ticket_command( const Words& ssh, const std::string& meetup_login )
+Gosh::Command::Words Gosh::Command::ticket_command( const std::string& meetup_login )
 {
-  Words fetch = ssh;
+  /* (issue #5) never --ssh either: its words are for the session's server; the meetup's are in ssh's config */
+  Words fetch;
+  fetch.push_back( "ssh" );
   fetch.push_back( "-T" );
   fetch.push_back( "-o" );
   fetch.push_back( "BatchMode=yes" );
