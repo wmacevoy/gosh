@@ -137,7 +137,8 @@ gosh --meetup=ubuntu@myserver.example.org:3478 home
 ```
 
 What happens: the session tries UDP and finds no way, so after 3 seconds it goes over ssh; the
-laptop's relay fetches a ticket from the meetup by ssh, once, and hands it to the relay at home;
+laptop's relay fetches a ticket from the meetup by plain `ssh` (never `--ssh`, which is for the
+server: a port or key the meetup needs goes in `~/.ssh/config`), once, and hands it to the relay at home;
 both register with the meetup and look for a way straight to each other; if they find one they
 take it, and if not their datagrams go through the meetup by UDP. Through the meetup is still
 "fallen back": the ssh connection stays open in case the meetup stops answering. The relay's log
