@@ -13,14 +13,17 @@
 # class, what it is written with), D.claims.lean (the proof of what is owed), and, if there are any,
 # D.proof.cpp (what is claimed of it, as a test that cannot be run), D.proof-claims.lean (the proof of
 # those claims) and D.script.py (more calls for the comparison of model and C++). The prover is
-# tools/prover (its README says what each step is), a copy of strong-domain-driven-design's, where
-# it is made and tested; what it writes goes to .build/proofs. (PROVER and PROOFS_OUT run another
+# strong-domain-driven-design's, where it is made and tested (its prover/README.md says what each
+# step is): its prover/ at the commit tools/prover.commit names, taken by git archive from a
+# checkout of it beside gosh (STRONG_DOMAINS), whatever that checkout has open, into
+# .build/prover-COMMIT. What it writes goes to .build/proofs. (PROVER and PROOFS_OUT run another
 # prover, writing elsewhere: strong-domain-driven-design's check runs gosh's proofs by its own.)
 #
-# Needs: Lean 4.36.0 and a Python with libclang, which strong-domain-driven-design owns: found in a
-# checkout of it beside gosh (STRONG_DOMAINS; its tools/lean.sh and pixi install make them), else
-# set LEAN and PYTHON; in CI, its image has both. And gosh built (tools/build.sh: the lint reads
-# mosh's core and its config.h). CONTRIBUTING.md says how.
+# Needs: that checkout, with the commit (it is fetched if it is not there), and Lean 4.36.0 and a
+# Python with libclang, which strong-domain-driven-design owns: found in the same checkout (its
+# tools/lean.sh and pixi install make them), else set LEAN and PYTHON; in CI, its image has both.
+# And gosh built (tools/build.sh: the lint reads mosh's core and its config.h). CONTRIBUTING.md
+# says how.
 set -e
 cd "$(dirname "$0")/.."
 MODE=heavy; ONLY=
@@ -39,8 +42,10 @@ LEAN_VERSION=4.36.0
 [ -n "$PYTHON" ] || { [ -x "$STRONG_DOMAINS/.pixi/envs/default/bin/python" ] && PYTHON=$STRONG_DOMAINS/.pixi/envs/default/bin/python; } || PYTHON=python3
 export LEAN PYTHON
 CORE=$PWD/.build/core
+PROVER_COMMIT=$(cat tools/prover.commit)
 missing=
-[ -x "$LEAN" ] || missing="no Lean at $LEAN (set LEAN)"
+[ -n "$PROVER" ] || git -C "$STRONG_DOMAINS" rev-parse --git-dir >/dev/null 2>&1 || missing="no checkout of strong-domain-driven-design at $STRONG_DOMAINS (git clone https://github.com/wmacevoy/strong-domain-driven-design there, or set STRONG_DOMAINS)"
+[ -n "$missing" ] || [ -x "$LEAN" ] || missing="no Lean at $LEAN (set LEAN)"
 [ -z "$missing" ] && case "$("$LEAN" --version)" in *"version $LEAN_VERSION,"*) ;; *) missing="$LEAN is not Lean $LEAN_VERSION, the version pinned" ;; esac
 [ -n "$missing" ] || "$PYTHON" -c 'import clang.cindex' 2>/dev/null || missing="$PYTHON has no libclang (set PYTHON to one that has)"
 [ -n "$missing" ] || [ -f "$CORE/src/include/config.h" ] || missing="gosh has not been built (tools/build.sh): the lint reads mosh's core and its config.h"
@@ -79,7 +84,19 @@ tar -c --exclude='*.from' --exclude='*.lean' --exclude='*.proof.cpp' --exclude='
 SUBJECT=$W/subject
 SUBJECT_COMMIT="$(git rev-parse HEAD)$(git diff --quiet HEAD -- src || echo ', and changed since')"
 export SUBJECT SUBJECT_COMMIT
-PROVER=${PROVER:-$PWD/tools/prover}; export PROVER
+# The prover, strong-domain-driven-design's prover/ at the commit gosh is proved with: taken once
+# into .build, and never edited there, so what proves gosh is that commit's and nothing else.
+if [ -z "$PROVER" ]; then
+    PROVER=$PWD/.build/prover-$PROVER_COMMIT
+    if [ ! -f "$PROVER/prove.sh" ]; then
+        git -C "$STRONG_DOMAINS" cat-file -e "$PROVER_COMMIT^{commit}" 2>/dev/null || git -C "$STRONG_DOMAINS" fetch -q origin "$PROVER_COMMIT" \
+            || { echo "proofs: cannot start: $STRONG_DOMAINS has no commit $PROVER_COMMIT (tools/prover.commit), and could not fetch it"; exit 2; }
+        rm -rf "$PROVER.part" && mkdir -p "$PROVER.part"
+        git -C "$STRONG_DOMAINS" archive "$PROVER_COMMIT" prover | tar -x -C "$PROVER.part" --strip-components=1
+        mv "$PROVER.part" "$PROVER"
+    fi
+fi
+export PROVER
 
 # The full compile of what is proved has three steps, in this order: the C++ compiler, the lint,
 # the prover. Each refuses the program; the later ones rest on the earlier.
