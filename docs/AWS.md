@@ -149,10 +149,14 @@ session in case 1: since v0.3.1 the relay at home looks for the way from a port 
 (issue #2). With that closed the session stays on the meetup, which works, only more slowly. The
 log says "the way through is now to ..." when it leaves the meetup.
 
-**Not tried yet:** this case between real machines, with the tunnel above (queue item 8, "two
-machines in one room"). How gosh finds the home machine's address through `ProxyJump` has not been
-checked either; if the session does not come up, the relay's log says how far it got. (Not
-`--relay=always`: that means ssh and nothing by UDP, so no meetup either.)
+**Tried once between real machines, 2026-11-25** (`FINDINGS.md`): gosh v0.3.1 at both ends, a
+laptop behind NAT on a network with no IPv6, and a server with a public address whose firewall
+lets in UDP 60000-61000, reached by the tunnel above and `ProxyJump`. Through `ProxyJump`, gosh
+takes the server's address to be `::1`, so the first UDP try fails and the session goes over ssh.
+Then path-finding found the way straight to the server's public address. **Not tried yet:** a
+home machine behind NAT of its own, where only the meetup can carry the datagrams. If the session
+does not come up, the relay's log says how far it got. (Not `--relay=always`: that means ssh and
+nothing by UDP, so no meetup either.)
 
 **A home machine with no IPv6** cannot reach an IPv6-only meetup, so this case needs either IPv6
 at home or a server that keeps an IPv4 address (requirements, *Scope decisions*: "say and leave

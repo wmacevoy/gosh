@@ -7,6 +7,24 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-25 — Through a reverse tunnel and the meetup, a session found the way straight (issue 2)
+
+- **What happened:** the owner's `make-gosh --meetup`: VSCodium through gosh-remote, to `make`
+  (a server with a public address, its firewall open to UDP 60000-61000), reached by its reverse
+  tunnel to the AWS meetup and `ProxyJump`, from a laptop behind NAT on a network with no IPv6.
+  gosh v0.3.1 at both ends. The client was given `::1` (what ssh reports through the tunnel), got
+  no answer by UDP and went over ssh. The local relay's log then said "a way through is open, to"
+  make's public IPv4 address, port 60002, *before* the meetup's ticket came back. The editor's
+  forward answered. Before v0.3.1, the same setup stayed on the meetup (issue 2, 2026-11-19).
+- **What it shows:** the v0.3.1 change works between real machines. The remote relay's
+  path-finding socket is in 60001-60999, so a server whose firewall lets sessions in takes the
+  client's probe with nothing sent first. It does not show the case the meetup is for: a home
+  machine behind NAT of its own. The meetup was registered with, but not used.
+- **What would have found it sooner:** a run between real machines; only reality had the
+  firewall and the port-changing NAT together. **Kind:** K2.
+- **What it changed:** `AWS.md`, case 2, says what was tried and what was not; issue 2 has the
+  log. No test changed: the case needs two real networks, which the check doesn't have.
+
 ## 2026-11-17 — The guide's ProxyCommand line lost the host's User and IdentityFile
 
 - **What happened:** the owner's first `ssh tribes` through `gosh -W`, with the guide's line
