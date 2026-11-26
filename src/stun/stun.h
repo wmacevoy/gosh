@@ -23,11 +23,20 @@
 #include <netinet/in.h>
 
 #include "src/network/network.h"
+#include "src/strong/datagram.h"
 #include "src/strong/stun/stunanswer.h"
+#include "src/strong/stun/stunrequest.h"
 
-namespace Network {
+namespace Gosh::Stun {
 
 static const uint32_t STUN_COOKIE = 0x2112A442;
+
+/* Whether these bytes are a STUN Binding Request one may answer: Strong::Stun::is_stun_request_checked
+   (strong/stun/stunrequest.h) says, and is proved; here the datagram is made of where they are and how many. */
+inline bool is_stun_request( const char* request, size_t n )
+{
+  return Strong::Stun::is_stun_request_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( request ), n ) );
+}
 
 /* A STUN request for our outside address: txid is 12 bytes of anything. */
 inline std::string stun_request( const char* txid )
@@ -48,7 +57,7 @@ inline std::string stun_request( const char* txid )
 /* If this is an answer to one that says where we were seen: true, and where. The reading is
  * Strong::Stun::StunAnswer's (strong/stun/stunanswer.h), which touches nothing of the system; here what it kept is made the
  * socket address the system knows. (Until 2026-11-18 this function did both.) */
-inline bool stun_parse( const char* data, size_t len, Addr& mapped )
+inline bool stun_parse( const char* data, size_t len, Network::Addr& mapped )
 {
   Strong::Stun::StunAnswer answer;
   if ( !answer.parse_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( data ), len ) ) ) {
@@ -74,7 +83,7 @@ inline bool stun_parse( const char* data, size_t len, Addr& mapped )
 }
 
 /* "1.2.3.4:567" and "[2001:db8::1]:567" both ways. */
-inline bool parse_ip_port( const std::string& text, Addr& addr )
+inline bool parse_ip_port( const std::string& text, Network::Addr& addr )
 {
   const size_t colon = text.rfind( ':' );
   if ( colon == std::string::npos || colon == 0 || colon + 1 >= text.size() || text.size() - colon > 6
@@ -116,7 +125,7 @@ inline bool parse_ip_port( const std::string& text, Addr& addr )
   return true;
 }
 
-inline std::string format_ip_port( const Addr& addr )
+inline std::string format_ip_port( const Network::Addr& addr )
 {
   char ip[INET6_ADDRSTRLEN];
   if ( addr.sa.sa_family == AF_INET && inet_ntop( AF_INET, &addr.sin.sin_addr, ip, sizeof( ip ) ) ) {
@@ -129,7 +138,7 @@ inline std::string format_ip_port( const Addr& addr )
 }
 
 /* Whether two addresses and ports are the same: of one family, with the same address and port. */
-inline bool same_ip_port( const Addr& a, const Addr& b )
+inline bool same_ip_port( const Network::Addr& a, const Network::Addr& b )
 {
   if ( a.sa.sa_family != b.sa.sa_family ) {
     return false;

@@ -58,7 +58,7 @@ void require( bool ok )
 Addr at( const char* ip_port )
 {
   Addr a;
-  require( parse_ip_port( ip_port, a ) );
+  require( Gosh::Stun::parse_ip_port( ip_port, a ) );
   return a;
 }
 
@@ -74,7 +74,7 @@ const char* const FROM[] = { B_AT, MEETUP_AT, "10.0.0.66:666", "[2001:db8::2]:20
  */
 bool taken_from_its_way( const PathFinding& end, const Addr& from )
 {
-  return end.where() == ( end.direct() ? "" : "the meetup at " ) + format_ip_port( from );
+  return end.where() == ( end.direct() ? "" : "the meetup at " ) + Gosh::Stun::format_ip_port( from );
 }
 
 uint8_t byte_at( const std::string& s, size_t i )
@@ -120,7 +120,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
     Addr dest;
     socklen_t len;
     bool to_a;
-    if ( Gosh::Meetup::Imp::is_stun_request( bytes.data(), bytes.size() ) ) {
+    if ( Gosh::Stun::is_stun_request( bytes.data(), bytes.size() ) ) {
       reply = Gosh::Meetup::Imp::stun_answer_to( bytes.data(), from );
       to_a = from_a;
     } else {
@@ -129,8 +129,8 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         return;
       }
       reply = s.bytes;
-      to_a = same_ip_port( dest, at( A_AT ) );
-      require( to_a || same_ip_port( dest, at( B_AT ) ) );
+      to_a = Gosh::Stun::same_ip_port( dest, at( A_AT ) );
+      require( to_a || Gosh::Stun::same_ip_port( dest, at( B_AT ) ) );
     }
     if ( to_a ) {
       if ( a.receive( now, reply.data(), reply.size(), meetup_at, got ) == PathFinding::DATA ) {
@@ -168,7 +168,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         }
         const std::vector<PathFinding::Outgoing> out = b.take_outbox();
         for ( size_t k = 0; k < out.size(); k++ ) {
-          if ( same_ip_port( out[k].to, meetup_at ) ) {
+          if ( Gosh::Stun::same_ip_port( out[k].to, meetup_at ) ) {
             to_meetup( false, out[k].bytes );
             continue;
           }
@@ -190,7 +190,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         const std::vector<PathFinding::Outgoing> out = a.take_outbox();
         const Addr from = at( A_AT );
         for ( size_t k = 0; k < out.size(); k++ ) {
-          if ( same_ip_port( out[k].to, meetup_at ) ) {
+          if ( Gosh::Stun::same_ip_port( out[k].to, meetup_at ) ) {
             to_meetup( true, out[k].bytes );
           } else if ( !( byte_at( body, 0 ) & 4 ) ) {
             b.receive( now, out[k].bytes.data(), out[k].bytes.size(), from, datagram );

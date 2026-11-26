@@ -128,7 +128,7 @@ static void ask_stun( int sock, int family, const std::vector<std::string>& serv
   }
   char txid[12];
   PRNG().fill( txid, sizeof( txid ) );
-  const std::string request = stun_request( txid );
+  const std::string request = Gosh::Stun::stun_request( txid );
 
   const pid_t pid = fork();
   if ( pid < 0 ) {
@@ -218,7 +218,7 @@ Punch::Punch( bool s_initiator,
       } else {
         continue;
       }
-      finding.add_own_address( format_ip_port( mine ) );
+      finding.add_own_address( Gosh::Stun::format_ip_port( mine ) );
     }
     freeifaddrs( interfaces );
   }

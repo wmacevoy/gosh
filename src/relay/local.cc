@@ -270,7 +270,7 @@ private:
       Addr found;
       memset( &found, 0, sizeof( found ) );
       memcpy( &found, res->ai_addr, res->ai_addrlen < sizeof( found ) ? res->ai_addrlen : sizeof( found ) );
-      const std::string line = "MEETUP " + format_ip_port( found ) + "\n";
+      const std::string line = "MEETUP " + Gosh::Stun::format_ip_port( found ) + "\n";
       if ( write( STDOUT_FILENO, line.data(), line.size() ) != static_cast<ssize_t>( line.size() ) ) {
         _exit( 2 );
       }
@@ -353,7 +353,7 @@ private:
     } else if ( words.size() == 2 && words[0] == "PORT" && punch
                 && ( options.server.sa.sa_family == AF_INET || options.server.sa.sa_family == AF_INET6 ) ) {
       /* at the server's own address, if nothing in between changes the port */
-      const std::string server = format_ip_port( options.server );
+      const std::string server = Gosh::Stun::format_ip_port( options.server );
       punch->add_candidate( server.substr( 0, server.rfind( ':' ) ) + ":" + words[1] );
     } else if ( words.size() == 2 && words[0] == "CAND" && punch ) {
       punch->add_candidate( words[1] );

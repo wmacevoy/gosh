@@ -14,19 +14,9 @@
 #include <cstring>
 #include <string>
 
-#include "src/strong/datagram.h"
-#include "src/strong/stun/stunrequest.h"
+#include "src/stun/stun.h"
 
 namespace Gosh::Meetup::Imp {
-
-/* (strong/stun/stunrequest.h; under this name too, for those who ask it here) */
-using Strong::Stun::is_stun_request_checked;
-
-/* The same, of bytes by where they are and how many: the datagram is made here. */
-inline bool is_stun_request( const char* request, size_t n )
-{
-  return is_stun_request_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( request ), n ) );
-}
 
 /*
  * The answer to a request that came from this IPv4 address and port (both as numbers, in the
