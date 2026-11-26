@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 /* What it does, and some of its words, follow mosh's scripts/mosh.pl (Keith Winstein and others): LICENSE-MOSH. */
 
-#include "src/command/options.h"
+#include "src/command/imp/options.h"
 
 #include <cstdlib>
 
@@ -62,7 +62,7 @@ const Option* find_option( const std::string& word, bool double_dash, bool& nega
   const Option* prefix_match = NULL;
   int prefix_matches = 0;
   for ( size_t i = 0; i < sizeof( OPTIONS ) / sizeof( OPTIONS[0] ); i++ ) {
-    const std::vector<std::string> names = Gosh::Command::split( OPTIONS[i].names, '|' );
+    const std::vector<std::string> names = Gosh::Command::Imp::split( OPTIONS[i].names, '|' );
     for ( size_t j = 0; j < names.size(); j++ ) {
       if ( word == names[j] ) {
         return &OPTIONS[i];
@@ -85,7 +85,7 @@ const Option* find_option( const std::string& word, bool double_dash, bool& nega
 
 }
 
-std::vector<std::string> Gosh::Command::split( const std::string& s, char at )
+std::vector<std::string> Gosh::Command::Imp::split( const std::string& s, char at )
 {
   std::vector<std::string> parts;
   size_t start = 0;
@@ -99,7 +99,7 @@ std::vector<std::string> Gosh::Command::split( const std::string& s, char at )
   }
 }
 
-std::string Gosh::Command::join( const std::vector<std::string>& words, const std::string& with )
+std::string Gosh::Command::Imp::join( const std::vector<std::string>& words, const std::string& with )
 {
   std::string s;
   for ( size_t i = 0; i < words.size(); i++ ) {
@@ -108,7 +108,7 @@ std::string Gosh::Command::join( const std::vector<std::string>& words, const st
   return s;
 }
 
-std::string Gosh::Command::strip_end( std::string s )
+std::string Gosh::Command::Imp::strip_end( std::string s )
 {
   while ( !s.empty() && ( s[s.size() - 1] == '\r' || s[s.size() - 1] == '\n' || s[s.size() - 1] == ' ' ) ) {
     s.erase( s.size() - 1 );
@@ -116,12 +116,12 @@ std::string Gosh::Command::strip_end( std::string s )
   return s;
 }
 
-bool Gosh::Command::all_digits( const std::string& s )
+bool Gosh::Command::Imp::all_digits( const std::string& s )
 {
   return !s.empty() && s.find_first_not_of( "0123456789" ) == std::string::npos;
 }
 
-std::string Gosh::Command::lower( std::string s )
+std::string Gosh::Command::Imp::lower( std::string s )
 {
   for ( size_t i = 0; i < s.size(); i++ ) {
     s[i] = static_cast<char>( tolower( static_cast<unsigned char>( s[i] ) ) );
@@ -129,7 +129,7 @@ std::string Gosh::Command::lower( std::string s )
   return s;
 }
 
-bool Gosh::Command::one_of( const std::string& word, const char* choices )
+bool Gosh::Command::Imp::one_of( const std::string& word, const char* choices )
 {
   const std::vector<std::string> all = split( choices, ' ' );
   for ( size_t i = 0; i < all.size(); i++ ) {
@@ -140,7 +140,7 @@ bool Gosh::Command::one_of( const std::string& word, const char* choices )
   return false;
 }
 
-bool Gosh::Command::wants_stdio( const std::vector<std::string>& args )
+bool Gosh::Command::Imp::wants_stdio( const std::vector<std::string>& args )
 {
   /* (any word the option table reads as --stdio: a shortening such as --std too) */
   bool stdio = false;
@@ -154,7 +154,7 @@ bool Gosh::Command::wants_stdio( const std::vector<std::string>& args )
   return stdio;
 }
 
-void Gosh::Command::parse_options( const std::vector<std::string>& args, bool in_order, Settings& settings )
+void Gosh::Command::Imp::parse_options( const std::vector<std::string>& args, bool in_order, Settings& settings )
 {
   for ( size_t i = 0; i < args.size(); i++ ) {
     const std::string& arg = args[i];
@@ -207,7 +207,7 @@ void Gosh::Command::parse_options( const std::vector<std::string>& args, bool in
   }
 }
 
-Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::string& name, const char* prediction )
+Gosh::Command::Imp::Choices Gosh::Command::Imp::choose( const Settings& s, const std::string& name, const char* prediction )
 {
   Choices c;
   c.fragment_parity = s.value( "fragment-parity" );
@@ -304,7 +304,7 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
   return c;
 }
 
-void Gosh::Command::check_port_request( const std::string& request, const std::string& name )
+void Gosh::Command::Imp::check_port_request( const std::string& request, const std::string& name )
 {
   const size_t colon = request.find( ':' );
   const std::string low = request.substr( 0, colon );

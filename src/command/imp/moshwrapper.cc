@@ -16,19 +16,20 @@
 #include <string>
 #include <vector>
 
-#include "src/command/login.h"
+#include "src/command/imp/login.h"
 #include "src/command/moshwrapper.h"
-#include "src/command/options.h"
-#include "src/command/proxy.h"
-#include "src/command/sshconfig.h"
-#include "src/command/startup.h"
-#include "src/command/stock.h"
-#include "src/command/words.h"
+#include "src/command/imp/options.h"
+#include "src/command/imp/proxy.h"
+#include "src/command/imp/sshconfig.h"
+#include "src/command/imp/startup.h"
+#include "src/command/imp/stock.h"
+#include "src/command/imp/words.h"
 #include "src/include/version.h"
 #include "src/seam/gosh-version.h"
 
 using namespace Gosh;
 using namespace Gosh::Command;
+using namespace Gosh::Command::Imp;
 
 namespace {
 
@@ -187,7 +188,7 @@ void set_variables( const Variables& variables )
 
 }
 
-bool MoshWrapper::run( const std::vector<std::string>& args,
+bool Gosh::Command::run( const std::vector<std::string>& args,
                        bool copy,
                        const std::string& name,
                        const std::string& self,

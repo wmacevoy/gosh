@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-#include "src/command/options.h"
+#include "src/command/imp/options.h"
 
 /*
  * the command, what was asked: the settings turned into each program's words (glossary, "words"):
@@ -18,8 +18,7 @@
  * terminal are read by the caller and passed in. The fork's (mosh-1.4.0-pf.7,
  * src/frontend/moshwrapper.cc, run), divided.
  */
-namespace Gosh {
-namespace Command {
+namespace Gosh::Command::Imp {
 
 typedef std::vector<std::string> Words;
 typedef std::vector<std::pair<std::string, std::string> > Variables; /* name, value: to be set, in order */
@@ -119,7 +118,6 @@ Variables client_variables( const std::string& key, const Choices& choices, bool
  */
 Variables relay_variables( const Choices& choices, bool stock, const Words& relay, const Words& ticket );
 
-}
 }
 
 #endif

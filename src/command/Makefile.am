@@ -5,20 +5,19 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 noinst_LIBRARIES = libgoshcommand.a
 
 # logic: options, words, startup, stock, sshconfig; edges: login, proxy; and moshwrapper, which strings them together
-libgoshcommand_a_SOURCES = moshwrapper.cc moshwrapper.h options.cc options.h words.cc words.h startup.cc startup.h \
-	stock.cc stock.h sshconfig.cc sshconfig.h login.cc login.h proxy.cc proxy.h
+libgoshcommand_a_SOURCES = moshwrapper.h imp/moshwrapper.cc imp/options.cc imp/options.h imp/words.cc imp/words.h imp/startup.cc imp/startup.h imp/stock.cc imp/stock.h imp/sshconfig.cc imp/sshconfig.h imp/login.cc imp/login.h imp/proxy.cc imp/proxy.h
 
-check_PROGRAMS = stock-test options-test words-test startup-test sshconfig-test
+check_PROGRAMS = imp/stock-test imp/options-test imp/words-test imp/startup-test imp/sshconfig-test
 TESTS = $(check_PROGRAMS)
-stock_test_SOURCES = stock-test.cc
+imp_stock_test_SOURCES = imp/stock-test.cc
 stock_test_LDADD = libfacts.a libgoshcommand.a
-options_test_SOURCES = options-test.cc
+imp_options_test_SOURCES = imp/options-test.cc
 options_test_LDADD = libfacts.a libgoshcommand.a
-words_test_SOURCES = words-test.cc
+imp_words_test_SOURCES = imp/words-test.cc
 words_test_LDADD = libfacts.a libgoshcommand.a
-startup_test_SOURCES = startup-test.cc
+imp_startup_test_SOURCES = imp/startup-test.cc
 startup_test_LDADD = libfacts.a libgoshcommand.a
-sshconfig_test_SOURCES = sshconfig-test.cc
+imp_sshconfig_test_SOURCES = imp/sshconfig-test.cc
 sshconfig_test_LDADD = libfacts.a libgoshcommand.a
 
 AUTOMAKE_OPTIONS = subdir-objects

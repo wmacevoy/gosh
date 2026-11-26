@@ -1,15 +1,15 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 /* What it does, and some of its words, follow mosh's scripts/mosh.pl (Keith Winstein and others): LICENSE-MOSH. */
 
-#include "src/command/startup.h"
+#include "src/command/imp/startup.h"
 
 #include <vector>
 
-#include "src/command/options.h"
-#include "src/command/stock.h"
-#include "src/command/words.h"
+#include "src/command/imp/options.h"
+#include "src/command/imp/stock.h"
+#include "src/command/imp/words.h"
 
-bool Gosh::Command::startup_line( Startup& st, const std::string& raw, bool pick_server, bool port_range, const std::string& name )
+bool Gosh::Command::Imp::startup_line( Startup& st, const std::string& raw, bool pick_server, bool port_range, const std::string& name )
 {
   const std::string line = strip_end( raw );
   const Words words = shell_words( line );
@@ -46,7 +46,7 @@ bool Gosh::Command::startup_line( Startup& st, const std::string& raw, bool pick
   return true;
 }
 
-std::string Gosh::Command::startup_address( Startup& st, const std::string& name, const std::string& userhost )
+std::string Gosh::Command::Imp::startup_address( Startup& st, const std::string& name, const std::string& userhost )
 {
   if ( !st.ip.empty() ) {
     return "";
@@ -58,7 +58,7 @@ std::string Gosh::Command::startup_address( Startup& st, const std::string& name
   return name + ": Using remote IP address " + st.ssh_ip + " from $SSH_CONNECTION for hostname " + userhost;
 }
 
-void Gosh::Command::startup_key( const Startup& st, const std::string& name )
+void Gosh::Command::Imp::startup_key( const Startup& st, const std::string& name )
 {
   if ( st.key.empty() || st.port.empty() ) {
     if ( st.bad_port ) {

@@ -38,7 +38,7 @@ int main( int argc, char* argv[] )
 
   /* (the word is the fork's, and the command writes it: src/command) */
   if ( args.size() == 4 && args[0] == "--mosh-fake-proxy" ) {
-    return MoshWrapper::fake_proxy( args[1], args[2], args[3] );
+    return Gosh::Command::fake_proxy( args[1], args[2], args[3] );
   }
 
   std::string called;
@@ -47,7 +47,7 @@ int main( int argc, char* argv[] )
   if ( role != Gosh::THE_CLIENT ) {
     std::vector<std::string> client_words; /* the client's name, then its arguments */
     int status = 1;
-    if ( !MoshWrapper::run( std::vector<std::string>( args.begin() + skip, args.end() ), role == Gosh::THE_COPY, called,
+    if ( !Gosh::Command::run( std::vector<std::string>( args.begin() + skip, args.end() ), role == Gosh::THE_COPY, called,
                             name, print_colorcount, client_words, status ) ) {
       return status; /* it has said why, or has done all that was asked (--help, --version) */
     }

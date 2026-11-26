@@ -16,8 +16,7 @@
  * throws Failure. Anything else the host says (ssh's and the login's chatter) is not the
  * message's, and is for the caller to pass on.
  */
-namespace Gosh {
-namespace Command {
+namespace Gosh::Command::Imp {
 
 struct Startup
 {
@@ -48,7 +47,6 @@ std::string startup_address( Startup& startup, const std::string& name, const st
 /* Then: the session's port and key, or a Failure saying why there are none. */
 void startup_key( const Startup& startup, const std::string& name );
 
-}
 }
 
 #endif

@@ -3,7 +3,7 @@
 
 #include "src/include/config.h"
 
-#include "src/command/proxy.h"
+#include "src/command/imp/proxy.h"
 
 #include <cerrno>
 #include <csignal>
@@ -27,10 +27,10 @@
 #endif
 
 #include "src/command/moshwrapper.h"
-#include "src/command/options.h"
-#include "src/command/words.h"
+#include "src/command/imp/options.h"
+#include "src/command/imp/words.h"
 
-std::vector<Gosh::Command::Address> Gosh::Command::resolve( const std::string& host, const std::string& port, const std::string& family,
+std::vector<Gosh::Command::Imp::Address> Gosh::Command::Imp::resolve( const std::string& host, const std::string& port, const std::string& family,
                                           const std::string& name )
 {
   int af = AF_UNSPEC;
@@ -92,7 +92,7 @@ std::vector<Gosh::Command::Address> Gosh::Command::resolve( const std::string& h
   return found;
 }
 
-std::string Gosh::Command::self_path( const std::string& argv0 )
+std::string Gosh::Command::Imp::self_path( const std::string& argv0 )
 {
   char buf[4096];
 #ifdef __APPLE__
@@ -139,7 +139,7 @@ std::string percents_doubled( const std::string& s )
 }
 }
 
-std::string Gosh::Command::proxy_command( const std::string& self, const std::string& family )
+std::string Gosh::Command::Imp::proxy_command( const std::string& self, const std::string& family )
 {
 #ifdef __CYGWIN__
   /* ssh may be Windows's own, which runs this with cmd.exe: a Windows path, in double quotes */
@@ -199,12 +199,12 @@ static int connect_within( int sock, const struct sockaddr* addr, socklen_t len,
  * wait, so a host on a slow network is not given up on early. */
 static const int GIVE_WAY_MS = 3000;
 
-int MoshWrapper::fake_proxy( const std::string& family, const std::string& host, const std::string& port )
+int Gosh::Command::fake_proxy( const std::string& family, const std::string& host, const std::string& port )
 {
-  std::vector<Gosh::Command::Address> addresses;
+  std::vector<Gosh::Command::Imp::Address> addresses;
   try {
-    addresses = Gosh::Command::resolve( host, port, family, "gosh" ); /* (run as gosh-client: the command's name is not known here) */
-  } catch ( const Gosh::Command::Failure& f ) {
+    addresses = Gosh::Command::Imp::resolve( host, port, family, "gosh" ); /* (run as gosh-client: the command's name is not known here) */
+  } catch ( const Gosh::Command::Imp::Failure& f ) {
     fprintf( stderr, "%s\n", f.message.c_str() );
     return 1;
   }

@@ -9,13 +9,14 @@
 #include <cstdlib>
 #include <string>
 
-#include "src/command/options.h"
-#include "src/command/startup.h"
-#include "src/command/stock.h"
+#include "src/command/imp/options.h"
+#include "src/command/imp/startup.h"
+#include "src/command/imp/stock.h"
 #include "vendor/facts/facts.h"
 
 using namespace Gosh;
 using namespace Gosh::Command;
+using namespace Gosh::Command::Imp;
 
 
 

@@ -1,7 +1,7 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 /* What it does, and some of its words, follow mosh's scripts/mosh.pl (Keith Winstein and others): LICENSE-MOSH. */
 
-#include "src/command/login.h"
+#include "src/command/imp/login.h"
 
 #include <cerrno>
 #include <cstdio>
@@ -13,7 +13,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "src/command/options.h"
+#include "src/command/imp/options.h"
 
 namespace {
 
@@ -29,7 +29,7 @@ void exec_words( const std::vector<std::string>& words )
 
 }
 
-std::string Gosh::Command::terminal_colors( void ( *print_colors )( void ), const std::string& name )
+std::string Gosh::Command::Imp::terminal_colors( void ( *print_colors )( void ), const std::string& name )
 {
   int fds[2];
   if ( pipe( fds ) < 0 ) {
@@ -59,7 +59,7 @@ std::string Gosh::Command::terminal_colors( void ( *print_colors )( void ), cons
   return all_digits( said ) ? said : "0";
 }
 
-std::string Gosh::Command::ssh_config_text( const std::vector<std::string>& ssh, const std::string& host )
+std::string Gosh::Command::Imp::ssh_config_text( const std::vector<std::string>& ssh, const std::string& host )
 {
   int out[2];
   if ( ssh.empty() || pipe( out ) < 0 ) {
@@ -110,7 +110,7 @@ std::string Gosh::Command::ssh_config_text( const std::vector<std::string>& ssh,
   return WIFEXITED( status ) && WEXITSTATUS( status ) == 0 ? text : std::string();
 }
 
-void Gosh::Command::start_server( const Login& login, Startup& startup )
+void Gosh::Command::Imp::start_server( const Login& login, Startup& startup )
 {
   int fds[2];
   if ( pipe( fds ) < 0 ) {

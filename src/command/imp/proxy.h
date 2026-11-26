@@ -15,8 +15,7 @@
  * names looked up, a socket, and this program's own path. The fork's (mosh-1.4.0-pf.7,
  * src/frontend/moshwrapper.cc), moved.
  */
-namespace Gosh {
-namespace Command {
+namespace Gosh::Command::Imp {
 
 /* An address of a host, as --family would have it. */
 struct Address
@@ -42,7 +41,6 @@ std::string self_path( const std::string& argv0 );
 /* That path as something ssh can be given to run, with the family, %h and %p. */
 std::string proxy_command( const std::string& self, const std::string& family );
 
-}
 }
 
 #endif

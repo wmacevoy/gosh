@@ -20,8 +20,7 @@
  * one name in one program is undefined behaviour, and it was: a crash on the first Failure, found
  * 2026-11-16 by tests/gosh-stock.py.)
  */
-namespace Gosh {
-namespace Command {
+namespace Gosh::Command::Imp {
 
 /* What any piece of the command throws: a message for standard error, and whether the usage follows it. */
 struct Failure
@@ -112,7 +111,6 @@ std::string lower( std::string s );
 /* whether word is one of the words in choices, which are separated by spaces */
 bool one_of( const std::string& word, const char* choices );
 
-}
 }
 
 #endif

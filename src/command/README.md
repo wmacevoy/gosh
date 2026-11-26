@@ -8,15 +8,19 @@ is the command when it is run under either name, or with either as its first wor
 `src/frontend/`; 1,350 lines) is now the pieces design v2 names. Every word, message and behaviour
 is the fork's, with gosh's changes for `REQ8/CMD-3` and the relay's server kept:
 
+**Laid out** (2026-11-26; `../DOMAINS`): its ABI is `moshwrapper.h`, in `Gosh::Command` (it was `MoshWrapper`); its inside is `imp/`, in `Gosh::Command::Imp`.
+
 | File | What it holds | Kind | Test |
 | --- | --- | --- | --- |
-| `options.*` | the option table; the words read into settings (a name cut short, `no-`, a value after `=` or next); what is refused, in mosh.pl's order; `--meetup` split for the relays and for ssh (HOST a name, an IPv4 address, or an IPv6 one in brackets; PORT 1 to 65535: anything else refused); the server's port or range; a few text helpers | logic | `options-test.cc` |
-| `words.*` | what was asked: which end of a copy is which and what each is told; `--stdio`'s command; the server's words, and a stock server's; ssh's; the relay's and the meetup ticket's commands; the client's words and the variables it and its relay read | logic | `words-test.cc` |
-| `startup.*` | the startup message, a line at a time: `MOSH IP`, `MOSH SSH_CONNECTION`, `MOSH CONNECT`, which server answered; what is refused; the address and key at the end | logic | `startup-test.cc` |
-| `stock.*` | the line that picks the host's server; what is said when it is a stock mosh's; gosh-server's line for the relay and the ticket (`helper_command`) | logic | `stock-test.cc` |
+| **ABI** (in `Gosh::Command`) | | | |
+| `moshwrapper.h` (`imp/moshwrapper.cc`) | `run`: the pieces in order, the usage texts, and the two places the command touches the world itself: the environment it reads (`MOSH_PREDICTION_DISPLAY`, the locales) and the variables it sets for the client | — | the outside tests |
+| **inside** (`imp/`, in `Gosh::Command::Imp`) | | | |
+| `options.*` | the option table; the words read into settings (a name cut short, `no-`, a value after `=` or next); what is refused, in mosh.pl's order; `--meetup` split for the relays and for ssh (HOST a name, an IPv4 address, or an IPv6 one in brackets; PORT 1 to 65535: anything else refused); the server's port or range; a few text helpers | logic | `imp/options-test.cc` |
+| `words.*` | what was asked: which end of a copy is which and what each is told; `--stdio`'s command; the server's words, and a stock server's; ssh's; the relay's and the meetup ticket's commands; the client's words and the variables it and its relay read | logic | `imp/words-test.cc` |
+| `startup.*` | the startup message, a line at a time: `MOSH IP`, `MOSH SSH_CONNECTION`, `MOSH CONNECT`, which server answered; what is refused; the address and key at the end | logic | `imp/startup-test.cc` |
+| `stock.*` | the line that picks the host's server; what is said when it is a stock mosh's; gosh-server's line for the relay and the ticket (`helper_command`) | logic | `imp/stock-test.cc` |
 | `login.*` | runs ssh, or a local shell, and reads what the host says; asks the terminal its colours | edge | the outside tests |
 | `proxy.*` | ssh's ProxyCommand: this program's path, the host's addresses by `--family`, and the bytes carried | edge | the outside tests |
-| `moshwrapper.*` | `run`: the pieces in order, the usage texts, and the two places the command touches the world itself: the environment it reads (`MOSH_PREDICTION_DISPLAY`, the locales) and the variables it sets for the client | — | the outside tests |
 
 The logic takes no environment: what it needs of it is passed in (the prediction mode, the
 locales), and the variables for the client come back as a list that `run` sets. They are still

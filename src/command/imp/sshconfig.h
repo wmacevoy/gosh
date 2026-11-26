@@ -13,8 +13,7 @@
  * Absent (an ssh with no -G, older than 6.8; or one that failed): an empty SshConfig, and gosh
  * does as it did before it read the config. Wrong (lines it does not know): ignored.
  */
-namespace Gosh {
-namespace Command {
+namespace Gosh::Command::Imp {
 
 struct SshConfig
 {
@@ -47,7 +46,6 @@ std::string remote_ip_for( const std::string& asked, const SshConfig& config );
  */
 std::string meetup_address( const std::string& host_port, const SshConfig& config );
 
-}
 }
 
 #endif
