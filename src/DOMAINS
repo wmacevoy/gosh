@@ -13,7 +13,7 @@ Gosh::Pathfinding src/pathfinding
 Gosh::Stun   src/stun src/strong/stun
 Gosh::Meetup src/meetup src/strong/meetup
 Gosh::Forwarding src/forwarding
-seam         src/seam                               | src/seam/core-main.h src/seam/hooks.h src/seam/gosh-version.h src/seam/fuzz-replay.h src/seam/proved.h
+Gosh::Seam   src/seam
 
 # the applications
 Gosh::Copy   src/copy
@@ -27,3 +27,4 @@ allow src/pathfinding/imp/finding-test.cc Gosh::Meetup  # a meetup run from its 
 allow src/pathfinding/imp/finding-fuzzer.cc Gosh::Meetup # the same
 allow src/pathfinding/imp/punch-test.cc Gosh::Meetup  # the same
 allow src/stun/imp/stun-test.cc       Gosh::Meetup  # the meetup's STUN answer, read by stun: a test of both
+allow src/seam/core-main.h            Gosh::Seam    # the core's mains, declared as the core defines them: in no namespace

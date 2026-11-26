@@ -12,7 +12,7 @@
  *
  * Logic only: values in, values out. No socket, clock, environment or output.
  */
-namespace Gosh {
+namespace Gosh::Seam::Imp {
 
 /* What a program was asked to forward (REQ1/FWD-1, REQ1/FWD-2, REQ1/FWD-5), and a stream (REQ1/CP-7). */
 struct ForwardOptions

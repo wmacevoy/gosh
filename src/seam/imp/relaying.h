@@ -16,7 +16,7 @@
 
 #include "src/relay/start.h"
 
-namespace Gosh {
+namespace Gosh::Seam::Imp {
 
 struct RelayState
 {

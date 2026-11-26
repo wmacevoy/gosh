@@ -191,7 +191,7 @@ FACTS( Messages )
   FACT_CHECK( ( !Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ session, true }, carried ) && !carried ), "PASSED is never opened" );
 
   /* (proved of every counter and sender; the seal and the open around it are tried by every fact above) */
-  if ( !Gosh::proved_so_not_tried( "a counter is 62 bits: what is above them cannot change who sealed it",
+  if ( !Gosh::Seam::proved_so_not_tried( "a counter is 62 bits: what is above them cannot change who sealed it",
                              "Strong::Meetup::Nonce, proofs/MeetupNonce.proof.cpp" ) ) {
     const std::string high = meetup_seal( session, MEETUP_PASS, t.id, 0, false, ~uint64_t( 0 ), "z" );
     FACT_CHECK( ( meetup_read_header( high.data(), high.size(), h ) && Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ session, false }, carried )

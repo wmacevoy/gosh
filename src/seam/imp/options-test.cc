@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "src/seam/options.h"
+#include "src/seam/imp/options.h"
 #include "vendor/facts/facts.h"
 
 using Words = std::vector<std::string>;
@@ -19,15 +19,15 @@ using Words = std::vector<std::string>;
 
 /* Runs the parser and says whether it succeeded; the results are left in the three references. */
 /* (In these tests the client is the one given -N, and also the one whose options may come anywhere.) */
-static bool take( const Words& args, const char* core_values, bool allow_headless, Gosh::ForwardOptions& o, Words& rest,
+static bool take( const Words& args, const char* core_values, bool allow_headless, Gosh::Seam::Imp::ForwardOptions& o, Words& rest,
                   std::string& error )
 {
-  return Gosh::take_forward_options( args, core_values, allow_headless, allow_headless, o, rest, error );
+  return Gosh::Seam::Imp::take_forward_options( args, core_values, allow_headless, allow_headless, o, rest, error );
 }
 /* REQ1/FWD-1, REQ1/FWD-2, REQ1/FWD-5: the forwarding words */
 FACTS( Options )
 {
-  Gosh::ForwardOptions o;
+  Gosh::Seam::Imp::ForwardOptions o;
   Words rest;
   std::string error;
 
@@ -77,23 +77,23 @@ FACTS( Options )
   /* REQ6/NAME-1: which program it has been asked to be */
   std::string called;
   size_t skip = 9;
-  FACT_CHECK( ( Gosh::which_role( "/home/u/.local/bin/gosh", { "host" }, called, skip ) == Gosh::THE_COMMAND && called == "gosh"
+  FACT_CHECK( ( Gosh::Seam::Imp::which_role( "/home/u/.local/bin/gosh", { "host" }, called, skip ) == Gosh::Seam::Imp::THE_COMMAND && called == "gosh"
            && skip == 0 ), "REQ6/NAME-1: under the name gosh it is the command" );
-  FACT_CHECK( ( Gosh::which_role( "gocp", { "a", "host:b" }, called, skip ) == Gosh::THE_COPY && called == "gocp" && skip == 0 ), "REQ6/NAME-1: under the name gocp it is the copy command" );
-  FACT_CHECK( ( Gosh::which_role( "./gosh-client", { "gosh", "host" }, called, skip ) == Gosh::THE_COMMAND && called == "gosh"
+  FACT_CHECK( ( Gosh::Seam::Imp::which_role( "gocp", { "a", "host:b" }, called, skip ) == Gosh::Seam::Imp::THE_COPY && called == "gocp" && skip == 0 ), "REQ6/NAME-1: under the name gocp it is the copy command" );
+  FACT_CHECK( ( Gosh::Seam::Imp::which_role( "./gosh-client", { "gosh", "host" }, called, skip ) == Gosh::Seam::Imp::THE_COMMAND && called == "gosh"
            && skip == 1 ), "with gosh as its first word it is the command, and the word is passed over" );
-  FACT_CHECK( ( Gosh::which_role( "C:\\bin\\gosh.exe", {}, called, skip ) == Gosh::THE_COMMAND && called == "gosh" ), "a Windows path and .exe are not part of the name" );
-  FACT_CHECK( ( Gosh::which_role( "/usr/bin/gosh-client", { "127.0.0.1", "60001" }, called, skip ) == Gosh::THE_CLIENT
+  FACT_CHECK( ( Gosh::Seam::Imp::which_role( "C:\\bin\\gosh.exe", {}, called, skip ) == Gosh::Seam::Imp::THE_COMMAND && called == "gosh" ), "a Windows path and .exe are not part of the name" );
+  FACT_CHECK( ( Gosh::Seam::Imp::which_role( "/usr/bin/gosh-client", { "127.0.0.1", "60001" }, called, skip ) == Gosh::Seam::Imp::THE_CLIENT
            && called == "gosh-client" && skip == 0 ), "under its own name, with an address first, it is the client" );
   typedef std::vector<std::string> Words;
-  FACT_CHECK( Gosh::operands( { "-v", "192.0.2.1", "60001" }, "#" ) == Words( { "192.0.2.1", "60001" } ), "the server's address and port are found last" );
-  FACT_CHECK( Gosh::operands( { "192.0.2.1", "60001", "-v" }, "#" ) == Words( { "192.0.2.1", "60001" } ), "and first, with an option after them" );
-  FACT_CHECK( ( Gosh::operands( { "192.0.2.1", "-#", "5", "6" }, "#" ) == Words( { "192.0.2.1", "6" } )
-           && Gosh::operands( { "-#5", "192.0.2.1", "6" }, "#" ) == Words( { "192.0.2.1", "6" } )
-           && Gosh::operands( { "-v#", "5", "192.0.2.1", "6" }, "#" ) == Words( { "192.0.2.1", "6" } ) ), "an option's value is not one of them, as the next word or joined on" );
-  FACT_CHECK( ( Gosh::operands( { "-v", "--", "-x", "6" }, "#" ) == Words( { "-x", "6" } ) && Gosh::operands( { "-" }, "#" ) == Words( { "-" } ) ), "after \"--\" every word is one, and a lone \"-\" is one" );
-  FACT_CHECK( ( Gosh::which_role( "mosh", { "host" }, called, skip ) == Gosh::THE_CLIENT
-           && Gosh::which_role( "gosh-client", { "mosh", "host" }, called, skip ) == Gosh::THE_CLIENT && skip == 0 ), "the names it used to have are not the command (no alias but REQ17/CMD-4's)" );
+  FACT_CHECK( Gosh::Seam::Imp::operands( { "-v", "192.0.2.1", "60001" }, "#" ) == Words( { "192.0.2.1", "60001" } ), "the server's address and port are found last" );
+  FACT_CHECK( Gosh::Seam::Imp::operands( { "192.0.2.1", "60001", "-v" }, "#" ) == Words( { "192.0.2.1", "60001" } ), "and first, with an option after them" );
+  FACT_CHECK( ( Gosh::Seam::Imp::operands( { "192.0.2.1", "-#", "5", "6" }, "#" ) == Words( { "192.0.2.1", "6" } )
+           && Gosh::Seam::Imp::operands( { "-#5", "192.0.2.1", "6" }, "#" ) == Words( { "192.0.2.1", "6" } )
+           && Gosh::Seam::Imp::operands( { "-v#", "5", "192.0.2.1", "6" }, "#" ) == Words( { "192.0.2.1", "6" } ) ), "an option's value is not one of them, as the next word or joined on" );
+  FACT_CHECK( ( Gosh::Seam::Imp::operands( { "-v", "--", "-x", "6" }, "#" ) == Words( { "-x", "6" } ) && Gosh::Seam::Imp::operands( { "-" }, "#" ) == Words( { "-" } ) ), "after \"--\" every word is one, and a lone \"-\" is one" );
+  FACT_CHECK( ( Gosh::Seam::Imp::which_role( "mosh", { "host" }, called, skip ) == Gosh::Seam::Imp::THE_CLIENT
+           && Gosh::Seam::Imp::which_role( "gosh-client", { "mosh", "host" }, called, skip ) == Gosh::Seam::Imp::THE_CLIENT && skip == 0 ), "the names it used to have are not the command (no alias but REQ17/CMD-4's)" );
 }
 
 FACTS_REGISTER_ALL()

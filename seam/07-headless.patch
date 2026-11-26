@@ -3,7 +3,7 @@ gosh seam 07: A client with no terminal: nothing read, drawn or restored (-N).
 For:   REQ1/FWD-5, and REQ10/SHAPE-1's named exception. A session that only holds forwards open
        has no terminal: it must not read the keyboard, draw, or change the terminal's settings,
        and its standard output is not its own to write on.
-What:  STMClient asks Gosh::headless() and, when it is so: init does nothing; shutdown restores
+What:  STMClient asks Gosh::Seam::headless() and, when it is so: init does nothing; shutdown restores
        no screen or terminal; the window is taken to be 80 by 24; no first frame is drawn; in
        place of drawing, the client says once on standard error that it is connected; the
        keyboard and the window-size and continue signals are not watched; and the display is
@@ -26,7 +26,7 @@ index 132dba8..a85507c 100644
      success = false;
    }
  
-+  if ( Gosh::headless() ) {
++  if ( Gosh::Seam::headless() ) {
 +    fputs( "gosh: exiting.\n", stderr ); /* (standard output is not ours to write on) */
 +  } else {
    printf( "[mosh is exiting.]\n" );
@@ -42,7 +42,7 @@ index bccab7d..5633b52 100644
  
  void STMClient::init( void )
  {
-+  if ( Gosh::headless() ) {
++  if ( Gosh::Seam::headless() ) {
 +    return; /* nothing of the terminal's to look at or change */
 +  }
 +
@@ -53,7 +53,7 @@ index bccab7d..5633b52 100644
  
  void STMClient::shutdown( void )
  {
-+  if ( !Gosh::headless() ) {
++  if ( !Gosh::Seam::headless() ) {
    /* Restore screen state */
    overlays.get_notification_engine().set_notification_string( std::wstring( L"" ) );
    overlays.get_notification_engine().server_heard( timestamp() );
@@ -69,7 +69,7 @@ index bccab7d..5633b52 100644
    sel.add_signal( SIGCONT );
  
    /* get initial window size */
-+  if ( Gosh::headless() ) {
++  if ( Gosh::Seam::headless() ) {
 +    /* there is no window; tell the server something ordinary */
 +    window_size = winsize();
 +    window_size.ws_col = 80;
@@ -82,7 +82,7 @@ index bccab7d..5633b52 100644
    new_state = Terminal::Framebuffer( 1, 1 );
  
    /* initialize screen */
-+  if ( !Gosh::headless() ) {
++  if ( !Gosh::Seam::headless() ) {
    std::string init = display.new_frame( false, local_framebuffer, local_framebuffer );
    swrite( STDOUT_FILENO, init.data(), init.size() );
 +  }
@@ -93,9 +93,9 @@ index bccab7d..5633b52 100644
      return;
    }
  
-+  if ( Gosh::headless() ) {
++  if ( Gosh::Seam::headless() ) {
 +    /* nothing to draw on: say once, where a script can see it, that the session is up */
-+    Gosh::announce( *network, still_connecting() );
++    Gosh::Seam::announce( *network, still_connecting() );
 +    return;
 +  }
 +
@@ -106,7 +106,7 @@ index bccab7d..5633b52 100644
        for ( std::vector<int>::const_iterator it = fd_list.begin(); it != fd_list.end(); it++ ) {
          sel.add_fd( *it );
        }
-+      if ( !Gosh::headless() ) {
++      if ( !Gosh::Seam::headless() ) {
        sel.add_fd( STDIN_FILENO );
 +      }
  
@@ -117,7 +117,7 @@ index bccab7d..5633b52 100644
        }
  
 -      if ( sel.read( STDIN_FILENO )
-+      if ( !Gosh::headless() && sel.read( STDIN_FILENO )
++      if ( !Gosh::Seam::headless() && sel.read( STDIN_FILENO )
             && !process_user_input( STDIN_FILENO ) ) { /* input from the user needs to be fed to the network */
          if ( !network->has_remote_addr() ) {
            break;
@@ -126,12 +126,12 @@ index bccab7d..5633b52 100644
        }
  
 -      if ( sel.signal( SIGWINCH ) && !process_resize() ) { /* resize */
-+      if ( !Gosh::headless() && sel.signal( SIGWINCH ) && !process_resize() ) { /* resize */
++      if ( !Gosh::Seam::headless() && sel.signal( SIGWINCH ) && !process_resize() ) { /* resize */
          return false;
        }
  
 -      if ( sel.signal( SIGCONT ) ) {
-+      if ( !Gosh::headless() && sel.signal( SIGCONT ) ) {
++      if ( !Gosh::Seam::headless() && sel.signal( SIGCONT ) ) {
          resume();
        }
  
@@ -152,7 +152,7 @@ index 4d19225..b0dc137 100644
        escape_pass_key( '^' ), escape_pass_key2( '^' ), escape_requires_lf( false ), escape_key_help( L"?" ),
        saved_termios(), raw_termios(), window_size(), local_framebuffer( 1, 1 ), new_state( 1, 1 ), overlays(),
 -      network(), display( true ) /* use TERM environment var to initialize display */, connecting_notification(),
-+      network(), display( !Gosh::headless() ) /* use TERM environment var to initialize display */, connecting_notification(),
++      network(), display( !Gosh::Seam::headless() ) /* use TERM environment var to initialize display */, connecting_notification(),
        repaint_requested( false ), lf_entered( false ), quit_sequence_started( false ), clean_shutdown( false ),
        verbose( s_verbose )
    {

@@ -17,11 +17,11 @@
 #include <sys/socket.h>
 
 #include "src/forwarding/forwarding.h"
-#include "src/seam/options.h"
-#include "src/seam/relaying.h"
-#include "src/seam/streaming.h"
+#include "src/seam/imp/options.h"
+#include "src/seam/imp/relaying.h"
+#include "src/seam/imp/streaming.h"
 
-namespace Gosh {
+namespace Gosh::Seam::Imp {
 
 struct Session
 {
@@ -50,24 +50,6 @@ struct Session
 
 /* The session that gosh's main retained (session.cc). Expects that one is. */
 Session& session( void );
-
-/* Whether this program may yet start a process: a stream's, or the relay. (It must not give up the right to.) */
-inline bool may_start_processes( void )
-{
-  return !session().options.stream.empty() || session().relay.mode != Gosh::Relay::RELAY_NEVER;
-}
-
-/* Whether this session is for a stream. */
-inline bool has_stream( void )
-{
-  return !session().options.stream.empty();
-}
-
-/* Whether this client has no terminal (REQ1/FWD-5). */
-inline bool headless( void )
-{
-  return session().options.headless;
-}
 
 }
 

@@ -1,6 +1,6 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-#include "src/seam/session.h"
+#include "src/seam/imp/session.h"
 
 #include <cerrno>
 #include <cstdio>
@@ -16,10 +16,11 @@
 #include "src/network/network.h"
 #include "src/relay/relay.h"
 
-using namespace Gosh;
+using namespace Gosh::Seam;
+using namespace Gosh::Seam::Imp;
 
 /* (the fork's STMClient::engage_relay) */
-void Gosh::engage_relay( void )
+void Gosh::Seam::Imp::engage_relay( void )
 {
   Session& s = session();
   s.relay.engaged = true; /* (or tried: either way, once) */
@@ -63,7 +64,7 @@ void Gosh::engage_relay( void )
   }
 }
 
-void Gosh::consider_relay( void )
+void Gosh::Seam::Imp::consider_relay( void )
 {
   Session& s = session();
   if ( !s.last_heard ) {

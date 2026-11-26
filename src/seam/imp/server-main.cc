@@ -13,15 +13,15 @@
 #include <string>
 #include <vector>
 
-#include "src/seam/session.h"
+#include "src/seam/imp/session.h"
 #include "vendor/retain/retain.hpp"
 #include "src/seam/gosh-version.h"
 
 #include "src/forwarding/streamchild.h"
-#include "src/seam/applications.h"
+#include "src/seam/imp/applications.h"
 #include "src/seam/core-main.h"
 #include "src/seam/hooks.h"
-#include "src/seam/options.h"
+#include "src/seam/imp/options.h"
 #include "src/relay/relay.h"
 #include "src/crypto/crypto.h"
 #include "src/crypto/prng.h"
@@ -32,8 +32,8 @@
 int main( int argc, char* argv[] )
 {
   /* The session, for everything this calls: the seam's hooks recall it (session.cc). */
-  Gosh::Session the_session;
-  retain<Gosh::Session> as( &the_session );
+  Gosh::Seam::Imp::Session the_session;
+  retain<Gosh::Seam::Imp::Session> as( &the_session );
 
   const std::string name( argc > 0 ? argv[0] : "gosh-server" );
   std::vector<std::string> args( argv + ( argc > 0 ? 1 : 0 ), argv + argc );
@@ -103,25 +103,25 @@ int main( int argc, char* argv[] )
   }
 
   if ( !args.empty() && args[0] == "new" ) {
-    Gosh::ForwardOptions options;
+    Gosh::Seam::Imp::ForwardOptions options;
     std::vector<std::string> rest;
     std::string error;
     /* "@ipcl": the core's options that take a value, so that a value is not read as an option */
-    if ( !Gosh::take_forward_options( std::vector<std::string>( args.begin() + 1, args.end() ), "@ipcl", false, false,
+    if ( !Gosh::Seam::Imp::take_forward_options( std::vector<std::string>( args.begin() + 1, args.end() ), "@ipcl", false, false,
                                       options, rest, error ) ) {
       fprintf( stderr, "%s: %s\n", name.c_str(), error.c_str() );
       return 1;
     }
-    if ( options.stream_given && !Gosh::stream_words_valid( Gosh::Forwarding::stream_words( options.stream ) ) ) {
+    if ( options.stream_given && !Gosh::Seam::Imp::stream_words_valid( Gosh::Forwarding::stream_words( options.stream ) ) ) {
       fprintf( stderr, "%s: -X: not something that can be started\n", name.c_str() );
       return 1;
     }
-    Gosh::session().client = false;
-    Gosh::session().options = options;
+    Gosh::Seam::Imp::session().client = false;
+    Gosh::Seam::Imp::session().options = options;
     args.assign( 1, "new" );
     args.insert( args.end(), rest.begin(), rest.end() );
   }
 
-  Gosh::CoreWords held;
-  return Gosh::call_core_main( mosh_server_main, name, args, held );
+  Gosh::Seam::CoreWords held;
+  return Gosh::Seam::call_core_main( mosh_server_main, name, args, held );
 }

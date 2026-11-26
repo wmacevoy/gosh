@@ -20,7 +20,7 @@
  *                    ways, each way ending on its own (-W, REQ19/FWD-6); if it cannot be made,
  *                    it says why on standard error and the stream ends
  */
-namespace Gosh {
+namespace Gosh::Seam::Imp {
 
 /* Whether the words name an application, with words it takes. */
 bool stream_words_valid( const std::vector<std::string>& words );

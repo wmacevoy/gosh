@@ -23,7 +23,7 @@ index a85507c..580c94d 100644
  
      try {
        success = client.main();
-+      Gosh::loop_returned();
++      Gosh::Seam::loop_returned();
      } catch ( ... ) {
        client.shutdown();
        throw;
@@ -31,11 +31,11 @@ index a85507c..580c94d 100644
      success = false;
    }
  
-+  if ( Gosh::has_stream() ) {
-+    return Gosh::stream_exit( success ); /* we were only the means */
++  if ( Gosh::Seam::has_stream() ) {
++    return Gosh::Seam::stream_exit( success ); /* we were only the means */
 +  }
 +
-   if ( Gosh::headless() ) {
+   if ( Gosh::Seam::headless() ) {
      fputs( "gosh: exiting.\n", stderr ); /* (standard output is not ours to write on) */
    } else {
 diff --git a/src/frontend/mosh-server.cc b/src/frontend/mosh-server.cc
@@ -46,7 +46,7 @@ index 3e3a975..3bf8a8a 100644
        network_timeout = 0;
      }
    }
-+  if ( Gosh::has_stream() && !( timeout_envar && *timeout_envar ) ) {
++  if ( Gosh::Seam::has_stream() && !( timeout_envar && *timeout_envar ) ) {
 +    /* nobody is at a terminal to end a stream's session: if its client never comes back, give up after a week */
 +    network_timeout = 7 * 24 * 60 * 60;
 +  }
@@ -58,7 +58,7 @@ index 3e3a975..3bf8a8a 100644
  #ifdef HAVE_PLEDGE
      /* OpenBSD pledge() syscall */
 -    if ( pledge( "stdio inet tty", NULL ) ) {
-+    if ( !Gosh::has_stream() && pledge( "stdio inet tty", NULL ) ) {
++    if ( !Gosh::Seam::has_stream() && pledge( "stdio inet tty", NULL ) ) {
        perror( "pledge() failed" );
        exit( 1 );
      }
@@ -71,7 +71,7 @@ index 197f055..eec1b05 100644
  #ifdef HAVE_PLEDGE
    /* OpenBSD pledge() syscall */
 -  if ( pledge( "stdio inet tty", NULL ) ) {
-+  if ( !Gosh::may_start_processes() && pledge( "stdio inet tty", NULL ) ) {
++  if ( !Gosh::Seam::may_start_processes() && pledge( "stdio inet tty", NULL ) ) {
      perror( "pledge() failed" );
      exit( 1 );
    }

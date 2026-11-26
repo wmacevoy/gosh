@@ -7,16 +7,16 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 # cannot hold two: the linker takes main from the one its program names.
 noinst_LIBRARIES = libgoshseam.a libgoshclientmain.a libgoshservermain.a
 
-libgoshseam_a_SOURCES = applications.cc applications.h options.cc options.h session.cc session.h streaming.cc streaming.h relaying.cc relaying.h hooks.h core-main.h
-libgoshclientmain_a_SOURCES = client-main.cc
-libgoshservermain_a_SOURCES = server-main.cc
+libgoshseam_a_SOURCES = hooks.h core-main.h asked.h imp/applications.cc imp/applications.h imp/options.cc imp/options.h imp/session.cc imp/session.h imp/streaming.cc imp/streaming.h imp/relaying.cc imp/relaying.h
+libgoshclientmain_a_SOURCES = imp/client-main.cc
+libgoshservermain_a_SOURCES = imp/server-main.cc
 
-check_PROGRAMS = options-test applications-test
+check_PROGRAMS = imp/options-test imp/applications-test
 TESTS = $(check_PROGRAMS)
-options_test_SOURCES = options-test.cc
-options_test_LDADD = libfacts.a libgoshseam.a
-applications_test_SOURCES = applications-test.cc
-applications_test_LDADD = libfacts.a libgoshseam.a ../copy/libgoshcopy.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+imp_options_test_SOURCES = imp/options-test.cc
+imp_options_test_LDADD = libfacts.a libgoshseam.a
+imp_applications_test_SOURCES = imp/applications-test.cc
+imp_applications_test_LDADD = libfacts.a libgoshseam.a ../copy/libgoshcopy.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 
 AUTOMAKE_OPTIONS = subdir-objects
 

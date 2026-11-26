@@ -16,7 +16,7 @@ int mosh_server_main( int argc, char* argv[] );
 /* The core's own: prints the number of colors the terminal has on standard output (mosh-client -c). */
 void print_colorcount( void );
 
-namespace Gosh {
+namespace Gosh::Seam {
 
 /* The words a core's main is called with, and the pointers to them it is handed. Whoever calls
    the core's main makes one and keeps it for as long as the core runs: the core keeps pointers into it. */

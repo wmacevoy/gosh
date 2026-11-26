@@ -176,7 +176,7 @@ void make_tree( void )
   dest = at + "/dest";
   mkdir( dest.c_str(), 0700 );
   atexit( cleanup );
-  GoshFuzzReplay::on_crash() = cleanup;
+  Gosh::Seam::FuzzReplay::on_crash() = cleanup;
 }
 
 }

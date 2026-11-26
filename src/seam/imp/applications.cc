@@ -3,7 +3,7 @@
 
 #include "src/include/config.h"
 
-#include "src/seam/applications.h"
+#include "src/seam/imp/applications.h"
 
 #include <cerrno>
 #include <cstdio>
@@ -19,7 +19,7 @@
 
 #include "src/copy/filecopy.h"
 
-bool Gosh::stream_words_valid( const std::vector<std::string>& words )
+bool Gosh::Seam::Imp::stream_words_valid( const std::vector<std::string>& words )
 {
   if ( words.empty() ) {
     return false;
@@ -34,7 +34,7 @@ bool Gosh::stream_words_valid( const std::vector<std::string>& words )
   return ( words[0] == "@stdio" && words.size() == 1 ) || ( words[0] == "@sh" && words.size() == 2 );
 }
 
-bool Gosh::connect_port_valid( const std::string& port )
+bool Gosh::Seam::Imp::connect_port_valid( const std::string& port )
 {
   if ( port.empty() || port.size() > 5 || port.find_first_not_of( "0123456789" ) != std::string::npos ) {
     return false;
@@ -198,7 +198,7 @@ static void stream_as_stdio( int sock )
   }
 }
 
-Gosh::Forwarding::StreamApplication Gosh::stream_application( const std::vector<std::string>& words, bool local )
+Gosh::Forwarding::StreamApplication Gosh::Seam::Imp::stream_application( const std::vector<std::string>& words, bool local )
 {
   if ( words[0] == "@copy" ) {
     return [words, local]( int sock ) {
