@@ -1,0 +1,33 @@
+# gosh's domains (REQ6/SHAPE-5; docs/PROPOSAL_domain-map.md): a line each, its name, its
+# directories, `|`, its ABI: the headers another domain may use. Everything else of a domain is
+# its inside, which only it uses. The lint holds it (strong-domain-driven-design's prover/lint.py,
+# rule "a domain"; tools/proofs.sh runs it). Each domain's README says what each ABI header means.
+
+# the harness
+command      src/command                            | src/command/moshwrapper.h
+relay        src/relay                              | src/relay/relay.h src/relay/start.h
+pathfinding  src/pathfinding src/strong/pathfinding | src/pathfinding/punch.h
+meetup       src/meetup src/strong/meetup           | src/meetup/meetup.h src/meetup/master.h src/meetup/ticket.h src/meetup/messages.h
+forwarding   src/forwarding                         | src/forwarding/forwarding.h src/forwarding/udp/rules.h src/forwarding/stream/stream.h src/forwarding/stream/streamchild.h
+seam         src/seam                               | src/seam/core-main.h src/seam/hooks.h src/seam/gosh-version.h src/seam/fuzz-replay.h src/seam/proved.h
+
+# the applications
+copy         src/copy                               | src/copy/filecopy.h src/copy/options.h
+
+# what every proved class is written with
+strong       src/strong                             | src/strong/datagram.h src/strong/opened.h src/strong/bounded.h src/strong/caller.h src/strong/subarray.h
+
+# Crossings that are there, and are to go: each is said by every run of the lint, and a line is
+# refused once its crossing is no longer made. The proposal's change that ends each is named.
+allow src/meetup/answer.h             pathfinding   # stun: is_stun_request_checked
+allow src/meetup/serve.cc             pathfinding   # stun: is_stun_request_checked
+allow src/pathfinding/finding.h       meetup        # meetup's end: the wire format, sealed and opened
+allow src/pathfinding/finding-test.cc meetup        # meetup's end; and a meetup run from its inside
+allow src/pathfinding/finding-fuzzer.cc meetup      # the same
+allow src/pathfinding/punch-test.cc   meetup        # the same
+allow src/pathfinding/stun-test.cc    meetup        # stun: the meetup's STUN answer
+allow src/meetup/messages.h           meetup        # meetup's end: messages.h becomes inside
+allow src/pathfinding/punch.h         pathfinding   # Got, declared in finding.h
+allow src/relay/process.h             pathfinding   # PUNCH_MARK; and an address's text, in stun.h
+allow src/relay/local.cc              pathfinding   # an address's text, in stun.h
+allow src/relay/frame-fuzzer.cc       pathfinding   # PUNCH_MARK

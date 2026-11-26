@@ -8,6 +8,14 @@ Every part sits in one of four layers. **Only glue reaches across layers**; ever
 includes only parts of its own layer, and the core. `../tests/layers.py` fails the check
 otherwise.
 
+Within the layers, each part is a **domain**: its ABI, the headers another part may use, and its
+inside, which only it uses (`DOMAINS`, a line each; `../docs/PROPOSAL_domain-map.md`). The lint
+holds it (strong-domain-driven-design's rule *a domain*, run by `../tools/proofs.sh`): another
+part is used only by what its ABI declares, an ABI names none of its own inside, and every file is
+of one part. A crossing that is there and is to go is an `allow` line in `DOMAINS`, said by every
+run and refused once it is no longer made, so the list only shrinks (2026-11-26: 78 crossings, by
+12 lines).
+
 | Layer | Parts | What it does |
 | --- | --- | --- |
 | **application** | the terminal (the core's `terminal/` and `statesync/`), `copy/` | what the user came for: a screen kept up to date, files copied |

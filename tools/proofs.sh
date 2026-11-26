@@ -158,7 +158,8 @@ if [ "$MODE" = lite ]; then
     echo "proofs: PASS (lite: proved:$PROVE; NOT run: the lint of all of gosh$([ -n "$ONLY" ] && echo ", the other domains' proofs, the rules' red cases" || echo ", any red case"). The whole is tools/proofs.sh)"
     exit 0
 fi
-STRONG=$STRONG INCLUDE="$LINT_INCLUDE" "$PYTHON" "$PROVER/lint.py"
+# And each domain of gosh (src/DOMAINS) is used by another only through its ABI.
+STRONG=$STRONG INCLUDE="$LINT_INCLUDE" DOMAINS=src/DOMAINS "$PYTHON" "$PROVER/lint.py"
 
 # 3. prove. Each domain of gosh is proved, from gosh's own files.
 DOMAIN="$W" "$PROVER/prove.sh" $DOMAINS
