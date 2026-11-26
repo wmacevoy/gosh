@@ -10,15 +10,15 @@ libgoshcommand_a_SOURCES = moshwrapper.h imp/moshwrapper.cc imp/options.cc imp/o
 check_PROGRAMS = imp/stock-test imp/options-test imp/words-test imp/startup-test imp/sshconfig-test
 TESTS = $(check_PROGRAMS)
 imp_stock_test_SOURCES = imp/stock-test.cc
-stock_test_LDADD = libfacts.a libgoshcommand.a
+imp_stock_test_LDADD = libfacts.a libgoshcommand.a
 imp_options_test_SOURCES = imp/options-test.cc
-options_test_LDADD = libfacts.a libgoshcommand.a
+imp_options_test_LDADD = libfacts.a libgoshcommand.a
 imp_words_test_SOURCES = imp/words-test.cc
-words_test_LDADD = libfacts.a libgoshcommand.a
+imp_words_test_LDADD = libfacts.a libgoshcommand.a
 imp_startup_test_SOURCES = imp/startup-test.cc
-startup_test_LDADD = libfacts.a libgoshcommand.a
+imp_startup_test_LDADD = libfacts.a libgoshcommand.a
 imp_sshconfig_test_SOURCES = imp/sshconfig-test.cc
-sshconfig_test_LDADD = libfacts.a libgoshcommand.a
+imp_sshconfig_test_LDADD = libfacts.a libgoshcommand.a
 
 AUTOMAKE_OPTIONS = subdir-objects
 
