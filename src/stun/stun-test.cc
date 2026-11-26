@@ -12,7 +12,7 @@
 
 #include "src/meetup/answer.h"
 #include "src/meetup/messages.h"
-#include "src/pathfinding/stun.h"
+#include "src/stun/stun.h"
 #include "vendor/facts/facts.h"
 /* REQ1/PATH-3, REQ17/PATH-8: STUN, asking */
 FACTS( Stun )

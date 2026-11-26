@@ -24,13 +24,13 @@
 #include <cstdint>
 #include <vector>
 
-#include "src/strong/pathfinding/stunanswer.h"
+#include "src/strong/stun/stunanswer.h"
 
 #include "forall.h"
 
 PROOF( whatever_is_received_is_read_safely_and_what_is_kept_is_an_address )
 {
-  Strong::Pathfinding::StunAnswer answer;
+  Strong::Stun::StunAnswer answer;
   for ( const std::vector<unsigned char>& bytes : every_bytes() ) {
     /* (1) it ends, and reads nothing outside these bytes: that this call is here says so */
     answer.parse_checked( Strong::Datagram( bytes.data(), bytes.size() ) );

@@ -40,7 +40,7 @@ A way straight between the two relays when both ends are behind NATs (`REQ1/PATH
 
 | File | What it holds | Test |
 | --- | --- | --- |
-| `stun.h` | STUN, asking: the request; `stun_parse`, the edge that makes what `Strong::Pathfinding::StunAnswer` kept a socket address; `a.b.c.d:p` as text. Logic | `stun-test.cc`, reading an answer the meetup's `answer.h` wrote |
+| *(STUN)* | moved to its own part, `../stun/` (2026-11-26): path-finding asks by its ABI, `stun.h` | |
 | `finding.h` | `PathFinding`: candidates; probes sealed and numbered; which way is open; when to probe; the meetup registered with and passed through. Logic: the time and datagrams in, datagrams to send out | `finding-test.cc`: a network of a few lines, the meetup's own logic, time moved by the test |
 | `punch.*` | `Punch`: the socket, this machine's addresses, the time of day, the process that asks the STUN servers. An edge, around `PathFinding`, with the interface the relays had | `punch-test.cc`, real sockets on loopback |
 
@@ -61,10 +61,6 @@ networks only, and needs root to make them.
 **Fuzzed** (queue item 21); `make check` replays each corpus and 200 seeded changes of each input,
 and CI runs them under libFuzzer (`tools/fuzz.sh`):
 
-- `stun-fuzzer.cc`, the fork's: STUN answers from anyone, and addresses as text, written back the
-  same. Seen red under AddressSanitizer with an answer longer than it says allowed (`stun.h`);
-  breaking the check of each attribute's length alone shows nothing (the whole answer's length is
-  checked first).
 - `finding-fuzzer.cc`, new: path-finding's logic given datagrams from anyone (the other end, the
   meetup, strangers, by IPv4 and IPv6) and real probes from a second end, as sent, changed or from
   elsewhere; it takes the session's datagrams only from where its way is. Seen red with a probe
@@ -74,6 +70,4 @@ and CI runs them under libFuzzer (`tools/fuzz.sh`):
   the corpus's replay, a REGISTERED taken 0 times before and 1,333 after, a GOODBYE 0 and 178,
   DATA through the meetup 0 and 164 (`through-meetup`).
 
-The check also replays both under AddressSanitizer (`tools/asan-replay.sh`). Seen: with `stun.h`
-letting an attribute run 8 bytes past the body, the plain replay passes and that one stops on a
-heap-buffer-overflow (the reviewer's input, `attr-past-body`).
+The check also replays it under AddressSanitizer (`tools/asan-replay.sh`); `stun-fuzzer.cc` is `../stun/`'s.

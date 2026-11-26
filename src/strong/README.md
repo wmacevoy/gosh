@@ -47,7 +47,7 @@ there, and gosh's proofs prove its two classes again by that project's claims, s
 | `caller.h` | who called a `_checked` way in, and the end of the process when what it tests is not so. The one file here that is not proved | `bounded.h` |
 | `bounded.h` | `bounded<a, b, type>`: a number from a to b, both included, as a type; making one expects that of the caller. `bounded_checked<a, b, type>`: made from any number, it tests, and the process ends if it is not within the bounds. Each proved once, for every type and bounds, in strong-domain-driven-design | `meetup/counter.h` |
 | `subarray.h` | `subarray<iterator>( a, n )`: the n elements from a, read by `at( i )`; `subarray<iterator, of>` says by its type what they are, to the compiler only (the proofs read every window alike, so what is proved of a reader is proved whatever its window is said to hold). What making one expects (the elements are there, and stay) is held before the program runs, by the lint (the prover's `lint.py`). `fixed<n, of>( a )`: the n bytes from a, a window whose length is its type; a proved class reads one only at an index written out below n (the prover refuses any other), so where its reads fall is nothing to prove. Not proved: each keeps a pointer | `datagram.h`, `meetup/register.h`, `meetup/registered.h`, `meetup/time.h`, `meetup/pass.h`; a `fixed` is made by `src/meetup/sealed.h`, where the length has just been found n |
-| `datagram.h` | `Datagram`: a `subarray` of bytes, as they were received | `pathfinding/stunanswer.h`, `pathfinding/stunrequest.h`, `meetup/header.h` and their users |
+| `datagram.h` | `Datagram`: a `subarray` of bytes, as they were received | `stun/stunanswer.h`, `stun/stunrequest.h`, `meetup/header.h` and their users |
 | `opened.h` | `Opened<T>`: a `subarray` of bytes, as the cipher gave them back, opened, and the text of a T, the proved class that reads it: the compiler refuses a `Datagram`, or another kind's text, where `Opened<Meetup::Register>` is wanted. It says nothing of who sealed them. For a text of any length; a text of one length is read as a `fixed` | made by `src/meetup/sealed.h`; read by `meetup/pass.h` |
 
 **`meetup/`**: the meetup's door
@@ -63,12 +63,12 @@ there, and gosh's proofs prove its two classes again by that project's claims, s
 | `meetup/counter.h` | `Meetup::Counter`, a counter of 62 bits, and `Meetup::CounterChecked`: names for the two above at 0 to 2^62 - 1 | `meetup/counterwindow.h`, `src/meetup/messages.h` |
 | `meetup/counterwindow.h` | `Meetup::CounterWindow`: which of an end's last 1024 counters are used. `take` expects a `Counter`; `take_checked` takes a checked one. Proved: memory, ending, and that the highest counter kept is one. Not proved: that no counter is taken twice | `src/meetup/registrations.h` |
 
-**`pathfinding/`**: STUN
+**`stun/`**: STUN
 
 | File | What it is | Used by |
 | --- | --- | --- |
-| `pathfinding/stunanswer.h` | `Pathfinding::StunAnswer`: a STUN answer read, from bytes sent by anyone. Every method is a way in (`parse_checked`, `kept_..._checked`): its one user is not proved | `src/pathfinding/stun.h` |
-| `pathfinding/stunrequest.h` | `Pathfinding::is_stun_request_checked`: whether bytes are a STUN Binding Request | `src/meetup/answer.h` and its users |
+| `stun/stunanswer.h` | `Stun::StunAnswer`: a STUN answer read, from bytes sent by anyone. Every method is a way in (`parse_checked`, `kept_..._checked`): its one user is not proved | `src/pathfinding/stun.h` |
+| `stun/stunrequest.h` | `Stun::is_stun_request_checked`: whether bytes are a STUN Binding Request | `src/meetup/answer.h` and its users |
 
 **`forwarding/`**: nothing yet.
 `answer-test.cc`) and its fuzzer; there is no test here, and no Makefile: these are headers.

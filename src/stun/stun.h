@@ -23,7 +23,7 @@
 #include <netinet/in.h>
 
 #include "src/network/network.h"
-#include "src/strong/pathfinding/stunanswer.h"
+#include "src/strong/stun/stunanswer.h"
 
 namespace Network {
 
@@ -46,11 +46,11 @@ inline std::string stun_request( const char* txid )
 }
 
 /* If this is an answer to one that says where we were seen: true, and where. The reading is
- * Strong::Pathfinding::StunAnswer's (strong/pathfinding/stunanswer.h), which touches nothing of the system; here what it kept is made the
+ * Strong::Stun::StunAnswer's (strong/stun/stunanswer.h), which touches nothing of the system; here what it kept is made the
  * socket address the system knows. (Until 2026-11-18 this function did both.) */
 inline bool stun_parse( const char* data, size_t len, Addr& mapped )
 {
-  Strong::Pathfinding::StunAnswer answer;
+  Strong::Stun::StunAnswer answer;
   if ( !answer.parse_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( data ), len ) ) ) {
     return false;
   }

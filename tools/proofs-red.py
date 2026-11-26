@@ -140,7 +140,7 @@ if not ONLY:
             failures += not ok
             ran += 1
         # and a call of what is proved by a name that is not `_checked`, though nothing there could fail
-        path = os.path.join(d, "subject", "src", "pathfinding", "stun.h")
+        path = os.path.join(d, "subject", "src", "stun", "stun.h")
         text = open(path).read()
         old, new = "if ( answer.kept_family_checked() == 4 ) {", "if ( answer.invariant() && answer.kept_family_checked() == 4 ) {"
         if text.count(old) != 1:
@@ -162,9 +162,9 @@ LINT = os.path.join(PROVER, "lint.py")
 if not ONLY:
     with tempfile.TemporaryDirectory() as d:
         shutil.copytree(os.path.join(os.environ["SUBJECT"], "src", "strong"), os.path.join(d, "subject", "src", "strong"))
-        os.makedirs(os.path.join(d, "subject", "src", "pathfinding"))
-        path = os.path.join(d, "subject", "src", "pathfinding", "stun.h")
-        text = open(os.path.join(os.environ["SUBJECT"], "src", "pathfinding", "stun.h")).read()
+        os.makedirs(os.path.join(d, "subject", "src", "stun"))
+        path = os.path.join(d, "subject", "src", "stun", "stun.h")
+        text = open(os.path.join(os.environ["SUBJECT"], "src", "stun", "stun.h")).read()
         old = "answer.parse_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( data ), len ) )"
         new = old + " || Strong::Datagram( reinterpret_cast<const unsigned char*>( data ), len ).at( 0 ) != 1"
         env = dict(os.environ, SUBJECT=os.path.join(d, "subject"), STRONG="src/strong", INCLUDE=os.environ.get("LINT_INCLUDE", ""))

@@ -1,2 +1,2 @@
-src/strong/pathfinding/stunanswer.h
+src/strong/stun/stunanswer.h
 needs src/strong/datagram.h Datagram
