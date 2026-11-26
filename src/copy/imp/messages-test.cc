@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "src/copy/messages.h"
+#include "src/copy/imp/messages.h"
 #include "vendor/facts/facts.h"
 
 
@@ -27,7 +27,7 @@ static bool malformed( F f )
 {
   try {
     f();
-  } catch ( const FileCopy::Malformed& ) {
+  } catch ( const Gosh::Copy::Imp::Malformed& ) {
     return true;
   }
   return false;
@@ -35,19 +35,20 @@ static bool malformed( F f )
 
 static void read_short_want( void )
 {
-  FileCopy::read_want( std::string( 27, '\0' ) );
+  Gosh::Copy::Imp::read_want( std::string( 27, '\0' ) );
 }
 static void read_short_result( void )
 {
   uint32_t i;
   bool ok;
   std::string why;
-  FileCopy::read_result( bytes( "\0\0\0\1\1\0\0\0\5ab", 11 ), i, ok, why );
+  Gosh::Copy::Imp::read_result( bytes( "\0\0\0\1\1\0\0\0\5ab", 11 ), i, ok, why );
 }
 /* REQ1/CP-1, REQ1/CP-6: the messages of mocp-1 */
 FACTS( Messages )
 {
-  using namespace FileCopy;
+  using namespace Gosh::Copy;
+using namespace Gosh::Copy::Imp;
 
   FACT_CHECK( ( std::string( MAGIC ) == "mocp-1" && HELLO == 1 && LIST == 2 && WANT == 4 && FILE_BEGIN == 6 && DATA == 7
            && FILE_END == 8 && RESULT == 9 && NOTE == 12 && BYE == 13 ), "the magic is \"mocp-1\", and the types are 1 to 13 in pf.7's order" );

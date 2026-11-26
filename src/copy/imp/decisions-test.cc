@@ -12,12 +12,13 @@
 #include <string>
 #include <vector>
 
-#include "src/copy/decisions.h"
+#include "src/copy/imp/decisions.h"
 #include "vendor/facts/facts.h"
 
 
 
-using namespace FileCopy;
+using namespace Gosh::Copy;
+using namespace Gosh::Copy::Imp;
 
 static Entry file( const std::string& path, uint64_t size, int64_t mtime )
 {

@@ -34,11 +34,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "src/copy/decisions.h"
+#include "src/copy/imp/decisions.h"
 #include "src/copy/filecopy.h"
-#include "src/copy/messages.h"
+#include "src/copy/imp/messages.h"
 
-using namespace FileCopy;
+using namespace Gosh::Copy;
+using namespace Gosh::Copy::Imp;
 
 namespace {
 
@@ -1061,7 +1062,7 @@ public:
 
 }
 
-int FileCopy::run( const Options& options, int in_fd, int out_fd )
+int Gosh::Copy::run( const Options& options, int in_fd, int out_fd )
 {
   signal( SIGPIPE, SIG_IGN );
   const char* home = getenv( "HOME" ); /* the one read of the environment: for "~" in the paths */

@@ -2,7 +2,7 @@
 
 /*
  * copy, options: the words that say which end of a copy this is and how it behaves (REQ1/CP-1,
- * REQ1/CP-5). Logic. The fork's (mosh-1.4.0-pf.7, src/network/filecopy.cc, FileCopy::parse).
+ * REQ1/CP-5). Logic. The fork's (mosh-1.4.0-pf.7, src/network/filecopy.cc, Gosh::Copy::parse).
  *
  * The words: "send" or "receive", then any of -r --auto --delete --glob -q --interval=MS, then "--"
  * and the paths. Wrong input: anything else, an interval under 100 ms, no "--", a sender with no
@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-namespace FileCopy {
+namespace Gosh::Copy {
 
 struct Options
 {

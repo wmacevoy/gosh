@@ -16,7 +16,7 @@ forwarding   src/forwarding                         | src/forwarding/forwarding.
 seam         src/seam                               | src/seam/core-main.h src/seam/hooks.h src/seam/gosh-version.h src/seam/fuzz-replay.h src/seam/proved.h
 
 # the applications
-copy         src/copy                               | src/copy/filecopy.h src/copy/options.h
+Gosh::Copy   src/copy
 
 # what every proved class is written with
 strong       src/strong                             | src/strong/datagram.h src/strong/opened.h src/strong/bounded.h src/strong/caller.h src/strong/subarray.h

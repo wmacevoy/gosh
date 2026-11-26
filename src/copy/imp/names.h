@@ -15,7 +15,7 @@
 
 #include <string>
 
-namespace FileCopy {
+namespace Gosh::Copy::Imp {
 
 /* For the receiver: a path from the other end that stays inside the destination. */
 inline bool safe_relative_path( const std::string& path )

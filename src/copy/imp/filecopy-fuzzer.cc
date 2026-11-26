@@ -197,7 +197,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   std::map<std::string, std::string> before, after;
   snapshot( root, before );
 
-  FileCopy::Options options;
+  Gosh::Copy::Options options;
   options.sender = false;
   options.local = false;
   options.remove = data[0] & 1;
@@ -208,7 +208,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   if ( in < 0 || out < 0 ) {
     abort();
   }
-  FileCopy::run( options, in, out );
+  Gosh::Copy::run( options, in, out );
   close( in );
   close( out );
 

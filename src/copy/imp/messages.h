@@ -35,10 +35,10 @@
 #include <string>
 #include <vector>
 
-#include "src/copy/checksum.h"
-#include "src/copy/names.h"
+#include "src/copy/imp/checksum.h"
+#include "src/copy/imp/names.h"
 
-namespace FileCopy {
+namespace Gosh::Copy::Imp {
 
 enum MessageType
 {

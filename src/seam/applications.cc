@@ -25,8 +25,8 @@ bool Gosh::stream_words_valid( const std::vector<std::string>& words )
     return false;
   }
   if ( words[0] == "@copy" ) {
-    FileCopy::Options options;
-    return FileCopy::parse( std::vector<std::string>( words.begin() + 1, words.end() ), options );
+    Gosh::Copy::Options options;
+    return Gosh::Copy::parse( std::vector<std::string>( words.begin() + 1, words.end() ), options );
   }
   if ( words[0] == "@connect" ) {
     return words.size() == 3 && !words[1].empty() && connect_port_valid( words[2] );
@@ -202,13 +202,13 @@ Network::StreamApplication Gosh::stream_application( const std::vector<std::stri
 {
   if ( words[0] == "@copy" ) {
     return [words, local]( int sock ) {
-      FileCopy::Options options;
-      if ( !FileCopy::parse( std::vector<std::string>( words.begin() + 1, words.end() ), options ) ) {
+      Gosh::Copy::Options options;
+      if ( !Gosh::Copy::parse( std::vector<std::string>( words.begin() + 1, words.end() ), options ) ) {
         return 2;
       }
       options.local = local;
       stream_as_stdio( sock );
-      return FileCopy::run( options, STDIN_FILENO, STDOUT_FILENO );
+      return Gosh::Copy::run( options, STDIN_FILENO, STDOUT_FILENO );
     };
   }
   if ( words[0] == "@stdio" ) {

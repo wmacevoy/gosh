@@ -11,21 +11,21 @@
 #include <cstdio>
 #include <string>
 
-#include "src/copy/checksum.h"
+#include "src/copy/imp/checksum.h"
 #include "vendor/facts/facts.h"
 
 
 
-static FileCopy::Hash of( const std::string& s )
+static Gosh::Copy::Imp::Hash of( const std::string& s )
 {
-  FileCopy::Hash h;
+  Gosh::Copy::Imp::Hash h;
   h.add( s.data(), s.size() );
   return h;
 }
 /* REQ1/CP-2, REQ1/CP-3: the checksum */
 FACTS( Checksum )
 {
-  using FileCopy::Hash;
+  using Gosh::Copy::Imp::Hash;
   std::string big( 300000, '\0' );
   for ( size_t i = 0; i < big.size(); i++ ) {
     big[i] = static_cast<char>( ( i * 2654435761u ) >> 13 );
