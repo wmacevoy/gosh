@@ -40,12 +40,10 @@
 #include "src/crypto/crypto.h"
 #include "src/meetup/end.h"
 #include "src/meetup/ticket.h"
+#include "src/pathfinding/mark.h"
 #include "src/stun/stun.h"
 
 namespace Network {
-
-/* The mark that begins a probe, and a control message between relays (relay's process.h). */
-static const char PUNCH_MARK[8] = { 0, 'M', 'O', 'S', 'H', 'P', 'C', 'H' };
 
 class PathFinding
 {
