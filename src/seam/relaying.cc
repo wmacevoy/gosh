@@ -25,9 +25,9 @@ void Gosh::engage_relay( void )
   s.relay.engaged = true; /* (or tried: either way, once) */
   s.relay.started_at = Network::timestamp();
 
-  Network::RelayOptions options;
+  Gosh::Relay::RelayOptions options;
   options.command = s.relay.command;
-  options.stream_only = s.relay.mode == RELAY_ALWAYS;
+  options.stream_only = s.relay.mode == Gosh::Relay::RELAY_ALWAYS;
 
   struct addrinfo hints, *res = NULL;
   memset( &hints, 0, sizeof( hints ) );
@@ -42,7 +42,7 @@ void Gosh::engage_relay( void )
   freeaddrinfo( res );
 
   pid_t pid;
-  const int relay_port = Network::relay_start_local( options, s.relay.keep_alive, pid );
+  const int relay_port = Gosh::Relay::relay_start_local( options, s.relay.keep_alive, pid );
   if ( relay_port == 0 ) {
     return;
   }
@@ -56,7 +56,7 @@ void Gosh::engage_relay( void )
   s.send_elsewhere( relay, sizeof( relay.sin ) );
 
   if ( s.options.headless && s.options.stream.empty() ) {
-    fputs( s.relay.mode == RELAY_ALWAYS ? "gosh: connecting through ssh.\n"
+    fputs( s.relay.mode == Gosh::Relay::RELAY_ALWAYS ? "gosh: connecting through ssh.\n"
                                         : "gosh: no answer by UDP; trying through ssh as well.\n",
            stderr );
     fflush( stderr );
@@ -69,7 +69,7 @@ void Gosh::consider_relay( void )
   if ( !s.last_heard ) {
     return; /* the session has not started */
   }
-  if ( relay_due( Network::timestamp(), s.started_at, s.last_heard(), s.relay.mode, s.relay.engaged, s.ending() ) ) {
+  if ( Gosh::Relay::relay_due( Network::timestamp(), s.started_at, s.last_heard(), s.relay.mode, s.relay.engaged, s.ending() ) ) {
     engage_relay();
   }
 
@@ -92,7 +92,7 @@ void Gosh::consider_relay( void )
       }
     }
   }
-  if ( s.relay.gone && relay_again( Network::timestamp(), s.relay.started_at, s.ending() ) ) {
+  if ( s.relay.gone && Gosh::Relay::relay_again( Network::timestamp(), s.relay.started_at, s.ending() ) ) {
     engage_relay();
     s.relay.gone = s.relay.pid <= 0; /* (if it could not be started, try again in a second) */
   }

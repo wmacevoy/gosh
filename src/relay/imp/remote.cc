@@ -8,9 +8,12 @@
  * src/network/relay.cc, relay_remote) but at the places marked (gosh).
  */
 
-#include "src/relay/process.h"
+#include "src/relay/imp/process.h"
 
-int Network::relay_remote( const char* address, const char* port )
+using namespace Gosh::Relay;
+using namespace Gosh::Relay::Imp;
+
+int Gosh::Relay::relay_remote( const char* address, const char* port )
 {
   /*
    * Where is the server, from here?  We are on its machine, and are
@@ -25,7 +28,7 @@ int Network::relay_remote( const char* address, const char* port )
   std::vector<std::string> addresses;
   if ( const char* ssh_connection = getenv( "SSH_CONNECTION" ) ) {
     std::string as_ssh_reached_it;
-    if ( Gosh::ssh_server_address( ssh_connection, as_ssh_reached_it ) ) {
+    if ( Gosh::Relay::Imp::ssh_server_address( ssh_connection, as_ssh_reached_it ) ) {
       addresses.push_back( as_ssh_reached_it );
     }
   }
@@ -60,7 +63,7 @@ int Network::relay_remote( const char* address, const char* port )
   /* the client's address as ssh saw it: where its relay may be found, for all we know */
   std::string client_ip;
   if ( const char* ssh_connection = getenv( "SSH_CONNECTION" ) ) {
-    client_ip = Gosh::ssh_client_address( ssh_connection );
+    client_ip = Gosh::Relay::Imp::ssh_client_address( ssh_connection );
   }
 
   RelayFrameParser parser;
@@ -80,7 +83,7 @@ int Network::relay_remote( const char* address, const char* port )
    * told it says nothing of the kind. With GOSH_PUNCH=never it is not said, so no path-finding
    * code runs here whichever local relay is at the other end.
    */
-  if ( Gosh::relay_settings( false, NULL, getenv( "GOSH_PUNCH" ), NULL, NULL, NULL ).path_finding
+  if ( Gosh::Relay::Imp::relay_settings( false, NULL, getenv( "GOSH_PUNCH" ), NULL, NULL, NULL ).path_finding
        && !write_all( STDOUT_FILENO, control( "HELLO 1" ) ) ) {
     return 0;
   }
@@ -202,7 +205,7 @@ int Network::relay_remote( const char* address, const char* port )
       if ( through_open ) {
         punch->send( answer );
       }
-      if ( Gosh::remote_answer_by( now, through_open, stream_open && !stream_ended, stream_heard ).stream ) {
+      if ( Gosh::Relay::Imp::remote_answer_by( now, through_open, stream_open && !stream_ended, stream_heard ).stream ) {
         stream_ended = !write_all( STDOUT_FILENO, relay_frame( answer ) );
       }
       /*
@@ -211,7 +214,7 @@ int Network::relay_remote( const char* address, const char* port )
        * first from a less likely place (127.0.0.1, say, which any user of this machine may
        * bind) does not shut out the server (whose.h).
        */
-      const size_t keep = Gosh::remote_ways_kept( sockets.size(), i );
+      const size_t keep = Gosh::Relay::Imp::remote_ways_kept( sockets.size(), i );
       if ( keep < sockets.size() ) {
         for ( size_t j = keep; j < sockets.size(); j++ ) {
           close( sockets[j] );
@@ -246,7 +249,7 @@ int Network::relay_remote( const char* address, const char* port )
         }
       }
     }
-    if ( !stream_open && Gosh::remote_finished( now, punch->last_heard(), stream_closed ) ) {
+    if ( !stream_open && Gosh::Relay::Imp::remote_finished( now, punch->last_heard(), stream_closed ) ) {
       say( "remote", "nothing heard for a minute: finished" );
       return 0;
     }

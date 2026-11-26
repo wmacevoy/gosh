@@ -22,9 +22,9 @@
 #include <string>
 #include <vector>
 
-#include "src/relay/paths.h"
+#include "src/relay/imp/paths.h"
 
-namespace Gosh {
+namespace Gosh::Relay::Imp {
 
 /* A list separated by commas; empty items and "none" name nothing. */
 inline std::vector<std::string> comma_list( const std::string& text )

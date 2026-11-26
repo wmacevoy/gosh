@@ -45,7 +45,7 @@ int main( int argc, char* argv[] )
    */
   if ( args.size() == 3 && args[0] == "relay" ) {
     Crypto::disable_dumping_core(); /* (as the fork's server did before anything else) */
-    return Network::relay_remote( args[1].c_str(), args[2].c_str() );
+    return Gosh::Relay::relay_remote( args[1].c_str(), args[2].c_str() );
   }
 
   /* (REQ1/CMD-2) Which gosh this is, before the core says which mosh. */

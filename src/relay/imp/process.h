@@ -35,21 +35,22 @@
 
 #include "src/pathfinding/mark.h"
 #include "src/pathfinding/punch.h"
-#include "src/relay/frame.h"
-#include "src/relay/paths.h"
+#include "src/relay/imp/frame.h"
+#include "src/relay/imp/paths.h"
 #include "src/relay/relay.h"
-#include "src/relay/settings.h"
-#include "src/relay/whose.h"
+#include "src/relay/imp/settings.h"
+#include "src/relay/imp/whose.h"
 
 /* (each name this header and its two sources take from Network, named: a header brings no namespace in whole) */
+namespace Gosh::Relay::Imp {
+
 using Network::Addr;
 using Gosh::Stun::format_ip_port;
 using Gosh::Stun::parse_ip_port;
 using Gosh::Pathfinding::Punch;
 using Gosh::Pathfinding::PUNCH_MARK;
-using Network::RelayOptions;
-using Gosh::relay_frame;
-using Gosh::RelayFrameParser;
+using Gosh::Relay::Imp::relay_frame;
+using Gosh::Relay::Imp::RelayFrameParser;
 
 static const size_t MAX_DATAGRAM = 65535;
 
@@ -94,12 +95,12 @@ static void say( const char* who, const char* format, ... )
  */
 static std::string control( const std::string& text )
 {
-  return Gosh::relay_words( std::string( PUNCH_MARK, sizeof( PUNCH_MARK ) ), text );
+  return Gosh::Relay::Imp::relay_words( std::string( PUNCH_MARK, sizeof( PUNCH_MARK ) ), text );
 }
 
 static bool is_control( const std::string& frame, std::vector<std::string>& words )
 {
-  return Gosh::relay_words_of( std::string( PUNCH_MARK, sizeof( PUNCH_MARK ) ), frame, words );
+  return Gosh::Relay::Imp::relay_words_of( std::string( PUNCH_MARK, sizeof( PUNCH_MARK ) ), frame, words );
 }
 
 /* (gosh, REQ17/PATH-8) An address as ssh gives it, IPv4 or IPv6, with a port: "a.b.c.d:p" or "[v6]:p"; empty if it is neither. */
@@ -176,6 +177,8 @@ static int udp_to( const std::string& address, const char* port )
   }
   freeaddrinfo( res );
   return fd;
+}
+
 }
 
 #endif
