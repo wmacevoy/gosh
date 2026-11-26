@@ -28,7 +28,7 @@ const std::string MASTER( "0123456789abcdef" );
 Addr at( const std::string& ip_port )
 {
   Addr a;
-  Network::parse_ip_port( ip_port, a );
+  Gosh::Stun::parse_ip_port( ip_port, a );
   return a;
 }
 
@@ -94,8 +94,8 @@ struct Net
           if ( from_at.sa.sa_family != to.sa.sa_family ) {
             continue; /* it has no address of that family: nothing goes */
           }
-          if ( Network::same_ip_port( to, meetup_at ) ) {
-            if ( Gosh::Meetup::Imp::is_stun_request( bytes.data(), bytes.size() ) ) {
+          if ( Gosh::Stun::same_ip_port( to, meetup_at ) ) {
+            if ( Gosh::Stun::is_stun_request( bytes.data(), bytes.size() ) ) {
               const std::string answer = Gosh::Meetup::Imp::stun_answer_to( bytes.data(), Gosh::Meetup::Imp::meetup_where_of( from_at ) );
               to_end( side == 0, answer, meetup_at );
               continue;
@@ -117,7 +117,7 @@ struct Net
             continue;
           }
           const bool to_other = is( to, side != 0 );
-          if ( side == 0 && ( ( a_to_b4_lost && Network::same_ip_port( to, b_at ) ) || ( a_to_b6_lost && Network::same_ip_port( to, b_at6 ) ) ) ) {
+          if ( side == 0 && ( ( a_to_b4_lost && Gosh::Stun::same_ip_port( to, b_at ) ) || ( a_to_b6_lost && Gosh::Stun::same_ip_port( to, b_at6 ) ) ) ) {
             continue;
           }
           if ( to_other ) {
@@ -137,7 +137,7 @@ struct Net
   /* Whether an address is one of end 0's (a) or end 1's. */
   bool is( const Addr& where, bool end_a ) const
   {
-    return Network::same_ip_port( where, end_a ? a_at : b_at ) || Network::same_ip_port( where, end_a ? a_at6 : b_at6 );
+    return Gosh::Stun::same_ip_port( where, end_a ? a_at : b_at ) || Gosh::Stun::same_ip_port( where, end_a ? a_at6 : b_at6 );
   }
 
   /* Time passes, in steps of 50 ms, with both ends ticking and everything delivered. */

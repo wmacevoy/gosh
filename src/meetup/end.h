@@ -116,7 +116,7 @@ public:
   bool use( const std::string& ip_port, const Ticket& t, uint64_t wall_ms )
   {
     Network::Addr where;
-    if ( !Network::parse_ip_port( ip_port, where ) || t.id.size() != TICKET_ID_LEN || t.key.size() != TICKET_KEY_LEN ) {
+    if ( !Gosh::Stun::parse_ip_port( ip_port, where ) || t.id.size() != TICKET_ID_LEN || t.key.size() != TICKET_KEY_LEN ) {
       return false;
     }
     session.reset( new Crypto::Session( raw_key( t.key ) ) );
@@ -160,7 +160,7 @@ public:
       if ( !last_stun || now - last_stun >= REGISTER_RETRY ) {
         last_stun = now;
         /* (any twelve bytes will do for its id: the answer is known by where it comes from) */
-        return Network::stun_request( "gosh meetup?" );
+        return Gosh::Stun::stun_request( "gosh meetup?" );
       }
       return std::string();
     }
@@ -185,7 +185,7 @@ public:
   /* A STUN answer, mapped, came from `from`: if from the meetup, and we do not know, it says where to register from. */
   void stun_answer( const Network::Addr& from, const Network::Addr& mapped )
   {
-    if ( known && Network::same_ip_port( from, meetup ) && believed.empty() ) {
+    if ( known && Gosh::Stun::same_ip_port( from, meetup ) && believed.empty() ) {
       believed = Imp::meetup_where_of( mapped );
       last_register = 0;
     }
@@ -199,7 +199,7 @@ public:
   bool heard( const Network::Addr& from, const char* data, size_t n, uint64_t now, std::string& passed )
   {
     passed.clear();
-    return known && Network::same_ip_port( from, meetup ) && read( data, n, now, passed );
+    return known && Gosh::Stun::same_ip_port( from, meetup ) && read( data, n, now, passed );
   }
 
   /* A datagram for the other end, sealed as a PASS for the meetup to send on; empty unless registered(). */

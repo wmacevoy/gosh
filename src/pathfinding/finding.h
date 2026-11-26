@@ -148,11 +148,11 @@ public:
   void add_candidate( const std::string& ip_port )
   {
     Addr addr;
-    if ( !parse_ip_port( ip_port, addr ) || candidates.size() >= MAX_CANDIDATES ) {
+    if ( !Gosh::Stun::parse_ip_port( ip_port, addr ) || candidates.size() >= MAX_CANDIDATES ) {
       return;
     }
     for ( size_t i = 0; i < candidates.size(); i++ ) {
-      if ( same_ip_port( candidates[i], addr ) ) {
+      if ( Gosh::Stun::same_ip_port( candidates[i], addr ) ) {
         return;
       }
     }
@@ -264,7 +264,7 @@ public:
          * there too. A "?" from a new place is answered, and asked back, so
          * that its answer can move the way.
          */
-        const bool from_peer = locked && via == peer_via && same_ip_port( from, peer );
+        const bool from_peer = locked && via == peer_via && Gosh::Stun::same_ip_port( from, peer );
         const bool fresh = open( now );
         const bool longer_way = via && !peer_via;
         const bool older_family = !via && !peer_via && peer.sa.sa_family == AF_INET6 && from.sa.sa_family == AF_INET;
@@ -296,7 +296,7 @@ public:
       return OTHER;
     }
     if ( via ) {
-      if ( locked && peer_via && same_ip_port( from, peer ) ) {
+      if ( locked && peer_via && Gosh::Stun::same_ip_port( from, peer ) ) {
         heard = now;
         datagram.assign( buf, n );
         return DATA;
@@ -305,13 +305,13 @@ public:
     }
 
     Addr mapped;
-    if ( stun_parse( buf, n, mapped ) ) {
-      add_local( format_ip_port( mapped ), MAX_CANDIDATES );
+    if ( Gosh::Stun::stun_parse( buf, n, mapped ) ) {
+      add_local( Gosh::Stun::format_ip_port( mapped ), MAX_CANDIDATES );
       meetup.stun_answer( from, mapped ); /* (gosh) the meetup's: where to register from */
       return OTHER;
     }
 
-    if ( locked && !peer_via && same_ip_port( from, peer ) ) {
+    if ( locked && !peer_via && Gosh::Stun::same_ip_port( from, peer ) ) {
       heard = now;
       datagram.assign( buf, n );
       return DATA;
@@ -347,7 +347,7 @@ public:
   bool open( uint64_t now ) const { return locked && now - heard < OPEN_FOR && now - answered < ANSWERED_FOR; }
   uint64_t last_heard( void ) const { return locked ? heard : 0; }
   /* Where the other end is; or which meetup, if datagrams are being passed on to it through one. */
-  std::string where( void ) const { return locked ? ( peer_via ? "the meetup at " : "" ) + format_ip_port( peer ) : std::string(); }
+  std::string where( void ) const { return locked ? ( peer_via ? "the meetup at " : "" ) + Gosh::Stun::format_ip_port( peer ) : std::string(); }
   bool direct( void ) const { return locked && !peer_via; }
 };
 

@@ -17,7 +17,8 @@
 /* REQ1/PATH-3, REQ17/PATH-8: STUN, asking */
 FACTS( Stun )
 {
-  using namespace Network;
+  using namespace Gosh::Stun;
+  using Network::Addr;
   const std::string request = stun_request( "twelve bytes" );
   FACT_CHECK( request == std::string( "\x00\x01\x00\x00\x21\x12\xa4\x42", 8 ) + "twelve bytes", "a request: Binding Request, no attributes, the cookie, the id" );
 

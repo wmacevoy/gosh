@@ -68,7 +68,7 @@ there, and gosh's proofs prove its two classes again by that project's claims, s
 | File | What it is | Used by |
 | --- | --- | --- |
 | `stun/stunanswer.h` | `Stun::StunAnswer`: a STUN answer read, from bytes sent by anyone. Every method is a way in (`parse_checked`, `kept_..._checked`): its one user is not proved | `src/pathfinding/stun.h` |
-| `stun/stunrequest.h` | `Stun::is_stun_request_checked`: whether bytes are a STUN Binding Request | `src/meetup/answer.h` and its users |
+| `stun/stunrequest.h` | `Stun::is_stun_request_checked`: whether bytes are a STUN Binding Request | `src/stun/stun.h` (`Gosh::Stun::is_stun_request`), and through it the meetup |
 
 **`forwarding/`**: nothing yet.
 `answer-test.cc`) and its fuzzer; there is no test here, and no Makefile: these are headers.

@@ -16,7 +16,8 @@
 #include "src/stun/stun.h"
 #include "src/seam/fuzz-replay.h"
 
-using namespace Network;
+using namespace Gosh::Stun;
+using Network::Addr;
 
 extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
 {

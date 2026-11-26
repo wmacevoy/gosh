@@ -208,7 +208,7 @@ int Gosh::Meetup::serve( const char* port, const std::string& master )
       }
       const uint64_t now = time( NULL );
 
-      if ( Gosh::Meetup::Imp::is_stun_request_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( request ), static_cast<uint64_t>( n ) ) ) ) {
+      if ( Gosh::Stun::is_stun_request( request, static_cast<size_t>( n ) ) ) {
         if ( rate.allow( now ) ) {
           send_from( socks[s], Gosh::Meetup::Imp::stun_answer_to( request, where ), from, from_len, here );
         }

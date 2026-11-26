@@ -13,14 +13,14 @@ FACTS( Answer )
 {
   /* a Binding Request: type 0x0001, length 0, the cookie, twelve bytes of the asker's */
   const std::string request = std::string( "\x00\x01\x00\x00\x21\x12\xA4\x42", 8 ) + "abcdefghijkl";
-  FACT_CHECK( Gosh::Meetup::Imp::is_stun_request( request.data(), request.size() ), "a Binding Request with the cookie is one" );
-  FACT_CHECK( ( !Gosh::Meetup::Imp::is_stun_request( request.data(), 19 ) && !Gosh::Meetup::Imp::is_stun_request( ( request + std::string( 181, 'x' ) ).data(), 201 )
-           && Gosh::Meetup::Imp::is_stun_request( ( request + std::string( 180, 'x' ) ).data(), 200 ) ), "one byte short is not; nor 201 bytes long; 200 is" );
+  FACT_CHECK( Gosh::Stun::is_stun_request( request.data(), request.size() ), "a Binding Request with the cookie is one" );
+  FACT_CHECK( ( !Gosh::Stun::is_stun_request( request.data(), 19 ) && !Gosh::Stun::is_stun_request( ( request + std::string( 181, 'x' ) ).data(), 201 )
+           && Gosh::Stun::is_stun_request( ( request + std::string( 180, 'x' ) ).data(), 200 ) ), "one byte short is not; nor 201 bytes long; 200 is" );
   std::string other = request;
   other[1] = 0x11;
   std::string uncooked = request;
   uncooked[7] = 0x43;
-  FACT_CHECK( ( !Gosh::Meetup::Imp::is_stun_request( other.data(), other.size() ) && !Gosh::Meetup::Imp::is_stun_request( uncooked.data(), uncooked.size() ) ), "another type, or without the cookie, is not" );
+  FACT_CHECK( ( !Gosh::Stun::is_stun_request( other.data(), other.size() ) && !Gosh::Stun::is_stun_request( uncooked.data(), uncooked.size() ) ), "another type, or without the cookie, is not" );
 
   /* asked from 192.0.2.7 port 40000: the answer says so, each number mixed with the cookie */
   const std::string answer = Gosh::Meetup::Imp::stun_answer( request.data(), 0xC0000207, 40000 );

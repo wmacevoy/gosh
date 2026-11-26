@@ -72,7 +72,7 @@ struct MeetupServer
     Network::Addr a;
     socklen_t len = sizeof( a );
     getsockname( sock, &a.sa, &len );
-    return Network::format_ip_port( a );
+    return Gosh::Stun::format_ip_port( a );
   }
   void serve( void )
   {
@@ -84,7 +84,7 @@ struct MeetupServer
       return;
     }
     const std::string w = Gosh::Meetup::Imp::meetup_where_of( from );
-    if ( Gosh::Meetup::Imp::is_stun_request( buf, n ) ) {
+    if ( Gosh::Stun::is_stun_request( buf, n ) ) {
       const std::string a = Gosh::Meetup::Imp::stun_answer_to( buf, w );
       sendto( sock, a.data(), a.size(), 0, &from.sa, len );
       return;

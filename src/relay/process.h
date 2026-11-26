@@ -43,8 +43,8 @@
 
 /* (each name this header and its two sources take from Network, named: a header brings no namespace in whole) */
 using Network::Addr;
-using Network::format_ip_port;
-using Network::parse_ip_port;
+using Gosh::Stun::format_ip_port;
+using Gosh::Stun::parse_ip_port;
 using Network::Punch;
 using Network::PUNCH_MARK;
 using Network::RelayOptions;
@@ -106,10 +106,10 @@ static bool is_control( const std::string& frame, std::vector<std::string>& word
 static std::string with_port( const std::string& ip, const std::string& port )
 {
   Addr addr;
-  if ( parse_ip_port( ip + ":" + port, addr ) ) {
+  if ( Gosh::Stun::parse_ip_port( ip + ":" + port, addr ) ) {
     return ip + ":" + port;
   }
-  if ( parse_ip_port( "[" + ip + "]:" + port, addr ) ) {
+  if ( Gosh::Stun::parse_ip_port( "[" + ip + "]:" + port, addr ) ) {
     return "[" + ip + "]:" + port;
   }
   return std::string();
