@@ -12,7 +12,7 @@ directory) and fails on one that crosses layers. The layers:
   application  copy                 its own layer only
   carrying     forwarding           its own layer only
   paths        relay, pathfinding,  its own layer only
-               meetup
+               meetup, stun, ssh
   strong       strong               its own layer only; and any part may include it
 
 Any part may include the core's directories, and two of the seam's files that are tooling, not
@@ -30,7 +30,7 @@ LAYERS = {
     "command": "glue", "seam": "glue",
     "copy": "application",
     "forwarding": "carrying",
-    "relay": "paths", "pathfinding": "paths", "meetup": "paths", "stun": "paths",
+    "relay": "paths", "pathfinding": "paths", "meetup": "paths", "stun": "paths", "ssh": "paths",
     "strong": "strong",     # what is proved: it includes nothing of gosh but itself (src/strong/README.md)
 }
 TOOLING = {"seam/fuzz-replay.h", "seam/gosh-version.h", "seam/proved.h"}

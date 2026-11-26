@@ -105,28 +105,6 @@ inline RelaySettings relay_settings( bool stream_only,
   return settings;
 }
 
-/*
- * From what ssh says of a connection (SSH_CONNECTION: "client-address client-port
- * server-address server-port"): the client's address, which is everything before the first
- * space; and the server's, which is there only if all four words are.
- */
-inline std::string ssh_client_address( const std::string& ssh_connection )
-{
-  return ssh_connection.substr( 0, ssh_connection.find( ' ' ) );
-}
-
-inline bool ssh_server_address( const std::string& s, std::string& address )
-{
-  const size_t first = s.find( ' ' );
-  const size_t second = first == std::string::npos ? first : s.find( ' ', first + 1 );
-  const size_t third = second == std::string::npos ? second : s.find( ' ', second + 1 );
-  if ( third == std::string::npos ) {
-    return false;
-  }
-  address = s.substr( second + 1, third - second - 1 );
-  return true;
-}
-
 }
 
 #endif

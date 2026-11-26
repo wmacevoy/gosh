@@ -13,7 +13,7 @@
  * Absent (an ssh with no -G, older than 6.8; or one that failed): an empty SshConfig, and gosh
  * does as it did before it read the config. Wrong (lines it does not know): ignored.
  */
-namespace Gosh::Command::Imp {
+namespace Gosh::Ssh {
 
 struct SshConfig
 {

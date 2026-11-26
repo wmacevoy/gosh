@@ -1,13 +1,12 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-#include "src/command/imp/sshconfig.h"
+#include "src/ssh/config.h"
 
 #include <sstream>
 
-using namespace Gosh::Command;
-using namespace Gosh::Command::Imp;
+using namespace Gosh::Ssh;
 
-SshConfig Gosh::Command::Imp::read_ssh_config( const std::string& text )
+SshConfig Gosh::Ssh::read_ssh_config( const std::string& text )
 {
   SshConfig c;
   std::istringstream lines( text );
@@ -31,7 +30,7 @@ SshConfig Gosh::Command::Imp::read_ssh_config( const std::string& text )
   return c;
 }
 
-bool Gosh::Command::Imp::runs_gosh( const std::string& proxycommand )
+bool Gosh::Ssh::runs_gosh( const std::string& proxycommand )
 {
   const size_t start = proxycommand.find_first_not_of( " \t" );
   if ( start == std::string::npos ) {
@@ -46,7 +45,7 @@ bool Gosh::Command::Imp::runs_gosh( const std::string& proxycommand )
   return first == "gosh" || first == "gosh-client" || first == "gocp";
 }
 
-std::string Gosh::Command::Imp::remote_ip_for( const std::string& asked, const SshConfig& config )
+std::string Gosh::Ssh::remote_ip_for( const std::string& asked, const SshConfig& config )
 {
   if ( !asked.empty() ) {
     return asked;
@@ -57,7 +56,7 @@ std::string Gosh::Command::Imp::remote_ip_for( const std::string& asked, const S
   return "proxy";
 }
 
-std::string Gosh::Command::Imp::meetup_address( const std::string& host_port, const SshConfig& config )
+std::string Gosh::Ssh::meetup_address( const std::string& host_port, const SshConfig& config )
 {
   const size_t colon = host_port.rfind( ':' );
   if ( config.hostname.empty() || colon == std::string::npos ) {

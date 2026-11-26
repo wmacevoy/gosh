@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "src/relay/imp/settings.h"
+#include "src/ssh/connection.h"
 #include "vendor/facts/facts.h"
 
 
@@ -53,12 +54,12 @@ FACTS( Settings )
   FACT_CHECK( Gosh::Relay::Imp::comma_list( ",a,,none,b," ) == Words( { "a", "b" } ), "empty items and \"none\" in a list name nothing" );
 
   std::string address = "unset";
-  FACT_CHECK( Gosh::Relay::Imp::ssh_client_address( "192.0.2.7 51000 198.51.100.9 22" ) == "192.0.2.7", "what ssh says of a connection: the client's address is its first word" );
-  FACT_CHECK( ( Gosh::Relay::Imp::ssh_server_address( "192.0.2.7 51000 198.51.100.9 22", address ) && address == "198.51.100.9" ), "and the server's its third" );
+  FACT_CHECK( Gosh::Ssh::ssh_client_address( "192.0.2.7 51000 198.51.100.9 22" ) == "192.0.2.7", "what ssh says of a connection: the client's address is its first word" );
+  FACT_CHECK( ( Gosh::Ssh::ssh_server_address( "192.0.2.7 51000 198.51.100.9 22", address ) && address == "198.51.100.9" ), "and the server's its third" );
   address = "unset";
-  FACT_CHECK( ( !Gosh::Relay::Imp::ssh_server_address( "192.0.2.7 51000 198.51.100.9", address ) && !Gosh::Relay::Imp::ssh_server_address( "", address )
+  FACT_CHECK( ( !Gosh::Ssh::ssh_server_address( "192.0.2.7 51000 198.51.100.9", address ) && !Gosh::Ssh::ssh_server_address( "", address )
            && address == "unset" ), "with fewer than four words there is no server's address" );
-  FACT_CHECK( Gosh::Relay::Imp::ssh_client_address( "2001:db8::7" ) == "2001:db8::7", "one word alone is taken for the client's address" );
+  FACT_CHECK( Gosh::Ssh::ssh_client_address( "2001:db8::7" ) == "2001:db8::7", "one word alone is taken for the client's address" );
 }
 
 FACTS_REGISTER_ALL()
