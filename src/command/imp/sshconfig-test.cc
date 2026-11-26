@@ -6,10 +6,11 @@
 #include <cstdlib>
 #include <string>
 
-#include "src/command/sshconfig.h"
+#include "src/command/imp/sshconfig.h"
 #include "vendor/facts/facts.h"
 
 using namespace Gosh::Command;
+using namespace Gosh::Command::Imp;
 /* REQ19/CMD-5: the user's ssh config, read and followed */
 FACTS( Sshconfig )
 {

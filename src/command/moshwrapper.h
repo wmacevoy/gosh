@@ -20,7 +20,7 @@
  * "mosh-client mocp ...".
  */
 
-namespace MoshWrapper {
+namespace Gosh::Command {
 
 /*
  * args: what followed the command name.  name: what to call ourselves

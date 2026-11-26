@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "src/command/startup.h"
+#include "src/command/imp/startup.h"
 
 /*
  * the command, login: run ssh, or a local shell, to start the server, and hear its startup message
@@ -15,8 +15,7 @@
  * processes, pipes, the environment. The fork's (mosh-1.4.0-pf.7, src/frontend/moshwrapper.cc,
  * run), moved.
  */
-namespace Gosh {
-namespace Command {
+namespace Gosh::Command::Imp {
 
 /*
  * The terminal's number of colours, as print_colors prints it on standard output, asked of another
@@ -58,7 +57,6 @@ void start_server( const Login& login, Startup& startup );
  */
 std::string ssh_config_text( const std::vector<std::string>& ssh, const std::string& host );
 
-}
 }
 
 #endif

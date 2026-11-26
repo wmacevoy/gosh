@@ -11,10 +11,11 @@
 #include <string>
 #include <vector>
 
-#include "src/command/options.h"
+#include "src/command/imp/options.h"
 #include "vendor/facts/facts.h"
 
 using namespace Gosh::Command;
+using namespace Gosh::Command::Imp;
 typedef std::vector<std::string> Words;
 
 

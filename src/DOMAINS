@@ -7,7 +7,7 @@
 # is the first).
 
 # the harness
-command      src/command                            | src/command/moshwrapper.h
+Gosh::Command src/command
 Gosh::Relay  src/relay
 Gosh::Pathfinding src/pathfinding
 Gosh::Stun   src/stun src/strong/stun

@@ -12,12 +12,13 @@
 #include <string>
 #include <vector>
 
-#include "src/command/options.h"
-#include "src/command/proxy.h"
-#include "src/command/words.h"
+#include "src/command/imp/options.h"
+#include "src/command/imp/proxy.h"
+#include "src/command/imp/words.h"
 #include "vendor/facts/facts.h"
 
 using namespace Gosh::Command;
+using namespace Gosh::Command::Imp;
 
 
 

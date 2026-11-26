@@ -1,14 +1,14 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 /* What it does, and some of its words, follow mosh's scripts/mosh.pl (Keith Winstein and others): LICENSE-MOSH. */
 
-#include "src/command/words.h"
+#include "src/command/imp/words.h"
 
 #include <cstdio>
 #include <cstdlib>
 
-#include "src/command/stock.h"
+#include "src/command/imp/stock.h"
 
-Gosh::Command::Words Gosh::Command::shell_words( const std::string& line )
+Gosh::Command::Imp::Words Gosh::Command::Imp::shell_words( const std::string& line )
 {
   Words words;
   std::string word;
@@ -47,7 +47,7 @@ Gosh::Command::Words Gosh::Command::shell_words( const std::string& line )
   return words;
 }
 
-std::string Gosh::Command::shell_quote( const Words& words )
+std::string Gosh::Command::Imp::shell_quote( const Words& words )
 {
   std::string s;
   for ( size_t i = 0; i < words.size(); i++ ) {
@@ -64,7 +64,7 @@ std::string Gosh::Command::shell_quote( const Words& words )
   return s;
 }
 
-bool Gosh::Command::remote_place( const std::string& word, std::string& host, std::string& path )
+bool Gosh::Command::Imp::remote_place( const std::string& word, std::string& host, std::string& path )
 {
   /* (REQ17/PATH-8) [user@][ADDRESS]:path, an IPv6 address in brackets: ssh takes it without them */
   const size_t open = word.find( '[' );
@@ -88,7 +88,7 @@ bool Gosh::Command::remote_place( const std::string& word, std::string& host, st
   return true;
 }
 
-bool Gosh::Command::host_port( const std::string& word, std::string& host, std::string& port )
+bool Gosh::Command::Imp::host_port( const std::string& word, std::string& host, std::string& port )
 {
   size_t colon;
   if ( !word.empty() && word[0] == '[' ) {
@@ -113,7 +113,7 @@ bool Gosh::Command::host_port( const std::string& word, std::string& host, std::
   return n >= 1 && n <= 65535;
 }
 
-Gosh::Command::Asked Gosh::Command::what_was_asked( const Settings& s, bool copy, bool stdio, const std::string& name,
+Gosh::Command::Imp::Asked Gosh::Command::Imp::what_was_asked( const Settings& s, bool copy, bool stdio, const std::string& name,
                                     const char* copy_usage )
 {
   Asked session;
@@ -272,7 +272,7 @@ Gosh::Command::Asked Gosh::Command::what_was_asked( const Settings& s, bool copy
   return session;
 }
 
-Gosh::Command::Words Gosh::Command::bind_arguments( const std::string& bind, bool local, const std::string& userhost )
+Gosh::Command::Imp::Words Gosh::Command::Imp::bind_arguments( const std::string& bind, bool local, const std::string& userhost )
 {
   Words words;
   if ( bind.empty() || lower( bind ) == "ssh" ) {
@@ -289,7 +289,7 @@ Gosh::Command::Words Gosh::Command::bind_arguments( const std::string& bind, boo
   return words;
 }
 
-Gosh::Command::ServerWords Gosh::Command::server_words( const Settings& s, const Choices& choices, const Asked& session,
+Gosh::Command::Imp::ServerWords Gosh::Command::Imp::server_words( const Settings& s, const Choices& choices, const Asked& session,
                                       const std::string& colors, const Words& bind, const Words& locales )
 {
   ServerWords w;
@@ -334,7 +334,7 @@ Gosh::Command::ServerWords Gosh::Command::server_words( const Settings& s, const
   return w;
 }
 
-std::string Gosh::Command::server_line( bool pick_server, const std::string& server, const ServerWords& words )
+std::string Gosh::Command::Imp::server_line( bool pick_server, const std::string& server, const ServerWords& words )
 {
   /*
    * (gosh, REQ8/CMD-3) Unless the user named a server, the host is asked for gosh-server and,
@@ -345,7 +345,7 @@ std::string Gosh::Command::server_line( bool pick_server, const std::string& ser
                      : server + " " + shell_quote( words.gosh );
 }
 
-Gosh::Command::Words Gosh::Command::login_words( const Words& ssh, bool ssh_pty, const Choices& choices, const std::string& proxy,
+Gosh::Command::Imp::Words Gosh::Command::Imp::login_words( const Words& ssh, bool ssh_pty, const Choices& choices, const std::string& proxy,
                                const std::string& userhost, const std::string& server_line )
 {
   Words words = ssh;
@@ -377,7 +377,7 @@ Gosh::Command::Words Gosh::Command::login_words( const Words& ssh, bool ssh_pty,
   return words;
 }
 
-Gosh::Command::Words Gosh::Command::relay_command( const Words& ssh, bool local, bool pick_server, const std::string& server,
+Gosh::Command::Imp::Words Gosh::Command::Imp::relay_command( const Words& ssh, bool local, bool pick_server, const std::string& server,
                                  const std::string& userhost, const std::string& ip, const std::string& port )
 {
   /* (gosh, REQ1/PATH-1) gosh-server's relay, unless the user named the server: never mosh-server by name */
@@ -401,7 +401,7 @@ Gosh::Command::Words Gosh::Command::relay_command( const Words& ssh, bool local,
   return words;
 }
 
-Gosh::Command::Words Gosh::Command::ticket_command( const std::string& meetup_login )
+Gosh::Command::Imp::Words Gosh::Command::Imp::ticket_command( const std::string& meetup_login )
 {
   /* (issue #5) never --ssh either: its words are for the session's server; the meetup's are in ssh's config */
   Words fetch;
@@ -416,7 +416,7 @@ Gosh::Command::Words Gosh::Command::ticket_command( const std::string& meetup_lo
   return fetch;
 }
 
-Gosh::Command::Words Gosh::Command::client_words( const Words& args, const Words& forwards, const Asked& session, const std::string& ip,
+Gosh::Command::Imp::Words Gosh::Command::Imp::client_words( const Words& args, const Words& forwards, const Asked& session, const std::string& ip,
                                 const std::string& port )
 {
   Words words;
@@ -434,7 +434,7 @@ Gosh::Command::Words Gosh::Command::client_words( const Words& args, const Words
   return words;
 }
 
-Gosh::Command::Variables Gosh::Command::client_variables( const std::string& key, const Choices& choices, bool init, bool predict_overwrite )
+Gosh::Command::Imp::Variables Gosh::Command::Imp::client_variables( const std::string& key, const Choices& choices, bool init, bool predict_overwrite )
 {
   Variables v;
   v.push_back( std::make_pair( "MOSH_KEY", key ) );
@@ -448,7 +448,7 @@ Gosh::Command::Variables Gosh::Command::client_variables( const std::string& key
   return v;
 }
 
-Gosh::Command::Variables Gosh::Command::relay_variables( const Choices& choices, bool stock, const Words& relay, const Words& ticket )
+Gosh::Command::Imp::Variables Gosh::Command::Imp::relay_variables( const Choices& choices, bool stock, const Words& relay, const Words& ticket )
 {
   Variables v;
   /*

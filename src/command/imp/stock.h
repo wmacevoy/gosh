@@ -14,7 +14,7 @@
  *
  * Logic only: words in, words out. The command (moshwrapper.cc) does the asking and the saying.
  */
-namespace Gosh {
+namespace Gosh::Command::Imp {
 
 /* The line the host prints, before the server's own startup message, when the server is not gosh's. */
 extern const char STOCK_SERVER_LINE[];

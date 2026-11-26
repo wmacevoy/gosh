@@ -1,8 +1,8 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-#include "src/command/stock.h"
+#include "src/command/imp/stock.h"
 
-namespace Gosh {
+namespace Gosh::Command::Imp {
 
 const char STOCK_SERVER_LINE[] = "GOSH SERVER mosh-server";
 
