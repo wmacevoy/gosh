@@ -65,7 +65,7 @@ address its receiver last sent to (kept only for ends whose message was taken, a
 another of the machine's addresses; red before. The passing-on half is read, not driven: on one
 machine the relays find a way straight to each other first.
 
-A meetup's name is looked up and its first address used (`src/relay/local.cc`): a meetup with
+A meetup's name is looked up and its first address used (`src/relay/imp/local.cc`): a meetup with
 both families whose IPv6 does not work is not tried by IPv4. Name it by its IPv4 address then.
 
 ## Not tested
