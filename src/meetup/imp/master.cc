@@ -16,7 +16,7 @@
 
 static const size_t MASTER_LEN = 16;
 
-std::string Gosh::gosh_directory( std::string& error )
+std::string Meetup::gosh_directory( std::string& error )
 {
   const char* home = getenv( "HOME" );
 #ifdef __APPLE__
@@ -75,14 +75,14 @@ static bool write_master( const std::string& path, std::string& error )
 
 static std::string master_path( std::string& error )
 {
-  const std::string dir = Gosh::gosh_directory( error );
+  const std::string dir = Meetup::gosh_directory( error );
   if ( dir.empty() || !make_directory( dir, error ) ) {
     return std::string();
   }
   return dir + "/meetup.key";
 }
 
-bool Gosh::meetup_master( std::string& master, std::string& error )
+bool Meetup::meetup_master( std::string& master, std::string& error )
 {
   const std::string path = master_path( error );
   if ( path.empty() ) {
@@ -117,7 +117,7 @@ bool Gosh::meetup_master( std::string& master, std::string& error )
   return true;
 }
 
-bool Gosh::meetup_master_new( std::string& error )
+bool Meetup::meetup_master_new( std::string& error )
 {
   const std::string path = master_path( error );
   return !path.empty() && write_master( path, error );

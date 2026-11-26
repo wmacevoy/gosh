@@ -3,7 +3,7 @@
 /*
  * What a meetup message is sealed with (REQ18/PATH-5): a nonce is who sealed it, for which end,
  * and a counter. Logic, and a domain: private state, numbers only, nothing of the system. Its
- * users are meetup/messages.h's meetup_seal and Sealed<T, MeetupSealer>::unseal, which are not proved.
+ * users are meetup/imp/messages.h's meetup_seal and Sealed<T, MeetupSealer>::unseal, which are not proved.
  *
  * A ticket's key has four senders: each of the two ends, and the meetup to each. The cipher is
  * safe only if no two messages under one key are sealed with the same nonce. So the top two bits

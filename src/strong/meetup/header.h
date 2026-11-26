@@ -2,7 +2,7 @@
 
 /*
  * meetup, the head of a message: what a datagram from anyone at all is taken for, before any
- * cipher is asked (REQ18/PATH-5, REQ17/PATH-8; meetup/messages.h says the five messages). Logic,
+ * cipher is asked (REQ18/PATH-5, REQ17/PATH-8; meetup/imp/messages.h says the five messages). Logic,
  * and a domain: unsigned numbers only, no pointer, no call out but to the datagram.
  *
  * It keeps where things are in the datagram, as numbers, and never a pointer into it: the kind,
@@ -16,7 +16,7 @@
  * length it kept. So whoever copies the ticket out, or hands what is sealed to the cipher, by
  * those numbers, stays inside the bytes.
  *
- * The numbers are meetup/messages.h's, written out: it asks the compiler that they are the same.
+ * The numbers are meetup/imp/messages.h's, written out: it asks the compiler that they are the same.
  */
 
 #ifndef GOSH_STRONG_MEETUP_HEADER_H

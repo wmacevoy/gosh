@@ -44,10 +44,10 @@
 #include "src/strong/meetup/registered.h"
 #include "src/strong/meetup/time.h"
 #include "src/crypto/crypto.h"
-#include "src/meetup/sealed.h"
+#include "src/meetup/imp/sealed.h"
 #include "src/network/network.h"
 
-namespace Gosh {
+namespace Meetup::Imp {
 
 enum MeetupKind
 {

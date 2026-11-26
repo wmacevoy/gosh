@@ -75,7 +75,7 @@ int main( int argc, char* argv[] )
     Crypto::disable_dumping_core();
     std::string master, error;
     if ( args.size() == 2 && args[0] == "meetup-key" && args[1] == "--new" ) {
-      if ( !Gosh::meetup_master_new( error ) ) {
+      if ( !Meetup::meetup_master_new( error ) ) {
         fprintf( stderr, "%s meetup-key: %s\n", name.c_str(), error.c_str() );
         return 1;
       }
@@ -87,18 +87,18 @@ int main( int argc, char* argv[] )
       fprintf( stderr, "usage: %s meetup [PORT] | meetup-ticket | meetup-key --new\n", name.c_str() );
       return 1;
     }
-    if ( !Gosh::meetup_master( master, error ) ) {
+    if ( !Meetup::meetup_master( master, error ) ) {
       fprintf( stderr, "%s %s: %s\n", name.c_str(), args[0].c_str(), error.c_str() );
       return 1;
     }
     if ( serve ) {
       /* (issue #1) the port the command takes when --meetup names none */
-      return Network::meetup_serve( args.size() == 2 ? args[1].c_str() : "3478", master );
+      return Meetup::serve( args.size() == 2 ? args[1].c_str() : "3478", master );
     }
     char random8[8];
     PRNG().fill( random8, sizeof( random8 ) );
-    const Gosh::Ticket t = Gosh::make_ticket( master, std::string( random8, 8 ), time( NULL ) + Gosh::TICKET_LIFE );
-    printf( "%s\n", Gosh::ticket_text( t ).c_str() );
+    const Meetup::Ticket t = Meetup::make_ticket( master, std::string( random8, 8 ), time( NULL ) + Meetup::TICKET_LIFE );
+    printf( "%s\n", Meetup::ticket_text( t ).c_str() );
     return 0;
   }
 

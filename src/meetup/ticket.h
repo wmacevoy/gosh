@@ -28,7 +28,7 @@
 #include "src/crypto/base64.h"
 #include "src/crypto/crypto.h"
 
-namespace Gosh {
+namespace Meetup {
 
 static const size_t TICKET_ID_LEN = 16;
 static const size_t TICKET_KEY_LEN = 16;

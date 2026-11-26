@@ -28,13 +28,13 @@
 #include <string>
 
 #include "src/crypto/crypto.h"
-#include "src/meetup/messages.h"
+#include "src/meetup/imp/messages.h"
 #include "src/meetup/ticket.h"
 #include "src/stun/stun.h"
 
-namespace Gosh {
+namespace Meetup {
 
-class MeetupEnd
+class End
 {
 public:
   static const uint64_t REGISTER_EVERY = 25000; /* ms: registered again this often while it lasts... */
@@ -70,28 +70,28 @@ private:
   /* One of the meetup's messages, from its address: true, having dealt with it. */
   bool read( const char* data, size_t n, uint64_t now, std::string& passed )
   {
-    MeetupHeader h;
-    if ( !meetup_read_header( data, n, h ) ) {
+    Imp::MeetupHeader h;
+    if ( !Imp::meetup_read_header( data, n, h ) ) {
       return false;
     }
-    if ( h.kind == MEETUP_PASSED ) {
+    if ( h.kind == Imp::MEETUP_PASSED ) {
       passed.assign( h.sealed, h.sealed_len );
       return true;
     }
-    std::optional<Unsealed<Strong::Meetup::Registered>> seen;
+    std::optional<Imp::Unsealed<Strong::Meetup::Registered>> seen;
     /* (The meetup answers only from where we said we were; one that says otherwise is old, or lying.) */
-    if ( h.kind == MEETUP_REGISTERED && h.ticket == ticket.id && h.end == end
-         && Sealed<Strong::Meetup::Registered, MeetupSealer>( h ).unseal( MeetupSealer{ *session, true }, seen )
-         && meetup_registered_at( *seen, believed ) ) {
+    if ( h.kind == Imp::MEETUP_REGISTERED && h.ticket == ticket.id && h.end == end
+         && Imp::Sealed<Strong::Meetup::Registered, Imp::MeetupSealer>( h ).unseal( Imp::MeetupSealer{ *session, true }, seen )
+         && Imp::meetup_registered_at( *seen, believed ) ) {
       is_registered = true;
       registered_at = now;
       register_tries = 0;
     }
-    std::optional<Unsealed<Strong::Meetup::Time>> told;
+    std::optional<Imp::Unsealed<Strong::Meetup::Time>> told;
     uint64_t answering, its_time;
-    if ( h.kind == MEETUP_TIME && h.ticket == ticket.id && h.end == end && time_wanted
-         && Sealed<Strong::Meetup::Time, MeetupSealer>( h ).unseal( MeetupSealer{ *session, true }, told )
-         && meetup_read_time( *told, answering, its_time ) && answering == last_register_counter ) {
+    if ( h.kind == Imp::MEETUP_TIME && h.ticket == ticket.id && h.end == end && time_wanted
+         && Imp::Sealed<Strong::Meetup::Time, Imp::MeetupSealer>( h ).unseal( Imp::MeetupSealer{ *session, true }, told )
+         && Imp::meetup_read_time( *told, answering, its_time ) && answering == last_register_counter ) {
       /* (REQ18/PATH-5) Our REGISTER's time was too far from the meetup's clock: take its word,
        * which answers our last REGISTER and so is not an old one, and register again now. */
       offset += static_cast<int64_t>( its_time - meetup_time( now ) );
@@ -103,7 +103,7 @@ private:
   }
 
 public:
-  explicit MeetupEnd( bool initiator )
+  explicit End( bool initiator )
     : known( false ), meetup(), ticket(), end( initiator ? 0 : 1 ), session(), counter( 0 ), believed(),
       is_registered( false ), register_tries( 0 ), registered_at( 0 ), last_register( 0 ), last_stun( 0 ), wall( 0 ),
       since( 0 ), since_known( false ), offset( 0 ), last_register_counter( 0 ), time_wanted( false )
@@ -179,14 +179,14 @@ public:
     last_register = now;
     last_register_counter = counter;
     time_wanted = true;
-    return meetup_seal( *session, MEETUP_REGISTER, ticket.id, end, false, counter++, meetup_register_text( believed, meetup_time( now ) ) );
+    return Imp::meetup_seal( *session, Imp::MEETUP_REGISTER, ticket.id, end, false, counter++, Imp::meetup_register_text( believed, meetup_time( now ) ) );
   }
 
   /* A STUN answer, mapped, came from `from`: if from the meetup, and we do not know, it says where to register from. */
   void stun_answer( const Network::Addr& from, const Network::Addr& mapped )
   {
     if ( known && Network::same_ip_port( from, meetup ) && believed.empty() ) {
-      believed = meetup_where_of( mapped );
+      believed = Imp::meetup_where_of( mapped );
       last_register = 0;
     }
   }
@@ -208,7 +208,7 @@ public:
     if ( !is_registered ) {
       return std::string();
     }
-    return meetup_seal( *session, MEETUP_PASS, ticket.id, end, false, counter++, datagram );
+    return Imp::meetup_seal( *session, Imp::MEETUP_PASS, ticket.id, end, false, counter++, datagram );
   }
 };
 

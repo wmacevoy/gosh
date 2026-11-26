@@ -17,7 +17,7 @@
 #include "src/strong/datagram.h"
 #include "src/strong/stun/stunrequest.h"
 
-namespace Gosh {
+namespace Meetup::Imp {
 
 /* (strong/stun/stunrequest.h; under this name too, for those who ask it here) */
 using Strong::Stun::is_stun_request_checked;

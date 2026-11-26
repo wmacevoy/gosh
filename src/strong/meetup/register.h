@@ -2,7 +2,7 @@
 
 /*
  * meetup, what a REGISTER says once it is opened: where the end believes it is, and the time by the
- * meetup's clock as the end reckons it (REQ18/PATH-5; meetup/messages.h says the text). Logic, and a
+ * meetup's clock as the end reckons it (REQ18/PATH-5; meetup/imp/messages.h says the text). Logic, and a
  * domain: unsigned numbers only, no pointer, no call out but to the text.
  *
  * The text is 27 bytes: where (19: a family, 4 or 6, then sixteen bytes of address and two of port),
@@ -17,7 +17,7 @@
  * and reads nothing outside the text, and the family kept is 0, 4 or 6. Not proved: that the time
  * kept is the last eight bytes, most significant first.
  *
- * The numbers are meetup/messages.h's, written out: it asks the compiler that they are the same.
+ * The numbers are meetup/imp/messages.h's, written out: it asks the compiler that they are the same.
  */
 
 #ifndef GOSH_STRONG_MEETUP_REGISTER_H

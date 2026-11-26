@@ -54,13 +54,14 @@
 #include <set>
 #include <string>
 
-#include "src/meetup/answer.h"
-#include "src/meetup/messages.h"
-#include "src/meetup/registrations.h"
+#include "src/meetup/imp/answer.h"
+#include "src/meetup/imp/messages.h"
+#include "src/meetup/imp/registrations.h"
 #include "src/meetup/ticket.h"
 #include "src/seam/fuzz-replay.h"
 
-using namespace Gosh;
+using namespace Meetup;
+using namespace Meetup::Imp;
 
 namespace {
 

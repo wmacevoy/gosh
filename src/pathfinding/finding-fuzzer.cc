@@ -36,9 +36,9 @@
 #include <string>
 #include <vector>
 
-#include "src/meetup/answer.h"
-#include "src/meetup/messages.h"
-#include "src/meetup/registrations.h"
+#include "src/meetup/imp/answer.h"
+#include "src/meetup/imp/messages.h"
+#include "src/meetup/imp/registrations.h"
 #include "src/meetup/ticket.h"
 #include "src/pathfinding/finding.h"
 #include "src/stun/stun.h"
@@ -89,7 +89,7 @@ struct KeyOf
   std::string operator()( const std::string& id ) const
   {
     try {
-      return Gosh::ticket_key( MASTER, id );
+      return Meetup::ticket_key( MASTER, id );
     } catch ( ... ) {
       return std::string();
     }
@@ -107,25 +107,25 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   a.add_candidate( B_AT );
   a.add_candidate( "[2001:db8::2]:2000" );
   b.add_candidate( A_AT );
-  const Gosh::Ticket ticket = Gosh::make_ticket( MASTER, "random!!", 4000000000ULL );
+  const Meetup::Ticket ticket = Meetup::make_ticket( MASTER, "random!!", 4000000000ULL );
   a.use_meetup( MEETUP_AT, ticket, 1700000000000ULL );
   b.use_meetup( MEETUP_AT, ticket, 1700000000000ULL );
-  Gosh::Registrations meetup( 0 ); /* (its clock, now / 1000, is far from the ends', which they learn by TIME: REQ18/PATH-5) */
+  Meetup::Imp::Registrations meetup( 0 ); /* (its clock, now / 1000, is far from the ends', which they learn by TIME: REQ18/PATH-5) */
   const Addr meetup_at = at( MEETUP_AT );
 
   /* A datagram an end sent to the meetup, from its address there: answered or passed on as the meetup would. */
   auto to_meetup = [&]( bool from_a, const std::string& bytes ) {
-    const std::string from = Gosh::meetup_where_of( at( from_a ? A_AT : B_AT ) );
+    const std::string from = Meetup::Imp::meetup_where_of( at( from_a ? A_AT : B_AT ) );
     std::string got, reply;
     Addr dest;
     socklen_t len;
     bool to_a;
-    if ( Gosh::is_stun_request( bytes.data(), bytes.size() ) ) {
-      reply = Gosh::stun_answer_to( bytes.data(), from );
+    if ( Meetup::Imp::is_stun_request( bytes.data(), bytes.size() ) ) {
+      reply = Meetup::Imp::stun_answer_to( bytes.data(), from );
       to_a = from_a;
     } else {
-      const Gosh::Registrations::Send s = meetup.datagram( bytes.data(), bytes.size(), from, now / 1000, KeyOf() );
-      if ( !s.any || !Gosh::meetup_addr_of( s.to, dest, len ) ) {
+      const Meetup::Imp::Registrations::Send s = meetup.datagram( bytes.data(), bytes.size(), from, now / 1000, KeyOf() );
+      if ( !s.any || !Meetup::Imp::meetup_addr_of( s.to, dest, len ) ) {
         return;
       }
       reply = s.bytes;

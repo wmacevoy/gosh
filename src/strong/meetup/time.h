@@ -2,7 +2,7 @@
 
 /*
  * meetup, what a TIME says once it is opened: the counter of the REGISTER it answers, and the
- * meetup's time (REQ18/PATH-5; meetup/messages.h says the text). Logic, and a domain: unsigned
+ * meetup's time (REQ18/PATH-5; meetup/imp/messages.h says the text). Logic, and a domain: unsigned
  * numbers only, no pointer, no call out but to the text.
  *
  * The text is 16 bytes: the counter (8), then the time in milliseconds (8), each most significant

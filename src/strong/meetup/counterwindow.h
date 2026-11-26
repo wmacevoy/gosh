@@ -3,7 +3,7 @@
 /*
  * Which counters an end of the meetup has used (REQ18/PATH-5): the guard against a message sent
  * twice. Logic, and a domain: private state, no pointer, nothing of the system. Its user is
- * meetup/registrations.h, which is not proved, and comes in by take_checked.
+ * meetup/imp/registrations.h, which is not proved, and comes in by take_checked.
  */
 
 #ifndef GOSH_STRONG_MEETUP_COUNTERWINDOW_H

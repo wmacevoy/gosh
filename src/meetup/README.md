@@ -16,19 +16,28 @@ gosh-server meetup-key --new   a new master key: every ticket made under the old
 The master key is `meetup.key` in gosh's directory (`~/.config/gosh/` on Linux), its owner's
 alone; it is made the first time either of the first two runs.
 
-It calls nothing of gosh's other parts but STUN's `stun.h`. Path-finding holds a `MeetupEnd` (`end.h`), one end of a
-ticket, and knows none of the meetup's messages.
+It calls nothing of gosh's other parts but STUN's `stun.h`. Path-finding holds a `Meetup::End`
+(`end.h`), one end of a ticket, and knows none of the meetup's messages.
+
+**Its boundary is its layout** (`src/DOMAINS`, a domain laid out). The headers here, at the top,
+are its ABI, in `namespace Meetup`; everything under `imp/` is its inside, in `Meetup::Imp`, and so
+is `src/strong/meetup/` (its proved classes, `Strong::Meetup`). The lint refuses a name of
+`Meetup::Imp` used outside meetup, a header under `imp/` that declares outside `Meetup::Imp`, and an
+ABI header that names a type of the inside.
 
 | File | What it holds | Test |
 | --- | --- | --- |
-| `ticket.h` | a ticket: its id, its key from the master key, when it stops being good, its text. Logic | `ticket-test.cc`, with the real cipher |
-| `messages.h` | REGISTER, REGISTERED, PASS, PASSED as bytes, each at its exact length; sealing and opening. Each sealed kind is opened by `Sealed<T, MeetupSealer>`, T the proved class that reads its text (`Strong::Meetup::Register`, `Registered`, `Pass`, `Time`), and read where the cipher left it. Logic | `messages-test.cc` |
-| `end.h` | `MeetupEnd`: one end of a ticket, kept registered from where it is, with the meetup's clock; it seals REGISTER and PASS, and opens REGISTERED, TIME and PASSED. Of meetup's ABI; the messages are its inside. Logic | `../pathfinding/finding-test.cc`, against the meetup's own logic |
-| `sealed.h` | `Sealed<T, Creds>` and `Unsealed<T>`: sealed text, and what it opened to, owned where the cipher left it and never copied; only a `Sealed` makes an `Unsealed`, and a T reads it in place as an `Opened<T>`. Not proved: it calls the cipher | `messages-test.cc` |
-| `registrations.h` | what the meetup does with REGISTER and PASS: who is where, which counters are used, what is passed to whom. Logic | `registrations-test.cc`: the fork's replay turned round |
-| `answer.h` | the STUN question answered, no more than 200 a second. Logic | `answer-test.cc` |
-| `master.*` | the master key's file, and gosh's directory. An edge | `tests/meetup-tickets.py` |
-| `serve.cc`, `meetup.h` | the process: one UDP socket and the clock. An edge | `tests/meetup-tickets.py`, from outside, sealing with Python's AES-OCB |
+| **ABI** | | |
+| `meetup.h` | `Meetup::serve`: the process (`imp/serve.cc`): one UDP socket and the clock. An edge | `tests/meetup-tickets.py`, from outside, sealing with Python's AES-OCB |
+| `master.h` | the master key's file, and gosh's directory (`imp/master.cc`). An edge | `tests/meetup-tickets.py` |
+| `ticket.h` | a ticket: its id, its key from the master key, when it stops being good, its text. Logic | `imp/ticket-test.cc`, with the real cipher |
+| `end.h` | `Meetup::End`: one end of a ticket, kept registered from where it is, with the meetup's clock; it seals REGISTER and PASS, and opens REGISTERED, TIME and PASSED. Logic | `../pathfinding/finding-test.cc`, against the meetup's own logic |
+| **inside** (`imp/`) | | |
+| `messages.h` | REGISTER, REGISTERED, PASS, PASSED as bytes, each at its exact length; sealing and opening. Each sealed kind is opened by `Sealed<T, MeetupSealer>`, T the proved class that reads its text (`Strong::Meetup::Register`, `Registered`, `Pass`, `Time`), and read where the cipher left it. Logic | `imp/messages-test.cc` |
+| `sealed.h` | `Sealed<T, Creds>` and `Unsealed<T>`: sealed text, and what it opened to, owned where the cipher left it and never copied; only a `Sealed` makes an `Unsealed`, and a T reads it in place as an `Opened<T>`. Not proved: it calls the cipher | `imp/messages-test.cc` |
+| `registrations.h` | what the meetup does with REGISTER and PASS: who is where, which counters are used, what is passed to whom. Logic | `imp/registrations-test.cc`: the fork's replay turned round |
+| `answer.h` | the STUN question answered, no more than 200 a second. Logic | `imp/answer-test.cc` |
+| `master.cc`, `serve.cc` | what `master.h` and `meetup.h` say | as above |
 
 ## What was wrong, and what is not closed
 
@@ -36,7 +45,7 @@ The fork's meetup took a proof that anyone who saw one datagram could copy, and 
 last named a pair as one of its ends (found 2026-11-13; shown with the real cipher 2026-11-15).
 Now an end registers by sealing, under its ticket's key, the address it believes it is at, and
 is taken only from there and only with a counter it has not used; a PASS is taken only from where
-its end registered. `registrations-test.cc` shows each thing the onlooker could do refused.
+its end registered. `imp/registrations-test.cc` shows each thing the onlooker could do refused.
 
 Not closed (the proposal, section 6): a ticket lasts 30 days, whoever holds it; the meetup sees
 which two addresses talk; a ticket's id and an end's counter are in the clear.

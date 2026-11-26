@@ -6,31 +6,31 @@
 #include <cstdlib>
 #include <string>
 
-#include "src/meetup/answer.h"
+#include "src/meetup/imp/answer.h"
 #include "vendor/facts/facts.h"
 /* REQ15/PATH-4: the STUN question answered */
 FACTS( Answer )
 {
   /* a Binding Request: type 0x0001, length 0, the cookie, twelve bytes of the asker's */
   const std::string request = std::string( "\x00\x01\x00\x00\x21\x12\xA4\x42", 8 ) + "abcdefghijkl";
-  FACT_CHECK( Gosh::is_stun_request( request.data(), request.size() ), "a Binding Request with the cookie is one" );
-  FACT_CHECK( ( !Gosh::is_stun_request( request.data(), 19 ) && !Gosh::is_stun_request( ( request + std::string( 181, 'x' ) ).data(), 201 )
-           && Gosh::is_stun_request( ( request + std::string( 180, 'x' ) ).data(), 200 ) ), "one byte short is not; nor 201 bytes long; 200 is" );
+  FACT_CHECK( Meetup::Imp::is_stun_request( request.data(), request.size() ), "a Binding Request with the cookie is one" );
+  FACT_CHECK( ( !Meetup::Imp::is_stun_request( request.data(), 19 ) && !Meetup::Imp::is_stun_request( ( request + std::string( 181, 'x' ) ).data(), 201 )
+           && Meetup::Imp::is_stun_request( ( request + std::string( 180, 'x' ) ).data(), 200 ) ), "one byte short is not; nor 201 bytes long; 200 is" );
   std::string other = request;
   other[1] = 0x11;
   std::string uncooked = request;
   uncooked[7] = 0x43;
-  FACT_CHECK( ( !Gosh::is_stun_request( other.data(), other.size() ) && !Gosh::is_stun_request( uncooked.data(), uncooked.size() ) ), "another type, or without the cookie, is not" );
+  FACT_CHECK( ( !Meetup::Imp::is_stun_request( other.data(), other.size() ) && !Meetup::Imp::is_stun_request( uncooked.data(), uncooked.size() ) ), "another type, or without the cookie, is not" );
 
   /* asked from 192.0.2.7 port 40000: the answer says so, each number mixed with the cookie */
-  const std::string answer = Gosh::stun_answer( request.data(), 0xC0000207, 40000 );
+  const std::string answer = Meetup::Imp::stun_answer( request.data(), 0xC0000207, 40000 );
   const std::string expected = std::string( "\x01\x01\x00\x0c\x21\x12\xA4\x42", 8 ) + "abcdefghijkl"
                                + std::string( "\x00\x20\x00\x08\x00\x01", 6 )
                                + std::string( "\xBD\x52", 2 )          /* 40000 ^ 0x2112 */
                                + std::string( "\xE1\x12\xA6\x45", 4 ); /* 192.0.2.7 ^ 0x2112A442 */
   FACT_CHECK( answer == expected, "the answer: a Binding Response with the asker's twelve bytes, and where the request came from" );
 
-  Gosh::AnswerRate rate;
+  Meetup::Imp::AnswerRate rate;
   unsigned int allowed = 0;
   for ( int i = 0; i < 500; i++ ) {
     allowed += rate.allow( 1000 ) ? 1 : 0;
