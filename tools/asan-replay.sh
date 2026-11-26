@@ -25,10 +25,10 @@ export ASAN_OPTIONS
 
 count=0
 for source in $(cd "$GOSH/src" && find . -name '*-fuzzer.cc' | sort); do
-    path=${source#./}       # meetup/registrations-fuzzer.cc, forwarding/tcp/tcpinudp-fuzzer.cc
+    path=${source#./}       # meetup/imp/registrations-fuzzer.cc, forwarding/tcp/tcpinudp-fuzzer.cc
     part=${path%%/*}
     program=${path#*/}
-    program=${program%.cc}  # registrations-fuzzer, tcp/tcpinudp-fuzzer
+    program=${program%.cc}  # imp/registrations-fuzzer, tcp/tcpinudp-fuzzer
     dir="$GOSH_BUILD_DIR/core/src/$part"
     make -C "$dir" "$program" >"$GOSH_BUILD_DIR/asan-build.log" 2>&1 \
         || { tail -20 "$GOSH_BUILD_DIR/asan-build.log"; echo "asan-replay: FAILED to build $part/$program"; exit 1; }

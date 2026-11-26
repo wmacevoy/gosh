@@ -2,7 +2,7 @@
 
 /*
  * meetup, what a REGISTERED says once it is opened: where the meetup saw the end (REQ18/PATH-5;
- * meetup/messages.h says the text). Logic, and a domain: unsigned numbers only, no pointer, no call
+ * meetup/imp/messages.h says the text). Logic, and a domain: unsigned numbers only, no pointer, no call
  * out but to the text.
  *
  * The text is 19 bytes, a where: a family, 4 or 6, then sixteen bytes of address and two of port.

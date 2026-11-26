@@ -69,7 +69,7 @@ int Network::relay_remote( const char* address, const char* port )
   std::vector<struct pollfd> fds;
   std::vector<std::string> words, ask;
   std::string meetup_at; /* (gosh) the meetup, "ip:port", and a ticket for it: from the local relay */
-  Gosh::Ticket ticket;
+  Gosh::Meetup::Ticket ticket;
   std::unique_ptr<Punch> punch;
   bool stream_open = true, was_open = false, was_registered = false;
   std::string was_where; /* (gosh) where the way through was, last we said */
@@ -123,7 +123,7 @@ int Network::relay_remote( const char* address, const char* port )
           } else if ( words.size() == 2 && words[0] == "MEETUP" ) {
             meetup_at = words[1];
           } else if ( words.size() == 3 && words[0] == "TICKET" ) {
-            if ( Gosh::parse_ticket( "gosh-ticket " + words[1] + " " + words[2], ticket ) && punch ) {
+            if ( Gosh::Meetup::parse_ticket( "gosh-ticket " + words[1] + " " + words[2], ticket ) && punch ) {
               punch->use_meetup( meetup_at, ticket );
             }
           } else if ( words.size() == 2 && words[0] == "KEY" ) {

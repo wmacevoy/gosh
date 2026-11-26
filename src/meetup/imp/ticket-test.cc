@@ -13,7 +13,7 @@
 /* REQ18/PATH-5: tickets */
 FACTS( Ticket )
 {
-  using namespace Gosh;
+  using namespace Gosh::Meetup;
   const std::string master( "0123456789abcdef" );
   const std::string other_master( "fedcba9876543210" );
   const Ticket t = make_ticket( master, "random!!", 1000000 );

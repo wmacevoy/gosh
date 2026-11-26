@@ -42,11 +42,11 @@
 #include <string>
 
 #include "src/crypto/crypto.h"
-#include "src/meetup/messages.h"
+#include "src/meetup/imp/messages.h"
 #include "src/meetup/ticket.h"
 #include "src/strong/meetup/counterwindow.h"
 
-namespace Gosh {
+namespace Gosh::Meetup::Imp {
 
 class Registrations
 {

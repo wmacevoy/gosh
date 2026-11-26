@@ -24,10 +24,10 @@ GOSH_CONFIGURE="CC=clang CXX=clang++ CFLAGS='$flags -fsanitize=fuzzer-no-link' C
 
 rm -f "$BUILD"/fuzz-*-crash-* # (so that a crash named below is this run's)
 for source in $(cd "$GOSH/src" && find . -name '*-fuzzer.cc' | sort); do
-    path=${source#./}       # meetup/registrations-fuzzer.cc, forwarding/tcp/tcpinudp-fuzzer.cc
+    path=${source#./}       # meetup/imp/registrations-fuzzer.cc, forwarding/tcp/tcpinudp-fuzzer.cc
     part=${path%%/*}
     program=${path#*/}
-    program=${program%.cc}  # registrations-fuzzer, tcp/tcpinudp-fuzzer
+    program=${program%.cc}  # imp/registrations-fuzzer, tcp/tcpinudp-fuzzer
     dir="$BUILD/core/src/$part"
     rm -f "$dir/$program.o" "$dir/$program"
     make -C "$dir" "$program" CXXFLAGS="$flags -fsanitize=fuzzer -DGOSH_LIBFUZZER" >"$BUILD/fuzz-build.log" 2>&1 \

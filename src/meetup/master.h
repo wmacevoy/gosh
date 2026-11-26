@@ -20,7 +20,7 @@
 
 #include <string>
 
-namespace Gosh {
+namespace Gosh::Meetup {
 
 /* gosh's directory; empty, and why, if HOME and XDG_CONFIG_HOME are both unset. */
 std::string gosh_directory( std::string& error );

@@ -2,13 +2,16 @@
 # directories, `|`, its ABI: the headers another domain may use. Everything else of a domain is
 # its inside, which only it uses. The lint holds it (strong-domain-driven-design's prover/lint.py,
 # rule "a domain"; tools/proofs.sh runs it). Each domain's README says what each ABI header means.
+# A domain laid out has no `|`: its name is its namespace, its ABI the headers at the top of its
+# first directory, in that namespace; and its inside the rest, under imp/ and in NAME::Imp (src/meetup/
+# is the first).
 
 # the harness
 command      src/command                            | src/command/moshwrapper.h
 relay        src/relay                              | src/relay/relay.h src/relay/start.h
 pathfinding  src/pathfinding                        | src/pathfinding/punch.h src/pathfinding/mark.h
 stun         src/stun src/strong/stun               | src/stun/stun.h src/strong/stun/stunrequest.h
-meetup       src/meetup src/strong/meetup           | src/meetup/meetup.h src/meetup/master.h src/meetup/ticket.h src/meetup/end.h
+Gosh::Meetup src/meetup src/strong/meetup
 forwarding   src/forwarding                         | src/forwarding/forwarding.h src/forwarding/udp/rules.h src/forwarding/stream/stream.h src/forwarding/stream/streamchild.h
 seam         src/seam                               | src/seam/core-main.h src/seam/hooks.h src/seam/gosh-version.h src/seam/fuzz-replay.h src/seam/proved.h
 
@@ -20,8 +23,8 @@ strong       src/strong                             | src/strong/datagram.h src/
 
 # Crossings that are there, and are to go: each is said by every run of the lint, and a line is
 # refused once its crossing is no longer made. The proposal's change that ends each is named.
-allow src/pathfinding/finding-test.cc meetup        # a meetup run from its inside, and its messages read: a test of both
-allow src/pathfinding/finding-fuzzer.cc meetup      # the same
-allow src/pathfinding/punch-test.cc   meetup        # the same
-allow src/stun/stun-test.cc           meetup        # the meetup's STUN answer, read by stun: a test of both
+allow src/pathfinding/finding-test.cc Gosh::Meetup  # a meetup run from its inside, and its messages read: a test of both
+allow src/pathfinding/finding-fuzzer.cc Gosh::Meetup # the same
+allow src/pathfinding/punch-test.cc   Gosh::Meetup  # the same
+allow src/stun/stun-test.cc           Gosh::Meetup  # the meetup's STUN answer, read by stun: a test of both
 allow src/pathfinding/punch.h         pathfinding   # Got, declared in finding.h

@@ -123,7 +123,7 @@ INGRESS = os.path.join(PROVER, "ingress.py")
 if not ONLY:
     with tempfile.TemporaryDirectory() as d:
         shutil.copytree(os.environ["SUBJECT"], os.path.join(d, "subject"))
-        path = os.path.join(d, "subject", "src", "meetup", "registrations.h")
+        path = os.path.join(d, "subject", "src", "meetup", "imp", "registrations.h")
         text = open(path).read()
         old, new = "self.counters.take_checked( Strong::Meetup::CounterChecked( ", "self.counters.take( Strong::Meetup::Counter( "
         names = sorted(os.listdir(os.path.join(DOMAIN, "from")))

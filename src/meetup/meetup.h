@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace Network {
+namespace Gosh::Meetup {
 
 /*
  * A meetup: a machine with a public address, typically the student's own server, where the two
@@ -22,7 +22,7 @@ namespace Network {
  *
  * master: its master key (master.h). Runs until killed; returns an exit status if it cannot start.
  */
-int meetup_serve( const char* port, const std::string& master );
+int serve( const char* port, const std::string& master );
 
 }
 

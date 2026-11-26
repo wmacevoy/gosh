@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <string>
 
-#include "src/meetup/messages.h"
+#include "src/meetup/imp/messages.h"
 #include "src/meetup/ticket.h"
 #include "src/seam/proved.h"
 #include "vendor/facts/facts.h"
@@ -20,7 +20,7 @@ struct AnyLength
 {
   Crypto::Session& session;
 };
-namespace Gosh {
+namespace Gosh::Meetup::Imp {
 template <typename T>
 class Sealed<T, AnyLength>
 {
@@ -40,7 +40,8 @@ public:
 /* REQ6/SHAPE-5: a reader of one length is handed a text only of that length, found once, where it is made */
 FACTS( FixedLength )
 {
-  using namespace Gosh;
+  using namespace Gosh::Meetup;
+  using namespace Gosh::Meetup::Imp;
   const Ticket t = make_ticket( "0123456789abcdef", "random!!", 1000000 );
   Crypto::Session session( raw_key( t.key ) );
   bool only_16 = true;
@@ -68,7 +69,8 @@ FACTS( FixedLength )
 /* REQ18/PATH-5, REQ17/PATH-8: the meetup's messages */
 FACTS( Messages )
 {
-  using namespace Gosh;
+  using namespace Gosh::Meetup;
+  using namespace Gosh::Meetup::Imp;
   const Ticket t = make_ticket( "0123456789abcdef", "random!!", 1000000 );
   Crypto::Session session( raw_key( t.key ) );
   Crypto::Session other( raw_key( "another key 16by" ) );
@@ -189,7 +191,7 @@ FACTS( Messages )
   FACT_CHECK( ( !Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ session, true }, carried ) && !carried ), "PASSED is never opened" );
 
   /* (proved of every counter and sender; the seal and the open around it are tried by every fact above) */
-  if ( !proved_so_not_tried( "a counter is 62 bits: what is above them cannot change who sealed it",
+  if ( !Gosh::proved_so_not_tried( "a counter is 62 bits: what is above them cannot change who sealed it",
                              "Strong::Meetup::Nonce, proofs/MeetupNonce.proof.cpp" ) ) {
     const std::string high = meetup_seal( session, MEETUP_PASS, t.id, 0, false, ~uint64_t( 0 ), "z" );
     FACT_CHECK( ( meetup_read_header( high.data(), high.size(), h ) && Sealed<Strong::Meetup::Pass, MeetupSealer>( h ).unseal( MeetupSealer{ session, false }, carried )
