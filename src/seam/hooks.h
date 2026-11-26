@@ -67,7 +67,7 @@ void session_started( Transport& network, unsigned int verbose )
   if ( !s.options.any() && !stream ) {
     return;
   }
-  s.forwarding.reset( new Network::Forwarding(
+  s.forwarding.reset( new Gosh::Forwarding::Forwarding(
     &network, s.client, s.options.udp, s.options.tcp, s.options.tcp_remote, s.options.udp_remote, stream ) );
   if ( stream && !s.client ) {
     serve_stream();

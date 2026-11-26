@@ -10,25 +10,25 @@
 #include <string>
 #include <vector>
 
-#include "src/forwarding/tcp/tcpforward.h"
-#include "src/forwarding/udp/udpforward.h"
+#include "src/forwarding/imp/tcp/tcpforward.h"
+#include "src/forwarding/imp/udp/udpforward.h"
 
 /* Everything a frontend forwards over the side channel, behind one event-loop interface. */
 
-namespace Network {
+namespace Gosh::Forwarding {
 
-class Forwarding : public SideChannelSink
+class Forwarding : public Network::SideChannelSink
 {
 private:
-  std::unique_ptr<UDPForwarder> udp;
-  std::unique_ptr<UDPForwarder> udp_remote; /* forwards the server listens for (-RU) */
-  std::unique_ptr<TCPForwarder> tcp;
-  std::unique_ptr<TCPForwarder> tcp_remote; /* forwards the server listens for (-R) */
-  std::unique_ptr<TCPForwarder> stream;     /* a stream between a process at each end */
+  std::unique_ptr<Imp::UDPForwarder> udp;
+  std::unique_ptr<Imp::UDPForwarder> udp_remote; /* forwards the server listens for (-RU) */
+  std::unique_ptr<Imp::TCPForwarder> tcp;
+  std::unique_ptr<Imp::TCPForwarder> tcp_remote; /* forwards the server listens for (-R) */
+  std::unique_ptr<Imp::TCPForwarder> stream;     /* a stream between a process at each end */
 
 public:
-  /* Throws NetworkException if a specification can't be parsed, resolved or bound. */
-  Forwarding( SideChannelLink* link,
+  /* Throws Network::NetworkException if a specification can't be parsed, resolved or bound. */
+  Forwarding( Network::SideChannelLink* link,
               bool client,
               const std::vector<std::string>& udp_specs,
               const std::vector<std::string>& tcp_specs,
@@ -38,31 +38,31 @@ public:
     : udp(), udp_remote(), tcp(), tcp_remote(), stream()
   {
     if ( with_stream ) {
-      stream.reset( new TCPForwarder( link,
-                                      client ? TCPForwarder::LISTEN : TCPForwarder::CONNECT,
+      stream.reset( new Imp::TCPForwarder( link,
+                                      client ? Imp::TCPForwarder::LISTEN : Imp::TCPForwarder::CONNECT,
                                       std::vector<std::string>(),
-                                      Gosh::TYPE_STREAM ) );
+                                      Gosh::Forwarding::Imp::TYPE_STREAM ) );
       stream->stream_allow();
     }
     if ( !udp_specs.empty() ) {
-      udp.reset( new UDPForwarder( link, client ? UDPForwarder::LISTEN : UDPForwarder::CONNECT, udp_specs ) );
+      udp.reset( new Imp::UDPForwarder( link, client ? Imp::UDPForwarder::LISTEN : Imp::UDPForwarder::CONNECT, udp_specs ) );
     }
     if ( !udp_remote_specs.empty() ) {
       /* the same again with the ends exchanged */
-      udp_remote.reset( new UDPForwarder(
-        link, client ? UDPForwarder::CONNECT : UDPForwarder::LISTEN, udp_remote_specs, true ) );
+      udp_remote.reset( new Imp::UDPForwarder(
+        link, client ? Imp::UDPForwarder::CONNECT : Imp::UDPForwarder::LISTEN, udp_remote_specs, true ) );
     }
     if ( !tcp_specs.empty() ) {
-      tcp.reset( new TCPForwarder( link,
-                                   client ? TCPForwarder::LISTEN : TCPForwarder::CONNECT,
+      tcp.reset( new Imp::TCPForwarder( link,
+                                   client ? Imp::TCPForwarder::LISTEN : Imp::TCPForwarder::CONNECT,
                                    tcp_specs ) );
     }
     if ( !tcp_remote_specs.empty() ) {
       /* the same again with the ends exchanged */
-      tcp_remote.reset( new TCPForwarder( link,
-                                          client ? TCPForwarder::CONNECT : TCPForwarder::LISTEN,
+      tcp_remote.reset( new Imp::TCPForwarder( link,
+                                          client ? Imp::TCPForwarder::CONNECT : Imp::TCPForwarder::LISTEN,
                                           tcp_remote_specs,
-                                          Gosh::TYPE_TCP_REVERSE ) );
+                                          Gosh::Forwarding::Imp::TYPE_TCP_REVERSE ) );
     }
   }
 
@@ -78,7 +78,7 @@ public:
   size_t stream_connections( void ) const { return stream ? stream->connection_count() : 0; }
 
   /* Give this to Transport::set_sidechannel_sink(). */
-  SideChannelSink* sink( void ) { return this; }
+  Network::SideChannelSink* sink( void ) { return this; }
 
   /*
    * (gosh) A payload from the other end: the byte after the mark says what kind it is, and so
@@ -90,23 +90,23 @@ public:
     if ( payload.size() < 2 ) {
       return;
     }
-    SideChannelSink* whose = NULL;
+    Network::SideChannelSink* whose = NULL;
     switch ( static_cast<uint8_t>( payload[1] ) ) {
-      case Gosh::TYPE_UDP_DATA:
-      case Gosh::TYPE_UDP_FRAGMENT:
+      case Gosh::Forwarding::Imp::TYPE_UDP_DATA:
+      case Gosh::Forwarding::Imp::TYPE_UDP_FRAGMENT:
         whose = udp.get();
         break;
-      case Gosh::TYPE_UDP_REVERSE_DATA:
-      case Gosh::TYPE_UDP_REVERSE_FRAGMENT:
+      case Gosh::Forwarding::Imp::TYPE_UDP_REVERSE_DATA:
+      case Gosh::Forwarding::Imp::TYPE_UDP_REVERSE_FRAGMENT:
         whose = udp_remote.get();
         break;
-      case Gosh::TYPE_TCP_SEGMENT:
+      case Gosh::Forwarding::Imp::TYPE_TCP_SEGMENT:
         whose = tcp.get();
         break;
-      case Gosh::TYPE_TCP_REVERSE:
+      case Gosh::Forwarding::Imp::TYPE_TCP_REVERSE:
         whose = tcp_remote.get();
         break;
-      case Gosh::TYPE_STREAM:
+      case Gosh::Forwarding::Imp::TYPE_STREAM:
         whose = stream.get();
         break;
     }
@@ -122,13 +122,13 @@ public:
    */
   bool set_fragment_parity( const std::string& mode )
   {
-    UDPForwarder::ParityMode m;
+    Imp::UDPForwarder::ParityMode m;
     if ( mode == "auto" ) {
-      m = UDPForwarder::PARITY_AUTO;
+      m = Imp::UDPForwarder::PARITY_AUTO;
     } else if ( mode == "always" ) {
-      m = UDPForwarder::PARITY_ALWAYS;
+      m = Imp::UDPForwarder::PARITY_ALWAYS;
     } else if ( mode == "never" ) {
-      m = UDPForwarder::PARITY_NEVER;
+      m = Imp::UDPForwarder::PARITY_NEVER;
     } else {
       return false;
     }

@@ -32,7 +32,7 @@ it, and applications ride on carrying. So none of the three needs another, and a
 Two of the seam's files are tooling, not glue, and any part may include them:
 `seam/fuzz-replay.h` (the fuzzers' replay `main`) and `seam/gosh-version.h` (written by the build).
 
-**Where the applications meet carrying:** a stream's process (`forwarding/stream/streamchild.*`)
+**Where the applications meet carrying:** a stream's process (`forwarding/streamchild.h`, `forwarding/imp/stream/streamchild.cc`)
 runs whatever the program gives it; `seam/applications.*` names each application a stream can be
 between (`@copy`, `@stdio`, `@sh`, `@connect`) and says what it becomes. Until 2026-11-17 forwarding included
 copy and named the three itself, the one crossing of the layers.

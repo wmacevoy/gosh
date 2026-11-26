@@ -17,7 +17,7 @@
 #include "vendor/retain/retain.hpp"
 #include "src/seam/gosh-version.h"
 
-#include "src/forwarding/stream/streamchild.h"
+#include "src/forwarding/streamchild.h"
 #include "src/seam/applications.h"
 #include "src/seam/core-main.h"
 #include "src/seam/hooks.h"
@@ -112,7 +112,7 @@ int main( int argc, char* argv[] )
       fprintf( stderr, "%s: %s\n", name.c_str(), error.c_str() );
       return 1;
     }
-    if ( options.stream_given && !Gosh::stream_words_valid( Network::stream_words( options.stream ) ) ) {
+    if ( options.stream_given && !Gosh::stream_words_valid( Gosh::Forwarding::stream_words( options.stream ) ) ) {
       fprintf( stderr, "%s: -X: not something that can be started\n", name.c_str() );
       return 1;
     }

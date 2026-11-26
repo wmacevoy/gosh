@@ -12,7 +12,7 @@ Gosh::Relay  src/relay
 Gosh::Pathfinding src/pathfinding
 Gosh::Stun   src/stun src/strong/stun
 Gosh::Meetup src/meetup src/strong/meetup
-forwarding   src/forwarding                         | src/forwarding/forwarding.h src/forwarding/udp/rules.h src/forwarding/stream/stream.h src/forwarding/stream/streamchild.h
+Gosh::Forwarding src/forwarding
 seam         src/seam                               | src/seam/core-main.h src/seam/hooks.h src/seam/gosh-version.h src/seam/fuzz-replay.h src/seam/proved.h
 
 # the applications

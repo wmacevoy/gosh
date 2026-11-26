@@ -7,8 +7,8 @@
 
 #include <sys/wait.h>
 
-#include "src/forwarding/stream/stream.h"
-#include "src/forwarding/stream/streamchild.h"
+#include "src/forwarding/stream.h"
+#include "src/forwarding/streamchild.h"
 #include "src/network/network.h"
 #include "src/seam/applications.h"
 
@@ -37,7 +37,7 @@ void Gosh::tend_stream( void )
     }
   }
   if ( s.forwarding && s.ending && s.end_it
-       && stream_over( s.stream.pid == -1, s.stream.ended, s.forwarding->stream_connections(), Network::timestamp(),
+       && Gosh::Forwarding::stream_over( s.stream.pid == -1, s.stream.ended, s.forwarding->stream_connections(), Network::timestamp(),
                        s.ending() ) ) {
     s.end_it();
   }
@@ -47,7 +47,7 @@ void Gosh::take_stream_words( void )
 {
   Session& s = session();
   /* (only when there is a stream: the words of an empty string are one empty word, which is not "no stream") */
-  s.stream.words = s.options.stream.empty() ? std::vector<std::string>() : Network::stream_words( s.options.stream );
+  s.stream.words = s.options.stream.empty() ? std::vector<std::string>() : Gosh::Forwarding::stream_words( s.options.stream );
 }
 
 void Gosh::serve_stream( void )
@@ -55,7 +55,7 @@ void Gosh::serve_stream( void )
   Session& s = session();
   const std::vector<std::string> words = s.stream.words;
   s.forwarding->set_stream_spawner(
-    [words]() { return stream_words_valid( words ) ? Network::stream_child( stream_application( words, false ), false, NULL ) : -1; } );
+    [words]() { return stream_words_valid( words ) ? Gosh::Forwarding::stream_child( stream_application( words, false ), false, NULL ) : -1; } );
 }
 
 void Gosh::stream_never_ran( void )
@@ -69,7 +69,7 @@ void Gosh::start_stream( void )
 {
   Session& s = session();
   pid_t pid = 0;
-  const int fd = stream_words_valid( s.stream.words ) ? Network::stream_child( stream_application( s.stream.words, true ), true, &pid ) : -1;
+  const int fd = stream_words_valid( s.stream.words ) ? Gosh::Forwarding::stream_child( stream_application( s.stream.words, true ), true, &pid ) : -1;
   if ( fd < 0 ) {
     stream_never_ran();
     return;
