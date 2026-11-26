@@ -41,7 +41,13 @@
 #include "src/relay/settings.h"
 #include "src/relay/whose.h"
 
-using namespace Network;
+/* (each name this header and its two sources take from Network, named: a header brings no namespace in whole) */
+using Network::Addr;
+using Network::format_ip_port;
+using Network::parse_ip_port;
+using Network::Punch;
+using Network::PUNCH_MARK;
+using Network::RelayOptions;
 using Gosh::relay_frame;
 using Gosh::RelayFrameParser;
 

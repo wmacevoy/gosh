@@ -32,7 +32,7 @@
 #include "src/meetup/ticket.h"
 #include "src/stun/stun.h"
 
-namespace Meetup {
+namespace Gosh::Meetup {
 
 class End
 {

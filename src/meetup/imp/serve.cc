@@ -47,7 +47,7 @@ struct KeyOf
   std::string operator()( const std::string& id ) const
   {
     try {
-      return Meetup::ticket_key( master, id );
+      return Gosh::Meetup::ticket_key( master, id );
     } catch ( const std::exception& ) {
       return std::string();
     }
@@ -157,10 +157,10 @@ void send_from( int fd, const std::string& bytes, const Addr& to, socklen_t to_l
 }
 
 /* Where each end whose message was taken last sent to us: kept for passing datagrams on to it. No more than this many. */
-const size_t MOST_HEARD_AT = 4 * Meetup::Imp::Registrations::MAX_TICKETS;
+const size_t MOST_HEARD_AT = 4 * Gosh::Meetup::Imp::Registrations::MAX_TICKETS;
 }
 
-int Meetup::serve( const char* port, const std::string& master )
+int Gosh::Meetup::serve( const char* port, const std::string& master )
 {
   struct addrinfo hints, *res = NULL;
   memset( &hints, 0, sizeof( hints ) );
@@ -178,8 +178,8 @@ int Meetup::serve( const char* port, const std::string& master )
     return 1;
   }
 
-  Meetup::Imp::Registrations registrations( time( NULL ) );
-  Meetup::Imp::AnswerRate rate;
+  Gosh::Meetup::Imp::Registrations registrations( time( NULL ) );
+  Gosh::Meetup::Imp::AnswerRate rate;
   const KeyOf key_of = { master };
   std::map<std::string, Here> heard_at; /* an end's "where" -> the address of ours it sent to */
   while ( true ) {
@@ -202,20 +202,20 @@ int Meetup::serve( const char* port, const std::string& master )
       if ( n < 0 ) {
         continue;
       }
-      const std::string where = Meetup::Imp::meetup_where_of( from );
+      const std::string where = Gosh::Meetup::Imp::meetup_where_of( from );
       if ( where.empty() ) {
         continue;
       }
       const uint64_t now = time( NULL );
 
-      if ( Meetup::Imp::is_stun_request_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( request ), static_cast<uint64_t>( n ) ) ) ) {
+      if ( Gosh::Meetup::Imp::is_stun_request_checked( Strong::Datagram( reinterpret_cast<const unsigned char*>( request ), static_cast<uint64_t>( n ) ) ) ) {
         if ( rate.allow( now ) ) {
-          send_from( socks[s], Meetup::Imp::stun_answer_to( request, where ), from, from_len, here );
+          send_from( socks[s], Gosh::Meetup::Imp::stun_answer_to( request, where ), from, from_len, here );
         }
         continue;
       }
 
-      const Meetup::Imp::Registrations::Send send = registrations.datagram( request, n, where, now, key_of );
+      const Gosh::Meetup::Imp::Registrations::Send send = registrations.datagram( request, n, where, now, key_of );
       if ( !send.any ) {
         continue;
       }
@@ -226,7 +226,7 @@ int Meetup::serve( const char* port, const std::string& master )
       heard_at[where] = here;
       Addr to;
       socklen_t to_len;
-      if ( Meetup::Imp::meetup_addr_of( send.to, to, to_len ) ) {
+      if ( Gosh::Meetup::Imp::meetup_addr_of( send.to, to, to_len ) ) {
         const int out = socks[to.sa.sa_family == AF_INET6 ? 1 : 0];
         const std::map<std::string, Here>::const_iterator known = heard_at.find( send.to );
         Here none;

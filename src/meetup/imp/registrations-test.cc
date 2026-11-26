@@ -15,8 +15,8 @@
 #include "src/meetup/imp/registrations.h"
 #include "vendor/facts/facts.h"
 
-using namespace Meetup;
-using namespace Meetup::Imp;
+using namespace Gosh::Meetup;
+using namespace Gosh::Meetup::Imp;
 
 namespace {
 const std::string MASTER( "0123456789abcdef" );
@@ -32,29 +32,29 @@ struct KeyOf
   std::string operator()( const std::string& id ) const
   {
     ( *asked )++;
-    return Meetup::ticket_key( MASTER, id );
+    return Gosh::Meetup::ticket_key( MASTER, id );
   }
 };
 
 /* One end of a ticket: what it seals, as the code that will use the meetup will. */
 struct End
 {
-  Meetup::Ticket ticket;
+  Gosh::Meetup::Ticket ticket;
   int end;
   std::string where;
   Crypto::Session session;
   uint64_t counter;
 
-  End( const Meetup::Ticket& t, int e, const std::string& w ) : End( t, e, w, std::string( t.key ) ) {}
-  End( const Meetup::Ticket& t, int e, const std::string& w, const std::string& key )
-    : ticket( t ), end( e ), where( w ), session( Meetup::raw_key( key ) ), counter( 0 )
+  End( const Gosh::Meetup::Ticket& t, int e, const std::string& w ) : End( t, e, w, std::string( t.key ) ) {}
+  End( const Gosh::Meetup::Ticket& t, int e, const std::string& w, const std::string& key )
+    : ticket( t ), end( e ), where( w ), session( Gosh::Meetup::raw_key( key ) ), counter( 0 )
   {}
   /* A REGISTER, its time by the meetup's clock being at (UTC seconds). */
   std::string reg( uint64_t at )
   {
-    return Meetup::Imp::meetup_seal( session, Meetup::Imp::MEETUP_REGISTER, ticket.id, end, false, counter++, Meetup::Imp::meetup_register_text( where, at * 1000 ) );
+    return Gosh::Meetup::Imp::meetup_seal( session, Gosh::Meetup::Imp::MEETUP_REGISTER, ticket.id, end, false, counter++, Gosh::Meetup::Imp::meetup_register_text( where, at * 1000 ) );
   }
-  std::string pass( const std::string& d ) { return Meetup::Imp::meetup_seal( session, Meetup::Imp::MEETUP_PASS, ticket.id, end, false, counter++, d ); }
+  std::string pass( const std::string& d ) { return Gosh::Meetup::Imp::meetup_seal( session, Gosh::Meetup::Imp::MEETUP_PASS, ticket.id, end, false, counter++, d ); }
 };
 
 /* What the meetup does with a datagram, as one call. */

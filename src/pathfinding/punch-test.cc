@@ -40,7 +40,7 @@ const std::string MASTER( "0123456789abcdef" );
 
 std::string ticket_key_of( const std::string& id )
 {
-  return Meetup::ticket_key( MASTER, id );
+  return Gosh::Meetup::ticket_key( MASTER, id );
 }
 
 /* A meetup, on a loopback socket of its own (IPv4 or IPv6), served by the meetup's logic. */
@@ -48,7 +48,7 @@ struct MeetupServer
 {
   int family;
   int sock;
-  Meetup::Imp::Registrations registrations;
+  Gosh::Meetup::Imp::Registrations registrations;
   int passed;
 
   explicit MeetupServer( int s_family = AF_INET )
@@ -83,19 +83,19 @@ struct MeetupServer
     if ( n < 0 ) {
       return;
     }
-    const std::string w = Meetup::Imp::meetup_where_of( from );
-    if ( Meetup::Imp::is_stun_request( buf, n ) ) {
-      const std::string a = Meetup::Imp::stun_answer_to( buf, w );
+    const std::string w = Gosh::Meetup::Imp::meetup_where_of( from );
+    if ( Gosh::Meetup::Imp::is_stun_request( buf, n ) ) {
+      const std::string a = Gosh::Meetup::Imp::stun_answer_to( buf, w );
       sendto( sock, a.data(), a.size(), 0, &from.sa, len );
       return;
     }
-    const Meetup::Imp::Registrations::Send s = registrations.datagram( buf, n, w, time( NULL ), ticket_key_of );
+    const Gosh::Meetup::Imp::Registrations::Send s = registrations.datagram( buf, n, w, time( NULL ), ticket_key_of );
     Network::Addr to;
     socklen_t to_len;
-    if ( s.any && Meetup::Imp::meetup_addr_of( s.to, to, to_len ) ) {
+    if ( s.any && Gosh::Meetup::Imp::meetup_addr_of( s.to, to, to_len ) ) {
       sendto( sock, s.bytes.data(), s.bytes.size(), 0, &to.sa, to_len );
-      Meetup::Imp::MeetupHeader h;
-      passed += Meetup::Imp::meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == Meetup::Imp::MEETUP_PASSED;
+      Gosh::Meetup::Imp::MeetupHeader h;
+      passed += Gosh::Meetup::Imp::meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == Gosh::Meetup::Imp::MEETUP_PASSED;
     }
   }
 };
@@ -151,7 +151,7 @@ FACTS( Punch )
 
   {
     MeetupServer m;
-    const Meetup::Ticket t = Meetup::make_ticket( MASTER, "random!!", time( NULL ) + 3600 );
+    const Gosh::Meetup::Ticket t = Gosh::Meetup::make_ticket( MASTER, "random!!", time( NULL ) + 3600 );
     Punch a( true, key, nobody, now_ms() ), b( false, key, nobody, now_ms() );
     FACT_CHECK( ( a.use_meetup( m.where(), t ) && b.use_meetup( m.where(), t ) ), "a meetup is taken at an address, with a ticket" );
     FACT_CHECK( !a.use_meetup( "meetup.example:1", t ), "and not at what is not an address" );
@@ -169,7 +169,7 @@ FACTS( Punch )
 
   {
     MeetupServer m;
-    const Meetup::Ticket forged = Meetup::make_ticket( "not the master!!", "random!!", time( NULL ) + 3600 );
+    const Gosh::Meetup::Ticket forged = Gosh::Meetup::make_ticket( "not the master!!", "random!!", time( NULL ) + 3600 );
     Punch a( true, key, nobody, now_ms() ), b( false, key, nobody, now_ms() );
     a.use_meetup( m.where(), forged );
     b.use_meetup( m.where(), forged );
@@ -241,7 +241,7 @@ FACTS( Punch )
     }
     {
       MeetupServer m( AF_INET6 );
-      const Meetup::Ticket t = Meetup::make_ticket( MASTER, "random!!", time( NULL ) + 3600 );
+      const Gosh::Meetup::Ticket t = Gosh::Meetup::make_ticket( MASTER, "random!!", time( NULL ) + 3600 );
       Punch a( true, key, nobody, now_ms() ), b( false, key, nobody, now_ms() );
       a.use_meetup( m.where(), t );
       b.use_meetup( m.where(), t );

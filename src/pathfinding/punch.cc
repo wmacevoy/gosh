@@ -255,7 +255,7 @@ void Punch::flush( void )
   }
 }
 
-bool Punch::use_meetup( const std::string& ip_port, const Meetup::Ticket& t )
+bool Punch::use_meetup( const std::string& ip_port, const Gosh::Meetup::Ticket& t )
 {
   struct timeval tv;
   gettimeofday( &tv, NULL );

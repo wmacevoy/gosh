@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace Meetup {
+namespace Gosh::Meetup {
 
 /*
  * A meetup: a machine with a public address, typically the student's own server, where the two

@@ -16,22 +16,22 @@ gosh-server meetup-key --new   a new master key: every ticket made under the old
 The master key is `meetup.key` in gosh's directory (`~/.config/gosh/` on Linux), its owner's
 alone; it is made the first time either of the first two runs.
 
-It calls nothing of gosh's other parts but STUN's `stun.h`. Path-finding holds a `Meetup::End`
+It calls nothing of gosh's other parts but STUN's `stun.h`. Path-finding holds a `Gosh::Meetup::End`
 (`end.h`), one end of a ticket, and knows none of the meetup's messages.
 
 **Its boundary is its layout** (`src/DOMAINS`, a domain laid out). The headers here, at the top,
-are its ABI, in `namespace Meetup`; everything under `imp/` is its inside, in `Meetup::Imp`, and so
+are its ABI, in `namespace Gosh::Meetup`; everything under `imp/` is its inside, in `Gosh::Meetup::Imp`, and so
 is `src/strong/meetup/` (its proved classes, `Strong::Meetup`). The lint refuses a name of
-`Meetup::Imp` used outside meetup, a header under `imp/` that declares outside `Meetup::Imp`, and an
+`Gosh::Meetup::Imp` used outside meetup, a header under `imp/` that declares outside `Gosh::Meetup::Imp`, and an
 ABI header that names a type of the inside.
 
 | File | What it holds | Test |
 | --- | --- | --- |
 | **ABI** | | |
-| `meetup.h` | `Meetup::serve`: the process (`imp/serve.cc`): one UDP socket and the clock. An edge | `tests/meetup-tickets.py`, from outside, sealing with Python's AES-OCB |
+| `meetup.h` | `Gosh::Meetup::serve`: the process (`imp/serve.cc`): one UDP socket and the clock. An edge | `tests/meetup-tickets.py`, from outside, sealing with Python's AES-OCB |
 | `master.h` | the master key's file, and gosh's directory (`imp/master.cc`). An edge | `tests/meetup-tickets.py` |
 | `ticket.h` | a ticket: its id, its key from the master key, when it stops being good, its text. Logic | `imp/ticket-test.cc`, with the real cipher |
-| `end.h` | `Meetup::End`: one end of a ticket, kept registered from where it is, with the meetup's clock; it seals REGISTER and PASS, and opens REGISTERED, TIME and PASSED. Logic | `../pathfinding/finding-test.cc`, against the meetup's own logic |
+| `end.h` | `Gosh::Meetup::End`: one end of a ticket, kept registered from where it is, with the meetup's clock; it seals REGISTER and PASS, and opens REGISTERED, TIME and PASSED. Logic | `../pathfinding/finding-test.cc`, against the meetup's own logic |
 | **inside** (`imp/`) | | |
 | `messages.h` | REGISTER, REGISTERED, PASS, PASSED as bytes, each at its exact length; sealing and opening. Each sealed kind is opened by `Sealed<T, MeetupSealer>`, T the proved class that reads its text (`Strong::Meetup::Register`, `Registered`, `Pass`, `Time`), and read where the cipher left it. Logic | `imp/messages-test.cc` |
 | `sealed.h` | `Sealed<T, Creds>` and `Unsealed<T>`: sealed text, and what it opened to, owned where the cipher left it and never copied; only a `Sealed` makes an `Unsealed`, and a T reads it in place as an `Opened<T>`. Not proved: it calls the cipher | `imp/messages-test.cc` |

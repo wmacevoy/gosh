@@ -20,7 +20,7 @@ struct AnyLength
 {
   Crypto::Session& session;
 };
-namespace Meetup::Imp {
+namespace Gosh::Meetup::Imp {
 template <typename T>
 class Sealed<T, AnyLength>
 {
@@ -40,8 +40,8 @@ public:
 /* REQ6/SHAPE-5: a reader of one length is handed a text only of that length, found once, where it is made */
 FACTS( FixedLength )
 {
-  using namespace Meetup;
-  using namespace Meetup::Imp;
+  using namespace Gosh::Meetup;
+  using namespace Gosh::Meetup::Imp;
   const Ticket t = make_ticket( "0123456789abcdef", "random!!", 1000000 );
   Crypto::Session session( raw_key( t.key ) );
   bool only_16 = true;
@@ -69,8 +69,8 @@ FACTS( FixedLength )
 /* REQ18/PATH-5, REQ17/PATH-8: the meetup's messages */
 FACTS( Messages )
 {
-  using namespace Meetup;
-  using namespace Meetup::Imp;
+  using namespace Gosh::Meetup;
+  using namespace Gosh::Meetup::Imp;
   const Ticket t = make_ticket( "0123456789abcdef", "random!!", 1000000 );
   Crypto::Session session( raw_key( t.key ) );
   Crypto::Session other( raw_key( "another key 16by" ) );

@@ -60,8 +60,8 @@
 #include "src/meetup/ticket.h"
 #include "src/seam/fuzz-replay.h"
 
-using namespace Meetup;
-using namespace Meetup::Imp;
+using namespace Gosh::Meetup;
+using namespace Gosh::Meetup::Imp;
 
 namespace {
 

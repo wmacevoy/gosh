@@ -52,7 +52,7 @@ private:
   std::string ticket_out;
   bool ticket_tried;
   std::string meetup_at; /* its address, "ip:port", once found */
-  Meetup::Ticket ticket;   /* empty until fetched */
+  Gosh::Meetup::Ticket ticket;   /* empty until fetched */
 
   /* (gosh) What the environment tells the relay: read here, and made sense of in settings.h. */
   static Gosh::RelaySettings told( bool stream_only )
@@ -310,8 +310,8 @@ private:
       start = end + 1;
     }
     ticket_out.clear();
-    Meetup::Ticket t;
-    if ( at.empty() || !Meetup::parse_ticket( text, t ) ) {
+    Gosh::Meetup::Ticket t;
+    if ( at.empty() || !Gosh::Meetup::parse_ticket( text, t ) ) {
       say( "local", "no ticket for the meetup at %s (could ssh log in there, and run gosh-server meetup-ticket?)", meetup.c_str() );
       return;
     }
@@ -327,7 +327,7 @@ private:
     if ( !punch || ticket.id.empty() || !punch->use_meetup( meetup_at, ticket ) ) {
       return;
     }
-    backlog += control( "MEETUP " + meetup_at ) + control( "TICKET " + Meetup::ticket_text( ticket ).substr( 12 ) );
+    backlog += control( "MEETUP " + meetup_at ) + control( "TICKET " + Gosh::Meetup::ticket_text( ticket ).substr( 12 ) );
   }
 
   /* Words from the remote relay (see control(), above). */

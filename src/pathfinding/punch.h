@@ -81,7 +81,7 @@ public:
   std::vector<std::string> take_local_candidates( void ) { return finding.take_local_candidates(); }
 
   /* (gosh) Use a meetup as well: at this address ("ip:port"), with this ticket. False if the address is not one. */
-  bool use_meetup( const std::string& ip_port, const Meetup::Ticket& t );
+  bool use_meetup( const std::string& ip_port, const Gosh::Meetup::Ticket& t );
   bool meetup_registered( void ) const { return finding.meetup_registered(); }
 
   void tick( uint64_t now );

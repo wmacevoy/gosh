@@ -46,7 +46,7 @@
 #include "src/meetup/ticket.h"
 #include "src/strong/meetup/counterwindow.h"
 
-namespace Meetup::Imp {
+namespace Gosh::Meetup::Imp {
 
 class Registrations
 {

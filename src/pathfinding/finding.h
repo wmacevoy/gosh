@@ -90,8 +90,8 @@ private:
   std::vector<Outgoing> outbox;
 
   /* (gosh) the meetup, once there is a ticket for it: its end of it is ours */
-  Meetup::End meetup;
-  static_assert( Meetup::End::ANSWER_LATE == OPEN_FOR, "a REGISTERED is late by as long as a way may be silent" );
+  Gosh::Meetup::End meetup;
+  static_assert( Gosh::Meetup::End::ANSWER_LATE == OPEN_FOR, "a REGISTERED is late by as long as a way may be silent" );
 
   void out( Addr to, const std::string& bytes )
   {
@@ -174,7 +174,7 @@ public:
    * numbered by starts from it, so that a ticket used again by a new PathFinding is not taken
    * for an old one; and a REGISTER's time is reckoned from it until the meetup says otherwise.
    */
-  bool use_meetup( const std::string& ip_port, const Meetup::Ticket& t, uint64_t wall_ms ) { return meetup.use( ip_port, t, wall_ms ); }
+  bool use_meetup( const std::string& ip_port, const Gosh::Meetup::Ticket& t, uint64_t wall_ms ) { return meetup.use( ip_port, t, wall_ms ); }
   bool meetup_registered( void ) const { return meetup.registered(); }
 
   void tick( uint64_t now )

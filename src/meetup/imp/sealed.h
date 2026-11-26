@@ -26,7 +26,7 @@
 #include "src/crypto/crypto.h"
 #include "src/strong/opened.h"
 
-namespace Meetup::Imp {
+namespace Gosh::Meetup::Imp {
 
 template <typename T, typename Creds>
 class Sealed;

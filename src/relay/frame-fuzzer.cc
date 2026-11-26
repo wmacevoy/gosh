@@ -38,10 +38,10 @@ void require( bool ok )
 /* A ticket as text is read back as the same ticket. */
 void ticket_holds( const std::string& text )
 {
-  Meetup::Ticket t, again;
-  if ( Meetup::parse_ticket( text, t ) ) {
+  Gosh::Meetup::Ticket t, again;
+  if ( Gosh::Meetup::parse_ticket( text, t ) ) {
     require( t.id.size() == 16 && t.key.size() == 16 );
-    require( Meetup::parse_ticket( Meetup::ticket_text( t ), again ) && again.id == t.id && again.key == t.key );
+    require( Gosh::Meetup::parse_ticket( Gosh::Meetup::ticket_text( t ), again ) && again.id == t.id && again.key == t.key );
   }
 }
 

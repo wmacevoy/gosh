@@ -47,7 +47,7 @@
 #include "src/meetup/imp/sealed.h"
 #include "src/network/network.h"
 
-namespace Meetup::Imp {
+namespace Gosh::Meetup::Imp {
 
 enum MeetupKind
 {
