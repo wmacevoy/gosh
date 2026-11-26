@@ -14,17 +14,21 @@ file copied each way between a gosh end and a pf.7 end (`tests/headless-smoke.py
 off and carried on from its part across them, each way (`tests/copy-cut.py`); and
 `tests/mocp.test`, `tests/copy-cut.py` and `tests/copy-liar.py` against each alone.
 
+**Laid out** (2026-11-26; `../DOMAINS`): its ABI is the headers here, in `Gosh::Copy`; its inside is `imp/`, in `Gosh::Copy::Imp`.
+
 | File | What it holds | Test |
 | --- | --- | --- |
-| `options.h` | the words: `send`/`receive`, `-r --auto --delete --glob -q --interval=MS`, `--`, the paths. Logic | `options-test.cc` (`REQ1/CP-1`, `REQ1/CP-5`) |
-| `messages.h` | the thirteen messages of `mocp-1`, their framing, writing and reading; a listed name that is not safe is Malformed. Logic | `messages-test.cc`, the bytes spelled out (`REQ1/CP-1`, `REQ1/CP-6`) |
-| `names.h` | is a name safe; where it lands; its part file; the name a source goes by; `~`. Logic | `names-test.cc` (`REQ1/CP-6`, `REQ1/CP-3`) |
-| `checksum.h` | 128 bits, not cryptographic. Logic | `checksum-test.cc`, against values worked out apart from this code (`REQ1/CP-2`, `REQ1/CP-3`) |
-| `decisions.h` | what the sender offers each round; where it carries on from; whether a file changed while read; whether the receiver has a file, is in the way, holds a usable start; whether what arrived is whole and as sent; what is kept when removing. Logic, given what `stat` said | `decisions-test.cc` (`REQ1/CP-2` to `REQ1/CP-5`) |
-| `filecopy.*` | the edge: the stream (`Channel`), the file system, the user's messages, and `run`, which reads `HOME` once and passes it and the clock in | `filecopy-test.cc`, the fork's: two ends in two processes over a socket pair, on real files |
+| **ABI** (in `Gosh::Copy`) | | |
+| `options.h` | the words: `send`/`receive`, `-r --auto --delete --glob -q --interval=MS`, `--`, the paths. Logic | `imp/options-test.cc` (`REQ1/CP-1`, `REQ1/CP-5`) |
+| `filecopy.h` (`imp/filecopy.cc`) | the edge: the stream (`Channel`), the file system, the user's messages, and `run`, which reads `HOME` once and passes it and the clock in | `imp/filecopy-test.cc`, the fork's: two ends in two processes over a socket pair, on real files |
+| **inside** (`imp/`, in `Gosh::Copy::Imp`) | | |
+| `messages.h` | the thirteen messages of `mocp-1`, their framing, writing and reading; a listed name that is not safe is Malformed. Logic | `imp/messages-test.cc`, the bytes spelled out (`REQ1/CP-1`, `REQ1/CP-6`) |
+| `names.h` | is a name safe; where it lands; its part file; the name a source goes by; `~`. Logic | `imp/names-test.cc` (`REQ1/CP-6`, `REQ1/CP-3`) |
+| `checksum.h` | 128 bits, not cryptographic. Logic | `imp/checksum-test.cc`, against values worked out apart from this code (`REQ1/CP-2`, `REQ1/CP-3`) |
+| `decisions.h` | what the sender offers each round; where it carries on from; whether a file changed while read; whether the receiver has a file, is in the way, holds a usable start; whether what arrived is whole and as sent; what is kept when removing. Logic, given what `stat` said | `imp/decisions-test.cc` (`REQ1/CP-2` to `REQ1/CP-5`) |
 
 It calls nothing else of gosh's. A stream's process (in `../forwarding/`) becomes one end of a
-copy by calling `FileCopy::run`; the command writes the words that say which end.
+copy by calling `Gosh::Copy::run`; the command writes the words that say which end.
 
 **Seen red:** each guard in the five headers was broken on purpose, one at a time, and its test
 failed (2026-11-16). Two cannot be: `safe_relative_path`'s refusals of an empty name and of an

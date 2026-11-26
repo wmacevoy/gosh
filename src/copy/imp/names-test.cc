@@ -10,12 +10,13 @@
 #include <cstdio>
 #include <string>
 
-#include "src/copy/names.h"
+#include "src/copy/imp/names.h"
 #include "vendor/facts/facts.h"
 /* REQ1/CP-6, REQ1/CP-3: names */
 FACTS( Names )
 {
-  using namespace FileCopy;
+  using namespace Gosh::Copy;
+using namespace Gosh::Copy::Imp;
 
   FACT_CHECK( ( safe_relative_path( "a" ) && safe_relative_path( "a/b/c" ) && safe_relative_path( "./a" )
            && safe_relative_path( "." ) && safe_relative_path( "..a" ) && safe_relative_path( "a.." ) ), "safe: a name, a path, and \"./\" leading (REQ1/CP-6)" );

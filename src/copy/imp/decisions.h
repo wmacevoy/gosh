@@ -17,10 +17,10 @@
 #include <string>
 #include <vector>
 
-#include "src/copy/checksum.h"
-#include "src/copy/messages.h"
+#include "src/copy/imp/checksum.h"
+#include "src/copy/imp/messages.h"
 
-namespace FileCopy {
+namespace Gosh::Copy::Imp {
 
 /* What a file was found to be, by stat: only what the decisions look at. */
 struct Seen

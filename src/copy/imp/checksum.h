@@ -13,7 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace FileCopy {
+namespace Gosh::Copy::Imp {
 
 struct Hash
 {

@@ -15,7 +15,7 @@
 
 
 
-static bool parsed( const std::string& line, FileCopy::Options& o )
+static bool parsed( const std::string& line, Gosh::Copy::Options& o )
 {
   std::vector<std::string> words;
   std::istringstream in( line );
@@ -23,13 +23,13 @@ static bool parsed( const std::string& line, FileCopy::Options& o )
   while ( in >> w ) {
     words.push_back( w );
   }
-  o = FileCopy::Options();
-  return FileCopy::parse( words, o );
+  o = Gosh::Copy::Options();
+  return Gosh::Copy::parse( words, o );
 }
 /* REQ1/CP-1, REQ1/CP-5: the options */
 FACTS( Options )
 {
-  FileCopy::Options o;
+  Gosh::Copy::Options o;
   FACT_CHECK( ( parsed( "send -- a b", o ) && o.sender && o.paths.size() == 2 && o.paths[1] == "b" && !o.recursive ), "a sender of two sources (REQ1/CP-1)" );
   FACT_CHECK( ( parsed( "receive -- d", o ) && !o.sender && o.paths.size() == 1 ), "a receiver of one destination" );
   FACT_CHECK( ( parsed( "send -r --auto --delete --glob -q --interval=250 -- a", o ) && o.recursive && o.automatic

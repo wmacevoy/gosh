@@ -23,7 +23,7 @@
 #include <unistd.h>
 
 #include "src/copy/filecopy.h"
-#include "src/copy/messages.h"
+#include "src/copy/imp/messages.h"
 #include "vendor/facts/facts.h"
 
 
@@ -101,13 +101,13 @@ static Running start( const std::string& send, const std::string& receive )
     const pid_t pid = fork();
     if ( pid == 0 ) {
       close( pair[1 - i] );
-      FileCopy::Options options;
-      if ( !FileCopy::parse( words( i == 0 ? send : receive ), options ) ) {
+      Gosh::Copy::Options options;
+      if ( !Gosh::Copy::parse( words( i == 0 ? send : receive ), options ) ) {
         _exit( 9 );
       }
       options.local = i == 1;
       options.quiet = true;
-      _exit( FileCopy::run( options, pair[i], pair[i] ) );
+      _exit( Gosh::Copy::run( options, pair[i], pair[i] ) );
     }
     ( i == 0 ? r.sender : r.receiver ) = pid;
   }
@@ -147,22 +147,22 @@ static int lied_to( const std::string& real, bool real_receives, const Said& sai
   const pid_t pid = fork();
   if ( pid == 0 ) {
     close( pair[1] );
-    FileCopy::Options options;
-    if ( !FileCopy::parse( words( real ), options ) ) {
+    Gosh::Copy::Options options;
+    if ( !Gosh::Copy::parse( words( real ), options ) ) {
       _exit( 9 );
     }
     options.local = real_receives;
     options.quiet = true;
-    _exit( FileCopy::run( options, pair[0], pair[0] ) );
+    _exit( Gosh::Copy::run( options, pair[0], pair[0] ) );
   }
   close( pair[0] );
   std::string out;
-  FileCopy::frame( out, FileCopy::HELLO, std::string( FileCopy::MAGIC ) );
+  Gosh::Copy::Imp::frame( out, Gosh::Copy::Imp::HELLO, std::string( Gosh::Copy::Imp::MAGIC ) );
   if ( real_receives ) {
-    FileCopy::frame( out, FileCopy::HELLO, FileCopy::flag_body( false ) );
+    Gosh::Copy::Imp::frame( out, Gosh::Copy::Imp::HELLO, Gosh::Copy::Imp::flag_body( false ) );
   }
   for ( size_t i = 0; i < said.size(); i++ ) {
-    FileCopy::frame( out, said[i].first, said[i].second );
+    Gosh::Copy::Imp::frame( out, said[i].first, said[i].second );
   }
   if ( write( pair[1], out.data(), out.size() ) != static_cast<ssize_t>( out.size() ) ) {
     perror( "write" );
@@ -186,13 +186,13 @@ static int lied_to( const std::string& real, bool real_receives, const Said& sai
 
 static std::string listed_file( const std::string& path, uint64_t size )
 {
-  FileCopy::Entry e;
+  Gosh::Copy::Imp::Entry e;
   e.kind = 'F';
   e.path = path;
   e.size = size;
   e.mode = 0644;
   std::string body;
-  FileCopy::put_listed( body, e );
+  Gosh::Copy::Imp::put_listed( body, e );
   return body;
 }
 
@@ -346,36 +346,36 @@ FACTS( Filecopy )
     signal( SIGPIPE, SIG_IGN );
     dir( "lie" );
     put( "lie/f", "fff" );
-    const std::string begun = FileCopy::begin_body( 0, 0 );
-    const std::string wanted = FileCopy::want_body( FileCopy::Want() );
+    const std::string begun = Gosh::Copy::Imp::begin_body( 0, 0 );
+    const std::string wanted = Gosh::Copy::Imp::want_body( Gosh::Copy::Imp::Want() );
     Said s;
-    s.push_back( std::make_pair( FileCopy::DATA, std::string( "x" ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::DATA, std::string( "x" ) ) );
     FACT_CHECK( lied_to( "receive -- lie/a", true, s ) == 1 ); /* DATA with no file begun */
     s.clear();
-    s.push_back( std::make_pair( FileCopy::FILE_END, FileCopy::end_body( true, FileCopy::Hash() ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::FILE_END, Gosh::Copy::Imp::end_body( true, Gosh::Copy::Imp::Hash() ) ) );
     FACT_CHECK( lied_to( "receive -- lie/b", true, s ) == 1 ); /* FILE_END with no file begun */
     s.clear();
-    s.push_back( std::make_pair( FileCopy::LIST, listed_file( "f", 5 ) ) );
-    s.push_back( std::make_pair( FileCopy::LIST_END, FileCopy::flag_body( true ) ) );
-    s.push_back( std::make_pair( FileCopy::FILE_BEGIN, begun ) );
-    s.push_back( std::make_pair( FileCopy::ROUND_END, std::string() ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::LIST, listed_file( "f", 5 ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::LIST_END, Gosh::Copy::Imp::flag_body( true ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::FILE_BEGIN, begun ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::ROUND_END, std::string() ) );
     FACT_CHECK( lied_to( "receive -- lie/c", true, s ) == 1 ); /* ROUND_END with a file still arriving */
     s.clear();
-    s.push_back( std::make_pair( FileCopy::LIST, listed_file( "f", 5 ) ) );
-    s.push_back( std::make_pair( FileCopy::LIST_END, FileCopy::flag_body( true ) ) );
-    s.push_back( std::make_pair( FileCopy::LIST_END, FileCopy::flag_body( true ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::LIST, listed_file( "f", 5 ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::LIST_END, Gosh::Copy::Imp::flag_body( true ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::LIST_END, Gosh::Copy::Imp::flag_body( true ) ) );
     FACT_CHECK( lied_to( "receive -- lie/d", true, s ) == 1 ); /* a second LIST_END in one round */
     s.clear();
-    s.push_back( std::make_pair( FileCopy::LIST, listed_file( "f", 5 ) ) );
-    s.push_back( std::make_pair( FileCopy::LIST_END, FileCopy::flag_body( true ) ) );
-    s.push_back( std::make_pair( FileCopy::LIST, listed_file( "g", 5 ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::LIST, listed_file( "f", 5 ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::LIST_END, Gosh::Copy::Imp::flag_body( true ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::LIST, listed_file( "g", 5 ) ) );
     FACT_CHECK( lied_to( "receive -- lie/e", true, s ) == 1 ); /* a LIST after the plan is made */
     s.clear();
-    s.push_back( std::make_pair( FileCopy::RESULT, FileCopy::result_body( 99, true, "" ) ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::RESULT, Gosh::Copy::Imp::result_body( 99, true, "" ) ) );
     FACT_CHECK( lied_to( "send -- lie/f", false, s ) == 1 ); /* a RESULT for something never listed */
     s.clear();
-    s.push_back( std::make_pair( FileCopy::WANT, wanted ) );
-    s.push_back( std::make_pair( FileCopy::WANT, wanted ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::WANT, wanted ) );
+    s.push_back( std::make_pair( Gosh::Copy::Imp::WANT, wanted ) );
     FACT_CHECK( lied_to( "send -- lie/f", false, s ) == 1 ); /* the same file wanted twice */
   }
 

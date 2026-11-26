@@ -29,7 +29,7 @@
 #include <unistd.h>
 
 #include "src/copy/filecopy.h"
-#include "src/copy/messages.h"
+#include "src/copy/imp/messages.h"
 #include "src/seam/fuzz-replay.h"
 
 namespace {
@@ -178,7 +178,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   std::map<std::string, std::string> before, after;
   snapshot( source, before );
 
-  FileCopy::Options options;
+  Gosh::Copy::Options options;
   options.sender = true;
   options.recursive = true;
   options.quiet = true;
@@ -187,7 +187,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   const int in = open( said.c_str(), O_RDONLY );
   const int to = open( out.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600 );
   require( in >= 0 && to >= 0 );
-  FileCopy::run( options, in, to );
+  Gosh::Copy::run( options, in, to );
   close( in );
   close( to );
 
@@ -199,8 +199,8 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   std::string spoken = contents( out );
   uint8_t type;
   std::string body;
-  while ( FileCopy::unframe( spoken, type, body ) ) {
-    require( type >= FileCopy::HELLO && type <= FileCopy::BYE );
+  while ( Gosh::Copy::Imp::unframe( spoken, type, body ) ) {
+    require( type >= Gosh::Copy::Imp::HELLO && type <= Gosh::Copy::Imp::BYE );
   }
   require( spoken.empty() );
   return 0;

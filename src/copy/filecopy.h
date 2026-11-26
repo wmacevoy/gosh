@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-#include "src/copy/checksum.h"
-#include "src/copy/names.h"
+#include "src/copy/imp/checksum.h"
+#include "src/copy/imp/names.h"
 #include "src/copy/options.h"
 
 /*
@@ -27,7 +27,7 @@
  * messages.h's; names are names.h's; the checksum is checksum.h's.
  */
 
-namespace FileCopy {
+namespace Gosh::Copy {
 
 /*
  * Runs one end until the copy is done or the stream ends. Returns an exit status: 0 if everything
