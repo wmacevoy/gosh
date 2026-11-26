@@ -9,7 +9,7 @@
 #include "src/meetup/ticket.h"
 #include "src/network/network.h"
 #include "src/pathfinding/finding.h"
-#include "src/pathfinding/stun.h"
+#include "src/stun/stun.h"
 
 /*
  * A way straight through, for two machines that are each behind an address translator (a NAT)

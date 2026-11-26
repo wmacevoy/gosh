@@ -11,7 +11,7 @@
 #include "src/strong/datagram.h"
 
 namespace Strong {
-namespace Pathfinding {
+namespace Stun {
 
 /* a Binding Request, with the cookie: and nothing longer than one need be */
 inline bool is_stun_request_checked( Datagram request )

@@ -30,7 +30,7 @@ LAYERS = {
     "command": "glue", "seam": "glue",
     "copy": "application",
     "forwarding": "carrying",
-    "relay": "paths", "pathfinding": "paths", "meetup": "paths",
+    "relay": "paths", "pathfinding": "paths", "meetup": "paths", "stun": "paths",
     "strong": "strong",     # what is proved: it includes nothing of gosh but itself (src/strong/README.md)
 }
 TOOLING = {"seam/fuzz-replay.h", "seam/gosh-version.h", "seam/proved.h"}

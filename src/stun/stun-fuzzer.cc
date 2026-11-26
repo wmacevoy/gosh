@@ -13,7 +13,7 @@
 #include <cstdlib>
 #include <string>
 
-#include "src/pathfinding/stun.h"
+#include "src/stun/stun.h"
 #include "src/seam/fuzz-replay.h"
 
 using namespace Network;

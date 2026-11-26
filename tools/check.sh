@@ -46,7 +46,7 @@ for a in "$@"; do
 done
 [ "$MODE" = lite ] || [ -z "$PARTS" ] || fail "a part is named ($PARTS ), and that is for --lite: the whole check is of every part"
 # (strong/ is headers, tested through the parts that use it)
-case " $PARTS " in *" strong "*) PARTS="$PARTS meetup pathfinding" ;; esac
+case " $PARTS " in *" strong "*) PARTS="$PARTS meetup pathfinding stun" ;; esac
 [ "$MODE" = lite ] && [ -z "$PARTS" ] && TAGS=smoke || TAGS=$PARTS
 GOSH_CHECK=$MODE; export GOSH_CHECK
 NOT_RUN=0

@@ -20,7 +20,7 @@ run and refused once it is no longer made, so the list only shrinks (2026-11-26:
 | --- | --- | --- |
 | **application** | the terminal (the core's `terminal/` and `statesync/`), `copy/` | what the user came for: a screen kept up to date, files copied |
 | **carrying** | `forwarding/` (the stream, TCP, UDP) | puts an application's bytes into the session's datagrams, beside the terminal's, and back out |
-| **paths** | `relay/`, `pathfinding/`, `meetup/` | gets the session's datagrams to the other end: straight by UDP, through ssh, by a punched way, or through a meetup |
+| **paths** | `relay/`, `pathfinding/`, `meetup/`, `stun/` | gets the session's datagrams to the other end: straight by UDP, through ssh, by a punched way, or through a meetup |
 | **glue** | `command/`, `seam/` | starts the right processes with the right words, and joins the parts to each other and to the core |
 | **strong** | `strong/` | what is proved, and nothing else: classes and functions whose memory, ending and invariants are shown for every input (`strong/README.md`). Laid out by part: what every part is written with in `strong/`, a part's own in `strong/<part>/`, in `Strong::<Part>`. Any part may include it; it includes only itself |
 | **trust** | none: ssh's | proves who the user is and which host is which, carries the session's key, and starts the far end; the design's 3.4 lists what gosh assumes of it |

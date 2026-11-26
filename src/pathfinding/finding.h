@@ -40,7 +40,7 @@
 #include "src/crypto/crypto.h"
 #include "src/meetup/messages.h"
 #include "src/meetup/ticket.h"
-#include "src/pathfinding/stun.h"
+#include "src/stun/stun.h"
 
 namespace Network {
 

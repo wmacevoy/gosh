@@ -41,7 +41,7 @@
 #include "src/meetup/registrations.h"
 #include "src/meetup/ticket.h"
 #include "src/pathfinding/finding.h"
-#include "src/pathfinding/stun.h"
+#include "src/stun/stun.h"
 #include "src/seam/fuzz-replay.h"
 
 using namespace Network;
