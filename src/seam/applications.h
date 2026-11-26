@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "src/forwarding/stream/streamchild.h"
+#include "src/forwarding/streamchild.h"
 
 /*
  * The applications a session's stream can be between, by the name its words begin with. Glue:
@@ -28,8 +28,8 @@ bool stream_words_valid( const std::vector<std::string>& words );
 /* A port as @connect takes it: decimal, 1 to 65535. */
 bool connect_port_valid( const std::string& port );
 
-/* What the words name, to be started by Network::stream_child. The words must be valid. */
-Network::StreamApplication stream_application( const std::vector<std::string>& words, bool local );
+/* What the words name, to be started by Gosh::Forwarding::stream_child. The words must be valid. */
+Gosh::Forwarding::StreamApplication stream_application( const std::vector<std::string>& words, bool local );
 
 }
 

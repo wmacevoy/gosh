@@ -18,14 +18,21 @@ So what `REQ6/SHAPE-5` asks of a part is not yet true here: these files read the
 their own system calls (design v1, *Edges*). Queue items 15 and 16 reshape them, with this text
 to test the new against.
 
+**Laid out** (2026-11-26; `../DOMAINS`): its ABI is the headers here, in `Gosh::Forwarding`; its inside is `imp/`, in `Gosh::Forwarding::Imp`.
+
 | File | What it holds |
 | --- | --- |
+| **ABI** (in `Gosh::Forwarding`) | |
 | `forwarding.h` | every forward of a session behind one event-loop interface; gives each arriving payload to its kind (a switch; the fork's `SideChannelMux` is gone from the seam) |
+| `rules.h` | the numbers and words UDP forwarding's three parts share, which `forwarding.h` names (from `udp/`, 2026-11-26) |
+| `stream.h` | when the stream's client is finished (from `stream/`, 2026-11-26) |
+| `streamchild.h` | the process at each end of the stream (from `stream/`, 2026-11-26; its source is `imp/stream/streamchild.cc`) |
+| **inside** (`imp/`, in `Gosh::Forwarding::Imp`) | |
 | `forward.*` | one forward's specification, `[bind:]port:host:hostport`: logic (the fork's text, moved out of `udpforward` at item 16) |
 | `frame.*` | the 13-byte header every forwarded payload has, and the replay window: logic (likewise) |
-| `tcp/` | TCP forwards (`-L`, `-R`), and what carries the stream: gosh's TCP as logic, its sockets, a segment as a datagram |
-| `udp/` | UDP forwards (`-LU`, `-RU`): conversations as logic, fragments, their sockets |
-| `stream/` | the stream (`-X`): when its client is finished, and the process at each end |
+| `imp/tcp/` | TCP forwards (`-L`, `-R`), and what carries the stream: gosh's TCP as logic, its sockets, a segment as a datagram |
+| `imp/udp/` | UDP forwards (`-LU`, `-RU`): conversations as logic, fragments, their sockets |
+| `imp/stream/` | the stream (`-X`): when its client is finished, and the process at each end |
 
 Each subdirectory has a README and its unit tests (a test is the file's name and `-test`). The
 three include nothing of each other; each uses only `forward` and `frame` here, and
@@ -40,10 +47,10 @@ with a guard broken on purpose:
 
 | Fuzzer | What it holds forwarding to | Seen red with |
 | --- | --- | --- |
-| `frame-fuzzer.cc` | frames, reassembly with parity, the replay window | the window taking a number it has seen (`frame.cc`). A frame too short for its header (the guard in `decode_frame`) was not found by the replay's small search: libFuzzer's to find |
-| `tcp/tcpinudp-fuzzer.cc` | a segment read in each form is written back the same | options longer than the segment (`tcpinudp.cc`): an exception, then abort. Breaking the first length check alone shows nothing: the header-length check after it refuses the same inputs |
-| `tcp/tcpadapter-fuzzer.cc` | the adapter, both roles, sends no segment larger than the link takes; each connection's first number counted from a fixed one (`count_sequences_from`, for tests and fuzzers only), so that a run is the same run every time (the review of item 21; a port taken in the meantime is tried again, then a failure) | `fresh_sequence` drawing at random again; and the segment's header left out of what fits (`connection.h`'s `local_mss`). The fork's corpus never filled a segment; `connect-full-segments` does (2026-11-16). Breaking the clamp in either of its two places alone shows nothing |
-| `udp/udpforward-fuzzer.cc` | the forwarder sends nothing larger than the link takes, and holds no more conversations or reassemblies than its limits; and, since the review of item 21, what reaches the target: each datagram marked, a frame's number bringing at most one, with what was first sent with it | the replay check removed (`udp/conversations.h`, `receiving.fresh`: the old fuzzer passed it; the corpus's `replayed`); a datagram too big to go whole sent whole (`udp/sending.h`). The limit of 64 reassemblies is beyond what its inputs reach |
+| `imp/frame-fuzzer.cc` | frames, reassembly with parity, the replay window | the window taking a number it has seen (`frame.cc`). A frame too short for its header (the guard in `decode_frame`) was not found by the replay's small search: libFuzzer's to find |
+| `imp/tcp/tcpinudp-fuzzer.cc` | a segment read in each form is written back the same | options longer than the segment (`tcpinudp.cc`): an exception, then abort. Breaking the first length check alone shows nothing: the header-length check after it refuses the same inputs |
+| `imp/tcp/tcpadapter-fuzzer.cc` | the adapter, both roles, sends no segment larger than the link takes; each connection's first number counted from a fixed one (`count_sequences_from`, for tests and fuzzers only), so that a run is the same run every time (the review of item 21; a port taken in the meantime is tried again, then a failure) | `fresh_sequence` drawing at random again; and the segment's header left out of what fits (`connection.h`'s `local_mss`). The fork's corpus never filled a segment; `connect-full-segments` does (2026-11-16). Breaking the clamp in either of its two places alone shows nothing |
+| `imp/udp/udpforward-fuzzer.cc` | the forwarder sends nothing larger than the link takes, and holds no more conversations or reassemblies than its limits; and, since the review of item 21, what reaches the target: each datagram marked, a frame's number bringing at most one, with what was first sent with it | the replay check removed (`udp/conversations.h`, `receiving.fresh`: the old fuzzer passed it; the corpus's `replayed`); a datagram too big to go whole sent whole (`udp/sending.h`). The limit of 64 reassemblies is beyond what its inputs reach |
 
 The check replays them under AddressSanitizer too (`tools/asan-replay.sh`). **Not fuzzed:** the
 dispatcher that hands each frame to its forwarder (`forward.cc`), and `tcpforward.cc` around the

@@ -198,7 +198,7 @@ static void stream_as_stdio( int sock )
   }
 }
 
-Network::StreamApplication Gosh::stream_application( const std::vector<std::string>& words, bool local )
+Gosh::Forwarding::StreamApplication Gosh::stream_application( const std::vector<std::string>& words, bool local )
 {
   if ( words[0] == "@copy" ) {
     return [words, local]( int sock ) {

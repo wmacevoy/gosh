@@ -27,7 +27,7 @@ struct Session
 {
   ForwardOptions options; /* what the program was asked to forward */
   bool client;            /* which end this is */
-  std::unique_ptr<Network::Forwarding> forwarding;
+  std::unique_ptr<Gosh::Forwarding::Forwarding> forwarding;
   std::vector<int> watched; /* forwarding's descriptors, as last given to the program's loop */
   bool announced;           /* whether a headless client has said that it is connected */
 

@@ -10,39 +10,36 @@ AUTOMAKE_OPTIONS = subdir-objects
 
 noinst_LIBRARIES = libgoshforwarding.a
 
-libgoshforwarding_a_SOURCES = forwarding.h forward.cc forward.h frame.cc frame.h \
-  tcp/bytes.h tcp/connection.h tcp/early.h tcp/held.h tcp/options.h tcp/timer.h tcp/tcpadapter.cc tcp/tcpadapter.h tcp/tcpforward.cc tcp/tcpforward.h tcp/tcpinudp.cc tcp/tcpinudp.h \
-  udp/conversations.h udp/rules.h udp/sending.h udp/receiving.h udp/fragments.cc udp/fragments.h udp/udpforward.cc udp/udpforward.h \
-  stream/stream.h stream/streamchild.cc stream/streamchild.h
+libgoshforwarding_a_SOURCES = forwarding.h rules.h stream.h streamchild.h \
+  imp/forward.cc imp/forward.h imp/frame.cc imp/frame.h imp/tcp/bytes.h imp/tcp/connection.h imp/tcp/early.h imp/tcp/held.h imp/tcp/options.h imp/tcp/timer.h imp/tcp/tcpadapter.cc imp/tcp/tcpadapter.h imp/tcp/tcpforward.cc imp/tcp/tcpforward.h imp/tcp/tcpinudp.cc imp/tcp/tcpinudp.h imp/udp/conversations.h imp/udp/sending.h imp/udp/receiving.h imp/udp/fragments.cc imp/udp/fragments.h imp/udp/udpforward.cc imp/udp/udpforward.h imp/stream/streamchild.cc
 
 # A unit test is named for the file it tests, with -test. Those of tcpforward, tcpinudp and
 # udpforward are the fork's, which drive the classes on real sockets; the others are logic
 # alone, with no socket and no clock.
-check_PROGRAMS = tcp/bytes-test tcp/options-test tcp/held-test tcp/early-test tcp/timer-test tcp/connection-test tcp/tcpforward-test tcp/tcpinudp-test udp/sending-test udp/receiving-test udp/conversations-test udp/udpforward-test stream/stream-test \
-  frame-fuzzer tcp/tcpinudp-fuzzer tcp/tcpadapter-fuzzer udp/udpforward-fuzzer
+check_PROGRAMS = imp/tcp/bytes-test imp/tcp/options-test imp/tcp/held-test imp/tcp/early-test imp/tcp/timer-test imp/tcp/connection-test imp/tcp/tcpforward-test imp/tcp/tcpinudp-test imp/udp/sending-test imp/udp/receiving-test imp/udp/conversations-test imp/udp/udpforward-test imp/stream/stream-test imp/frame-fuzzer imp/tcp/tcpinudp-fuzzer imp/tcp/tcpadapter-fuzzer imp/udp/udpforward-fuzzer
 TESTS = $(check_PROGRAMS)
 LDADD = libfacts.a libgoshforwarding.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
-tcp_bytes_test_SOURCES = tcp/bytes-test.cc
-tcp_options_test_SOURCES = tcp/options-test.cc
-tcp_held_test_SOURCES = tcp/held-test.cc
-tcp_early_test_SOURCES = tcp/early-test.cc
-tcp_timer_test_SOURCES = tcp/timer-test.cc
-tcp_connection_test_SOURCES = tcp/connection-test.cc
-tcp_tcpforward_test_SOURCES = tcp/tcpforward-test.cc
-tcp_tcpinudp_test_SOURCES = tcp/tcpinudp-test.cc
-udp_sending_test_SOURCES = udp/sending-test.cc
-udp_receiving_test_SOURCES = udp/receiving-test.cc
-udp_conversations_test_SOURCES = udp/conversations-test.cc
-udp_udpforward_test_SOURCES = udp/udpforward-test.cc
-stream_stream_test_SOURCES = stream/stream-test.cc
+imp_tcp_bytes_test_SOURCES = imp/tcp/bytes-test.cc
+imp_tcp_options_test_SOURCES = imp/tcp/options-test.cc
+imp_tcp_held_test_SOURCES = imp/tcp/held-test.cc
+imp_tcp_early_test_SOURCES = imp/tcp/early-test.cc
+imp_tcp_timer_test_SOURCES = imp/tcp/timer-test.cc
+imp_tcp_connection_test_SOURCES = imp/tcp/connection-test.cc
+imp_tcp_tcpforward_test_SOURCES = imp/tcp/tcpforward-test.cc
+imp_tcp_tcpinudp_test_SOURCES = imp/tcp/tcpinudp-test.cc
+imp_udp_sending_test_SOURCES = imp/udp/sending-test.cc
+imp_udp_receiving_test_SOURCES = imp/udp/receiving-test.cc
+imp_udp_conversations_test_SOURCES = imp/udp/conversations-test.cc
+imp_udp_udpforward_test_SOURCES = imp/udp/udpforward-test.cc
+imp_stream_stream_test_SOURCES = imp/stream/stream-test.cc
 
 # Fuzzers (queue item 21): each is built twice. Here, with the ordinary compiler, it replays its
 # corpus (the directory beside it named for it, with -corpus after), so an input that once broke
 # the part breaks the check. In CI, with clang and -DGOSH_LIBFUZZER, libFuzzer runs it.
-frame_fuzzer_SOURCES = frame-fuzzer.cc
-tcp_tcpinudp_fuzzer_SOURCES = tcp/tcpinudp-fuzzer.cc
-tcp_tcpadapter_fuzzer_SOURCES = tcp/tcpadapter-fuzzer.cc
-udp_udpforward_fuzzer_SOURCES = udp/udpforward-fuzzer.cc
+imp_frame_fuzzer_SOURCES = imp/frame-fuzzer.cc
+imp_tcp_tcpinudp_fuzzer_SOURCES = imp/tcp/tcpinudp-fuzzer.cc
+imp_tcp_tcpadapter_fuzzer_SOURCES = imp/tcp/tcpadapter-fuzzer.cc
+imp_udp_udpforward_fuzzer_SOURCES = imp/udp/udpforward-fuzzer.cc
 
 # The testing library (vendor/facts/README.md), built here for the tests alone, without gosh's
 # warning flags: it is not gosh's code. (subdir-objects: its source is outside this directory.)
