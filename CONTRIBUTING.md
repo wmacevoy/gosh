@@ -28,7 +28,8 @@ takes about three and a half minutes here, more from nothing. In order it checks
 2. the core is upstream's at the pinned commit, byte for byte (`REQ6/UP-2`);
 3. it builds (`tools/build.sh`, into `.build/`: a copy of the core, the seam's patches applied
    to it, gosh's parts from `src/` copied in beside), and the parts' unit tests pass;
-4. gosh and a stock mosh hold a terminal session, each way (`REQ10/SHAPE-1`, `tests/stock-session.py`);
+4. gosh and a stock mosh hold a terminal session, each way (`REQ10/SHAPE-1`, `tests/stock-session.py`),
+   and gosh's two ends pass on what a program puts on the clipboard (`REQ20/TERM-1`, `tests/clipboard-session.py`);
 5. the fork's own programs at pf.7, built in `.build/pf7` (`tools/build-pf7.sh`, which fetches the
    tag), pass the fork's tests that have been brought here (`tests/forward-e2e.py`,
    `tests/headless-smoke.py`, `tests/mocp.test`, `tests/wrapper.test`, two written here for what the
@@ -64,7 +65,7 @@ clones that project and runs in its image, which holds both. gosh must be built 
 does it): the lint reads mosh's core and its `config.h`.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
-`.build/bin`, with the seam applied (`seam/`, eight patches; `src/seam/`) and the fork's forwarding
+`.build/bin`, with the seam applied (`seam/`, eleven patches; `src/seam/`) and the fork's forwarding
 command, stream and copy code carried over (`src/forwarding/`, `src/command/`, `src/copy/`). So
 `gosh host` opens a session, `gosh-client` and `gosh-server` do forwards (`-L -R -LU -RU -N`),
 `gosh --stdio` runs a command over a stream, and `gocp` copies files. Not yet: the relay,
@@ -149,7 +150,7 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   takes `Facts* facts` as a parameter, or, where it cannot (a method, a callback), from `FactsCurrent()`.
   A false `FACT` leaves the whole group from any depth, by exception: so not in a destructor, and not
   under a `catch ( ... )` of the test's own. A comma in a template argument splits a fact: name the value first.
-- **Working set:** `docs/`: `REQUIREMENTS_v16.md` (the one in force; v6 to v15 are beside it, and versions 1 to 5 are
+- **Working set:** `docs/`: `REQUIREMENTS_v20.md` (the one in force; v6 to v19 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
   and still holds the seam file by file).
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
@@ -164,4 +165,4 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
 | findings | `docs/FINDINGS.md` |
 | the check command | `tools/check.sh` |
 | the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
-| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v16.md` |
+| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v20.md` |

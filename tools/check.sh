@@ -104,6 +104,7 @@ stock_server=${STOCK_SERVER:-/usr/bin/mosh-server}
 if want smoke seam; then
 python3 tests/stock-session.py .build/bin/gosh-client "$stock_server" || fail "gosh's client with a stock server"
 python3 tests/stock-session.py "$stock_client" .build/bin/gosh-server || fail "a stock client with gosh's server"
+python3 tests/clipboard-session.py .build/bin/gosh-client .build/bin/gosh-server || fail "the clipboard (REQ20/TERM-1)"
 fi
 
 [ "$MODE" = lite ] || tools/build-pf7.sh || fail "tools/build-pf7.sh"
