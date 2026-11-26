@@ -188,7 +188,7 @@ if not ONLY:
 if not ONLY:
     with tempfile.TemporaryDirectory() as d:
         shutil.copytree(os.environ["SUBJECT"], os.path.join(d, "subject"))
-        path = os.path.join(d, "subject", "src", "relay", "frame-fuzzer.cc")
+        path = os.path.join(d, "subject", "src", "relay", "imp", "frame-fuzzer.cc")
         text = open(path).read()
         old_include = '#include "src/pathfinding/mark.h"\n'
         old_use = "  const std::string mark( Gosh::Pathfinding::PUNCH_MARK, sizeof( Gosh::Pathfinding::PUNCH_MARK ) );\n"
@@ -201,8 +201,8 @@ if not ONLY:
             open(path, "w").write(text)
             env = dict(os.environ, SUBJECT=os.path.join(d, "subject"), STRONG="src/strong", INCLUDE=os.environ.get("LINT_INCLUDE", ""), DOMAINS="src/DOMAINS")
             r = subprocess.run([sys.executable, LINT], capture_output=True, text=True, env=env)
-            ok = r.returncode == 1 and "src/relay/frame-fuzzer.cc:57: uses PROBE_LEN, of Gosh::Pathfinding's inside" in r.stdout \
-                and "src/relay/frame-fuzzer.cc:26: includes src/pathfinding/imp/finding.h, of Gosh::Pathfinding's inside" in r.stdout
+            ok = r.returncode == 1 and "src/relay/imp/frame-fuzzer.cc:57: uses PROBE_LEN, of Gosh::Pathfinding's inside" in r.stdout \
+                and "src/relay/imp/frame-fuzzer.cc:26: includes src/pathfinding/imp/finding.h, of Gosh::Pathfinding's inside" in r.stdout
             print("red: a domain: relay's fuzzer includes path-finding's imp/ and uses a name of Gosh::Pathfinding::Imp, and the map does not allow it: %s"
                   % ("the program is refused, ok" if ok else "FAIL (exit %d) %s" % (r.returncode, r.stdout.strip()[-300:])))
             failures += not ok

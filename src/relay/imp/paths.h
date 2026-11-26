@@ -30,7 +30,7 @@
 #include <algorithm>
 #include <cstdint>
 
-namespace Gosh {
+namespace Gosh::Relay::Imp {
 
 struct RelayRules
 {

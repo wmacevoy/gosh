@@ -9,7 +9,10 @@
  * relay_start_local) but at the places marked (gosh).
  */
 
-#include "src/relay/process.h"
+#include "src/relay/imp/process.h"
+
+using namespace Gosh::Relay;
+using namespace Gosh::Relay::Imp;
 
 namespace {
 
@@ -31,7 +34,7 @@ private:
   std::string backlog;
   RelayFrameParser parser;
   /* (gosh) which way a datagram goes, and when the stream is started and let go: logic, in paths.h */
-  Gosh::LocalPaths paths;
+  Gosh::Relay::Imp::LocalPaths paths;
 
   /* a way straight through to the remote relay, when both ends are behind NATs (punch.h) */
   bool punching;
@@ -55,9 +58,9 @@ private:
   Gosh::Meetup::Ticket ticket;   /* empty until fetched */
 
   /* (gosh) What the environment tells the relay: read here, and made sense of in settings.h. */
-  static Gosh::RelaySettings told( bool stream_only )
+  static Gosh::Relay::Imp::RelaySettings told( bool stream_only )
   {
-    return Gosh::relay_settings( stream_only, getenv( "GOSH_RELAY_STREAM_IDLE_MS" ), getenv( "GOSH_PUNCH" ),
+    return Gosh::Relay::Imp::relay_settings( stream_only, getenv( "GOSH_RELAY_STREAM_IDLE_MS" ), getenv( "GOSH_PUNCH" ),
                                  getenv( "GOSH_MEETUP" ), getenv( "GOSH_STUN" ), getenv( "GOSH_MEETUP_TICKET_COMMAND" ) );
   }
 
@@ -69,7 +72,7 @@ private:
    */
   bool from_our_client( const Addr& from, socklen_t from_len )
   {
-    if ( client_len && Gosh::same_udp_address( &from.sa, from_len, &client.sa, client_len ) ) {
+    if ( client_len && Gosh::Relay::Imp::same_udp_address( &from.sa, from_len, &client.sa, client_len ) ) {
       return true;
     }
     if ( from.sa.sa_family != AF_INET ) {
@@ -86,7 +89,7 @@ private:
       sockets.append( part, n );
     }
     fclose( list );
-    const bool ours = Gosh::udp_sender_is_users( sockets, from.sin.sin_addr.s_addr, ntohs( from.sin.sin_port ), getuid() );
+    const bool ours = Gosh::Relay::Imp::udp_sender_is_users( sockets, from.sin.sin_addr.s_addr, ntohs( from.sin.sin_port ), getuid() );
     if ( !ours ) {
       say( "local", "a datagram on the client's socket from port %d, which is not a socket of ours: not passed on",
            static_cast<int>( ntohs( from.sin.sin_port ) ) );
@@ -212,7 +215,7 @@ private:
     }
 
     /* Is either route by UDP answering?  If not, by the stream as well (paths.h). */
-    const Gosh::LocalPaths::Also also = paths.from_client( now, direct_fd >= 0, punch ? punch->last_heard() : 0 );
+    const Gosh::Relay::Imp::LocalPaths::Also also = paths.from_client( now, direct_fd >= 0, punch ? punch->last_heard() : 0 );
     if ( also.start_stream ) {
       start_child();
     }
@@ -406,7 +409,7 @@ public:
       ticket_fd( -1 ), ticket_out(), ticket_tried( false ), meetup_at(), ticket()
   {
     open_direct();
-    const Gosh::RelaySettings settings = told( options.stream_only );
+    const Gosh::Relay::Imp::RelaySettings settings = told( options.stream_only );
     punching = settings.path_finding;
     ask = settings.ask;
     meetup = settings.meetup;
@@ -468,7 +471,7 @@ public:
         socklen_t from_len = sizeof( from );
         memset( &from, 0, sizeof( from ) );
         ssize_t n = recvfrom( direct_fd, buf, sizeof( buf ), MSG_DONTWAIT, &from.sa, &from_len );
-        if ( n >= 0 && Gosh::same_udp_address( &from.sa, from_len, &options.server.sa, options.server_len ) ) {
+        if ( n >= 0 && Gosh::Relay::Imp::same_udp_address( &from.sa, from_len, &options.server.sa, options.server_len ) ) {
           paths.direct_answered( now );
           to_client( buf, n );
         }
@@ -518,7 +521,7 @@ public:
 
 }
 
-int Network::relay_start_local( const RelayOptions& options, int& keep_alive_fd, pid_t& pid )
+int Gosh::Relay::relay_start_local( const RelayOptions& options, int& keep_alive_fd, pid_t& pid )
 {
   /* where the client will find us */
   const int client_fd = socket( AF_INET, SOCK_DGRAM, 0 );

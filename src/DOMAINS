@@ -8,7 +8,7 @@
 
 # the harness
 command      src/command                            | src/command/moshwrapper.h
-relay        src/relay                              | src/relay/relay.h src/relay/start.h
+Gosh::Relay  src/relay
 Gosh::Pathfinding src/pathfinding
 Gosh::Stun   src/stun src/strong/stun
 Gosh::Meetup src/meetup src/strong/meetup

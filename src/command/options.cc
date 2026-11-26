@@ -226,7 +226,7 @@ Gosh::Command::Choices Gosh::Command::choose( const Settings& s, const std::stri
   if ( !one_of( c.punch, "auto never" ) ) {
     throw Failure( name + ": Unknown punch mode \"" + c.punch + "\".", true );
   }
-  /* (the relays read these for themselves: see src/relay/settings.h) */
+  /* (the relays read these for themselves: see src/relay/imp/settings.h) */
   if ( s.has( "punch" ) ) {
     c.relays_read.push_back( std::make_pair( "GOSH_PUNCH", c.punch ) );
   }

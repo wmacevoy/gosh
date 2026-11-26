@@ -54,7 +54,7 @@ Session& session( void );
 /* Whether this program may yet start a process: a stream's, or the relay. (It must not give up the right to.) */
 inline bool may_start_processes( void )
 {
-  return !session().options.stream.empty() || session().relay.mode != RELAY_NEVER;
+  return !session().options.stream.empty() || session().relay.mode != Gosh::Relay::RELAY_NEVER;
 }
 
 /* Whether this session is for a stream. */

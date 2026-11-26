@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "src/relay/settings.h"
+#include "src/relay/imp/settings.h"
 #include "vendor/facts/facts.h"
 
 
@@ -16,8 +16,8 @@ typedef std::vector<std::string> Words;
 /* REQ1/PATH-1, REQ1/PATH-7: the relay's settings */
 FACTS( Settings )
 {
-  using Gosh::relay_settings;
-  Gosh::RelaySettings s = relay_settings( false, NULL, NULL, NULL, NULL, NULL );
+  using Gosh::Relay::Imp::relay_settings;
+  Gosh::Relay::Imp::RelaySettings s = relay_settings( false, NULL, NULL, NULL, NULL, NULL );
   FACT_CHECK( ( s.stream_idle == 60000 && s.path_finding && s.meetup.empty() && s.ticket_command.empty() ), "told nothing: the stream is let go after a minute, path-finding is on, no meetup" );
   FACT_CHECK( s.ask.empty(), "and no STUN server is asked: no third party unless named (REQ1/PATH-7; v15 scope decisions)" );
 
@@ -50,15 +50,15 @@ FACTS( Settings )
   s = relay_settings( false, NULL, NULL, NULL, "stun.example:19302", "ssh\x1fhost" );
   FACT_CHECK( ( s.ask == Words( { "stun.example:19302" } )
                                                                            && s.meetup.empty() && s.ticket_command.empty() ), "a plain STUN server is asked, and never taken for a meetup" );
-  FACT_CHECK( Gosh::comma_list( ",a,,none,b," ) == Words( { "a", "b" } ), "empty items and \"none\" in a list name nothing" );
+  FACT_CHECK( Gosh::Relay::Imp::comma_list( ",a,,none,b," ) == Words( { "a", "b" } ), "empty items and \"none\" in a list name nothing" );
 
   std::string address = "unset";
-  FACT_CHECK( Gosh::ssh_client_address( "192.0.2.7 51000 198.51.100.9 22" ) == "192.0.2.7", "what ssh says of a connection: the client's address is its first word" );
-  FACT_CHECK( ( Gosh::ssh_server_address( "192.0.2.7 51000 198.51.100.9 22", address ) && address == "198.51.100.9" ), "and the server's its third" );
+  FACT_CHECK( Gosh::Relay::Imp::ssh_client_address( "192.0.2.7 51000 198.51.100.9 22" ) == "192.0.2.7", "what ssh says of a connection: the client's address is its first word" );
+  FACT_CHECK( ( Gosh::Relay::Imp::ssh_server_address( "192.0.2.7 51000 198.51.100.9 22", address ) && address == "198.51.100.9" ), "and the server's its third" );
   address = "unset";
-  FACT_CHECK( ( !Gosh::ssh_server_address( "192.0.2.7 51000 198.51.100.9", address ) && !Gosh::ssh_server_address( "", address )
+  FACT_CHECK( ( !Gosh::Relay::Imp::ssh_server_address( "192.0.2.7 51000 198.51.100.9", address ) && !Gosh::Relay::Imp::ssh_server_address( "", address )
            && address == "unset" ), "with fewer than four words there is no server's address" );
-  FACT_CHECK( Gosh::ssh_client_address( "2001:db8::7" ) == "2001:db8::7", "one word alone is taken for the client's address" );
+  FACT_CHECK( Gosh::Relay::Imp::ssh_client_address( "2001:db8::7" ) == "2001:db8::7", "one word alone is taken for the client's address" );
 }
 
 FACTS_REGISTER_ALL()

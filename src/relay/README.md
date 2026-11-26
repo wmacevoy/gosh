@@ -11,17 +11,21 @@ each, which ask the logic at places marked `(gosh)` and do what it says. Their t
 the fork's. `local.cc` reads the environment in one place; `remote.cc` reads what ssh says of
 the connection, and whether path-finding is off; both read the name of the log.
 
+**Laid out** (2026-11-26; `../DOMAINS`): its ABI is the headers here, in `Gosh::Relay`; its inside is `imp/`, in `Gosh::Relay::Imp`.
+
 | File | What it holds |
 | --- | --- |
-| `start.h` | when the client starts its relay: logic (new shape); `start-test.cc` |
-| `paths.h` | every change of path the two relays make: logic (new shape); `paths-test.cc` |
-| `frame.h` | a datagram on the ssh stream (two bytes of length before it), and the relays' words to each other: logic; `frame-test.cc` (its first test is the fork's); and `frame-fuzzer.cc` (the review of item 21, 2026-11-16): the stream however it is cut up, framed again, is the stream as read; words are what is between spaces; a ticket in them read, written and read again is the same. Seen red with the parser giving a frame out a byte early, and with words keeping empty ones |
-| `settings.h` | what the environment tells the relays, as one value: idle time, path-finding, whom to ask, the key; and the addresses in what ssh says of a connection: logic; `settings-test.cc` |
-| `whose.h` | whose a datagram is: only the server's address counts as the server answering; the client is a socket of this user's; the remote relay keeps its likelier ways to the server: logic; `whose-test.cc` |
+| **ABI** (in `Gosh::Relay`) | |
+| `relay.h` | what the seam calls: start the local relay; be the remote relay |
+| `start.h` | when the client starts its relay: logic (new shape); `imp/start-test.cc` |
+| **inside** (`imp/`, in `Gosh::Relay::Imp`) | |
+| `paths.h` | every change of path the two relays make: logic (new shape); `imp/paths-test.cc` |
+| `frame.h` | a datagram on the ssh stream (two bytes of length before it), and the relays' words to each other: logic; `imp/frame-test.cc` (its first test is the fork's); and `imp/frame-fuzzer.cc` (the review of item 21, 2026-11-16): the stream however it is cut up, framed again, is the stream as read; words are what is between spaces; a ticket in them read, written and read again is the same. Seen red with the parser giving a frame out a byte early, and with words keeping empty ones |
+| `settings.h` | what the environment tells the relays, as one value: idle time, path-finding, whom to ask, the key; and the addresses in what ssh says of a connection: logic; `imp/settings-test.cc` |
+| `whose.h` | whose a datagram is: only the server's address counts as the server answering; the client is a socket of this user's; the remote relay keeps its likelier ways to the server: logic; `imp/whose-test.cc` |
 | `local.cc` | the local relay: a process on the user's machine, between the client and the server by UDP and by an ssh connection it starts. An edge |
 | `remote.cc` | the remote relay: `gosh-server relay ADDRESS PORT`, which ssh starts beside the server. An edge |
 | `process.h` | what both need as processes and decide nothing with: the log, the mark on their words, signals, the clock, a pipe, a UDP socket |
-| `relay.h` | what the seam calls: start the local relay; be the remote relay |
 
 Who calls it: the seam. gosh's client `main` reads how the relay is started (`GOSH_RELAY`,
 `GOSH_RELAY_COMMAND`, which the command writes); the seam's hooks ask `start.h` each turn of

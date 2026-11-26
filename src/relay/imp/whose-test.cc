@@ -8,7 +8,7 @@
 
 #include <arpa/inet.h>
 
-#include "src/relay/whose.h"
+#include "src/relay/imp/whose.h"
 #include "vendor/facts/facts.h"
 
 
@@ -36,7 +36,7 @@ static struct sockaddr_in6 v6( const char* address, uint16_t port )
 template<class A, class B>
 static bool same( const A& a, const B& b )
 {
-  return Gosh::same_udp_address( reinterpret_cast<const struct sockaddr*>( &a ), sizeof( a ),
+  return Gosh::Relay::Imp::same_udp_address( reinterpret_cast<const struct sockaddr*>( &a ), sizeof( a ),
                                  reinterpret_cast<const struct sockaddr*>( &b ), sizeof( b ) );
 }
 
@@ -60,11 +60,11 @@ FACTS( Whose )
   FACT_CHECK( ( !same( v6( "2001:db8::9", 60001 ), v6( "2001:db8::8", 60001 ) ) && !same( v6( "2001:db8::9", 60001 ), v6( "2001:db8::9", 1 ) ) ), "another IPv6 address or port is not" );
   FACT_CHECK( !same( v4( "127.0.0.1", 60001 ), v6( "::1", 60001 ) ), "an IPv4 and an IPv6 address are never the same place" );
   const struct sockaddr_in whole = v4( "127.0.0.1", 9 );
-  FACT_CHECK( !Gosh::same_udp_address( reinterpret_cast<const struct sockaddr*>( &whole ), 4,
+  FACT_CHECK( !Gosh::Relay::Imp::same_udp_address( reinterpret_cast<const struct sockaddr*>( &whole ), 4,
                                   reinterpret_cast<const struct sockaddr*>( &whole ), sizeof( whole ) ), "an address cut short is no place" );
 
   const uint32_t loopback = v4( "127.0.0.1", 0 ).sin_addr.s_addr;
-  using Gosh::udp_sender_is_users;
+  using Gosh::Relay::Imp::udp_sender_is_users;
   FACT_CHECK( udp_sender_is_users( LIST, loopback, 0xEA60, 1000 ), "a port held by a socket of ours on any address: ours" );
   FACT_CHECK( udp_sender_is_users( LIST, loopback, 0xEA61, 1000 ), "a port held by a socket of ours on that address: ours" );
   FACT_CHECK( !udp_sender_is_users( LIST, loopback, 0xC350, 1000 ), "a port held by another user's socket: not ours" );
@@ -74,10 +74,10 @@ FACTS( Whose )
   FACT_CHECK( !udp_sender_is_users( LIST, loopback, 0x1234, 1000 ), "a port nobody holds: not ours" );
   FACT_CHECK( ( !udp_sender_is_users( "", loopback, 0xEA60, 1000 ) && !udp_sender_is_users( "one\ntwo words\n", loopback, 0xEA60, 1000 ) ), "an empty list, or one of nothing readable: not ours" );
 
-  FACT_CHECK( Gosh::remote_ways_kept( 4, 0 ) == 1, "four ways to the server and the first answers: one is kept" );
-  FACT_CHECK( Gosh::remote_ways_kept( 4, 2 ) == 3, "the third answers: three are kept, the two more likely among them" );
-  FACT_CHECK( Gosh::remote_ways_kept( 4, 3 ) == 4, "the last answers: all are kept" );
-  FACT_CHECK( Gosh::remote_ways_kept( 1, 0 ) == 1, "one way, and it answers: it is kept" );
+  FACT_CHECK( Gosh::Relay::Imp::remote_ways_kept( 4, 0 ) == 1, "four ways to the server and the first answers: one is kept" );
+  FACT_CHECK( Gosh::Relay::Imp::remote_ways_kept( 4, 2 ) == 3, "the third answers: three are kept, the two more likely among them" );
+  FACT_CHECK( Gosh::Relay::Imp::remote_ways_kept( 4, 3 ) == 4, "the last answers: all are kept" );
+  FACT_CHECK( Gosh::Relay::Imp::remote_ways_kept( 1, 0 ) == 1, "one way, and it answers: it is kept" );
 }
 
 FACTS_REGISTER_ALL()

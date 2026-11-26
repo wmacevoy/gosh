@@ -39,7 +39,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-namespace Gosh {
+namespace Gosh::Relay::Imp {
 
 /* Whether two socket addresses are the same place: family, address and port (IPv4 or IPv6). */
 inline bool same_udp_address( const struct sockaddr* a, socklen_t a_len, const struct sockaddr* b, socklen_t b_len )

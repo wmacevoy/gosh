@@ -4,25 +4,25 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshrelay.a
 
-libgoshrelay_a_SOURCES = local.cc remote.cc process.h relay.h start.h paths.h frame.h settings.h whose.h
+libgoshrelay_a_SOURCES = relay.h start.h imp/local.cc imp/remote.cc imp/process.h imp/paths.h imp/frame.h imp/settings.h imp/whose.h
 
-check_PROGRAMS = start-test paths-test frame-test settings-test whose-test frame-fuzzer
+check_PROGRAMS = imp/start-test imp/paths-test imp/frame-test imp/settings-test imp/whose-test imp/frame-fuzzer
 TESTS = $(check_PROGRAMS)
-start_test_SOURCES = start-test.cc
-start_test_LDADD = libfacts.a
-paths_test_SOURCES = paths-test.cc
-paths_test_LDADD = libfacts.a
-frame_test_SOURCES = frame-test.cc
-frame_test_LDADD = libfacts.a
-settings_test_SOURCES = settings-test.cc
-settings_test_LDADD = libfacts.a
-whose_test_SOURCES = whose-test.cc
-whose_test_LDADD = libfacts.a
+imp_start_test_SOURCES = imp/start-test.cc
+imp_start_test_LDADD = libfacts.a
+imp_paths_test_SOURCES = imp/paths-test.cc
+imp_paths_test_LDADD = libfacts.a
+imp_frame_test_SOURCES = imp/frame-test.cc
+imp_frame_test_LDADD = libfacts.a
+imp_settings_test_SOURCES = imp/settings-test.cc
+imp_settings_test_LDADD = libfacts.a
+imp_whose_test_SOURCES = imp/whose-test.cc
+imp_whose_test_LDADD = libfacts.a
 
 # A fuzzer (queue item 21, its review): built with the ordinary compiler it replays its corpus
 # (frame-fuzzer-corpus/); in CI, with clang and -DGOSH_LIBFUZZER, libFuzzer runs it.
-frame_fuzzer_SOURCES = frame-fuzzer.cc
-frame_fuzzer_LDADD = ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+imp_frame_fuzzer_SOURCES = imp/frame-fuzzer.cc
+imp_frame_fuzzer_LDADD = ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 
 AUTOMAKE_OPTIONS = subdir-objects
 

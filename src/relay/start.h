@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <string>
 
-namespace Gosh {
+namespace Gosh::Relay {
 
 enum RelayMode
 {

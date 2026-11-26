@@ -20,7 +20,7 @@ namespace Gosh {
 
 struct RelayState
 {
-  RelayMode mode;
+  Gosh::Relay::RelayMode mode;
   std::vector<std::string> command;   /* starts the remote relay, through ssh as a rule */
   std::string server_ip, server_port; /* where the server is, as the client was told */
   bool engaged;                       /* it was started, or tried, once */
@@ -30,7 +30,7 @@ struct RelayState
   uint64_t started_at;
 
   RelayState()
-    : mode( RELAY_NEVER ), command(), server_ip(), server_port(), engaged( false ), keep_alive( -1 ), pid( 0 ),
+    : mode( Gosh::Relay::RELAY_NEVER ), command(), server_ip(), server_port(), engaged( false ), keep_alive( -1 ), pid( 0 ),
       gone( false ), started_at( 0 )
   {}
 };

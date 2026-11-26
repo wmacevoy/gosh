@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-namespace Gosh {
+namespace Gosh::Relay::Imp {
 
 /* A datagram as it goes on the stream. */
 inline std::string relay_frame( const std::string& datagram )

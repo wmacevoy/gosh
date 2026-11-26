@@ -23,7 +23,7 @@
 
 #include "src/meetup/ticket.h"
 #include "src/pathfinding/mark.h"
-#include "src/relay/frame.h"
+#include "src/relay/imp/frame.h"
 #include "src/seam/fuzz-replay.h"
 
 namespace {
@@ -56,7 +56,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   const std::string stream( reinterpret_cast<const char*>( data + 1 ), size - 1 );
   uint32_t cut = data[0] | 1u;
 
-  Gosh::RelayFrameParser parser;
+  Gosh::Relay::Imp::RelayFrameParser parser;
   std::string again; /* the datagrams that came out, framed again */
   size_t given = 0;
   while ( given < stream.size() ) {
@@ -66,9 +66,9 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
     given += piece;
     std::string datagram;
     while ( parser.next( datagram ) ) {
-      again += Gosh::relay_frame( datagram );
+      again += Gosh::Relay::Imp::relay_frame( datagram );
       std::vector<std::string> words;
-      if ( Gosh::relay_words_of( mark, datagram, words ) ) {
+      if ( Gosh::Relay::Imp::relay_words_of( mark, datagram, words ) ) {
         for ( size_t i = 0; i < words.size(); i++ ) {
           require( !words[i].empty() && words[i].find( ' ' ) == std::string::npos );
         }

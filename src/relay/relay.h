@@ -40,7 +40,7 @@
  * most significant first.
  */
 
-namespace Network {
+namespace Gosh::Relay {
 
 /*
  * The remote relay ("mosh-server relay ADDRESS PORT"): datagrams
@@ -52,7 +52,7 @@ int relay_remote( const char* address, const char* port );
 
 struct RelayOptions
 {
-  Addr server; /* where mosh-server is, for the direct route */
+  Network::Addr server; /* where mosh-server is, for the direct route */
   socklen_t server_len;
   std::vector<std::string> command; /* starts the remote relay, typically through ssh */
   bool stream_only;                 /* don't try UDP at all */

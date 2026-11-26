@@ -60,7 +60,7 @@ void session_started( Transport& network, unsigned int verbose )
     s.last_heard = [&network]() { return network.last_heard(); };
     s.send_elsewhere = [&network]( const Network::Addr& to, socklen_t len ) { network.set_remote_addr( to, len ); };
     s.started_at = Network::timestamp();
-    if ( s.relay.mode == RELAY_ALWAYS ) {
+    if ( s.relay.mode == Gosh::Relay::RELAY_ALWAYS ) {
       engage_relay();
     }
   }

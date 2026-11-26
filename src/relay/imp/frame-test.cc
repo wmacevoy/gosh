@@ -10,11 +10,11 @@
 #include <string>
 #include <vector>
 
-#include "src/relay/frame.h"
+#include "src/relay/imp/frame.h"
 #include "vendor/facts/facts.h"
 
-using Gosh::relay_frame;
-using Gosh::RelayFrameParser;
+using Gosh::Relay::Imp::relay_frame;
+using Gosh::Relay::Imp::RelayFrameParser;
 
 
 
@@ -61,20 +61,20 @@ FACTS( RelayFrames )
 FACTS( Words )
 {
   const std::string mark( "\xff\xfe" "relay!", 8 );
-  const std::string frame = Gosh::relay_words( mark, "PORT 40123" );
+  const std::string frame = Gosh::Relay::Imp::relay_words( mark, "PORT 40123" );
   FACT_CHECK( frame == relay_frame( mark + "PORT 40123" ), "words for the other relay are a frame: the length, the mark, the text" );
 
   RelayFrameParser parser;
   parser.append( frame.data(), frame.size() );
   std::string inside;
   std::vector<std::string> words;
-  FACT_CHECK( ( parser.next( inside ) && Gosh::relay_words_of( mark, inside, words ) && words.size() == 2 && words[0] == "PORT"
+  FACT_CHECK( ( parser.next( inside ) && Gosh::Relay::Imp::relay_words_of( mark, inside, words ) && words.size() == 2 && words[0] == "PORT"
            && words[1] == "40123" ), "taken apart, it is known for words, and they are read" );
-  FACT_CHECK( ( Gosh::relay_words_of( mark, mark + "  A   B ", words ) && words.size() == 2 && words[1] == "B"
-           && Gosh::relay_words_of( mark, mark, words ) && words.empty() ), "several spaces are one; the mark alone is no words" );
+  FACT_CHECK( ( Gosh::Relay::Imp::relay_words_of( mark, mark + "  A   B ", words ) && words.size() == 2 && words[1] == "B"
+           && Gosh::Relay::Imp::relay_words_of( mark, mark, words ) && words.empty() ), "several spaces are one; the mark alone is no words" );
   words.assign( 1, "kept" );
-  FACT_CHECK( ( !Gosh::relay_words_of( mark, "a sealed datagram", words ) && words.size() == 1 ), "a datagram of the session's is not words, and what the caller had is left alone" );
-  FACT_CHECK( ( !Gosh::relay_words_of( mark, mark.substr( 0, 7 ), words ) && !Gosh::relay_words_of( mark, mark.substr( 0, 7 ) + "?PORT 1", words ) ), "nor is one shorter than the mark, nor one that only begins like it" );
+  FACT_CHECK( ( !Gosh::Relay::Imp::relay_words_of( mark, "a sealed datagram", words ) && words.size() == 1 ), "a datagram of the session's is not words, and what the caller had is left alone" );
+  FACT_CHECK( ( !Gosh::Relay::Imp::relay_words_of( mark, mark.substr( 0, 7 ), words ) && !Gosh::Relay::Imp::relay_words_of( mark, mark.substr( 0, 7 ) + "?PORT 1", words ) ), "nor is one shorter than the mark, nor one that only begins like it" );
 }
 /* REQ1/PATH-1: the relay's frames and words */
 FACTS_REGISTER_ALL()

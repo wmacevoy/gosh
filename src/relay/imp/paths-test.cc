@@ -11,10 +11,10 @@
 #include <cstdlib>
 #include <vector>
 
-#include "src/relay/paths.h"
+#include "src/relay/imp/paths.h"
 #include "vendor/facts/facts.h"
 
-using Gosh::LocalPaths;
+using Gosh::Relay::Imp::LocalPaths;
 
 
 
@@ -132,8 +132,8 @@ FACTS( StartingAgain )
 }
 FACTS( Remote )
 {
-  using Gosh::remote_answer_by;
-  Gosh::RemoteAnswer by = remote_answer_by( T, false, true, 0 );
+  using Gosh::Relay::Imp::remote_answer_by;
+  Gosh::Relay::Imp::RemoteAnswer by = remote_answer_by( T, false, true, 0 );
   FACT_CHECK( ( by.stream && !by.through ), "the remote relay, no way through: an answer goes by the stream" );
   by = remote_answer_by( T, true, true, T - 2999 );
   FACT_CHECK( ( by.stream && by.through ), "a way through, and the local relay used the stream 2,999 ms ago: by both" );
@@ -144,10 +144,10 @@ FACTS( Remote )
   by = remote_answer_by( T, true, false, T );
   FACT_CHECK( ( !by.stream && by.through ), "a way through and the stream ended: by the way through" );
 
-  FACT_CHECK( !Gosh::remote_finished( T + 60000, T, T - 500 ), "its stream gone: it stays 60,000 ms after the way through was last heard" );
-  FACT_CHECK( Gosh::remote_finished( T + 60001, T, T - 500 ), "and is finished at 60,001" );
-  FACT_CHECK( ( !Gosh::remote_finished( T + 60001, T, T + 1 )
-                                                                       && Gosh::remote_finished( T + 60002, T, T + 1 ) ), "or 60,001 ms after the stream closed, if that was later" );
+  FACT_CHECK( !Gosh::Relay::Imp::remote_finished( T + 60000, T, T - 500 ), "its stream gone: it stays 60,000 ms after the way through was last heard" );
+  FACT_CHECK( Gosh::Relay::Imp::remote_finished( T + 60001, T, T - 500 ), "and is finished at 60,001" );
+  FACT_CHECK( ( !Gosh::Relay::Imp::remote_finished( T + 60001, T, T + 1 )
+                                                                       && Gosh::Relay::Imp::remote_finished( T + 60002, T, T + 1 ) ), "or 60,001 ms after the stream closed, if that was later" );
 }
 /* REQ1/PATH-1, REQ1/PATH-2: the relays' paths, with no socket and no clock */
 FACTS_REGISTER_ALL()

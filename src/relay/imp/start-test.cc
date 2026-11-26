@@ -7,6 +7,8 @@
 
 #include "src/relay/start.h"
 #include "vendor/facts/facts.h"
+
+using namespace Gosh::Relay;
 /* REQ1/PATH-1: when the client starts its relay, with no clock */
 FACTS( Start )
 {
