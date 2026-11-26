@@ -63,8 +63,14 @@ CC=${PROOFS_CC:-cc}; CXX=${PROOFS_CXX:-c++}; export CC CXX
 # Each domain, in the order it is proved: one it `uses` before it. Every D.from under src/strong is here.
 DOMAINS="StunAnswer bounded_of bounded_checked_of CounterWindow is_stun_request_checked MeetupHeader MeetupNonce MeetupRegister MeetupRegistered MeetupPass MeetupTime"
 STRONG=src/strong
+# What gosh's proofs rest on and does not own: strong-domain-driven-design's prover/trusted/, of
+# which gosh keeps exact copies under src/strong, so that it builds without that project. Of these,
+# bounded.h is proved there, by its own claims, and its two classes are proved here by those claims
+# (CounterWindow uses them); caller.h and subarray.h are read by a person, there.
+TRUSTED="bounded.h caller.h subarray.h"
+TRUSTED_DOMAINS="bounded_of bounded_checked_of"
 FOUND=$(find "$STRONG" -name '*.from' | sed 's|.*/||; s|\.from$||' | sort)
-[ "$FOUND" = "$(echo $DOMAINS | tr ' ' '\n' | sort)" ] || { echo "proofs: FAIL: the domains beside the classes ($(echo $FOUND)) are not the ones tools/proofs.sh proves ($DOMAINS)"; exit 1; }
+[ "$FOUND" = "$(for d in $DOMAINS; do case " $TRUSTED_DOMAINS " in *" $d "*) ;; *) echo $d ;; esac; done | sort)" ] || { echo "proofs: FAIL: the domains beside the classes ($(echo $FOUND)) are not the ones tools/proofs.sh proves ($DOMAINS, less what is trusted: $TRUSTED_DOMAINS)"; exit 1; }
 
 # The prover reads a domain as a directory (from/, claims/, proofs/, scripts/); it is put together
 # in .build/proofs from the files beside each class. And it reads gosh's src as it stands in this
@@ -97,6 +103,13 @@ if [ -z "$PROVER" ]; then
     fi
 fi
 export PROVER
+for f in $TRUSTED; do
+    cmp -s "$STRONG/$f" "$PROVER/trusted/$f" || { echo "proofs: FAIL: $STRONG/$f is not strong-domain-driven-design's prover/trusted/$f at $PROVER_COMMIT (tools/prover.commit): gosh keeps an exact copy, and changes it there"; exit 1; }
+done
+for d in $TRUSTED_DOMAINS; do
+    echo "$STRONG/bounded.h" > "$W/from/$d"
+    cp "$PROVER/claims/${d}Claims.lean" "$W/claims/${d}Claims.lean"
+done
 
 # The full compile of what is proved has three steps, in this order: the C++ compiler, the lint,
 # the prover. Each refuses the program; the later ones rest on the earlier.

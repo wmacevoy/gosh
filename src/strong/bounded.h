@@ -1,17 +1,17 @@
-/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
+/* Copyright 2026 Warren D. MacEvoy. MIT (strong-domain-driven-design, LICENSE): one of what the prover trusts, prover/trusted/. */
 
 /*
- * A number that is within its bounds, as a type (REQ6/SHAPE-5). Logic.
+ * A number that is within its bounds, as a type.
  *
  * bounded<a, b, type> is a `type` from a to b, both included (so that a whole type can be said:
  * bounded<0, UINT64_MAX, uint64_t>). Nothing is tested when one is made or used. Making one from
  * a number is what expects something, of whoever makes it: pre( a <= raw && raw <= b ). After that
  * every use has, for nothing, that the number is within the bounds.
  *
- * "Expects" is C++26's contract. It is proved, not tested (bounded_of.claims.lean, beside it; tools/proofs.sh):
+ * "Expects" is C++26's contract. It is proved, not tested (prover/claims/bounded_ofClaims.lean):
  * of this class once, for every type whose values compare by <= and every a and b; and of each
  * class that makes one, that it gives the constructor what it expects. A compiler that knows
- * contracts (g++ 16, tools/gcc16.sh) tests it too, and ends the program if it is not so; for any
+ * contracts (g++ 16, -fcontracts) tests it too, and ends the program if it is not so; for any
  * other, `pre` is nothing here, and nothing is tested.
  *
  * For a floating type, a number within finite bounds is not an infinity and is not "not a number":
@@ -21,14 +21,14 @@
  * everything else: tested when the program runs, and the process ends if the test fails.
  */
 
-#ifndef GOSH_STRONG_BOUNDED_H
-#define GOSH_STRONG_BOUNDED_H
+#ifndef STRONG_BOUNDED_H
+#define STRONG_BOUNDED_H
 
-#include "src/strong/caller.h"
+#include "caller.h"
 
 #ifndef __cpp_contracts
 #define pre( condition )
-#define GOSH_PRE_IS_NOTHING
+#define STRONG_PRE_IS_NOTHING
 #endif
 
 namespace Strong {
@@ -57,8 +57,7 @@ template <auto A, auto B, typename T> using bounded = bounded_of<T, T{ A }, T{ B
  * and expects nothing: it tests the number, when the program runs, and the process ends if it is
  * not within the bounds, saying who made it (caller.h). So one that exists is within its bounds,
  * as a bounded is; what differs is who may make one, and what that costs. Code that is not proved
- * may not make a bounded itself: the proving refuses the program (tools/proofs.sh,
- * "ingress").
+ * may not make a bounded itself: the proving refuses the program (prover/ingress.py).
  */
 template <typename T, T A, T B>
 class bounded_checked_of
@@ -83,9 +82,9 @@ template <auto A, auto B, typename T> using bounded_checked = bounded_checked_of
 
 }
 
-#ifdef GOSH_PRE_IS_NOTHING
+#ifdef STRONG_PRE_IS_NOTHING
 #undef pre
-#undef GOSH_PRE_IS_NOTHING
+#undef STRONG_PRE_IS_NOTHING
 #endif
 
 #endif
