@@ -150,7 +150,7 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
   takes `Facts* facts` as a parameter, or, where it cannot (a method, a callback), from `FactsCurrent()`.
   A false `FACT` leaves the whole group from any depth, by exception: so not in a destructor, and not
   under a `catch ( ... )` of the test's own. A comma in a template argument splits a fact: name the value first.
-- **Working set:** `docs/`: `REQUIREMENTS_v16.md` (the one in force; v6 to v15 are beside it, and versions 1 to 5 are
+- **Working set:** `docs/`: `REQUIREMENTS_v20.md` (the one in force; v6 to v19 are beside it, and versions 1 to 5 are
   in `../mosh-dev/docs`), `QUEUE.md`, `FINDINGS.md`, and `DESIGN_v2.md` (the design in force; v1 is beside it, superseded,
   and still holds the seam file by file).
 - **The guide:** `vendor/se1/`, release v1.7. Do not edit it; this file wins where they disagree.
@@ -165,4 +165,4 @@ The old code can still be run where it is: `../mosh-dev/tools/build.sh`, `../mos
 | findings | `docs/FINDINGS.md` |
 | the check command | `tools/check.sh` |
 | the handoff check | none yet; the rule in AGENTS.md, *After a gap*, applies |
-| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v16.md` |
+| `Non-goals`, `Scope decisions` | sections of `docs/REQUIREMENTS_v20.md` |

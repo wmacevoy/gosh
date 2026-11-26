@@ -36,7 +36,7 @@ agent: "yes, do 1-3" (the fix, the design, this draft), after "that seems amazin
 worth unfreezing for" (`-W`) and "if we decided to own ssh, then we would want to know what it
 does for the transport". **Accepted by the client on 2026-11-17: "accept v19".** v20 is the
 client's direction of 2026-11-26, drafted by the agent: "fix the two osc 52 catches in gosh",
-"core can be patched", "in seam". **Not yet accepted.**
+"core can be patched", "in seam". **Accepted by the client on 2026-11-26: "accept v20".**
 
 **What changed from v19.**
 
