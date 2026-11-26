@@ -20,7 +20,7 @@
 #include "src/command/moshwrapper.h"
 #include "src/command/imp/options.h"
 #include "src/command/imp/proxy.h"
-#include "src/command/imp/sshconfig.h"
+#include "src/ssh/config.h"
 #include "src/command/imp/startup.h"
 #include "src/command/imp/stock.h"
 #include "src/command/imp/words.h"
@@ -246,14 +246,14 @@ bool Gosh::Command::run( const std::vector<std::string>& args,
      * alias is sent to at its HostName (sshconfig.h)
      */
     if ( !local ) {
-      const SshConfig config = read_ssh_config( ssh_config_text( ssh, userhost ) );
-      choices.remote_ip = remote_ip_for( s.has( "experimental-remote-ip" ) ? choices.remote_ip : "", config );
+      const Gosh::Ssh::SshConfig config = Gosh::Ssh::read_ssh_config( ssh_config_text( ssh, userhost ) );
+      choices.remote_ip = Gosh::Ssh::remote_ip_for( s.has( "experimental-remote-ip" ) ? choices.remote_ip : "", config );
     }
     if ( !choices.meetup_login.empty() ) {
-      const SshConfig config = read_ssh_config( ssh_config_text( ssh, choices.meetup_login ) );
+      const Gosh::Ssh::SshConfig config = Gosh::Ssh::read_ssh_config( ssh_config_text( ssh, choices.meetup_login ) );
       for ( size_t i = 0; i < choices.relays_read.size(); i++ ) {
         if ( choices.relays_read[i].first == "GOSH_MEETUP" ) {
-          choices.relays_read[i].second = meetup_address( choices.relays_read[i].second, config );
+          choices.relays_read[i].second = Gosh::Ssh::meetup_address( choices.relays_read[i].second, config );
         }
       }
     }

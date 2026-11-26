@@ -11,6 +11,7 @@ Gosh::Command src/command
 Gosh::Relay  src/relay
 Gosh::Pathfinding src/pathfinding
 Gosh::Stun   src/stun src/strong/stun
+Gosh::Ssh    src/ssh
 Gosh::Meetup src/meetup src/strong/meetup
 Gosh::Forwarding src/forwarding
 Gosh::Seam   src/seam

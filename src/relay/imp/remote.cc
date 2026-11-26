@@ -9,6 +9,7 @@
  */
 
 #include "src/relay/imp/process.h"
+#include "src/ssh/connection.h"
 
 using namespace Gosh::Relay;
 using namespace Gosh::Relay::Imp;
@@ -28,7 +29,7 @@ int Gosh::Relay::relay_remote( const char* address, const char* port )
   std::vector<std::string> addresses;
   if ( const char* ssh_connection = getenv( "SSH_CONNECTION" ) ) {
     std::string as_ssh_reached_it;
-    if ( Gosh::Relay::Imp::ssh_server_address( ssh_connection, as_ssh_reached_it ) ) {
+    if ( Gosh::Ssh::ssh_server_address( ssh_connection, as_ssh_reached_it ) ) {
       addresses.push_back( as_ssh_reached_it );
     }
   }
@@ -63,7 +64,7 @@ int Gosh::Relay::relay_remote( const char* address, const char* port )
   /* the client's address as ssh saw it: where its relay may be found, for all we know */
   std::string client_ip;
   if ( const char* ssh_connection = getenv( "SSH_CONNECTION" ) ) {
-    client_ip = Gosh::Relay::Imp::ssh_client_address( ssh_connection );
+    client_ip = Gosh::Ssh::ssh_client_address( ssh_connection );
   }
 
   RelayFrameParser parser;
