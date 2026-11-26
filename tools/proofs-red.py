@@ -182,6 +182,27 @@ if not ONLY:
                   % ("the program is refused, ok" if ok else "FAIL (exit %d) %s" % (r.returncode, r.stdout.strip()[-300:])))
             failures += not ok
             ran += 1
+# REQ6/SHAPE-5: a domain reaches another's inside where the map does not allow it: the lint refuses the program. In a
+# copy of all of gosh's src, with one allowed crossing taken off the map (relay's fuzzer, which uses pathfinding's
+# PUNCH_MARK); the whole was linted as it is by the check, just before.
+if not ONLY:
+    with tempfile.TemporaryDirectory() as d:
+        shutil.copytree(os.environ["SUBJECT"], os.path.join(d, "subject"))
+        path = os.path.join(d, "subject", "src", "DOMAINS")
+        text = open(path).read()
+        old = "allow src/relay/frame-fuzzer.cc       pathfinding   # PUNCH_MARK\n"
+        if text.count(old) != 1:
+            print("red: a domain: FAIL: the line this case takes off is there %d times, not once" % text.count(old))
+            failures += 1
+        else:
+            open(path, "w").write(text.replace(old, ""))
+            env = dict(os.environ, SUBJECT=os.path.join(d, "subject"), STRONG="src/strong", INCLUDE=os.environ.get("LINT_INCLUDE", ""), DOMAINS="src/DOMAINS")
+            r = subprocess.run([sys.executable, LINT], capture_output=True, text=True, env=env)
+            ok = r.returncode == 1 and "src/relay/frame-fuzzer.cc:55: uses PUNCH_MARK, of pathfinding's inside" in r.stdout
+            print("red: a domain: relay's fuzzer uses pathfinding's PUNCH_MARK, of its inside, and the map does not allow it: %s"
+                  % ("the program is refused, ok" if ok else "FAIL (exit %d) %s" % (r.returncode, r.stdout.strip()[-300:])))
+            failures += not ok
+            ran += 1
 # REQ6/SHAPE-5 (strong-domain-driven-design: REQ1/SHAPE-3): what is claimed of StunAnswer in C++ (proofs/StunAnswer.proof.cpp) claims more than is
 # so: that nothing kept is IPv6. The proof file is not proved.
 if wanted("StunAnswer"):
