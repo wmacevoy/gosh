@@ -10,10 +10,33 @@
 #include <cstdio>
 #include <string>
 
-#include "src/meetup/imp/answer.h"
-#include "src/meetup/imp/messages.h"
 #include "src/stun/stun.h"
 #include "vendor/facts/facts.h"
+namespace {
+/* A STUN server's answer to the request with this id: where it saw the asker, as XOR-MAPPED-ADDRESS,
+   each byte mixed with the cookie and, for IPv6, the id (RFC 5389, 15.2). family 1: IPv4 (4 bytes); 2: IPv6 (16). */
+std::string answer_of( const std::string& id, int family, const unsigned char* address, uint16_t port )
+{
+  const std::string cookie( "\x21\x12\xa4\x42", 4 );
+  const std::string mix = cookie + id;
+  const size_t n = family == 1 ? 4 : 16;
+  std::string value( "\x00", 1 );
+  value += static_cast<char>( family );
+  value += static_cast<char>( ( port >> 8 ) ^ 0x21 );
+  value += static_cast<char>( ( port & 0xff ) ^ 0x12 );
+  for ( size_t i = 0; i < n; i++ ) {
+    value += static_cast<char>( address[i] ^ static_cast<unsigned char>( mix[i] ) );
+  }
+  const size_t length = 4 + value.size();
+  std::string out( "\x01\x01", 2 );
+  out += static_cast<char>( length >> 8 );
+  out += static_cast<char>( length & 0xff );
+  out += cookie + id;
+  out += std::string( "\x00\x20\x00", 3 ) + static_cast<char>( value.size() );
+  return out + value;
+}
+}
+
 /* REQ1/PATH-3, REQ17/PATH-8: STUN, asking */
 FACTS( Stun )
 {
@@ -22,9 +45,10 @@ FACTS( Stun )
   const std::string request = stun_request( "twelve bytes" );
   FACT_CHECK( request == std::string( "\x00\x01\x00\x00\x21\x12\xa4\x42", 8 ) + "twelve bytes", "a request: Binding Request, no attributes, the cookie, the id" );
 
-  const std::string answer = Gosh::Meetup::Imp::stun_answer( request.data(), 0xCB007101, 7777 );
+  const unsigned char v4[4] = { 203, 0, 113, 1 };
+  const std::string answer = answer_of( "twelve bytes", 1, v4, 7777 );
   Addr mapped;
-  FACT_CHECK( ( stun_parse( answer.data(), answer.size(), mapped ) && format_ip_port( mapped ) == "203.0.113.1:7777" ), "the meetup's answer is read: where the asker was seen" );
+  FACT_CHECK( ( stun_parse( answer.data(), answer.size(), mapped ) && format_ip_port( mapped ) == "203.0.113.1:7777" ), "an answer is read: where the asker was seen" );
 
   std::string older = std::string( "\x01\x01\x00\x0c\x21\x12\xa4\x42", 8 ) + "twelve bytes"
                       + std::string( "\x00\x01\x00\x08\x00\x01\x1e\x61\xc6\x33\x64\x02", 12 );
@@ -53,17 +77,16 @@ FACTS( Stun )
 
   /* REQ17/PATH-8: IPv6. */
   unsigned char v6[16] = { 0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x12, 0x34 };
-  const std::string answer6 = Gosh::Meetup::Imp::stun_answer_to( request.data(), Gosh::Meetup::Imp::meetup_where_v6( v6, 7777 ) );
-  FACT_CHECK( ( answer6.size() == 44 && answer6.find( std::string( reinterpret_cast<char*>( v6 ), 16 ) ) == std::string::npos ), "an IPv6 answer is 44 bytes, the address disguised with the cookie and the id (REQ17/PATH-8)" );
-  FACT_CHECK( ( stun_parse( answer6.data(), answer6.size(), mapped ) && format_ip_port( mapped ) == "[2001:db8::1234]:7777" ), "and is read: where the asker was seen, by IPv6" );
+  const std::string answer6 = answer_of( "twelve bytes", 2, v6, 7777 );
+  FACT_CHECK( ( stun_parse( answer6.data(), answer6.size(), mapped ) && format_ip_port( mapped ) == "[2001:db8::1234]:7777" ), "an IPv6 answer is read: where the asker was seen, by IPv6 (REQ17/PATH-8)" );
   /* What a STUN server says is believed only as far as it can be written down and read back (found by
      the fuzzer under libFuzzer, 2026-11-16: an answer by IPv6 of one link, or of IPv4 in IPv6's form). */
   unsigned char mapped4[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 1, 2, 3, 4 };
-  const std::string answer_m = Gosh::Meetup::Imp::stun_answer_to( request.data(), Gosh::Meetup::Imp::meetup_where_v6( mapped4, 7777 ) );
+  const std::string answer_m = answer_of( "twelve bytes", 2, mapped4, 7777 );
   FACT_CHECK( ( stun_parse( answer_m.data(), answer_m.size(), mapped ) && mapped.sa.sa_family == AF_INET
            && format_ip_port( mapped ) == "1.2.3.4:7777" ), "an answer of IPv4 in IPv6's form is read as the IPv4 address it is" );
   unsigned char link[16] = { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
-  const std::string answer_l = Gosh::Meetup::Imp::stun_answer_to( request.data(), Gosh::Meetup::Imp::meetup_where_v6( link, 7777 ) );
+  const std::string answer_l = answer_of( "twelve bytes", 2, link, 7777 );
   FACT_CHECK( !stun_parse( answer_l.data(), answer_l.size(), mapped ), "an answer of an IPv6 address of one link alone is not taken" );
   FACT_CHECK( ( parse_ip_port( "[2001:db8::1]:567", a ) && a.sa.sa_family == AF_INET6 && format_ip_port( a ) == "[2001:db8::1]:567" ), "\"[2001:db8::1]:567\" is an address, and goes back to the same text" );
   FACT_CHECK( ( !parse_ip_port( "2001:db8::1:567", a ) && !parse_ip_port( "[2001:db8::1:567", a ) && !parse_ip_port( "[]:567", a )

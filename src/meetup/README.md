@@ -28,15 +28,16 @@ ABI header that names a type of the inside.
 | File | What it holds | Test |
 | --- | --- | --- |
 | **ABI** | | |
-| `meetup.h` | `Gosh::Meetup::serve`: the process (`imp/serve.cc`): one UDP socket and the clock. An edge | `tests/meetup-tickets.py`, from outside, sealing with Python's AES-OCB |
+| `meetup.h` | `Gosh::Meetup::serve`: the process (`imp/serve.cc`): a UDP socket for each family, and the clock, running `logic.h`. An edge | `tests/meetup-tickets.py`, from outside, sealing with Python's AES-OCB |
 | `master.h` | the master key's file, and gosh's directory (`imp/master.cc`). An edge | `tests/meetup-tickets.py` |
 | `ticket.h` | a ticket: its id, its key from the master key, when it stops being good, its text. Logic | `imp/ticket-test.cc`, with the real cipher |
-| `end.h` | `Gosh::Meetup::End`: one end of a ticket, kept registered from where it is, with the meetup's clock; it seals REGISTER and PASS, and opens REGISTERED, TIME and PASSED. Logic | `../pathfinding/finding-test.cc`, against the meetup's own logic |
+| `end.h` | `Gosh::Meetup::End`: one end of a ticket, kept registered from where it is, with the meetup's clock; it seals REGISTER and PASS, and opens REGISTERED, TIME and PASSED. Logic | `imp/end-test.cc`, against `logic.h` and a meetup that lies; `../pathfinding/imp/finding-test.cc`, as path-finding holds it |
+| `logic.h` | `Gosh::Meetup::Logic`: what a meetup does with each datagram it hears (the STUN answer, its rate, the registrations, the master key's tickets), with no socket and no clock; what it sends, where, and whether it is a passed datagram. Logic | `imp/end-test.cc`; path-finding's tests run their meetup by it, knowing none of its messages |
 | **inside** (`imp/`) | | |
 | `messages.h` | REGISTER, REGISTERED, PASS, PASSED as bytes, each at its exact length; sealing and opening. Each sealed kind is opened by `Sealed<T, MeetupSealer>`, T the proved class that reads its text (`Strong::Meetup::Register`, `Registered`, `Pass`, `Time`), and read where the cipher left it. Logic | `imp/messages-test.cc` |
 | `sealed.h` | `Sealed<T, Creds>` and `Unsealed<T>`: sealed text, and what it opened to, owned where the cipher left it and never copied; only a `Sealed` makes an `Unsealed`, and a T reads it in place as an `Opened<T>`. Not proved: it calls the cipher | `imp/messages-test.cc` |
 | `registrations.h` | what the meetup does with REGISTER and PASS: who is where, which counters are used, what is passed to whom. Logic | `imp/registrations-test.cc`: the fork's replay turned round |
-| `answer.h` | the STUN question answered, no more than 200 a second. Logic | `imp/answer-test.cc` |
+| `answer.h` | the STUN question answered, no more than 200 a second. Logic | `imp/answer-test.cc`, read back by stun's `stun_parse` |
 | `master.cc`, `serve.cc` | what `master.h` and `meetup.h` say | as above |
 
 ## What was wrong, and what is not closed

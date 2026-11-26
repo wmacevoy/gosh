@@ -5,9 +5,9 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshmeetup.a
 
-libgoshmeetup_a_SOURCES = meetup.h master.h ticket.h end.h imp/messages.h imp/sealed.h imp/registrations.h imp/answer.h imp/master.cc imp/serve.cc
+libgoshmeetup_a_SOURCES = meetup.h master.h ticket.h end.h logic.h imp/messages.h imp/sealed.h imp/registrations.h imp/answer.h imp/master.cc imp/serve.cc
 
-check_PROGRAMS = imp/ticket-test imp/messages-test imp/registrations-test imp/answer-test imp/registrations-fuzzer
+check_PROGRAMS = imp/ticket-test imp/messages-test imp/registrations-test imp/answer-test imp/end-test imp/registrations-fuzzer
 TESTS = $(check_PROGRAMS)
 LDADD = libfacts.a libgoshmeetup.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 imp_ticket_test_SOURCES = imp/ticket-test.cc
@@ -21,6 +21,7 @@ check_LIBRARIES = libfacts.a
 libfacts_a_SOURCES = ../../vendor/facts/facts.cpp
 libfacts_a_CXXFLAGS =
 imp_answer_test_SOURCES = imp/answer-test.cc
+imp_end_test_SOURCES = imp/end-test.cc
 
 # Fuzzers (queue item 21): each is built twice. Here, with the ordinary compiler, it replays its
 # corpus (the directory beside it named for it, with -corpus after), so an input that once broke

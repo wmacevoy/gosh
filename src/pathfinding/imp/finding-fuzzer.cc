@@ -36,9 +36,7 @@
 #include <string>
 #include <vector>
 
-#include "src/meetup/imp/answer.h"
-#include "src/meetup/imp/messages.h"
-#include "src/meetup/imp/registrations.h"
+#include "src/meetup/logic.h"
 #include "src/meetup/ticket.h"
 #include "src/pathfinding/imp/finding.h"
 #include "src/stun/stun.h"
@@ -85,18 +83,6 @@ uint8_t byte_at( const std::string& s, size_t i )
 
 const std::string MASTER = "0123456789abcdef";
 
-struct KeyOf
-{
-  std::string operator()( const std::string& id ) const
-  {
-    try {
-      return Gosh::Meetup::ticket_key( MASTER, id );
-    } catch ( ... ) {
-      return std::string();
-    }
-  }
-};
-
 }
 
 extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
@@ -111,28 +97,20 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   const Gosh::Meetup::Ticket ticket = Gosh::Meetup::make_ticket( MASTER, "random!!", 4000000000ULL );
   a.use_meetup( MEETUP_AT, ticket, 1700000000000ULL );
   b.use_meetup( MEETUP_AT, ticket, 1700000000000ULL );
-  Gosh::Meetup::Imp::Registrations meetup( 0 ); /* (its clock, now / 1000, is far from the ends', which they learn by TIME: REQ18/PATH-5) */
+  Gosh::Meetup::Logic meetup( 0, MASTER ); /* (its clock, now / 1000, is far from the ends', which they learn by TIME: REQ18/PATH-5) */
   const Addr meetup_at = at( MEETUP_AT );
 
   /* A datagram an end sent to the meetup, from its address there: answered or passed on as the meetup would. */
   auto to_meetup = [&]( bool from_a, const std::string& bytes ) {
-    const std::string from = Gosh::Meetup::Imp::meetup_where_of( at( from_a ? A_AT : B_AT ) );
-    std::string got, reply;
-    Addr dest;
-    socklen_t len;
-    bool to_a;
-    if ( Gosh::Stun::is_stun_request( bytes.data(), bytes.size() ) ) {
-      reply = Gosh::Meetup::Imp::stun_answer_to( bytes.data(), from );
-      to_a = from_a;
-    } else {
-      const Gosh::Meetup::Imp::Registrations::Send s = meetup.datagram( bytes.data(), bytes.size(), from, now / 1000, KeyOf() );
-      if ( !s.any || !Gosh::Meetup::Imp::meetup_addr_of( s.to, dest, len ) ) {
-        return;
-      }
-      reply = s.bytes;
-      to_a = Gosh::Stun::same_ip_port( dest, at( A_AT ) );
-      require( to_a || Gosh::Stun::same_ip_port( dest, at( B_AT ) ) );
+    std::string got;
+    const Gosh::Meetup::Logic::Send s = meetup.heard( bytes.data(), bytes.size(), at( from_a ? A_AT : B_AT ), now / 1000 );
+    if ( !s.any || s.to_len == 0 ) {
+      return;
     }
+    const std::string& reply = s.bytes;
+    const bool to_a = Gosh::Stun::same_ip_port( s.to, at( A_AT ) );
+    require( to_a || Gosh::Stun::same_ip_port( s.to, at( B_AT ) ) );
+    require( !s.stun || to_a == from_a );
     if ( to_a ) {
       if ( a.receive( now, reply.data(), reply.size(), meetup_at, got ) == Gosh::Pathfinding::DATA ) {
         require( taken_from_its_way( a, meetup_at ) );

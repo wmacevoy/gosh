@@ -17,7 +17,7 @@ read and written (`parse_ip_port`, `format_ip_port`), which the relay uses too.
 
 | File | What it holds | Test |
 | --- | --- | --- |
-| `stun.h` | STUN, asking: the request; `stun_parse`, the edge that makes what `Strong::Stun::StunAnswer` kept a socket address; `a.b.c.d:p` as text. Logic | `imp/stun-test.cc`, reading an answer the meetup's `answer.h` wrote |
+| `stun.h` | STUN, asking: the request; `stun_parse`, the edge that makes what `Strong::Stun::StunAnswer` kept a socket address; `a.b.c.d:p` as text. Logic | `imp/stun-test.cc`, reading answers it writes by RFC 5389's definition |
 
 **Fuzzed** (queue item 21):
 
@@ -30,5 +30,5 @@ The check also replays it under AddressSanitizer (`tools/asan-replay.sh`). Seen:
 letting an attribute run 8 bytes past the body, the plain replay passes and that one stops on a
 heap-buffer-overflow (the reviewer's input, `attr-past-body`).
 
-`imp/stun-test.cc` reads an answer that the meetup's `answer.h` wrote: a test of both, the one
-crossing into another part's inside left here (`../DOMAINS`, its `allow` line).
+`imp/stun-test.cc` reads answers it writes itself, by RFC 5389's definition of XOR-MAPPED-ADDRESS,
+so stun is tested alone; that it reads the meetup's answers is the meetup's test (`../meetup/imp/answer-test.cc`).
