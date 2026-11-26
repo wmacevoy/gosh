@@ -183,23 +183,27 @@ if not ONLY:
             failures += not ok
             ran += 1
 # REQ6/SHAPE-5: a domain reaches another's inside where the map does not allow it: the lint refuses the program. In a
-# copy of all of gosh's src, with one header taken off pathfinding's ABI in the map (mark.h, whose PUNCH_MARK relay's
-# fuzzer uses); the whole was linted as it is by the check, just before.
+# copy of all of gosh's src, relay's fuzzer is made to include path-finding's imp/finding.h and use a name of
+# Gosh::Pathfinding::Imp (PROBE_LEN); the whole was linted as it is by the check, just before.
 if not ONLY:
     with tempfile.TemporaryDirectory() as d:
         shutil.copytree(os.environ["SUBJECT"], os.path.join(d, "subject"))
-        path = os.path.join(d, "subject", "src", "DOMAINS")
+        path = os.path.join(d, "subject", "src", "relay", "frame-fuzzer.cc")
         text = open(path).read()
-        old = "| src/pathfinding/punch.h src/pathfinding/mark.h\n"
-        if text.count(old) != 1:
-            print("red: a domain: FAIL: the text this case changes is there %d times, not once" % text.count(old))
+        old_include = '#include "src/pathfinding/mark.h"\n'
+        old_use = "  const std::string mark( Gosh::Pathfinding::PUNCH_MARK, sizeof( Gosh::Pathfinding::PUNCH_MARK ) );\n"
+        if text.count(old_include) != 1 or text.count(old_use) != 1:
+            print("red: a domain: FAIL: the text this case changes is not there once")
             failures += 1
         else:
-            open(path, "w").write(text.replace(old, "| src/pathfinding/punch.h\n"))
+            text = text.replace(old_include, old_include + '#include "src/pathfinding/imp/finding.h"\n')
+            text = text.replace(old_use, old_use + "  (void)Gosh::Pathfinding::Imp::PathFinding::PROBE_LEN;\n")
+            open(path, "w").write(text)
             env = dict(os.environ, SUBJECT=os.path.join(d, "subject"), STRONG="src/strong", INCLUDE=os.environ.get("LINT_INCLUDE", ""), DOMAINS="src/DOMAINS")
             r = subprocess.run([sys.executable, LINT], capture_output=True, text=True, env=env)
-            ok = r.returncode == 1 and "src/relay/frame-fuzzer.cc:55: uses PUNCH_MARK, of pathfinding's inside" in r.stdout
-            print("red: a domain: relay's fuzzer uses pathfinding's PUNCH_MARK, of its inside, and the map does not allow it: %s"
+            ok = r.returncode == 1 and "src/relay/frame-fuzzer.cc:57: uses PROBE_LEN, of Gosh::Pathfinding's inside" in r.stdout \
+                and "src/relay/frame-fuzzer.cc:26: includes src/pathfinding/imp/finding.h, of Gosh::Pathfinding's inside" in r.stdout
+            print("red: a domain: relay's fuzzer includes path-finding's imp/ and uses a name of Gosh::Pathfinding::Imp, and the map does not allow it: %s"
                   % ("the program is refused, ok" if ok else "FAIL (exit %d) %s" % (r.returncode, r.stdout.strip()[-300:])))
             failures += not ok
             ran += 1

@@ -52,7 +52,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   if ( size < 1 ) {
     return 0;
   }
-  const std::string mark( Network::PUNCH_MARK, sizeof( Network::PUNCH_MARK ) );
+  const std::string mark( Gosh::Pathfinding::PUNCH_MARK, sizeof( Gosh::Pathfinding::PUNCH_MARK ) );
   const std::string stream( reinterpret_cast<const char*>( data + 1 ), size - 1 );
   uint32_t cut = data[0] | 1u;
 

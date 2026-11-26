@@ -36,14 +36,18 @@ A way straight between the two relays when both ends are behind NATs (`REQ1/PATH
   way only, a way that turns one-way once open, and an end moved where the other was not told.
   The relays say "the way through is now to ..." when it moves while open.
 
-**Divided** (2026-11-15), as the design's three pieces:
+**Divided** (2026-11-15), as the design's three pieces; **laid out** (2026-11-26): its ABI is the headers here, in `Gosh::Pathfinding`; its inside is `imp/`, in `Gosh::Pathfinding::Imp` (`../DOMAINS`):
 
 | File | What it holds | Test |
 | --- | --- | --- |
 | *(STUN)* | moved to its own part, `../stun/` (2026-11-26): path-finding asks by its ABI, `stun.h` | |
-| `finding.h` | `PathFinding`: candidates; probes sealed and numbered; which way is open; when to probe; the meetup through its end (`../meetup/end.h`). Logic: the time and datagrams in, datagrams to send out | `finding-test.cc`: a network of a few lines, the meetup's own logic, time moved by the test |
-| `mark.h` | `PUNCH_MARK`: the eight bytes that begin a probe, and the relays' words to each other. Of path-finding's ABI, with `punch.h` | |
-| `punch.*` | `Punch`: the socket, this machine's addresses, the time of day, the process that asks the STUN servers. An edge, around `PathFinding`, with the interface the relays had | `punch-test.cc`, real sockets on loopback |
+| **ABI** (in `Gosh::Pathfinding`) | | |
+| `punch.h` | `Punch`: the socket, this machine's addresses, the time of day, the process that asks the STUN servers (`imp/punch.cc`). An edge, around `PathFinding`, with the interface the relays had | `imp/punch-test.cc`, real sockets on loopback |
+| `got.h` | `Got`: what a datagram taken from the socket was: nothing, something dealt with, the session's, or the other end's goodbye | |
+| `mark.h` | `PUNCH_MARK`: the eight bytes that begin a probe, and the relays' words to each other | |
+| **inside** (`imp/`, in `Gosh::Pathfinding::Imp`) | | |
+| `finding.h` | `PathFinding`: candidates; probes sealed and numbered; which way is open; when to probe; the meetup through its end (`../meetup/end.h`). Logic: the time and datagrams in, datagrams to send out | `imp/finding-test.cc`: a network of a few lines, the meetup's own logic, time moved by the test |
+| `punch.cc` | what `punch.h` says | as above |
 
 **Tested:** `finding-test.cc`: a way straight through, lost when nothing comes back for 3.5 s and
 found again; a goodbye; a way through a meetup when nothing straight gets through, a datagram
