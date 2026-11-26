@@ -45,6 +45,15 @@ and draft v21"; and, of a part's boundary, "abi is the boundary, imp is the insi
 
 **What changed from v20.**
 
+- **SHAPE-1: the core is factored into domains by the seam** (the client, 2026-11-26), its cipher
+  and ssh first. Until v21 the core's code changed only where a listed change could not be made as
+  a small one; now the seam also moves and renames the core's code into domains, each piece saying
+  where it came from at the pin. What it moves: a new pin of mosh means doing the moves again, and
+  an upstream fix lands in a moved file, so taking one costs more than it did (SE1/D12); the veto,
+  a stock mosh at either end, stands unchanged. Not yet answered: how a move is carried (`patch`
+  does not rename a file; a list of moves that the build applies before the patches would be a
+  new build step).
+
 - **The glossary gains application, harness, ABI and inside**, and session, copy and STUN are each
   also a part: gosh is a harness that carries two applications, a session and a copy, each between
   two ends, and knows neither (`PROPOSAL_domain-map.md`). The command's entry says it runs an
@@ -324,6 +333,16 @@ makes it, in a new version.
   warranted, say where it came from and why." *(client, 2026-11-13. The agent's reading: "where it
   came from" is the file and function at the pinned commit; "why" is the requirement or part that
   needs it; and a refactor is warranted when a listed change cannot be made as a small one.)*
+  *(Since v21, a draft.)* **The core is factored into domains, as gosh's own parts are (SHAPE-5),
+  by the seam:** its cipher, its transport, its state synchronisation, its terminal and its programs
+  each a domain with an ABI and an inside, held by the same lint as gosh's; and ssh, which the core
+  does not hold, is gosh's own domain. The cipher and ssh first: "Isolating crypto and ssh seems
+  particularly important." The factoring is a set of seam patches, each a move or a rename of code
+  at the pin, tracked to it as every change is, and saying where each piece came from, so that the
+  core at the pin can still be read off from what gosh carries; no byte of the protocol changes, and
+  no behaviour. *(client, 2026-11-26: "If things need to be patched anyway, might as well clean up
+  core, factored into domains as well, can this be a set of patches?"; asked whether to lint the
+  core in place or refactor it by patches: "Refactor by patches".)*
   Everything added rides beside the protocol and is negotiated, so that either end may be a stock
   mosh and the terminal still works. Judge: the holder, at each release. Veto: a test in which one
   end is a stock mosh fails. *(v1 said "an older mosh"; the client, 2026-11-13: gosh need not work
