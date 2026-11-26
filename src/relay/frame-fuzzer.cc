@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "src/meetup/ticket.h"
-#include "src/pathfinding/finding.h"
+#include "src/pathfinding/mark.h"
 #include "src/relay/frame.h"
 #include "src/seam/fuzz-replay.h"
 

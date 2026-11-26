@@ -33,6 +33,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "src/pathfinding/mark.h"
 #include "src/pathfinding/punch.h"
 #include "src/relay/frame.h"
 #include "src/relay/paths.h"

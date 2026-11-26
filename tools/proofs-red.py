@@ -183,19 +183,19 @@ if not ONLY:
             failures += not ok
             ran += 1
 # REQ6/SHAPE-5: a domain reaches another's inside where the map does not allow it: the lint refuses the program. In a
-# copy of all of gosh's src, with one allowed crossing taken off the map (relay's fuzzer, which uses pathfinding's
-# PUNCH_MARK); the whole was linted as it is by the check, just before.
+# copy of all of gosh's src, with one header taken off pathfinding's ABI in the map (mark.h, whose PUNCH_MARK relay's
+# fuzzer uses); the whole was linted as it is by the check, just before.
 if not ONLY:
     with tempfile.TemporaryDirectory() as d:
         shutil.copytree(os.environ["SUBJECT"], os.path.join(d, "subject"))
         path = os.path.join(d, "subject", "src", "DOMAINS")
         text = open(path).read()
-        old = "allow src/relay/frame-fuzzer.cc       pathfinding   # PUNCH_MARK\n"
+        old = "| src/pathfinding/punch.h src/pathfinding/mark.h\n"
         if text.count(old) != 1:
-            print("red: a domain: FAIL: the line this case takes off is there %d times, not once" % text.count(old))
+            print("red: a domain: FAIL: the text this case changes is there %d times, not once" % text.count(old))
             failures += 1
         else:
-            open(path, "w").write(text.replace(old, ""))
+            open(path, "w").write(text.replace(old, "| src/pathfinding/punch.h\n"))
             env = dict(os.environ, SUBJECT=os.path.join(d, "subject"), STRONG="src/strong", INCLUDE=os.environ.get("LINT_INCLUDE", ""), DOMAINS="src/DOMAINS")
             r = subprocess.run([sys.executable, LINT], capture_output=True, text=True, env=env)
             ok = r.returncode == 1 and "src/relay/frame-fuzzer.cc:55: uses PUNCH_MARK, of pathfinding's inside" in r.stdout

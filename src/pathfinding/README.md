@@ -41,7 +41,8 @@ A way straight between the two relays when both ends are behind NATs (`REQ1/PATH
 | File | What it holds | Test |
 | --- | --- | --- |
 | *(STUN)* | moved to its own part, `../stun/` (2026-11-26): path-finding asks by its ABI, `stun.h` | |
-| `finding.h` | `PathFinding`: candidates; probes sealed and numbered; which way is open; when to probe; the meetup registered with and passed through. Logic: the time and datagrams in, datagrams to send out | `finding-test.cc`: a network of a few lines, the meetup's own logic, time moved by the test |
+| `finding.h` | `PathFinding`: candidates; probes sealed and numbered; which way is open; when to probe; the meetup through its end (`../meetup/end.h`). Logic: the time and datagrams in, datagrams to send out | `finding-test.cc`: a network of a few lines, the meetup's own logic, time moved by the test |
+| `mark.h` | `PUNCH_MARK`: the eight bytes that begin a probe, and the relays' words to each other. Of path-finding's ABI, with `punch.h` | |
 | `punch.*` | `Punch`: the socket, this machine's addresses, the time of day, the process that asks the STUN servers. An edge, around `PathFinding`, with the interface the relays had | `punch-test.cc`, real sockets on loopback |
 
 **Tested:** `finding-test.cc`: a way straight through, lost when nothing comes back for 3.5 s and
