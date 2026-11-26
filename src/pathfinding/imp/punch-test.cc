@@ -21,8 +21,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "src/meetup/imp/answer.h"
-#include "src/meetup/imp/registrations.h"
+#include "src/meetup/logic.h"
+#include "src/meetup/ticket.h"
 #include "src/pathfinding/punch.h"
 #include "vendor/facts/facts.h"
 
@@ -38,21 +38,16 @@ static uint64_t now_ms( void )
 namespace {
 const std::string MASTER( "0123456789abcdef" );
 
-std::string ticket_key_of( const std::string& id )
-{
-  return Gosh::Meetup::ticket_key( MASTER, id );
-}
-
 /* A meetup, on a loopback socket of its own (IPv4 or IPv6), served by the meetup's logic. */
 struct MeetupServer
 {
   int family;
   int sock;
-  Gosh::Meetup::Imp::Registrations registrations;
+  Gosh::Meetup::Logic meetup;
   int passed;
 
   explicit MeetupServer( int s_family = AF_INET )
-    : family( s_family ), sock( socket( s_family, SOCK_DGRAM, 0 ) ), registrations( time( NULL ) - 1000 ), passed( 0 )
+    : family( s_family ), sock( socket( s_family, SOCK_DGRAM, 0 ) ), meetup( time( NULL ) - 1000, MASTER ), passed( 0 )
   {
     Network::Addr a;
     memset( &a, 0, sizeof( a ) );
@@ -83,19 +78,10 @@ struct MeetupServer
     if ( n < 0 ) {
       return;
     }
-    const std::string w = Gosh::Meetup::Imp::meetup_where_of( from );
-    if ( Gosh::Stun::is_stun_request( buf, n ) ) {
-      const std::string a = Gosh::Meetup::Imp::stun_answer_to( buf, w );
-      sendto( sock, a.data(), a.size(), 0, &from.sa, len );
-      return;
-    }
-    const Gosh::Meetup::Imp::Registrations::Send s = registrations.datagram( buf, n, w, time( NULL ), ticket_key_of );
-    Network::Addr to;
-    socklen_t to_len;
-    if ( s.any && Gosh::Meetup::Imp::meetup_addr_of( s.to, to, to_len ) ) {
-      sendto( sock, s.bytes.data(), s.bytes.size(), 0, &to.sa, to_len );
-      Gosh::Meetup::Imp::MeetupHeader h;
-      passed += Gosh::Meetup::Imp::meetup_read_header( s.bytes.data(), s.bytes.size(), h ) && h.kind == Gosh::Meetup::Imp::MEETUP_PASSED;
+    const Gosh::Meetup::Logic::Send s = meetup.heard( buf, static_cast<size_t>( n ), from, time( NULL ) );
+    if ( s.any && s.to_len != 0 ) {
+      sendto( sock, s.bytes.data(), s.bytes.size(), 0, &s.to.sa, s.to_len );
+      passed += s.passed;
     }
   }
 };

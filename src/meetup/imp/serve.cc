@@ -2,8 +2,7 @@
 
 /*
  * meetup, serve: the process "gosh-server meetup PORT". An edge: a UDP socket for each family,
- * and the clock. What it does with a datagram it asks of registrations.h and answer.h; the master
- * key is master.h's. The loop is the fork's meetup_serve (mosh-1.4.0-pf.7, src/network/punch.cc),
+ * and the clock. What it does with a datagram it asks of logic.h; the master key is master.h's. The loop is the fork's meetup_serve (mosh-1.4.0-pf.7, src/network/punch.cc),
  * with what it decided moved into those.
  *
  * (gosh, REQ17/PATH-8) The sockets are bound to every address, so each datagram is answered from
@@ -31,29 +30,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "src/meetup/imp/answer.h"
+#include "src/meetup/logic.h"
 #include "src/meetup/meetup.h"
-#include "src/meetup/imp/registrations.h"
-#include "src/meetup/ticket.h"
 #include "src/network/network.h"
 
 using namespace Network;
 
 namespace {
-/* A ticket's key, under the master key; anything that goes wrong in working it out is no key. */
-struct KeyOf
-{
-  const std::string& master;
-  std::string operator()( const std::string& id ) const
-  {
-    try {
-      return Gosh::Meetup::ticket_key( master, id );
-    } catch ( const std::exception& ) {
-      return std::string();
-    }
-  }
-};
-
 /* A socket of this family bound to the port on every address; -1 if there can be none. IPv6 only on the IPv6 one. */
 int bound( int family, const char* port )
 {
@@ -178,9 +161,7 @@ int Gosh::Meetup::serve( const char* port, const std::string& master )
     return 1;
   }
 
-  Gosh::Meetup::Imp::Registrations registrations( time( NULL ) );
-  Gosh::Meetup::Imp::AnswerRate rate;
-  const KeyOf key_of = { master };
+  Gosh::Meetup::Logic meetup( time( NULL ), master );
   std::map<std::string, Here> heard_at; /* an end's "where" -> the address of ours it sent to */
   while ( true ) {
     struct pollfd fds[2] = { { socks[0], POLLIN, 0 }, { socks[1], POLLIN, 0 } };
@@ -202,38 +183,28 @@ int Gosh::Meetup::serve( const char* port, const std::string& master )
       if ( n < 0 ) {
         continue;
       }
-      const std::string where = Gosh::Meetup::Imp::meetup_where_of( from );
-      if ( where.empty() ) {
-        continue;
-      }
-      const uint64_t now = time( NULL );
-
-      if ( Gosh::Stun::is_stun_request( request, static_cast<size_t>( n ) ) ) {
-        if ( rate.allow( now ) ) {
-          send_from( socks[s], Gosh::Meetup::Imp::stun_answer_to( request, where ), from, from_len, here );
-        }
-        continue;
-      }
-
-      const Gosh::Meetup::Imp::Registrations::Send send = registrations.datagram( request, n, where, now, key_of );
+      const Gosh::Meetup::Logic::Send send = meetup.heard( request, static_cast<size_t>( n ), from, time( NULL ) );
       if ( !send.any ) {
         continue;
       }
+      if ( send.stun ) {
+        send_from( socks[s], send.bytes, from, from_len, here );
+        continue;
+      }
       /* Taken from it: so it is an end, and this is where it knows us by. */
+      const std::string where = Gosh::Meetup::Imp::meetup_where_of( from );
       if ( heard_at.size() >= MOST_HEARD_AT && heard_at.find( where ) == heard_at.end() ) {
         heard_at.clear(); /* (a passed datagram then goes from wherever the system picks, until each is heard again) */
       }
       heard_at[where] = here;
-      Addr to;
-      socklen_t to_len;
-      if ( Gosh::Meetup::Imp::meetup_addr_of( send.to, to, to_len ) ) {
-        const int out = socks[to.sa.sa_family == AF_INET6 ? 1 : 0];
-        const std::map<std::string, Here>::const_iterator known = heard_at.find( send.to );
+      if ( send.to_len != 0 ) {
+        const int out = socks[send.to.sa.sa_family == AF_INET6 ? 1 : 0];
+        const std::map<std::string, Here>::const_iterator known = heard_at.find( send.to_where );
         Here none;
         none.known = false;
         /* (an end's "where" and the socket it came by are of one family: what is kept for it fits) */
         if ( out >= 0 ) {
-          send_from( out, send.bytes, to, to_len, known == heard_at.end() ? none : known->second );
+          send_from( out, send.bytes, send.to, send.to_len, known == heard_at.end() ? none : known->second );
         }
       }
     }

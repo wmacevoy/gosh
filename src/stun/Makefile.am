@@ -6,7 +6,7 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 check_PROGRAMS = imp/stun-test imp/stun-fuzzer
 TESTS = $(check_PROGRAMS)
-LDADD = libfacts.a ../meetup/libgoshmeetup.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+LDADD = libfacts.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 imp_stun_test_SOURCES = imp/stun-test.cc
 
 # The fuzzer (queue item 21): built here with the ordinary compiler, it replays its corpus

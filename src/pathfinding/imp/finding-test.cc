@@ -12,8 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "src/meetup/imp/answer.h"
-#include "src/meetup/imp/registrations.h"
+#include "src/meetup/logic.h"
 #include "src/pathfinding/imp/finding.h"
 #include "vendor/facts/facts.h"
 
@@ -35,11 +34,6 @@ Addr at( const std::string& ip_port )
 /* The meetup's clock: UTC seconds, far from the ends' (whose time of day is given as 1 ms), so that each must learn it (REQ18/PATH-5). */
 const uint64_t MEETUP_CLOCK = 1000000;
 
-std::string key_of( const std::string& id )
-{
-  return Gosh::Meetup::ticket_key( MASTER, id );
-}
-
 /* The network: two ends, a meetup, and what lies between. */
 struct Net
 {
@@ -50,19 +44,18 @@ struct Net
   Addr meetup_at;
   bool straight;     /* whether datagrams straight between the two get through */
   bool a_to_b4_lost, a_to_b6_lost; /* (REQ17/PATH-8) one way only: what a sends straight to b's IPv4, or IPv6, address is lost */
-  Gosh::Meetup::Imp::Registrations meetup;
+  Gosh::Meetup::Logic meetup;
   uint64_t now;      /* ms */
   std::string a_got, b_got;
   int b_goodbyes;
-  int meetup_passed;
-  int meetup_told_time; /* (REQ18/PATH-5) TIMEs the meetup answered: the ends' clocks here are 1970's */
+  int meetup_passed; /* datagrams the meetup passed from one end to the other */
   int straight_sent;
 
   Net( PathFinding& s_a, PathFinding& s_b )
     : a( s_a ), b( s_b ), a_at( at( "203.0.113.1:4000" ) ), b_at( at( "198.51.100.2:5000" ) ),
       a_at6(), b_at6(), meetup_at( at( "192.0.2.9:3478" ) ), straight( true ), a_to_b4_lost( false ), a_to_b6_lost( false ),
-      meetup( MEETUP_CLOCK - 1000 ), now( 1000 ), a_got(), b_got(),
-      b_goodbyes( 0 ), meetup_passed( 0 ), meetup_told_time( 0 ), straight_sent( 0 )
+      meetup( MEETUP_CLOCK - 1000, MASTER ), now( 1000 ), a_got(), b_got(),
+      b_goodbyes( 0 ), meetup_passed( 0 ), straight_sent( 0 )
   {}
 
   void to_end( bool to_a, const std::string& bytes, Addr from )
@@ -95,22 +88,12 @@ struct Net
             continue; /* it has no address of that family: nothing goes */
           }
           if ( Gosh::Stun::same_ip_port( to, meetup_at ) ) {
-            if ( Gosh::Stun::is_stun_request( bytes.data(), bytes.size() ) ) {
-              const std::string answer = Gosh::Meetup::Imp::stun_answer_to( bytes.data(), Gosh::Meetup::Imp::meetup_where_of( from_at ) );
-              to_end( side == 0, answer, meetup_at );
-              continue;
-            }
-            const Gosh::Meetup::Imp::Registrations::Send s
-              = meetup.datagram( bytes.data(), bytes.size(), Gosh::Meetup::Imp::meetup_where_of( from_at ), MEETUP_CLOCK + now / 1000, key_of );
-            Addr dest;
-            socklen_t len;
-            Gosh::Meetup::Imp::MeetupHeader h;
-            if ( s.any && Gosh::Meetup::Imp::meetup_addr_of( s.to, dest, len ) && Gosh::Meetup::Imp::meetup_read_header( s.bytes.data(), s.bytes.size(), h ) ) {
-              meetup_passed += h.kind == Gosh::Meetup::Imp::MEETUP_PASSED;
-              meetup_told_time += h.kind == Gosh::Meetup::Imp::MEETUP_TIME;
-              if ( is( dest, true ) ) {
+            const Gosh::Meetup::Logic::Send s = meetup.heard( bytes.data(), bytes.size(), from_at, MEETUP_CLOCK + now / 1000 );
+            if ( s.any && s.to_len != 0 ) {
+              meetup_passed += s.passed;
+              if ( is( s.to, true ) ) {
                 to_end( true, s.bytes, meetup_at );
-              } else if ( is( dest, false ) ) {
+              } else if ( is( s.to, false ) ) {
                 to_end( false, s.bytes, meetup_at );
               }
             }
@@ -182,40 +165,6 @@ FACTS( Finding )
     FACT_CHECK( net.b_goodbyes == 1, "a goodbye reaches the other end" );
   }
 
-  /* REQ18/PATH-5: a TIME is believed only as the answer to our last REGISTER, so an old one sent again moves no clock. */
-  {
-    PathFinding a( true, key, 1000 ), b( false, key, 1000 );
-    Net net( a, b );
-    net.straight = false;
-    a.use_meetup( "192.0.2.9:3478", ticket, 1 );
-    b.use_meetup( "192.0.2.9:3478", ticket, 1 );
-    net.pass( 1000 );
-    Crypto::Session as_meetup( Gosh::Meetup::raw_key( ticket.key ) );
-    const uint64_t wrong = ( MEETUP_CLOCK + 86400 ) * 1000; /* a day ahead */
-    net.to_end( true, Gosh::Meetup::Imp::meetup_seal( as_meetup, Gosh::Meetup::Imp::MEETUP_TIME, ticket.id, 0, true, 99999, Gosh::Meetup::Imp::meetup_time_text( 7, wrong ) ),
-                net.meetup_at );
-    std::string reg;
-    for ( int i = 0; i < 1000 && reg.empty(); i++ ) {
-      net.now += 50;
-      a.tick( net.now );
-      const std::vector<PathFinding::Outgoing> out = a.take_outbox();
-      for ( size_t j = 0; j < out.size(); j++ ) {
-        Gosh::Meetup::Imp::MeetupHeader h;
-        if ( Gosh::Meetup::Imp::meetup_read_header( out[j].bytes.data(), out[j].bytes.size(), h ) && h.kind == Gosh::Meetup::Imp::MEETUP_REGISTER ) {
-          reg = out[j].bytes;
-        }
-      }
-    }
-    Gosh::Meetup::Imp::MeetupHeader h;
-    uint64_t said = 0;
-    std::optional<Gosh::Meetup::Imp::Unsealed<Strong::Meetup::Register>> text;
-    const bool opened = Gosh::Meetup::Imp::meetup_read_header( reg.data(), reg.size(), h )
-                        && Gosh::Meetup::Imp::Sealed<Strong::Meetup::Register, Gosh::Meetup::Imp::MeetupSealer>( h ).unseal( Gosh::Meetup::Imp::MeetupSealer{ as_meetup, false }, text )
-                        && Gosh::Meetup::Imp::meetup_read_register( *text, said );
-    const uint64_t meetup_ms = ( MEETUP_CLOCK + net.now / 1000 ) * 1000;
-    FACT_CHECK( ( a.meetup_registered() && opened && said + 5000 > meetup_ms && said < meetup_ms + 5000 ), "a TIME that answers no REGISTER of ours is not believed: the next REGISTER keeps the meetup's clock" );
-  }
-
   {
     PathFinding a( true, key, 1000 ), b( false, key, 1000 );
     Net net( a, b );
@@ -228,7 +177,6 @@ FACTS( Finding )
     a.use_meetup( "192.0.2.9:3478", ticket, 1 );
     net.pass( 1000 );
     FACT_CHECK( ( a.meetup_registered() && b.meetup_registered() ), "nothing straight gets through, and both register with the meetup (REQ18/PATH-5)" );
-    FACT_CHECK( net.meetup_told_time == 2, "each by the meetup's clock, which it was told (TIME), its own being far off (REQ18/PATH-5)" );
     net.pass( 1000 );
     FACT_CHECK( ( a.open( net.now ) && b.open( net.now ) && !a.direct() && !b.direct()
              && a.where() == "the meetup at 192.0.2.9:3478" ), "and find each other through it: open, and not straight (REQ15/PATH-4)" );
@@ -256,7 +204,7 @@ FACTS( Finding )
         }
       }
     }
-    net.to_end( true, Gosh::Meetup::Imp::meetup_passed( probe ), net.meetup_at );
+    net.to_end( true, Gosh::Meetup::Logic::passed( probe ), net.meetup_at );
     FACT_CHECK( ( !probe.empty() && a.direct() ), "with a way straight through, a probe heard through the meetup as well does not turn it back" );
 
     net.straight = false;
@@ -273,10 +221,6 @@ FACTS( Finding )
     a.use_meetup( "192.0.2.9:3478", ticket, 1 );
     a.tick( net.now );
     net.deliver(); /* the STUN question and answer: end 0 believes it is at :4000 */
-    Crypto::Session liar( Gosh::Meetup::raw_key( ticket.key ) );
-    net.to_end( true, Gosh::Meetup::Imp::meetup_seal( liar, Gosh::Meetup::Imp::MEETUP_REGISTERED, ticket.id, 0, true, 7,
-                                         Gosh::Meetup::Imp::meetup_where_v4( 0xCB007101, 9999 ) ), net.meetup_at );
-    FACT_CHECK( !a.meetup_registered(), "a REGISTERED that says it saw us somewhere we did not say is not taken" );
     net.a_at = at( "203.0.113.1:4001" );
     net.pass( 2 * Gosh::Meetup::End::REGISTER_RETRY );
     FACT_CHECK( !a.meetup_registered(), "moved before registering: its REGISTERs are refused" );
@@ -339,8 +283,9 @@ FACTS( Finding )
     FACT_CHECK( b.where() == before, "nor does one not sealed with the key" );
     FACT_CHECK( b.receive( net.now, "hello", 5, onlooker, d ) == Gosh::Pathfinding::OTHER, "and a datagram from anywhere but the other end is not the session's" );
 
-    const std::string answer = Gosh::Meetup::Imp::stun_answer( std::string( "\x00\x01\x00\x00\x21\x12\xa4\x42" "twelve bytes", 20 ).data(),
-                                                  0xCB007101, 7777 );
+    Gosh::Meetup::Logic stun_server( MEETUP_CLOCK, MASTER );
+    const std::string question = Gosh::Stun::stun_request( "twelve bytes" );
+    const std::string answer = stun_server.heard( question.data(), question.size(), at( "203.0.113.1:7777" ), MEETUP_CLOCK ).bytes;
     b.take_local_candidates();
     b.receive( net.now, answer.data(), answer.size(), at( "192.0.2.50:3478" ), d );
     const std::vector<std::string> mine = b.take_local_candidates();

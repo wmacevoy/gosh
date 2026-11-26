@@ -7,6 +7,8 @@
 #include <string>
 
 #include "src/meetup/imp/answer.h"
+#include "src/meetup/imp/messages.h"
+#include "src/stun/stun.h"
 #include "vendor/facts/facts.h"
 /* REQ15/PATH-4: the STUN question answered */
 FACTS( Answer )
@@ -37,6 +39,21 @@ FACTS( Answer )
   }
   FACT_CHECK( allowed == 200, "500 asked in one second: 200 answered" );
   FACT_CHECK( rate.allow( 1001 ), "in the next second, answering again" );
+
+  /* What the meetup answers is read by those who ask, by STUN's own reading (src/stun/stun.h). */
+  Network::Addr mapped;
+  const std::string answer4 = Gosh::Meetup::Imp::stun_answer( request.data(), 0xCB007101, 7777 );
+  FACT_CHECK( ( Gosh::Stun::stun_parse( answer4.data(), answer4.size(), mapped ) && Gosh::Stun::format_ip_port( mapped ) == "203.0.113.1:7777" ), "the meetup's answer is read: where the asker was seen" );
+  bool none = true;
+  for ( size_t n = 0; n < answer4.size(); n++ ) {
+    none = none && !Gosh::Stun::stun_parse( answer4.data(), n, mapped );
+  }
+  FACT_CHECK( none, "and, cut short anywhere, is not" );
+  /* REQ17/PATH-8: IPv6. */
+  unsigned char v6[16] = { 0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x12, 0x34 };
+  const std::string answer6 = Gosh::Meetup::Imp::stun_answer_to( request.data(), Gosh::Meetup::Imp::meetup_where_v6( v6, 7777 ) );
+  FACT_CHECK( ( answer6.size() == 44 && answer6.find( std::string( reinterpret_cast<char*>( v6 ), 16 ) ) == std::string::npos ), "an IPv6 answer is 44 bytes, the address disguised with the cookie and the id (REQ17/PATH-8)" );
+  FACT_CHECK( ( Gosh::Stun::stun_parse( answer6.data(), answer6.size(), mapped ) && Gosh::Stun::format_ip_port( mapped ) == "[2001:db8::1234]:7777" ), "and is read: where the asker was seen, by IPv6" );
 }
 
 FACTS_REGISTER_ALL()
