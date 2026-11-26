@@ -14,9 +14,9 @@ libgoshservermain_a_SOURCES = imp/server-main.cc
 check_PROGRAMS = imp/options-test imp/applications-test
 TESTS = $(check_PROGRAMS)
 imp_options_test_SOURCES = imp/options-test.cc
-options_test_LDADD = libfacts.a libgoshseam.a
+imp_options_test_LDADD = libfacts.a libgoshseam.a
 imp_applications_test_SOURCES = imp/applications-test.cc
-applications_test_LDADD = libfacts.a libgoshseam.a ../copy/libgoshcopy.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+imp_applications_test_LDADD = libfacts.a libgoshseam.a ../copy/libgoshcopy.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
 
 AUTOMAKE_OPTIONS = subdir-objects
 
