@@ -1,0 +1,141 @@
+gosh seam 11: What a program puts on the clipboard is passed on each time, with its selection.
+
+For:   REQ20/TERM-1 (gosh#6). Copying in a program on the server, Claude Code among them, often
+       did not reach the user's clipboard: upstream passed on OSC 52 only for the selection "c",
+       and only when the text differed from the last it passed on.
+What:  OSC 52 with any selection (c p q s 0-7, or none) is kept whole after "52;" and sent on as
+       the program wrote it; each time text is put on the clipboard is counted, as a bell is, and
+       the display sends it when the count changes, not when the text does. So the same text
+       twice is sent twice, and a reset no longer sends an empty clipboard. A request to read the
+       clipboard ("?") is passed on as before (requirements v20, Not yet answered). Nothing in
+       mosh's protocol changes: a stock mosh at the other end does what it did before.
+Where: Framebuffer (terminalframebuffer.h, .cc): clipboard_count beside bell_count;
+       Dispatcher::OSC_dispatch (terminalfunctions.cc); Display::new_frame (terminaldisplay.cc).
+Kind:  adds a field and a helper; one condition widened, one comparison changed. Nothing is moved.
+From:  gosh's own, 2026-11-26 (client: "core can be patched", "in seam").
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+--- a/src/terminal/terminalframebuffer.h
++++ b/src/terminal/terminalframebuffer.h
+@@ -416,7 +416,8 @@
+   rows_type rows;
+   title_type icon_name;
+   title_type window_title;
+-  title_type clipboard;
++  title_type clipboard; /* the selection, ';', and the base64 text: what follows "52;" */
++  unsigned int clipboard_count; /* like bell_count: each time a program puts text on the clipboard (REQ20/TERM-1) */
+   unsigned int bell_count;
+   bool title_initialized; /* true if the window title has been set via an OSC */
+ 
+@@ -497,10 +498,15 @@
+   bool is_title_initialized( void ) const { return title_initialized; }
+   void set_icon_name( const title_type& s ) { icon_name = s; }
+   void set_window_title( const title_type& s ) { window_title = s; }
+-  void set_clipboard( const title_type& s ) { clipboard = s; }
++  void set_clipboard( const title_type& s )
++  {
++    clipboard = s;
++    clipboard_count++;
++  }
+   const title_type& get_icon_name( void ) const { return icon_name; }
+   const title_type& get_window_title( void ) const { return window_title; }
+   const title_type& get_clipboard( void ) const { return clipboard; }
++  unsigned int get_clipboard_count( void ) const { return clipboard_count; }
+ 
+   void prefix_window_title( const title_type& s );
+ 
+@@ -515,7 +521,7 @@
+   bool operator==( const Framebuffer& x ) const
+   {
+     return ( rows == x.rows ) && ( window_title == x.window_title ) && ( clipboard == x.clipboard )
+-           && ( bell_count == x.bell_count ) && ( ds == x.ds );
++           && ( clipboard_count == x.clipboard_count ) && ( bell_count == x.bell_count ) && ( ds == x.ds );
+   }
+ };
+ }
+--- a/src/terminal/terminalframebuffer.cc
++++ b/src/terminal/terminalframebuffer.cc
+@@ -73,7 +73,8 @@
+ }
+ 
+ Framebuffer::Framebuffer( int s_width, int s_height )
+-  : rows(), icon_name(), window_title(), clipboard(), bell_count( 0 ), title_initialized( false ),
++  : rows(), icon_name(), window_title(), clipboard(), clipboard_count( 0 ), bell_count( 0 ),
++    title_initialized( false ),
+     ds( s_width, s_height )
+ {
+   assert( s_height > 0 );
+@@ -85,7 +86,8 @@
+ 
+ Framebuffer::Framebuffer( const Framebuffer& other )
+   : rows( other.rows ), icon_name( other.icon_name ), window_title( other.window_title ),
+-    clipboard( other.clipboard ), bell_count( other.bell_count ), title_initialized( other.title_initialized ),
++    clipboard( other.clipboard ), clipboard_count( other.clipboard_count ), bell_count( other.bell_count ),
++    title_initialized( other.title_initialized ),
+     ds( other.ds )
+ {}
+ 
+@@ -96,6 +98,7 @@
+     icon_name = other.icon_name;
+     window_title = other.window_title;
+     clipboard = other.clipboard;
++    clipboard_count = other.clipboard_count;
+     bell_count = other.bell_count;
+     title_initialized = other.title_initialized;
+     ds = other.ds;
+@@ -388,7 +391,7 @@
+   rows = rows_type( height, newrow() );
+   window_title.clear();
+   clipboard.clear();
+-  /* do not reset bell_count */
++  /* do not reset bell_count, nor clipboard_count: a reset puts nothing on the clipboard */
+ }
+ 
+ void Framebuffer::soft_reset( void )
+--- a/src/terminal/terminalfunctions.cc
++++ b/src/terminal/terminalfunctions.cc
+@@ -623,13 +623,25 @@
+   fb->ds.set_hyperlink( Hyperlink( OSC_string.substr( 2, second_semicolon - 2 ), std::move( url ) ) );
+ }
+ 
++/* one of the selections OSC 52 may name: clipboard, primary, secondary, select, cut buffers 0 to 7 */
++static bool is_clipboard_selection( wchar_t c )
++{
++  return c == L'c' || c == L'p' || c == L'q' || c == L's' || ( c >= L'0' && c <= L'7' );
++}
++
+ /* xterm uses an Operating System Command to set the window title */
+ void Dispatcher::OSC_dispatch( const Parser::OSC_End* act __attribute( ( unused ) ), Framebuffer* fb )
+ {
+-  /* handle osc copy clipboard sequence 52;c; */
+-  if ( OSC_string.size() >= 5 && OSC_string[0] == L'5' && OSC_string[1] == L'2' && OSC_string[2] == L';'
+-       && OSC_string[3] == L'c' && OSC_string[4] == L';' ) {
+-    Terminal::Framebuffer::title_type clipboard( OSC_string.begin() + 5, OSC_string.end() );
++  /* handle osc copy clipboard sequence 52;Pc;Pd, kept whole after "52;" so that the
++     selection Pc (any of c p q s 0-7, or none) is passed on as the program named it
++     (REQ20/TERM-1; upstream took only "52;c;") */
++  size_t selection_end = 3;
++  while ( selection_end < OSC_string.size() && is_clipboard_selection( OSC_string[selection_end] ) ) {
++    selection_end++;
++  }
++  if ( OSC_string.size() > selection_end && OSC_string[0] == L'5' && OSC_string[1] == L'2'
++       && OSC_string[2] == L';' && OSC_string[selection_end] == L';' ) {
++    Terminal::Framebuffer::title_type clipboard( OSC_string.begin() + 3, OSC_string.end() );
+     fb->set_clipboard( clipboard );
+     /* handle osc terminal title sequence */
+   } else if ( OSC_string.size() >= 1 ) {
+--- a/src/terminal/terminaldisplay.cc
++++ b/src/terminal/terminaldisplay.cc
+@@ -102,9 +102,9 @@
+     }
+   }
+ 
+-  /* has clipboard changed? */
+-  if ( f.get_clipboard() != frame.last_frame.get_clipboard() ) {
+-    frame.append( "\033]52;c;" );
++  /* has text been put on the clipboard? (counted, so the same text twice is sent twice: REQ20/TERM-1) */
++  if ( f.get_clipboard_count() != frame.last_frame.get_clipboard_count() ) {
++    frame.append( "\033]52;" );
+     const title_type& clipboard( f.get_clipboard() );
+     for ( title_type::const_iterator i = clipboard.begin(); i != clipboard.end(); i++ ) {
+       frame.append( *i );

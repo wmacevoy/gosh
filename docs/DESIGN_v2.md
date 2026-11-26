@@ -755,6 +755,7 @@ connection or a change of ssh's options would then be made once.
 | 7 | four call sites in each program's loop: least wait, descriptors to watch, what became readable, once per pass | `STMClient::main`, `stmclient.cc:454,468,486,553`; `serve`, `mosh-server.cc` near `723,747,858` | forwarding, relay's start, a stream's end, all need a turn in the loop | additions |
 | 8 | one call after the session's transport exists | `STMClient::main_init`, `stmclient.cc:270`; `run_server`, `mosh-server.cc:439` | to give forwarding the side channel | addition |
 | 9 | the exit line and status when headless or for a stream; `pledge`'s conditions | `main`, `mosh-client.cc:215`; `stmclient.cc:441`; `mosh-server.cc:644` | `stdout` is not the client's to write on when it carries a stream | small changes |
+| 10 | *(seam patch 11, since requirements v20)* OSC 52 with any selection kept and passed on as written; a count of each time text is put on the clipboard, beside the bell's, and the display sends on a change of count, not of text | `Dispatcher::OSC_dispatch`, `terminalfunctions.cc:627`; `Framebuffer`, `terminalframebuffer.h:419`; `Display::new_frame`, `terminaldisplay.cc:105` | what a program on the server puts on the clipboard reaches the user's terminal each time (`REQ20/TERM-1`) | small changes |
 
 ### 4.2 gosh's own `main` in front of the core's
 
