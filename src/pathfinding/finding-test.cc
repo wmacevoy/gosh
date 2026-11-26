@@ -261,7 +261,7 @@ FACTS( Finding )
 
     net.straight = false;
     net.a_at = at( "203.0.113.1:4444" ); /* the NAT moves end 0 to another port */
-    net.pass( PathFinding::REGISTER_EVERY + PathFinding::OPEN_FOR + 6000 );
+    net.pass( Gosh::MeetupEnd::REGISTER_EVERY + PathFinding::OPEN_FOR + 6000 );
     FACT_CHECK( ( a.meetup_registered() && a.open( net.now ) && b.open( net.now ) && !a.direct() ), "end 0 moved by its NAT: it registers again from where it now is, and the way through holds" );
   }
 
@@ -278,9 +278,9 @@ FACTS( Finding )
                                          Gosh::meetup_where_v4( 0xCB007101, 9999 ) ), net.meetup_at );
     FACT_CHECK( !a.meetup_registered(), "a REGISTERED that says it saw us somewhere we did not say is not taken" );
     net.a_at = at( "203.0.113.1:4001" );
-    net.pass( 2 * PathFinding::REGISTER_RETRY );
+    net.pass( 2 * Gosh::MeetupEnd::REGISTER_RETRY );
     FACT_CHECK( !a.meetup_registered(), "moved before registering: its REGISTERs are refused" );
-    net.pass( 3 * PathFinding::REGISTER_RETRY + 3000 );
+    net.pass( 3 * Gosh::MeetupEnd::REGISTER_RETRY + 3000 );
     FACT_CHECK( a.meetup_registered(), "so it asks again where it is, and registers from there" );
   }
 

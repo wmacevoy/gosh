@@ -15,7 +15,7 @@
  *            a key the two ends share (sent over ssh), and numbered, so that only the other end
  *            can say where the other end is. Exactly PROBE_LEN bytes.
  *   STUN     answers from the servers asked; the meetup's says where to register from.
- *   meetup   REGISTERED and PASSED (src/meetup/messages.h), from the meetup's address only.
+ *   meetup   its own messages (src/meetup/end.h opens them), from the meetup's address only.
  *   the rest the session's own datagrams, taken only from where the other end was last heard
  *            to be. (They are mosh's, and sealed already.)
  *
@@ -38,7 +38,7 @@
 #include <vector>
 
 #include "src/crypto/crypto.h"
-#include "src/meetup/messages.h"
+#include "src/meetup/end.h"
 #include "src/meetup/ticket.h"
 #include "src/stun/stun.h"
 
@@ -58,9 +58,6 @@ public:
   static const uint64_t ANSWERED_FOR = 2 * OPEN_FOR; /* (gosh) and without an answer to our probes by it */
   static const size_t MAX_CANDIDATES = 16;
   static const size_t PROBE_LEN = 8 + 8 + 1 + 16; /* the mark; the nonce, one byte, the tag */
-  static const uint64_t REGISTER_EVERY = 25000;   /* ms: registered again this often while it lasts... */
-  static const uint64_t REGISTER_RETRY = 2000;    /* ...and this often until it is answered... */
-  static const int REGISTER_TRIES = 3;            /* ...up to this many times; then where are we, again? */
 
   enum Got
   {
@@ -94,30 +91,9 @@ private:
   uint64_t last_asked_back; /* (gosh) when we last asked back a new place a probe came from */
   std::vector<Outgoing> outbox;
 
-  /* (gosh) the meetup, once there is a ticket for it: where it is, and where it saw us */
-  bool meetup_known;
-  Addr meetup;
-  Gosh::Ticket ticket;
-  int end; /* 0: the initiator; 1: the other */
-  std::unique_ptr<Crypto::Session> meetup_session;
-  uint64_t meetup_counter;
-  std::string believed; /* where we appear to be, to the meetup ("where"), from its STUN answer */
-  bool registered;
-  int register_tries; /* REGISTERs not answered since we last asked where we are */
-  uint64_t registered_at, last_register, last_meetup_stun;
-  /* (gosh, REQ18/PATH-5) The meetup's clock, as we reckon it: the time of day when the meetup was
-   * taken up, `now` then (taken at the first tick after), and what the meetup's TIME has told us
-   * to add. And the counter of our last REGISTER, which a TIME must answer to be believed. */
-  uint64_t meetup_wall, meetup_since;
-  bool meetup_since_known;
-  int64_t meetup_offset;
-  uint64_t last_register_counter;
-  bool time_wanted;
-
-  uint64_t meetup_time( uint64_t now ) const
-  {
-    return static_cast<uint64_t>( static_cast<int64_t>( meetup_wall + ( now - meetup_since ) ) + meetup_offset );
-  }
+  /* (gosh) the meetup, once there is a ticket for it: its end of it is ours */
+  Gosh::MeetupEnd meetup;
+  static_assert( Gosh::MeetupEnd::ANSWER_LATE == OPEN_FOR, "a REGISTERED is late by as long as a way may be silent" );
 
   void out( Addr to, const std::string& bytes )
   {
@@ -132,8 +108,8 @@ private:
   {
     if ( !via ) {
       out( to, packet );
-    } else if ( registered ) {
-      out( meetup, Gosh::meetup_seal( *meetup_session, Gosh::MEETUP_PASS, ticket.id, end, false, meetup_counter++, packet ) );
+    } else if ( meetup.registered() ) {
+      out( meetup.at(), meetup.pass( packet ) );
     }
   }
 
@@ -159,98 +135,12 @@ private:
     local_new.push_back( text );
   }
 
-  /*
-   * (gosh) Keeping our registration with the meetup: first where it sees us (its STUN answer),
-   * then REGISTER with that, sealed; again until it answers, and every REGISTER_EVERY after.
-   */
-  void tend_meetup( uint64_t now )
-  {
-    if ( !meetup_known ) {
-      return;
-    }
-    if ( !meetup_since_known ) {
-      meetup_since = now;
-      meetup_since_known = true;
-    }
-    if ( registered && now - registered_at > REGISTER_EVERY + OPEN_FOR ) {
-      registered = false; /* not answered for a while: perhaps we have moved; ask again where we are */
-      believed.clear();
-    }
-    if ( believed.empty() ) {
-      if ( !last_meetup_stun || now - last_meetup_stun >= REGISTER_RETRY ) {
-        last_meetup_stun = now;
-        /* (any twelve bytes will do for its id: the answer is known by where it comes from) */
-        out( meetup, stun_request( "gosh meetup?" ) );
-      }
-      return;
-    }
-    const uint64_t every = registered ? REGISTER_EVERY : REGISTER_RETRY;
-    if ( !last_register || now - last_register >= every ) {
-      if ( !registered && register_tries >= REGISTER_TRIES ) {
-        /* Not taken from where we said: our NAT has moved us since. Ask again where we are. */
-        believed.clear();
-        register_tries = 0;
-        last_meetup_stun = 0;
-        return;
-      }
-      register_tries++;
-      last_register = now;
-      last_register_counter = meetup_counter;
-      time_wanted = true;
-      out( meetup,
-           Gosh::meetup_seal( *meetup_session, Gosh::MEETUP_REGISTER, ticket.id, end, false, meetup_counter++,
-                              Gosh::meetup_register_text( believed, meetup_time( now ) ) ) );
-    }
-  }
-
-  /*
-   * (gosh) A datagram from the meetup's address that is one of its messages: true, having dealt
-   * with it. passed: the datagram inside, if it was a PASSED; empty otherwise.
-   */
-  bool from_meetup( const char* data, size_t n, uint64_t now, std::string& passed )
-  {
-    passed.clear();
-    Gosh::MeetupHeader h;
-    if ( !Gosh::meetup_read_header( data, n, h ) ) {
-      return false;
-    }
-    if ( h.kind == Gosh::MEETUP_PASSED ) {
-      passed.assign( h.sealed, h.sealed_len );
-      return true;
-    }
-    std::optional<Gosh::Unsealed<Strong::Meetup::Registered>> seen;
-    /* (The meetup answers only from where we said we were; one that says otherwise is old, or lying.) */
-    if ( h.kind == Gosh::MEETUP_REGISTERED && h.ticket == ticket.id && h.end == end
-         && Gosh::Sealed<Strong::Meetup::Registered, Gosh::MeetupSealer>( h ).unseal( Gosh::MeetupSealer{ *meetup_session, true }, seen )
-         && Gosh::meetup_registered_at( *seen, believed ) ) {
-      registered = true;
-      registered_at = now;
-      register_tries = 0;
-    }
-    std::optional<Gosh::Unsealed<Strong::Meetup::Time>> told;
-    uint64_t answering, its_time;
-    if ( h.kind == Gosh::MEETUP_TIME && h.ticket == ticket.id && h.end == end && time_wanted
-         && Gosh::Sealed<Strong::Meetup::Time, Gosh::MeetupSealer>( h ).unseal( Gosh::MeetupSealer{ *meetup_session, true }, told )
-         && Gosh::meetup_read_time( *told, answering, its_time ) && answering == last_register_counter ) {
-      /* (gosh, REQ18/PATH-5) Our REGISTER's time was too far from the meetup's clock: take its
-       * word, which answers our last REGISTER and so is not an old one, and register again now. */
-      meetup_offset += static_cast<int64_t>( its_time - meetup_time( now ) );
-      time_wanted = false;
-      register_tries = 0;
-      last_register = 0;
-    }
-    return true;
-  }
-
 public:
   /* key: as Crypto::Base64Key prints it; throws Crypto::CryptoException if it is not one. The end that made it up is the initiator. */
   PathFinding( bool s_initiator, const std::string& key, uint64_t now )
     : initiator( s_initiator ), session( new Crypto::Session( Crypto::Base64Key( key ) ) ), send_seq( 0 ), heard_seq( 0 ),
       candidates(), local_new(), local_all(), peer(), peer_via( false ), locked( false ), heard( 0 ), started( now ),
-      last_probe( 0 ), last_direct_probe( 0 ), answered( 0 ), last_asked_back( 0 ), outbox(), meetup_known( false ), meetup(), ticket(),
-      end( s_initiator ? 0 : 1 ), meetup_session(), meetup_counter( 0 ), believed(), registered( false ),
-      register_tries( 0 ), registered_at( 0 ), last_register( 0 ), last_meetup_stun( 0 ), meetup_wall( 0 ), meetup_since( 0 ),
-      meetup_since_known( false ), meetup_offset( 0 ), last_register_counter( 0 ), time_wanted( false )
+      last_probe( 0 ), last_direct_probe( 0 ), answered( 0 ), last_asked_back( 0 ), outbox(), meetup( s_initiator )
   {}
 
   /* One of this machine's own addresses, with our port ("ip:port"): where the other end might reach us on our network. */
@@ -286,32 +176,15 @@ public:
    * numbered by starts from it, so that a ticket used again by a new PathFinding is not taken
    * for an old one; and a REGISTER's time is reckoned from it until the meetup says otherwise.
    */
-  bool use_meetup( const std::string& ip_port, const Gosh::Ticket& t, uint64_t wall_ms )
-  {
-    Addr where;
-    if ( !parse_ip_port( ip_port, where ) || t.id.size() != Gosh::TICKET_ID_LEN || t.key.size() != Gosh::TICKET_KEY_LEN ) {
-      return false;
-    }
-    meetup_session.reset( new Crypto::Session( Gosh::raw_key( t.key ) ) );
-    meetup = where;
-    meetup_known = true;
-    ticket = t;
-    meetup_counter = wall_ms << 10;
-    meetup_wall = wall_ms;
-    meetup_since_known = false;
-    meetup_offset = 0;
-    time_wanted = false;
-    believed.clear();
-    registered = false;
-    register_tries = 0;
-    last_register = last_meetup_stun = 0;
-    return true;
-  }
-  bool meetup_registered( void ) const { return registered; }
+  bool use_meetup( const std::string& ip_port, const Gosh::Ticket& t, uint64_t wall_ms ) { return meetup.use( ip_port, t, wall_ms ); }
+  bool meetup_registered( void ) const { return meetup.registered(); }
 
   void tick( uint64_t now )
   {
-    tend_meetup( now );
+    const std::string to_meetup = meetup.tick( now );
+    if ( !to_meetup.empty() ) {
+      out( meetup.at(), to_meetup );
+    }
     if ( open( now ) ) {
       if ( now - last_probe >= OPEN_EVERY ) {
         last_probe = now;
@@ -339,8 +212,8 @@ public:
       for ( size_t i = 0; i < candidates.size(); i++ ) {
         probe( '?', candidates[i], false );
       }
-      if ( registered ) {
-        probe( '?', meetup, true );
+      if ( meetup.registered() ) {
+        probe( '?', meetup.at(), true );
       }
       if ( locked && !peer_via ) {
         probe( '?', peer, false );
@@ -359,7 +232,7 @@ public:
     const char* buf = whole;
     bool via = false;
     std::string passed;
-    if ( meetup_known && same_ip_port( from, meetup ) && from_meetup( whole, n, now, passed ) ) {
+    if ( meetup.heard( from, whole, n, now, passed ) ) {
       if ( passed.empty() ) {
         return OTHER;
       }
@@ -436,11 +309,7 @@ public:
     Addr mapped;
     if ( stun_parse( buf, n, mapped ) ) {
       add_local( format_ip_port( mapped ), MAX_CANDIDATES );
-      /* (gosh) The meetup's answer: where to register from. */
-      if ( meetup_known && same_ip_port( from, meetup ) && believed.empty() ) {
-        believed = Gosh::meetup_where_of( mapped );
-        last_register = 0;
-      }
+      meetup.stun_answer( from, mapped ); /* (gosh) the meetup's: where to register from */
       return OTHER;
     }
 
