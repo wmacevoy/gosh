@@ -1,7 +1,7 @@
-/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
+/* Copyright 2026 Warren D. MacEvoy. MIT (strong-domain-driven-design, LICENSE): one of what the prover trusts, prover/trusted/. */
 
 /*
- * Who called, and the end of the process (REQ6/SHAPE-5).
+ * Who called, and the end of the process.
  *
  * A way in for code that is not proved tests what it is given, when the program runs:
  *
@@ -10,7 +10,7 @@
  * If the condition is not so, the process ends there: it says which line called and what was
  * expected, and aborts. It is not an answer and not an exception: nothing can catch it, and
  * nothing goes on. So code that is not proved hands a way in only what it has itself made right;
- * what comes from anyone is first read by what is proved to read anything (pathfinding/stunanswer.h), or
+ * what comes from anyone is first read by what is proved to read anything, or
  * tested by the code that hands it over. `from` is a Strong::caller, the last parameter of the
  * way in, with a default: the compiler fills it in with the line of whoever called.
  *
@@ -18,8 +18,8 @@
  * ends the process, and that it does is trusted.
  */
 
-#ifndef GOSH_STRONG_CALLER_H
-#define GOSH_STRONG_CALLER_H
+#ifndef STRONG_CALLER_H
+#define STRONG_CALLER_H
 
 #include <cstdio>
 #include <cstdlib>
@@ -35,7 +35,7 @@ struct caller
 
 [[noreturn]] inline void failed( const char* expected, caller from )
 {
-  fprintf( stderr, "gosh: %s:%d: called with what is not expected: %s\n", from.file, from.line, expected );
+  fprintf( stderr, "%s:%d: called with what is not expected: %s\n", from.file, from.line, expected );
   abort();
 }
 
