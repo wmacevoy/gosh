@@ -45,8 +45,8 @@
 using Network::Addr;
 using Gosh::Stun::format_ip_port;
 using Gosh::Stun::parse_ip_port;
-using Network::Punch;
-using Network::PUNCH_MARK;
+using Gosh::Pathfinding::Punch;
+using Gosh::Pathfinding::PUNCH_MARK;
 using Network::RelayOptions;
 using Gosh::relay_frame;
 using Gosh::RelayFrameParser;

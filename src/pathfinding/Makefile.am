@@ -6,18 +6,18 @@ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXF
 
 noinst_LIBRARIES = libgoshpathfinding.a
 
-libgoshpathfinding_a_SOURCES = finding.h mark.h punch.cc punch.h
+libgoshpathfinding_a_SOURCES = punch.h mark.h got.h imp/finding.h imp/punch.cc
 
-check_PROGRAMS = finding-test punch-test finding-fuzzer
+check_PROGRAMS = imp/finding-test imp/punch-test imp/finding-fuzzer
 TESTS = $(check_PROGRAMS)
 LDADD = libfacts.a libgoshpathfinding.a ../meetup/libgoshmeetup.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
-finding_test_SOURCES = finding-test.cc
-punch_test_SOURCES = punch-test.cc
+imp_finding_test_SOURCES = imp/finding-test.cc
+imp_punch_test_SOURCES = imp/punch-test.cc
 
 # Fuzzers (queue item 21): each is built twice. Here, with the ordinary compiler, it replays its
 # corpus (the directory beside it named for it, with -corpus after), so an input that once broke
 # the part breaks the check. In CI, with clang and -DGOSH_LIBFUZZER, libFuzzer runs it.
-finding_fuzzer_SOURCES = finding-fuzzer.cc
+imp_finding_fuzzer_SOURCES = imp/finding-fuzzer.cc
 
 AUTOMAKE_OPTIONS = subdir-objects
 

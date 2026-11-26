@@ -8,7 +8,7 @@
 #ifndef GOSH_PATHFINDING_MARK_H
 #define GOSH_PATHFINDING_MARK_H
 
-namespace Network {
+namespace Gosh::Pathfinding {
 
 static const char PUNCH_MARK[8] = { 0, 'M', 'O', 'S', 'H', 'P', 'C', 'H' };
 

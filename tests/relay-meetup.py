@@ -20,7 +20,7 @@ the test's own, so the meetup's master key is nobody's real one.
   the session       works throughout: a TCP forward, there and back
 
 On one machine the two relays also find a way straight to each other, and prefer it, so this
-does not show datagrams going through the meetup: src/pathfinding/punch-test.cc does that, with
+does not show datagrams going through the meetup: src/pathfinding/imp/punch-test.cc does that, with
 the meetup's own logic. It stops only what it started, by process id.
 """
 import os

@@ -40,11 +40,12 @@
 #include "src/meetup/imp/messages.h"
 #include "src/meetup/imp/registrations.h"
 #include "src/meetup/ticket.h"
-#include "src/pathfinding/finding.h"
+#include "src/pathfinding/imp/finding.h"
 #include "src/stun/stun.h"
 #include "src/seam/fuzz-replay.h"
 
 using namespace Network;
+using Gosh::Pathfinding::Imp::PathFinding;
 
 namespace {
 
@@ -133,7 +134,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
       require( to_a || Gosh::Stun::same_ip_port( dest, at( B_AT ) ) );
     }
     if ( to_a ) {
-      if ( a.receive( now, reply.data(), reply.size(), meetup_at, got ) == PathFinding::DATA ) {
+      if ( a.receive( now, reply.data(), reply.size(), meetup_at, got ) == Gosh::Pathfinding::DATA ) {
         require( taken_from_its_way( a, meetup_at ) );
       }
     } else {
@@ -154,7 +155,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
         const Addr from = at( FROM[byte_at( body, 0 ) % 5] );
         std::string bytes = body.size() > 2 ? body.substr( 2 ) : std::string();
         bytes += std::string( byte_at( body, 1 ) * 40, 'p' );
-        if ( a.receive( now, bytes.data(), bytes.size(), from, datagram ) == PathFinding::DATA ) {
+        if ( a.receive( now, bytes.data(), bytes.size(), from, datagram ) == Gosh::Pathfinding::DATA ) {
           require( taken_from_its_way( a, from ) );
         }
         break;
@@ -180,7 +181,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
             bytes[byte_at( body, 0 ) % bytes.size()] ^= 0x5A;
           }
           const Addr from = at( ( byte_at( body, 1 ) & 2 ) ? "10.0.0.66:666" : B_AT );
-          if ( a.receive( now, bytes.data(), bytes.size(), from, datagram ) == PathFinding::DATA ) {
+          if ( a.receive( now, bytes.data(), bytes.size(), from, datagram ) == Gosh::Pathfinding::DATA ) {
             require( taken_from_its_way( a, from ) );
           }
         }

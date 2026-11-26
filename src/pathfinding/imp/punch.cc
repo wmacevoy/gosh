@@ -25,6 +25,8 @@
 #include "src/pathfinding/punch.h"
 
 using namespace Network;
+using namespace Gosh::Pathfinding;
+using Gosh::Pathfinding::Imp::PathFinding;
 
 /*
  * (gosh, REQ17/PATH-8) The socket takes both families where the system lets one socket do so: an

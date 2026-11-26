@@ -40,10 +40,11 @@
 #include "src/crypto/crypto.h"
 #include "src/meetup/end.h"
 #include "src/meetup/ticket.h"
+#include "src/pathfinding/got.h"
 #include "src/pathfinding/mark.h"
 #include "src/stun/stun.h"
 
-namespace Network {
+namespace Gosh::Pathfinding::Imp {
 
 class PathFinding
 {
@@ -57,18 +58,10 @@ public:
   static const size_t MAX_CANDIDATES = 16;
   static const size_t PROBE_LEN = 8 + 8 + 1 + 16; /* the mark; the nonce, one byte, the tag */
 
-  enum Got
-  {
-    NOTHING, /* nothing there to read (the edge's to say) */
-    OTHER,   /* something of ours, or of nobody's: dealt with */
-    DATA,    /* a datagram of the session's */
-    GOODBYE  /* the other end has finished */
-  };
-
   /* A datagram to send. */
   struct Outgoing
   {
-    Addr to;
+    Network::Addr to;
     std::string bytes;
   };
 
@@ -78,10 +71,10 @@ private:
   bool initiator;
   std::unique_ptr<Crypto::Session> session;
   uint64_t send_seq, heard_seq;
-  std::vector<Addr> candidates;       /* where the other end might be */
+  std::vector<Network::Addr> candidates;       /* where the other end might be */
   std::vector<std::string> local_new; /* where we appear to be, not yet told to the other end */
   std::vector<std::string> local_all;
-  Addr peer;     /* where it was last heard to be... */
+  Network::Addr peer;     /* where it was last heard to be... */
   bool peer_via; /* ...or the meetup that passes datagrams on to it, if that is how it was heard */
   bool locked;
   uint64_t heard, started, last_probe, last_direct_probe;
@@ -93,7 +86,7 @@ private:
   Gosh::Meetup::End meetup;
   static_assert( Gosh::Meetup::End::ANSWER_LATE == OPEN_FOR, "a REGISTERED is late by as long as a way may be silent" );
 
-  void out( Addr to, const std::string& bytes )
+  void out( Network::Addr to, const std::string& bytes )
   {
     Outgoing o;
     o.to = to;
@@ -102,7 +95,7 @@ private:
   }
 
   /* Straight to an address; or to the meetup, to be passed on to the other end. */
-  void transmit( const std::string& packet, Addr to, bool via )
+  void transmit( const std::string& packet, Network::Addr to, bool via )
   {
     if ( !via ) {
       out( to, packet );
@@ -111,7 +104,7 @@ private:
     }
   }
 
-  void probe( char type, Addr to, bool via )
+  void probe( char type, Network::Addr to, bool via )
   {
     const uint64_t seq = ( ++send_seq ) | ( initiator ? 0 : DIRECTION );
     std::string packet( PUNCH_MARK, sizeof( PUNCH_MARK ) );
@@ -147,7 +140,7 @@ public:
   /* Where the other end might be ("ip:port"), as it says. */
   void add_candidate( const std::string& ip_port )
   {
-    Addr addr;
+    Network::Addr addr;
     if ( !Gosh::Stun::parse_ip_port( ip_port, addr ) || candidates.size() >= MAX_CANDIDATES ) {
       return;
     }
@@ -220,7 +213,7 @@ public:
   }
 
   /* A datagram has come from `from`. DATA: the session's, in datagram. Never NOTHING. */
-  Got receive( uint64_t now, const char* whole, size_t n, const Addr& from, std::string& datagram )
+  Got receive( uint64_t now, const char* whole, size_t n, const Network::Addr& from, std::string& datagram )
   {
     if ( from.sa.sa_family != AF_INET && from.sa.sa_family != AF_INET6 ) {
       return OTHER;
@@ -304,7 +297,7 @@ public:
       return OTHER;
     }
 
-    Addr mapped;
+    Network::Addr mapped;
     if ( Gosh::Stun::stun_parse( buf, n, mapped ) ) {
       add_local( Gosh::Stun::format_ip_port( mapped ), MAX_CANDIDATES );
       meetup.stun_answer( from, mapped ); /* (gosh) the meetup's: where to register from */

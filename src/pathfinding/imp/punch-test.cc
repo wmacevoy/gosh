@@ -102,7 +102,7 @@ struct MeetupServer
 
 /* Runs both ends (and the meetup, if there is one) until done says so, or for at most ms. */
 template<class Done>
-bool run( Network::Punch& a, Network::Punch& b, MeetupServer* m, uint64_t ms, Done done, std::string* got_b = NULL )
+bool run( Gosh::Pathfinding::Punch& a, Gosh::Pathfinding::Punch& b, MeetupServer* m, uint64_t ms, Done done, std::string* got_b = NULL )
 {
   const uint64_t until = now_ms() + ms;
   while ( now_ms() < until ) {
@@ -113,11 +113,11 @@ bool run( Network::Punch& a, Network::Punch& b, MeetupServer* m, uint64_t ms, Do
       m->serve();
     }
     std::string d;
-    while ( a.receive( now, d ) != Network::Punch::NOTHING ) {
+    while ( a.receive( now, d ) != Gosh::Pathfinding::Punch::NOTHING ) {
     }
-    Network::Punch::Got got;
-    while ( ( got = b.receive( now, d ) ) != Network::Punch::NOTHING ) {
-      if ( got == Network::Punch::DATA && got_b ) {
+    Gosh::Pathfinding::Punch::Got got;
+    while ( ( got = b.receive( now, d ) ) != Gosh::Pathfinding::Punch::NOTHING ) {
+      if ( got == Gosh::Pathfinding::Punch::DATA && got_b ) {
         *got_b = d;
       }
     }
@@ -133,7 +133,7 @@ bool run( Network::Punch& a, Network::Punch& b, MeetupServer* m, uint64_t ms, Do
 /* REQ1/PATH-3, REQ15/PATH-4, REQ18/PATH-5, REQ17/PATH-8: path-finding, straight and through a meetup */
 FACTS( Punch )
 {
-  using Network::Punch;
+  using Gosh::Pathfinding::Punch;
   const std::string key = Crypto::Base64Key().printable_key();
   const std::vector<std::string> nobody;
 
@@ -185,7 +185,7 @@ FACTS( Punch )
     to.sin_family = AF_INET;
     to.sin_addr.s_addr = htonl( INADDR_LOOPBACK );
     to.sin_port = htons( a.local_port() );
-    std::string huge( Network::PUNCH_MARK, sizeof( Network::PUNCH_MARK ) );
+    std::string huge( Gosh::Pathfinding::PUNCH_MARK, sizeof( Gosh::Pathfinding::PUNCH_MARK ) );
     huge += std::string( 4000, 'x' );
     sendto( s, huge.data(), huge.size(), 0, reinterpret_cast<struct sockaddr*>( &to ), sizeof( to ) );
     usleep( 50000 );

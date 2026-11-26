@@ -14,11 +14,11 @@
 
 #include "src/meetup/imp/answer.h"
 #include "src/meetup/imp/registrations.h"
-#include "src/pathfinding/finding.h"
+#include "src/pathfinding/imp/finding.h"
 #include "vendor/facts/facts.h"
 
 using Network::Addr;
-using Network::PathFinding;
+using Gosh::Pathfinding::Imp::PathFinding;
 
 
 
@@ -68,11 +68,11 @@ struct Net
   void to_end( bool to_a, const std::string& bytes, Addr from )
   {
     std::string d;
-    const PathFinding::Got got = ( to_a ? a : b ).receive( now, bytes.data(), bytes.size(), from, d );
-    if ( got == PathFinding::DATA ) {
+    const Gosh::Pathfinding::Got got = ( to_a ? a : b ).receive( now, bytes.data(), bytes.size(), from, d );
+    if ( got == Gosh::Pathfinding::DATA ) {
       ( to_a ? a_got : b_got ) = d;
     }
-    if ( got == PathFinding::GOODBYE && !to_a ) {
+    if ( got == Gosh::Pathfinding::GOODBYE && !to_a ) {
       b_goodbyes++;
     }
   }
@@ -317,12 +317,12 @@ FACTS( Finding )
     net.pass( 1000 );
 
     std::string d;
-    std::string huge( Network::PUNCH_MARK, sizeof( Network::PUNCH_MARK ) );
+    std::string huge( Gosh::Pathfinding::PUNCH_MARK, sizeof( Gosh::Pathfinding::PUNCH_MARK ) );
     huge += std::string( 4000, 'x' );
-    FACT_CHECK( b.receive( net.now, huge.data(), huge.size(), net.a_at, d ) == PathFinding::OTHER, "a probe-marked datagram of 4,008 bytes is not opened (the fifth security fault)" );
-    std::string short_probe( Network::PUNCH_MARK, sizeof( Network::PUNCH_MARK ) );
+    FACT_CHECK( b.receive( net.now, huge.data(), huge.size(), net.a_at, d ) == Gosh::Pathfinding::OTHER, "a probe-marked datagram of 4,008 bytes is not opened (the fifth security fault)" );
+    std::string short_probe( Gosh::Pathfinding::PUNCH_MARK, sizeof( Gosh::Pathfinding::PUNCH_MARK ) );
     short_probe += "abc";
-    FACT_CHECK( b.receive( net.now, short_probe.data(), short_probe.size(), net.a_at, d ) == PathFinding::OTHER, "nor one too short" );
+    FACT_CHECK( b.receive( net.now, short_probe.data(), short_probe.size(), net.a_at, d ) == Gosh::Pathfinding::OTHER, "nor one too short" );
 
     /* A probe of end 0's, copied as it went, and sent later from somewhere else. */
     a.goodbye(); /* (any probe will do; this one is easy to find) */
@@ -333,11 +333,11 @@ FACTS( Finding )
     const Addr onlooker = at( "192.0.2.66:6666" );
     net.to_end( false, copied, onlooker );
     FACT_CHECK( b.where() == before, "a probe sent again, from elsewhere, does not move the way" );
-    std::string sealed_elsewhere( Network::PUNCH_MARK, sizeof( Network::PUNCH_MARK ) );
-    sealed_elsewhere += std::string( PathFinding::PROBE_LEN - sizeof( Network::PUNCH_MARK ), 'z' );
+    std::string sealed_elsewhere( Gosh::Pathfinding::PUNCH_MARK, sizeof( Gosh::Pathfinding::PUNCH_MARK ) );
+    sealed_elsewhere += std::string( PathFinding::PROBE_LEN - sizeof( Gosh::Pathfinding::PUNCH_MARK ), 'z' );
     net.to_end( false, sealed_elsewhere, onlooker );
     FACT_CHECK( b.where() == before, "nor does one not sealed with the key" );
-    FACT_CHECK( b.receive( net.now, "hello", 5, onlooker, d ) == PathFinding::OTHER, "and a datagram from anywhere but the other end is not the session's" );
+    FACT_CHECK( b.receive( net.now, "hello", 5, onlooker, d ) == Gosh::Pathfinding::OTHER, "and a datagram from anywhere but the other end is not the session's" );
 
     const std::string answer = Gosh::Meetup::Imp::stun_answer( std::string( "\x00\x01\x00\x00\x21\x12\xa4\x42" "twelve bytes", 20 ).data(),
                                                   0xCB007101, 7777 );

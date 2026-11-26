@@ -8,7 +8,8 @@
 
 #include "src/meetup/ticket.h"
 #include "src/network/network.h"
-#include "src/pathfinding/finding.h"
+#include "src/pathfinding/got.h"
+#include "src/pathfinding/imp/finding.h"
 #include "src/stun/stun.h"
 
 /*
@@ -34,21 +35,21 @@
  * one socket where the system allows (REQ17/PATH-8).
  */
 
-namespace Network {
+namespace Gosh::Pathfinding {
 
 class Punch
 {
 public:
-  typedef PathFinding::Got Got;
-  static constexpr Got NOTHING = PathFinding::NOTHING;
-  static constexpr Got OTHER = PathFinding::OTHER;
-  static constexpr Got DATA = PathFinding::DATA;
-  static constexpr Got GOODBYE = PathFinding::GOODBYE;
+  typedef Pathfinding::Got Got;
+  static constexpr Got NOTHING = Pathfinding::NOTHING;
+  static constexpr Got OTHER = Pathfinding::OTHER;
+  static constexpr Got DATA = Pathfinding::DATA;
+  static constexpr Got GOODBYE = Pathfinding::GOODBYE;
 
 private:
   int sock;
   int family; /* (gosh) AF_INET6 if the socket takes both families; AF_INET if it could not */
-  PathFinding finding;
+  Imp::PathFinding finding;
 
   void flush( void );
 
