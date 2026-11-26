@@ -17,21 +17,21 @@
 #include <string>
 #include <vector>
 
-#include "src/seam/session.h"
+#include "src/seam/imp/session.h"
 #include "vendor/retain/retain.hpp"
 #include "src/command/moshwrapper.h"
 #include "src/forwarding/streamchild.h"
-#include "src/seam/applications.h"
+#include "src/seam/imp/applications.h"
 #include "src/seam/core-main.h"
 #include "src/seam/gosh-version.h"
 #include "src/seam/hooks.h"
-#include "src/seam/options.h"
+#include "src/seam/imp/options.h"
 
 int main( int argc, char* argv[] )
 {
   /* The session, for everything this calls: the seam's hooks recall it (session.cc). */
-  Gosh::Session the_session;
-  retain<Gosh::Session> as( &the_session );
+  Gosh::Seam::Imp::Session the_session;
+  retain<Gosh::Seam::Imp::Session> as( &the_session );
 
   const std::string name( argc > 0 ? argv[0] : "gosh-client" );
   std::vector<std::string> args( argv + ( argc > 0 ? 1 : 0 ), argv + argc );
@@ -43,11 +43,11 @@ int main( int argc, char* argv[] )
 
   std::string called;
   size_t skip = 0;
-  const Gosh::Role role = Gosh::which_role( name, args, called, skip );
-  if ( role != Gosh::THE_CLIENT ) {
+  const Gosh::Seam::Imp::Role role = Gosh::Seam::Imp::which_role( name, args, called, skip );
+  if ( role != Gosh::Seam::Imp::THE_CLIENT ) {
     std::vector<std::string> client_words; /* the client's name, then its arguments */
     int status = 1;
-    if ( !Gosh::Command::run( std::vector<std::string>( args.begin() + skip, args.end() ), role == Gosh::THE_COPY, called,
+    if ( !Gosh::Command::run( std::vector<std::string>( args.begin() + skip, args.end() ), role == Gosh::Seam::Imp::THE_COPY, called,
                             name, print_colorcount, client_words, status ) ) {
       return status; /* it has said why, or has done all that was asked (--help, --version) */
     }
@@ -55,26 +55,26 @@ int main( int argc, char* argv[] )
   }
 
   /* (REQ1/CMD-2) Which gosh this is, before the core says which mosh. */
-  if ( role == Gosh::THE_CLIENT && args.size() == 1 && args[0] == "--version" ) {
+  if ( role == Gosh::Seam::Imp::THE_CLIENT && args.size() == 1 && args[0] == "--version" ) {
     printf( "gosh-client, of gosh %s\n", GOSH_VERSION );
   }
 
-  Gosh::ForwardOptions options;
+  Gosh::Seam::Imp::ForwardOptions options;
   std::vector<std::string> rest;
   std::string error;
   /* "#": the core's one option that takes a value (the original command line, which it ignores) */
-  if ( !Gosh::take_forward_options( args, "#", true, true, options, rest, error ) ) {
+  if ( !Gosh::Seam::Imp::take_forward_options( args, "#", true, true, options, rest, error ) ) {
     fprintf( stderr, "%s: %s\n", name.c_str(), error.c_str() );
     return 1;
   }
 
-  if ( options.stream_given && !Gosh::stream_words_valid( Gosh::Forwarding::stream_words( options.stream ) ) ) {
+  if ( options.stream_given && !Gosh::Seam::Imp::stream_words_valid( Gosh::Forwarding::stream_words( options.stream ) ) ) {
     fprintf( stderr, "%s: -X: not something that can be started\n", name.c_str() );
     return 1;
   }
 
-  Gosh::session().client = true;
-  Gosh::session().options = options;
+  Gosh::Seam::Imp::session().client = true;
+  Gosh::Seam::Imp::session().options = options;
 
   /*
    * How to reach the server if UDP will not get there (the fork's mosh-client.cc): a command
@@ -95,15 +95,15 @@ int main( int argc, char* argv[] )
     }
     relay_command.push_back( word );
   }
-  Gosh::session().relay.command = relay_command;
-  Gosh::session().relay.mode = Gosh::Relay::relay_mode( getenv( "GOSH_RELAY" ) ? getenv( "GOSH_RELAY" ) : "auto", !relay_command.empty() );
+  Gosh::Seam::Imp::session().relay.command = relay_command;
+  Gosh::Seam::Imp::session().relay.mode = Gosh::Relay::relay_mode( getenv( "GOSH_RELAY" ) ? getenv( "GOSH_RELAY" ) : "auto", !relay_command.empty() );
   /* where the server is: the two words the core's own reading will take for it, wherever they stand */
-  const std::vector<std::string> where = Gosh::operands( rest, "#" );
+  const std::vector<std::string> where = Gosh::Seam::Imp::operands( rest, "#" );
   if ( where.size() >= 2 ) {
-    Gosh::session().relay.server_ip = where[0];
-    Gosh::session().relay.server_port = where[1];
+    Gosh::Seam::Imp::session().relay.server_ip = where[0];
+    Gosh::Seam::Imp::session().relay.server_port = where[1];
   }
 
-  Gosh::CoreWords held;
-  return Gosh::call_core_main( mosh_client_main, name, rest, held );
+  Gosh::Seam::CoreWords held;
+  return Gosh::Seam::call_core_main( mosh_client_main, name, rest, held );
 }

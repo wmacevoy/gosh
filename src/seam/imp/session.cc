@@ -1,6 +1,6 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-#include "src/seam/session.h"
+#include "src/seam/imp/session.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -16,7 +16,7 @@
  * Expects that a Session is retained. If none is, that is a fault in gosh's own code, and the
  * process ends saying so.
  */
-Gosh::Session& Gosh::session( void )
+Gosh::Seam::Imp::Session& Gosh::Seam::Imp::session( void )
 {
   if ( !retained<Session>() ) {
     fprintf( stderr, "gosh: no session is retained (gosh's main retains one before the core runs)\n" );

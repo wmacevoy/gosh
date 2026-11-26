@@ -13,7 +13,8 @@
 #include <sys/types.h>
 
 #include "src/forwarding/forwarding.h"
-#include "src/seam/session.h"
+#include "src/seam/asked.h"
+#include "src/seam/imp/session.h"
 
 /*
  * The seam: what the core's two programs call, at the places the seam's patches
@@ -40,7 +41,7 @@
  * the session is up; when it has ended and the last of what it sent has gone, the client ends
  * the session, and exits with that process's status.
  */
-namespace Gosh {
+namespace Gosh::Seam {
 
 /*
  * Starts forwarding, if any was asked for, and gives it the session's side channel.
@@ -51,9 +52,9 @@ namespace Gosh {
 template<class Transport>
 void session_started( Transport& network, unsigned int verbose )
 {
-  Session& s = session();
+  Imp::Session& s = Imp::session();
   const bool stream = !s.options.stream.empty();
-  take_stream_words();
+  Imp::take_stream_words();
   if ( s.client ) {
     s.ending = [&network]() { return network.shutdown_in_progress(); };
     s.end_it = [&network]() { network.start_shutdown(); };
@@ -61,7 +62,7 @@ void session_started( Transport& network, unsigned int verbose )
     s.send_elsewhere = [&network]( const Network::Addr& to, socklen_t len ) { network.set_remote_addr( to, len ); };
     s.started_at = Network::timestamp();
     if ( s.relay.mode == Gosh::Relay::RELAY_ALWAYS ) {
-      engage_relay();
+      Imp::engage_relay();
     }
   }
   if ( !s.options.any() && !stream ) {
@@ -70,7 +71,7 @@ void session_started( Transport& network, unsigned int verbose )
   s.forwarding.reset( new Gosh::Forwarding::Forwarding(
     &network, s.client, s.options.udp, s.options.tcp, s.options.tcp_remote, s.options.udp_remote, stream ) );
   if ( stream && !s.client ) {
-    serve_stream();
+    Imp::serve_stream();
   }
   s.forwarding->set_verbose( verbose );
   if ( !s.forwarding->set_fragment_parity( s.options.parity ) ) {
@@ -83,7 +84,7 @@ void session_started( Transport& network, unsigned int verbose )
 /* How long the program's loop may wait: `otherwise`, or less if forwarding has a timer due sooner (ms). */
 inline int wait_time( int otherwise )
 {
-  Session& s = session();
+  Imp::Session& s = Imp::session();
   if ( !s.forwarding ) {
     return otherwise;
   }
@@ -97,7 +98,7 @@ inline int wait_time( int otherwise )
 template<class Select>
 void watch( Select& sel )
 {
-  Session& s = session();
+  Imp::Session& s = Imp::session();
   s.watched = s.forwarding ? s.forwarding->fds() : std::vector<int>();
   for ( std::vector<int>::const_iterator it = s.watched.begin(); it != s.watched.end(); it++ ) {
     sel.add_fd( *it );
@@ -108,9 +109,9 @@ void watch( Select& sel )
 template<class Select>
 void turn( Select& sel )
 {
-  Session& s = session();
+  Imp::Session& s = Imp::session();
   if ( s.client ) {
-    consider_relay();
+    Imp::consider_relay();
   }
   if ( !s.forwarding ) {
     return;
@@ -122,7 +123,7 @@ void turn( Select& sel )
   }
   s.forwarding->tick();
   if ( s.client && !s.stream.words.empty() ) {
-    tend_stream();
+    Imp::tend_stream();
   }
 }
 
@@ -135,7 +136,7 @@ void turn( Select& sel )
 template<class Transport>
 void announce( Transport& network, bool still_connecting )
 {
-  Session& s = session();
+  Imp::Session& s = Imp::session();
   if ( s.announced || still_connecting ) {
     return;
   }
@@ -145,7 +146,7 @@ void announce( Transport& network, bool still_connecting )
     s.announced = true;
     fputs( "gosh: the server does not do this: it is a stock mosh-server, or one from before streams.\n", stderr );
     fflush( stderr );
-    stream_never_ran();
+    Imp::stream_never_ran();
     return;
   }
   if ( !stream && s.forwarding && !network.peer_can( Network::CAPABILITY_SIDECHANNEL ) ) {
@@ -166,7 +167,7 @@ void announce( Transport& network, bool still_connecting )
   }
   s.announced = true;
   if ( stream ) {
-    start_stream(); /* the session is up: our end of the stream, and the server asked for its end */
+    Imp::start_stream(); /* the session is up: our end of the stream, and the server asked for its end */
     return;
   }
   fputs( s.forwarding ? "gosh: connected; forwarding.\n" : "gosh: connected.\n", stderr );
@@ -176,13 +177,13 @@ void announce( Transport& network, bool still_connecting )
 /* The client's loop has come to its end (and was not left by an exception). */
 inline void loop_returned( void )
 {
-  session().loop_returned = true;
+  Imp::session().loop_returned = true;
 }
 
 /* Ends forwarding and closes its sockets. Safe to call when there is none. */
 inline void session_ended( void )
 {
-  session().forwarding.reset();
+  Imp::session().forwarding.reset();
 }
 
 }

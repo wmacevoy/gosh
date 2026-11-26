@@ -162,7 +162,7 @@ void make_tree( void )
   put( source + "/big", big );
   put( source + "/sub/c", "three" );
   atexit( cleanup );
-  GoshFuzzReplay::on_crash() = cleanup;
+  Gosh::Seam::FuzzReplay::on_crash() = cleanup;
 }
 
 }

@@ -14,7 +14,7 @@
 
 #include <sys/types.h>
 
-namespace Gosh {
+namespace Gosh::Seam::Imp {
 
 struct StreamState
 {
@@ -40,14 +40,6 @@ void start_stream( void );
 
 /* The client: the process at its end will never run (it could not be started, or the server cannot do streams). */
 void stream_never_ran( void );
-
-/*
- * The client, for a stream: the status to exit with. We were only the means; what matters is
- * how the process the stream was for got on: its exit status; or 1 if it never ran, or if the
- * client's loop was thrown out of before it could be asked.
- * success: whether the session itself ended cleanly.
- */
-int stream_exit( bool success );
 
 }
 

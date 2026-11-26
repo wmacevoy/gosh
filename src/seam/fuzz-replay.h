@@ -25,7 +25,7 @@
 
 extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size );
 
-namespace GoshFuzzReplay {
+namespace Gosh::Seam::FuzzReplay {
 /* What a fuzzer wants done before a crash ends it, such as removing its scratch directory: set by
    the fuzzer, called by the replay's crash handler. (Under libFuzzer nothing calls it: a fuzzer
    that keeps scratch also clears what earlier runs left.) */
@@ -53,7 +53,7 @@ inline Hook& on_crash( void )
 #include <sys/stat.h>
 #include <unistd.h>
 
-namespace GoshFuzzReplay {
+namespace Gosh::Seam::FuzzReplay {
 
 inline void gather( const std::string& path, std::vector<std::string>& files )
 {
@@ -169,7 +169,7 @@ inline void mutate( std::string& s, uint32_t& state )
 
 int main( int argc, char* argv[] )
 {
-  using namespace GoshFuzzReplay;
+  using namespace Gosh::Seam::FuzzReplay;
   std::vector<std::string> files;
   if ( argc > 1 ) {
     for ( int i = 1; i < argc; i++ ) {

@@ -1,8 +1,8 @@
 /* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 
-#include "src/seam/options.h"
+#include "src/seam/imp/options.h"
 
-namespace Gosh {
+namespace Gosh::Seam::Imp {
 
 bool take_forward_options( const std::vector<std::string>& args,
                            const std::string& core_values,

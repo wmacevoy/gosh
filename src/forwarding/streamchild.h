@@ -13,7 +13,7 @@
  * The process at each end of a session's stream (see TYPE_STREAM): what the stream is a stream
  * between. It is described by words, kept together in one string with the character 0x1F between
  * them; the first word names it. Which names there are, and what each becomes, forwarding does
- * not know: that is the application's, and the program says (src/seam/applications.h). So
+ * not know: that is the application's, and the program says (src/seam/imp/applications.h). So
  * forwarding, which carries, knows no application (the layers: src/README.md).
  */
 

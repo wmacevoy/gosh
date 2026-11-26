@@ -6,7 +6,7 @@
  * such a fact out and says so; the whole check tries it all the same, since what is proved rests
  * on the prover's reading of the C++, which is itself only tested.
  *
- *     if ( !Gosh::proved_so_not_tried( "what the fact says", "Strong::Class, proofs/Class.proof.cpp" ) ) {
+ *     if ( !Gosh::Seam::proved_so_not_tried( "what the fact says", "Strong::Class, proofs/Class.proof.cpp" ) ) {
  *       FACT_CHECK( ... );
  *     }
  *
@@ -22,7 +22,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace Gosh {
+namespace Gosh::Seam {
 
 /* True, and a line saying so, in the lite check: the fact named is proved (by `proof`, beside the
    class it is of; tools/proofs.sh) and is not tried now. False in every other run. */
