@@ -13,25 +13,25 @@ libgoshcopy_a_SOURCES = filecopy.h options.h imp/filecopy.cc imp/messages.h imp/
 check_PROGRAMS = imp/options-test imp/messages-test imp/names-test imp/checksum-test imp/decisions-test imp/filecopy-test imp/filecopy-fuzzer imp/sender-fuzzer
 TESTS = $(check_PROGRAMS)
 imp_options_test_SOURCES = imp/options-test.cc
-options_test_LDADD = libfacts.a
+imp_options_test_LDADD = libfacts.a
 imp_messages_test_SOURCES = imp/messages-test.cc
-messages_test_LDADD = libfacts.a
+imp_messages_test_LDADD = libfacts.a
 imp_names_test_SOURCES = imp/names-test.cc
-names_test_LDADD = libfacts.a
+imp_names_test_LDADD = libfacts.a
 imp_checksum_test_SOURCES = imp/checksum-test.cc
-checksum_test_LDADD = libfacts.a
+imp_checksum_test_LDADD = libfacts.a
 imp_decisions_test_SOURCES = imp/decisions-test.cc
-decisions_test_LDADD = libfacts.a
+imp_decisions_test_LDADD = libfacts.a
 imp_filecopy_test_SOURCES = imp/filecopy-test.cc
-filecopy_test_LDADD = libfacts.a libgoshcopy.a
+imp_filecopy_test_LDADD = libfacts.a libgoshcopy.a
 
 # Fuzzers (queue item 21): each is built twice. Here, with the ordinary compiler, it replays its
 # corpus (the directory beside it named for it, with -corpus after), so an input that once broke
 # the part breaks the check. In CI, with clang and -DGOSH_LIBFUZZER, libFuzzer runs it.
 imp_filecopy_fuzzer_SOURCES = imp/filecopy-fuzzer.cc
-filecopy_fuzzer_LDADD = libgoshcopy.a
+imp_filecopy_fuzzer_LDADD = libgoshcopy.a
 imp_sender_fuzzer_SOURCES = imp/sender-fuzzer.cc
-sender_fuzzer_LDADD = libgoshcopy.a
+imp_sender_fuzzer_LDADD = libgoshcopy.a
 
 AUTOMAKE_OPTIONS = subdir-objects
 
