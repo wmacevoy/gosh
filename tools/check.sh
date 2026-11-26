@@ -19,13 +19,17 @@
 #      never a bare PASS.
 #
 #     tools/check.sh                    all of it (--heavy): what CI, a merge and a release are held to
-#     tools/check.sh --lite [PART...]   while working: it builds, runs the unit tests of these parts
-#                                       of src/ and the outside tests of those parts alone (with no
-#                                       part named: every part's unit tests, and a terminal session).
-#                                       Not run: the doctor, the fuzzers under AddressSanitizer, the
-#                                       reference (pf.7) and the NAT lab; and a fact a unit test marks
-#                                       as proved for every input (src/seam/proved.h) is not also tried;
-#                                       nor are the proofs (tools/proofs.sh --lite DOMAIN... for those).
+#     tools/check.sh --lite PART...     while working: these parts alone, each a domain (src/DOMAINS):
+#                                       its directory made again in the build there is, from src/ as
+#                                       it is now, and its unit tests and fuzzers' replays run. Nothing
+#                                       else is built, and nothing runs the program: that is the whole
+#                                       check's. Needs one build first (tools/build.sh, or the check).
+#     tools/check.sh --lite             with no part named: it builds, runs every part's unit tests and
+#                                       a terminal session.
+#                                       Neither runs the doctor, the fuzzers under AddressSanitizer, the
+#                                       reference (pf.7), the NAT lab, or the proofs (tools/proofs.sh
+#                                       --lite DOMAIN... for those); and a fact a unit test marks as
+#                                       proved for every input (src/seam/proved.h) is not also tried.
 # --lite ends "PASS (lite: ...)" and says what it left out: it is never the whole check.
 # A stock mosh 1.4.0 must be installed for 4 (Debian, Ubuntu: the mosh package);
 # STOCK_CLIENT and STOCK_SERVER say where, if not in /usr/bin.
@@ -55,6 +59,26 @@ want() { # PART...: is a test of these parts to be run? Always, in the whole che
     for t in "$@"; do case " $TAGS " in *" $t "*) return 0 ;; esac; done
     NOT_RUN=$((NOT_RUN + 1)); return 1
 }
+
+# A domain alone (REQ6/SHAPE-5): the domains are isolated, so a domain is checked without the rest of
+# the program. Its directory is made again in the build there is; the other parts' libraries it links
+# are the build's as they were (a stale one is the whole check's to find).
+if [ "$MODE" = lite ] && [ -n "$PARTS" ]; then
+    . tools/env.sh
+    [ -f "$BUILD/core/src/Makefile" ] || fail "--lite PART needs a build to make the part in: run tools/build.sh once"
+    cp -Rp src/. "$BUILD/core/src/" # (-p: an unchanged file keeps its time, so make remakes only what changed)
+    for part in $PARTS; do
+        [ -f "src/$part/Makefile.am" ] || { echo "unit tests: $part has none of its own (headers; tested through the parts that use them)"; continue; }
+        if make -C "$BUILD/core/src/$part" check >"$BUILD/unit-$part.log" 2>&1; then
+            echo "unit tests pass: $part ($(grep -c '^PASS:' "$BUILD/unit-$part.log"))"
+            cat "$BUILD/core/src/$part"/*.log 2>/dev/null | grep '^SKIPPED (proved)' | sort -u || true
+        else
+            grep -E '^(FAIL|ERROR):|error' "$BUILD/unit-$part.log" | head -10; fail "unit tests of $part (log: $BUILD/unit-$part.log)"
+        fi
+    done
+    echo "PASS (lite: of$PARTS alone; NOT run: the build of the whole, every test that runs the program, the other parts' tests, the doctor, the fuzzers under AddressSanitizer, the reference and the NAT lab, the proofs, and what the lines above say is proved. The whole check is tools/check.sh)"
+    exit 0
+fi
 
 # The doctor asks the network whether its guide is current. On a machine that has
 # never been able to ask (a fresh CI runner, with --offline) it fails rather than

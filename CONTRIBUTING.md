@@ -14,7 +14,7 @@ record of how it came to be are in `../mosh-dev`; nothing is changed there.
 
 **The full check:** `tools/check.sh`
 
-**While working:** `tools/check.sh --lite [PART...]` builds, and runs the unit tests and outside tests of the parts of `src/` named (with none named: every part's unit tests and a terminal session). It leaves out the doctor, the fuzzers under AddressSanitizer, the reference and the NAT lab, the proofs, and any fact a test marks as proved (`src/seam/proved.h`); it ends `PASS (lite: ...)` and says what it left out. It is never the whole check: a merge, CI and a release are held to `tools/check.sh` alone.
+**While working:** `tools/check.sh --lite PART...` checks those parts of `src/` alone, each a domain (`src/DOMAINS`): it makes the part's directory again in the build there is, and runs its unit tests and its fuzzers' replays; nothing else is built and nothing runs the program, which is the whole check's (it needs one build first: `tools/build.sh`). With no part named, `--lite` builds, and runs every part's unit tests and a terminal session. Both leave out the doctor, the fuzzers under AddressSanitizer, the reference and the NAT lab, the proofs, and any fact a test marks as proved (`src/seam/proved.h`); it ends `PASS (lite: ...)` and says what it left out. It is never the whole check: a merge, CI and a release are held to `tools/check.sh` alone.
 
 **With g++ 16, as C++26 with contracts** (branch `strong/gcc16`, 2026-11-18): `. tools/gcc16.sh`
 first, then the same two commands. It fetches the compiler with pixi, without root, and sets `CC`
