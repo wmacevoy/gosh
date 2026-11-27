@@ -1,6 +1,6 @@
 # The core's domains, as gosh carries it (REQ21/SHAPE-1): read by the lint over the program as it is
 # built (.build/core: the core with the seam's patches, gosh's parts beside it), by the rule a domain
-# alone (RULES="a domain"; tools/proofs.sh). The cipher (seam 12), the transport (14), state sync (15) and the terminal (16) are laid out; the rest is
+# alone (RULES="a domain"; tools/proofs.sh). The cipher (seam 12), the transport (14), state sync (15), the terminal (16) and the programs (17) are laid out; the rest is
 # named, each directory a domain whose ABI is every header (`| *`), until each is laid out in turn.
 # gosh's own parts are one domain here: each is held to its own domains by src/DOMAINS, every run.
 Crypto        src/crypto
@@ -10,7 +10,7 @@ core-util     src/util | *
 Terminal      src/terminal
 Network       src/network
 StateSync     src/statesync
-core-frontend src/frontend | *
+Frontend      src/frontend
 core-examples src/examples | *
 core-tests    src/tests | *
 core-fuzz     src/fuzz | *
