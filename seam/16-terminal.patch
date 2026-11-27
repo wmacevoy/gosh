@@ -1,0 +1,1072 @@
+gosh seam 16: The core's terminal is a domain, Terminal: its ABI at the top of src/terminal, its inside under imp/.
+
+For:   REQ21/SHAPE-1, the core factored into domains by the seam, the terminal after state
+       synchronisation. The lint holds it (seam/DOMAINS): the rest of the core uses the terminal
+       only by parser.h, parseraction.h, terminal.h, terminaldisplay.h and terminalframebuffer.h.
+       Until now its parser was a namespace of its own, Parser, beside Terminal, and its states
+       were declared with its ABI, so where the terminal ended could not be told from a name.
+What:  Moves, and renames of where names are, and nothing else: no byte of the protocol, and no
+       behaviour, changes. The terminal's sources, and the headers nothing outside it uses (the
+       parser's states, their family and transitions, the dispatcher, the user's input), are moved
+       under src/terminal/imp/ by git's renames. Parser is Terminal::Parser, as the parser is the
+       terminal's; what is moved is in Terminal::Imp, and the ABI's private fields of it say Imp::.
+       The parser's one family, which parser.h declared, is declared where its type is
+       (imp/parserstatefamily.h); the dispatcher includes the actions and the framebuffer where it
+       had declared them again. The core's users say Terminal::Parser:: where they said Parser::.
+Where: src/terminal/ (Makefile.am, parser.h, parseraction.h, terminal.h; imp/); and every user of
+       Parser:: in src/frontend, src/statesync, src/examples, src/fuzz and src/tests.
+Kind:  fifteen files moved; the parser's namespace, and the inside's, changed; their users qualified.
+From:  the core at the pin: src/terminal/*.cc, parserstate.h, parserstatefamily.h, parsertransition.h, terminaldispatcher.h, terminaluserinput.h.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/examples/ntester.cc b/src/examples/ntester.cc
+index 5ad0ac4..85b3635 100644
+--- a/src/examples/ntester.cc
++++ b/src/examples/ntester.cc
+@@ -142,7 +142,7 @@ int main( int argc, char* argv[] )
+         if ( sel.read( STDIN_FILENO ) ) {
+           char x;
+           fatal_assert( read( STDIN_FILENO, &x, 1 ) == 1 );
+-          n->get_current_state().push_back( Parser::UserByte( x ) );
++          n->get_current_state().push_back( Terminal::Parser::UserByte( x ) );
+         }
+ 
+         bool network_ready_to_read = false;
+diff --git a/src/examples/parse.cc b/src/examples/parse.cc
+index 6a87e9b..64aedb6 100644
+--- a/src/examples/parse.cc
++++ b/src/examples/parse.cc
+@@ -65,7 +65,7 @@ const size_t buf_size = 1024;
+ 
+ static void emulate_terminal( int fd );
+ static int copy( int src, int dest );
+-static int vt_parser( int fd, Parser::UTF8Parser* parser );
++static int vt_parser( int fd, Terminal::Parser::UTF8Parser* parser );
+ 
+ int main( int argc __attribute__( ( unused ) ), char* argv[] __attribute__( ( unused ) ), char* envp[] )
+ {
+@@ -137,7 +137,7 @@ int main( int argc __attribute__( ( unused ) ), char* argv[] __attribute__( ( un
+ 
+ static void emulate_terminal( int fd )
+ {
+-  Parser::UTF8Parser parser;
++  Terminal::Parser::UTF8Parser parser;
+ 
+   Select& sel = Select::get_instance();
+   sel.add_fd( STDIN_FILENO );
+@@ -179,7 +179,7 @@ static int copy( int src, int dest )
+   return swrite( dest, buf, bytes_read );
+ }
+ 
+-static int vt_parser( int fd, Parser::UTF8Parser* parser )
++static int vt_parser( int fd, Terminal::Parser::UTF8Parser* parser )
+ {
+   char buf[buf_size];
+ 
+@@ -193,13 +193,13 @@ static int vt_parser( int fd, Parser::UTF8Parser* parser )
+   }
+ 
+   /* feed to parser */
+-  Parser::Actions actions;
++  Terminal::Parser::Actions actions;
+   for ( int i = 0; i < bytes_read; i++ ) {
+     parser->input( buf[i], actions );
+-    for ( Parser::Actions::iterator j = actions.begin(); j != actions.end(); j++ ) {
++    for ( Terminal::Parser::Actions::iterator j = actions.begin(); j != actions.end(); j++ ) {
+ 
+       assert( *j );
+-      Parser::Action& act = **j;
++      Terminal::Parser::Action& act = **j;
+ 
+       if ( act.char_present ) {
+         if ( iswprint( act.ch ) ) {
+diff --git a/src/examples/termemu.cc b/src/examples/termemu.cc
+index 4fd18ae..5d8120a 100644
+--- a/src/examples/termemu.cc
++++ b/src/examples/termemu.cc
+@@ -270,7 +270,7 @@ static void emulate_terminal( int fd )
+       std::string terminal_to_host;
+ 
+       for ( int i = 0; i < bytes_read; i++ ) {
+-        terminal_to_host += complete.act( Parser::UserByte( buf[i] ) );
++        terminal_to_host += complete.act( Terminal::Parser::UserByte( buf[i] ) );
+       }
+ 
+       if ( swrite( fd, terminal_to_host.c_str(), terminal_to_host.length() ) < 0 ) {
+@@ -301,7 +301,7 @@ static void emulate_terminal( int fd )
+       }
+ 
+       /* tell emulator */
+-      complete.act( Parser::Resize( window_size.ws_col, window_size.ws_row ) );
++      complete.act( Terminal::Parser::Resize( window_size.ws_col, window_size.ws_row ) );
+ 
+       /* tell child process */
+       if ( ioctl( fd, TIOCSWINSZ, &window_size ) < 0 ) {
+diff --git a/src/frontend/mosh-server.cc b/src/frontend/mosh-server.cc
+index fb76975..2b8e798 100644
+--- a/src/frontend/mosh-server.cc
++++ b/src/frontend/mosh-server.cc
+@@ -783,17 +783,17 @@ static void serve( int host_fd,
+           us.apply_string( network.get_remote_diff() );
+           /* apply userstream to terminal */
+           for ( size_t i = 0; i < us.size(); i++ ) {
+-            const Parser::Action& action = us.get_action( i );
+-            if ( typeid( action ) == typeid( Parser::Resize ) ) {
++            const Terminal::Parser::Action& action = us.get_action( i );
++            if ( typeid( action ) == typeid( Terminal::Parser::Resize ) ) {
+               /* apply only the last consecutive Resize action */
+               if ( i < us.size() - 1 ) {
+-                const Parser::Action& next = us.get_action( i + 1 );
+-                if ( typeid( next ) == typeid( Parser::Resize ) ) {
++                const Terminal::Parser::Action& next = us.get_action( i + 1 );
++                if ( typeid( next ) == typeid( Terminal::Parser::Resize ) ) {
+                   continue;
+                 }
+               }
+               /* tell child process of resize */
+-              const Parser::Resize& res = static_cast<const Parser::Resize&>( action );
++              const Terminal::Parser::Resize& res = static_cast<const Terminal::Parser::Resize&>( action );
+               struct winsize window_size;
+               if ( ioctl( host_fd, TIOCGWINSZ, &window_size ) < 0 ) {
+                 perror( "ioctl TIOCGWINSZ" );
+diff --git a/src/frontend/stmclient.cc b/src/frontend/stmclient.cc
+index 3dee67c..3eb2715 100644
+--- a/src/frontend/stmclient.cc
++++ b/src/frontend/stmclient.cc
+@@ -281,7 +281,7 @@ void STMClient::main_init( void )
+   network->set_send_delay( 1 ); /* minimal delay on outgoing keystrokes */
+ 
+   /* tell server the size of the terminal */
+-  network->get_current_state().push_back( Parser::Resize( window_size.ws_col, window_size.ws_row ) );
++  network->get_current_state().push_back( Terminal::Parser::Resize( window_size.ws_col, window_size.ws_row ) );
+ 
+   /* be noisy as necessary */
+   network->set_verbose( verbose );
+@@ -394,11 +394,11 @@ bool STMClient::process_user_input( int fd )
+       } else if ( ( the_byte == escape_pass_key ) || ( the_byte == escape_pass_key2 ) ) {
+         /* Emulation sequence to type escape_key is escape_key +
+            escape_pass_key (that is escape key without Ctrl) */
+-        net.get_current_state().push_back( Parser::UserByte( escape_key ) );
++        net.get_current_state().push_back( Terminal::Parser::UserByte( escape_key ) );
+       } else {
+         /* Escape key followed by anything other than . and ^ gets sent literally */
+-        net.get_current_state().push_back( Parser::UserByte( escape_key ) );
+-        net.get_current_state().push_back( Parser::UserByte( the_byte ) );
++        net.get_current_state().push_back( Terminal::Parser::UserByte( escape_key ) );
++        net.get_current_state().push_back( Terminal::Parser::UserByte( the_byte ) );
+       }
+ 
+       quit_sequence_started = false;
+@@ -425,7 +425,7 @@ bool STMClient::process_user_input( int fd )
+       repaint_requested = true;
+     }
+ 
+-    net.get_current_state().push_back( Parser::UserByte( the_byte ) );
++    net.get_current_state().push_back( Terminal::Parser::UserByte( the_byte ) );
+   }
+ 
+   return true;
+@@ -440,7 +440,7 @@ bool STMClient::process_resize( void )
+   }
+ 
+   /* tell remote emulator */
+-  Parser::Resize res( window_size.ws_col, window_size.ws_row );
++  Terminal::Parser::Resize res( window_size.ws_col, window_size.ws_row );
+ 
+   if ( !network->shutdown_in_progress() ) {
+     network->get_current_state().push_back( res );
+diff --git a/src/frontend/terminaloverlay.cc b/src/frontend/terminaloverlay.cc
+index 38f71b2..67506dc 100644
+--- a/src/frontend/terminaloverlay.cc
++++ b/src/frontend/terminaloverlay.cc
+@@ -637,11 +637,11 @@ void PredictionEngine::new_user_byte( char the_byte, const Framebuffer& fb )
+   }
+   last_byte = the_byte;
+ 
+-  Parser::Actions actions;
++  Terminal::Parser::Actions actions;
+   parser.input( the_byte, actions );
+ 
+-  for ( Parser::Actions::iterator it = actions.begin(); it != actions.end(); it++ ) {
+-    Parser::Action& act = **it;
++  for ( Terminal::Parser::Actions::iterator it = actions.begin(); it != actions.end(); it++ ) {
++    Terminal::Parser::Action& act = **it;
+ 
+     /*
+     fprintf( stderr, "Action: %s (%lc)\n",
+@@ -649,7 +649,7 @@ void PredictionEngine::new_user_byte( char the_byte, const Framebuffer& fb )
+     */
+ 
+     const std::type_info& type_act = typeid( act );
+-    if ( type_act == typeid( Parser::Print ) ) {
++    if ( type_act == typeid( Terminal::Parser::Print ) ) {
+       /* make new prediction */
+ 
+       init_cursor( fb );
+@@ -794,7 +794,7 @@ void PredictionEngine::new_user_byte( char the_byte, const Framebuffer& fb )
+           newline_carriage_return( fb );
+         }
+       }
+-    } else if ( type_act == typeid( Parser::Execute ) ) {
++    } else if ( type_act == typeid( Terminal::Parser::Execute ) ) {
+       if ( act.char_present && ( act.ch == 0x0d ) /* CR */ ) {
+         become_tentative();
+         newline_carriage_return( fb );
+@@ -802,10 +802,10 @@ void PredictionEngine::new_user_byte( char the_byte, const Framebuffer& fb )
+         //	fprintf( stderr, "Execute 0x%x\n", act.ch );
+         become_tentative();
+       }
+-    } else if ( type_act == typeid( Parser::Esc_Dispatch ) ) {
++    } else if ( type_act == typeid( Terminal::Parser::Esc_Dispatch ) ) {
+       //      fprintf( stderr, "Escape sequence\n" );
+       become_tentative();
+-    } else if ( type_act == typeid( Parser::CSI_Dispatch ) ) {
++    } else if ( type_act == typeid( Terminal::Parser::CSI_Dispatch ) ) {
+       if ( act.char_present && ( act.ch == L'C' ) ) { /* right arrow */
+         init_cursor( fb );
+         if ( cursor().col < fb.ds.get_width() - 1 ) {
+diff --git a/src/frontend/terminaloverlay.h b/src/frontend/terminaloverlay.h
+index 01dfe2b..48e83c7 100644
+--- a/src/frontend/terminaloverlay.h
++++ b/src/frontend/terminaloverlay.h
+@@ -225,7 +225,7 @@ private:
+   static const uint64_t GLITCH_FLAG_THRESHOLD = 5000; /* prediction outstanding this long => underline */
+ 
+   char last_byte;
+-  Parser::UTF8Parser parser;
++  Terminal::Parser::UTF8Parser parser;
+ 
+   using overlays_type = std::list<ConditionalOverlayRow>;
+   overlays_type overlays;
+diff --git a/src/fuzz/terminal_fuzzer.cc b/src/fuzz/terminal_fuzzer.cc
+index 327166d..38dff77 100644
+--- a/src/fuzz/terminal_fuzzer.cc
++++ b/src/fuzz/terminal_fuzzer.cc
+@@ -10,7 +10,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
+   StateSync::Complete complete( 80, 24 );
+   Terminal::Framebuffer state( 80, 24 );
+   for ( size_t i = 0; i < size; i++ ) {
+-    complete.act( Parser::UserByte( data[i] ) );
++    complete.act( Terminal::Parser::UserByte( data[i] ) );
+   }
+   display.new_frame( true, state, complete.get_fb() );
+ 
+diff --git a/src/fuzz/terminal_parser_fuzzer.cc b/src/fuzz/terminal_parser_fuzzer.cc
+index 1466118..9a8ebee 100644
+--- a/src/fuzz/terminal_parser_fuzzer.cc
++++ b/src/fuzz/terminal_parser_fuzzer.cc
+@@ -5,8 +5,8 @@
+ 
+ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
+ {
+-  Parser::UTF8Parser parser;
+-  Parser::Actions result;
++  Terminal::Parser::UTF8Parser parser;
++  Terminal::Parser::Actions result;
+ 
+   for ( size_t i = 0; i < size; i++ ) {
+     parser.input( data[i], result );
+diff --git a/src/statesync/completeterminal.h b/src/statesync/completeterminal.h
+index 2c1de19..a913a87 100644
+--- a/src/statesync/completeterminal.h
++++ b/src/statesync/completeterminal.h
+@@ -45,14 +45,14 @@ namespace StateSync {
+ class Complete
+ {
+ private:
+-  Parser::UTF8Parser parser;
++  Terminal::Parser::UTF8Parser parser;
+   Terminal::Emulator terminal;
+   Terminal::Display display;
+ 
+   // Only used locally by act(), but kept here as a performance optimization,
+   // to avoid construction/destruction.  It must always be empty
+   // outside calls to act() to keep horrible things from happening.
+-  Parser::Actions actions;
++  Terminal::Parser::Actions actions;
+ 
+   using input_history_type = std::list<std::pair<uint64_t, uint64_t>>;
+   input_history_type input_history;
+@@ -66,7 +66,7 @@ public:
+   {}
+ 
+   std::string act( const std::string& str );
+-  std::string act( const Parser::Action& act );
++  std::string act( const Terminal::Parser::Action& act );
+ 
+   const Terminal::Framebuffer& get_fb( void ) const { return terminal.get_fb(); }
+   void reset_input( void ) { parser.reset_input(); }
+diff --git a/src/statesync/imp/completeterminal.cc b/src/statesync/imp/completeterminal.cc
+index 21bd095..484adfb 100644
+--- a/src/statesync/imp/completeterminal.cc
++++ b/src/statesync/imp/completeterminal.cc
+@@ -37,7 +37,7 @@
+ #include "src/util/fatal_assert.h"
+ 
+ using namespace std;
+-using namespace Parser;
++using namespace Terminal::Parser;
+ using namespace Terminal;
+ using namespace HostBuffers;
+ using namespace StateSync;
+diff --git a/src/statesync/imp/user.cc b/src/statesync/imp/user.cc
+index 8962b65..fcfede0 100644
+--- a/src/statesync/imp/user.cc
++++ b/src/statesync/imp/user.cc
+@@ -37,7 +37,7 @@
+ #include "src/statesync/user.h"
+ #include "src/util/fatal_assert.h"
+ 
+-using namespace Parser;
++using namespace Terminal::Parser;
+ using namespace StateSync;
+ using namespace ClientBuffers;
+ 
+@@ -118,7 +118,7 @@ void UserStream::apply_string( const std::string& diff )
+   }
+ }
+ 
+-const Parser::Action& UserStream::get_action( unsigned int i ) const
++const Terminal::Parser::Action& UserStream::get_action( unsigned int i ) const
+ {
+   switch ( actions[i].type ) {
+     case UserByteType:
+@@ -127,7 +127,7 @@ const Parser::Action& UserStream::get_action( unsigned int i ) const
+       return actions[i].resize;
+     default:
+       assert( !"unexpected action type" );
+-      static const Parser::Ignore nothing = Parser::Ignore();
++      static const Terminal::Parser::Ignore nothing = Terminal::Parser::Ignore();
+       return nothing;
+   }
+ }
+diff --git a/src/statesync/user.h b/src/statesync/user.h
+index 734e8e5..319ec68 100644
+--- a/src/statesync/user.h
++++ b/src/statesync/user.h
+@@ -51,12 +51,12 @@ class UserEvent
+ {
+ public:
+   UserEventType type;
+-  Parser::UserByte userbyte;
+-  Parser::Resize resize;
++  Terminal::Parser::UserByte userbyte;
++  Terminal::Parser::Resize resize;
+ 
+-  UserEvent( const Parser::UserByte& s_userbyte ) : type( UserByteType ), userbyte( s_userbyte ), resize( -1, -1 )
++  UserEvent( const Terminal::Parser::UserByte& s_userbyte ) : type( UserByteType ), userbyte( s_userbyte ), resize( -1, -1 )
+   {}
+-  UserEvent( const Parser::Resize& s_resize ) : type( ResizeType ), userbyte( 0 ), resize( s_resize ) {}
++  UserEvent( const Terminal::Parser::Resize& s_resize ) : type( ResizeType ), userbyte( 0 ), resize( s_resize ) {}
+ 
+ private:
+   UserEvent();
+@@ -76,12 +76,12 @@ private:
+ public:
+   UserStream() : actions() {}
+ 
+-  void push_back( const Parser::UserByte& s_userbyte ) { actions.push_back( UserEvent( s_userbyte ) ); }
+-  void push_back( const Parser::Resize& s_resize ) { actions.push_back( UserEvent( s_resize ) ); }
++  void push_back( const Terminal::Parser::UserByte& s_userbyte ) { actions.push_back( UserEvent( s_userbyte ) ); }
++  void push_back( const Terminal::Parser::Resize& s_resize ) { actions.push_back( UserEvent( s_resize ) ); }
+ 
+   bool empty( void ) const { return actions.empty(); }
+   size_t size( void ) const { return actions.size(); }
+-  const Parser::Action& get_action( unsigned int i ) const;
++  const Terminal::Parser::Action& get_action( unsigned int i ) const;
+ 
+   /* interface for Network::Transport */
+   void subtract( const UserStream* prefix );
+diff --git a/src/terminal/Makefile.am b/src/terminal/Makefile.am
+index b7def6b..832da01 100644
+--- a/src/terminal/Makefile.am
++++ b/src/terminal/Makefile.am
+@@ -1,6 +1,8 @@
+ AM_CPPFLAGS = -I$(top_srcdir)/ $(TINFO_CFLAGS)
+ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXFLAGS) $(CODE_COVERAGE_CXXFLAGS)
+ 
++AUTOMAKE_OPTIONS = subdir-objects
++
+ noinst_LIBRARIES = libmoshterminal.a
+ 
+-libmoshterminal_a_SOURCES = parseraction.cc parseraction.h parser.cc parser.h parserstate.cc parserstatefamily.h parserstate.h parsertransition.h terminal.cc terminaldispatcher.cc terminaldispatcher.h terminaldisplay.cc terminaldisplayinit.cc terminaldisplay.h terminalframebuffer.cc terminalframebuffer.h terminalfunctions.cc terminal.h terminaluserinput.cc terminaluserinput.h
++libmoshterminal_a_SOURCES = imp/parseraction.cc parseraction.h imp/parser.cc parser.h imp/parserstate.cc imp/parserstatefamily.h imp/parserstate.h imp/parsertransition.h imp/terminal.cc imp/terminaldispatcher.cc imp/terminaldispatcher.h imp/terminaldisplay.cc imp/terminaldisplayinit.cc terminaldisplay.h imp/terminalframebuffer.cc terminalframebuffer.h imp/terminalfunctions.cc terminal.h imp/terminaluserinput.cc imp/terminaluserinput.h
+diff --git a/src/terminal/parser.cc b/src/terminal/imp/parser.cc
+similarity index 88%
+rename from src/terminal/parser.cc
+rename to src/terminal/imp/parser.cc
+index 0dd0cda..c7e7aca 100644
+--- a/src/terminal/parser.cc
++++ b/src/terminal/imp/parser.cc
+@@ -38,9 +38,11 @@
+ 
+ #include "src/terminal/parser.h"
+ 
+-const Parser::StateFamily Parser::family;
++using namespace Terminal::Imp;
+ 
+-static void append_or_delete( Parser::ActionPointer act, Parser::Actions& vec )
++const Terminal::Imp::StateFamily Terminal::Imp::family;
++
++static void append_or_delete( Terminal::Parser::ActionPointer act, Terminal::Parser::Actions& vec )
+ {
+   assert( act );
+ 
+@@ -49,7 +51,7 @@ static void append_or_delete( Parser::ActionPointer act, Parser::Actions& vec )
+   }
+ }
+ 
+-void Parser::Parser::input( wchar_t ch, Actions& ret )
++void Terminal::Parser::Parser::input( wchar_t ch, Actions& ret )
+ {
+   Transition tx = state->input( ch );
+ 
+@@ -65,13 +67,13 @@ void Parser::Parser::input( wchar_t ch, Actions& ret )
+   }
+ }
+ 
+-Parser::UTF8Parser::UTF8Parser() : parser(), buf_len( 0 )
++Terminal::Parser::UTF8Parser::UTF8Parser() : parser(), buf_len( 0 )
+ {
+   assert( BUF_SIZE >= (size_t)MB_CUR_MAX );
+   buf[0] = '\0';
+ }
+ 
+-void Parser::UTF8Parser::input( char c, Actions& ret )
++void Terminal::Parser::UTF8Parser::input( char c, Actions& ret )
+ {
+   assert( buf_len < BUF_SIZE );
+ 
+@@ -153,9 +155,9 @@ void Parser::UTF8Parser::input( char c, Actions& ret )
+   }
+ }
+ 
+-Parser::Parser::Parser( const Parser& other ) : state( other.state ) {}
++Terminal::Parser::Parser::Parser( const Parser& other ) : state( other.state ) {}
+ 
+-Parser::Parser& Parser::Parser::operator=( const Parser& other )
++Terminal::Parser::Parser& Terminal::Parser::Parser::operator=( const Parser& other )
+ {
+   state = other.state;
+   return *this;
+diff --git a/src/terminal/parseraction.cc b/src/terminal/imp/parseraction.cc
+similarity index 97%
+rename from src/terminal/parseraction.cc
+rename to src/terminal/imp/parseraction.cc
+index ecd8cb2..8307c3f 100644
+--- a/src/terminal/parseraction.cc
++++ b/src/terminal/imp/parseraction.cc
+@@ -36,7 +36,9 @@
+ #include "src/terminal/parseraction.h"
+ #include "src/terminal/terminal.h"
+ 
+-using namespace Parser;
++using namespace Terminal::Imp;
++
++using namespace Terminal::Parser;
+ 
+ void Print::act_on_terminal( Terminal::Emulator* emu ) const
+ {
+diff --git a/src/terminal/parserstate.cc b/src/terminal/imp/parserstate.cc
+similarity index 98%
+rename from src/terminal/parserstate.cc
+rename to src/terminal/imp/parserstate.cc
+index 747b7c6..4033639 100644
+--- a/src/terminal/parserstate.cc
++++ b/src/terminal/imp/parserstate.cc
+@@ -32,10 +32,12 @@
+ 
+ #include <memory>
+ 
+-#include "parserstate.h"
+-#include "parserstatefamily.h"
++#include "src/terminal/imp/parserstate.h"
++#include "src/terminal/imp/parserstatefamily.h"
+ 
+-using namespace Parser;
++using namespace Terminal::Imp;
++
++using namespace Terminal::Parser;
+ 
+ Transition State::anywhere_rule( wchar_t ch ) const
+ {
+diff --git a/src/terminal/parserstate.h b/src/terminal/imp/parserstate.h
+similarity index 84%
+rename from src/terminal/parserstate.h
+rename to src/terminal/imp/parserstate.h
+index bb7e26b..35059cb 100644
+--- a/src/terminal/parserstate.h
++++ b/src/terminal/imp/parserstate.h
+@@ -33,9 +33,9 @@
+ #ifndef PARSERSTATE_HPP
+ #define PARSERSTATE_HPP
+ 
+-#include "parsertransition.h"
++#include "src/terminal/imp/parsertransition.h"
+ 
+-namespace Parser {
++namespace Terminal::Imp {
+ class StateFamily;
+ 
+ class State
+@@ -50,8 +50,8 @@ private:
+ public:
+   void setfamily( StateFamily* s_family ) { family = s_family; }
+   Transition input( wchar_t ch ) const;
+-  virtual ActionPointer enter( void ) const { return std::make_shared<Ignore>(); }
+-  virtual ActionPointer exit( void ) const { return std::make_shared<Ignore>(); }
++  virtual Parser::ActionPointer enter( void ) const { return std::make_shared<Parser::Ignore>(); }
++  virtual Parser::ActionPointer exit( void ) const { return std::make_shared<Parser::Ignore>(); }
+ 
+   State() : family( NULL ) {};
+   virtual ~State() {};
+@@ -67,7 +67,7 @@ class Ground : public State
+ 
+ class Escape : public State
+ {
+-  ActionPointer enter( void ) const;
++  Parser::ActionPointer enter( void ) const;
+   Transition input_state_rule( wchar_t ch ) const;
+ };
+ 
+@@ -78,7 +78,7 @@ class Escape_Intermediate : public State
+ 
+ class CSI_Entry : public State
+ {
+-  ActionPointer enter( void ) const;
++  Parser::ActionPointer enter( void ) const;
+   Transition input_state_rule( wchar_t ch ) const;
+ };
+ class CSI_Param : public State
+@@ -96,7 +96,7 @@ class CSI_Ignore : public State
+ 
+ class DCS_Entry : public State
+ {
+-  ActionPointer enter( void ) const;
++  Parser::ActionPointer enter( void ) const;
+   Transition input_state_rule( wchar_t ch ) const;
+ };
+ class DCS_Param : public State
+@@ -109,9 +109,9 @@ class DCS_Intermediate : public State
+ };
+ class DCS_Passthrough : public State
+ {
+-  ActionPointer enter( void ) const;
++  Parser::ActionPointer enter( void ) const;
+   Transition input_state_rule( wchar_t ch ) const;
+-  ActionPointer exit( void ) const;
++  Parser::ActionPointer exit( void ) const;
+ };
+ class DCS_Ignore : public State
+ {
+@@ -120,9 +120,9 @@ class DCS_Ignore : public State
+ 
+ class OSC_String : public State
+ {
+-  ActionPointer enter( void ) const;
++  Parser::ActionPointer enter( void ) const;
+   Transition input_state_rule( wchar_t ch ) const;
+-  ActionPointer exit( void ) const;
++  Parser::ActionPointer exit( void ) const;
+ };
+ class SOS_PM_APC_String : public State
+ {
+diff --git a/src/terminal/parserstatefamily.h b/src/terminal/imp/parserstatefamily.h
+similarity index 95%
+rename from src/terminal/parserstatefamily.h
+rename to src/terminal/imp/parserstatefamily.h
+index 1ff4628..98c27c3 100644
+--- a/src/terminal/parserstatefamily.h
++++ b/src/terminal/imp/parserstatefamily.h
+@@ -33,9 +33,12 @@
+ #ifndef PARSERSTATEFAMILY_HPP
+ #define PARSERSTATEFAMILY_HPP
+ 
+-#include "parserstate.h"
++#include "src/terminal/imp/parserstate.h"
++
++namespace Terminal::Imp {
++class StateFamily;
++extern const StateFamily family;
+ 
+-namespace Parser {
+ class StateFamily
+ {
+ public:
+diff --git a/src/terminal/parsertransition.h b/src/terminal/imp/parsertransition.h
+similarity index 89%
+rename from src/terminal/parsertransition.h
+rename to src/terminal/imp/parsertransition.h
+index a70dbd9..72ec7df 100644
+--- a/src/terminal/parsertransition.h
++++ b/src/terminal/imp/parsertransition.h
+@@ -37,7 +37,7 @@
+ 
+ #include "src/terminal/parseraction.h"
+ 
+-namespace Parser {
++namespace Terminal::Imp {
+ class State;
+ 
+ class Transition
+@@ -45,7 +45,7 @@ class Transition
+ public:
+   // Transition is only a courier for an Action; it should
+   // never create/delete one on its own.
+-  ActionPointer action;
++  Parser::ActionPointer action;
+   State* next_state;
+ 
+   Transition( const Transition& x ) : action( x.action ), next_state( x.next_state ) {}
+@@ -56,14 +56,14 @@ public:
+ 
+     return *this;
+   }
+-  Transition( ActionPointer s_action = std::make_shared<Ignore>(), State* s_next_state = NULL )
++  Transition( Parser::ActionPointer s_action = std::make_shared<Parser::Ignore>(), State* s_next_state = NULL )
+     : action( s_action ), next_state( s_next_state )
+   {}
+ 
+   // This is only ever used in the 1-argument form;
+   // we use this instead of an initializer to
+   // tell Coverity the object never owns *action.
+-  Transition( State* s_next_state, ActionPointer s_action = std::make_shared<Ignore>() )
++  Transition( State* s_next_state, Parser::ActionPointer s_action = std::make_shared<Parser::Ignore>() )
+     : action( s_action ), next_state( s_next_state )
+   {}
+ };
+diff --git a/src/terminal/terminal.cc b/src/terminal/imp/terminal.cc
+similarity index 93%
+rename from src/terminal/terminal.cc
+rename to src/terminal/imp/terminal.cc
+index d9ebb4c..b4d559b 100644
+--- a/src/terminal/terminal.cc
++++ b/src/terminal/imp/terminal.cc
+@@ -39,6 +39,8 @@
+ 
+ #include "src/terminal/terminal.h"
+ 
++using namespace Terminal::Imp;
++
+ using namespace Terminal;
+ 
+ Emulator::Emulator( size_t s_width, size_t s_height ) : fb( s_width, s_height ), dispatch(), user() {}
+@@ -50,12 +52,12 @@ std::string Emulator::read_octets_to_host( void )
+   return ret;
+ }
+ 
+-void Emulator::execute( const Parser::Execute* act )
++void Emulator::execute( const Terminal::Parser::Execute* act )
+ {
+   dispatch.dispatch( CONTROL, act, &fb );
+ }
+ 
+-void Emulator::print( const Parser::Print* act )
++void Emulator::print( const Terminal::Parser::Print* act )
+ {
+   assert( act->char_present );
+ 
+@@ -144,21 +146,21 @@ void Emulator::print( const Parser::Print* act )
+   }
+ }
+ 
+-void Emulator::CSI_dispatch( const Parser::CSI_Dispatch* act )
++void Emulator::CSI_dispatch( const Terminal::Parser::CSI_Dispatch* act )
+ {
+   dispatch.dispatch( CSI, act, &fb );
+ }
+ 
+-void Emulator::OSC_end( const Parser::OSC_End* act )
++void Emulator::OSC_end( const Terminal::Parser::OSC_End* act )
+ {
+   dispatch.OSC_dispatch( act, &fb );
+ }
+ 
+-void Emulator::Esc_dispatch( const Parser::Esc_Dispatch* act )
++void Emulator::Esc_dispatch( const Terminal::Parser::Esc_Dispatch* act )
+ {
+   /* handle 7-bit ESC-encoding of C1 control characters */
+   if ( ( dispatch.get_dispatch_chars().size() == 0 ) && ( 0x40 <= act->ch ) && ( act->ch <= 0x5F ) ) {
+-    Parser::Esc_Dispatch act2 = *act;
++    Terminal::Parser::Esc_Dispatch act2 = *act;
+     act2.ch += 0x40;
+     dispatch.dispatch( CONTROL, &act2, &fb );
+   } else {
+diff --git a/src/terminal/terminaldispatcher.cc b/src/terminal/imp/terminaldispatcher.cc
+similarity index 90%
+rename from src/terminal/terminaldispatcher.cc
+rename to src/terminal/imp/terminaldispatcher.cc
+index 7515ca7..fab7454 100644
+--- a/src/terminal/terminaldispatcher.cc
++++ b/src/terminal/imp/terminaldispatcher.cc
+@@ -38,7 +38,9 @@
+ 
+ #include "src/terminal/parseraction.h"
+ #include "src/terminal/terminalframebuffer.h"
+-#include "terminaldispatcher.h"
++#include "src/terminal/imp/terminaldispatcher.h"
++
++using namespace Terminal::Imp;
+ 
+ using namespace Terminal;
+ 
+@@ -48,7 +50,7 @@ Dispatcher::Dispatcher()
+   : params(), parsed_params(), parsed( false ), dispatch_chars(), OSC_string(), terminal_to_host()
+ {}
+ 
+-void Dispatcher::newparamchar( const Parser::Param* act )
++void Dispatcher::newparamchar( const Terminal::Parser::Param* act )
+ {
+   assert( act->char_present );
+   assert( ( act->ch == ';' ) || ( ( act->ch >= '0' ) && ( act->ch <= '9' ) ) );
+@@ -59,7 +61,7 @@ void Dispatcher::newparamchar( const Parser::Param* act )
+   parsed = false;
+ }
+ 
+-void Dispatcher::collect( const Parser::Collect* act )
++void Dispatcher::collect( const Terminal::Parser::Collect* act )
+ {
+   assert( act->char_present );
+   if ( ( dispatch_chars.length() < 8 ) /* never should need more than 2 */
+@@ -68,7 +70,7 @@ void Dispatcher::collect( const Parser::Collect* act )
+   }
+ }
+ 
+-void Dispatcher::clear( const Parser::Clear* act __attribute( ( unused ) ) )
++void Dispatcher::clear( const Terminal::Parser::Clear* act __attribute( ( unused ) ) )
+ {
+   params.clear();
+   dispatch_chars.clear();
+@@ -164,7 +166,7 @@ std::string Dispatcher::str( void )
+ }
+ 
+ /* construct on first use to avoid static initialization order crash */
+-DispatchRegistry& Terminal::get_global_dispatch_registry( void )
++DispatchRegistry& Terminal::Imp::get_global_dispatch_registry( void )
+ {
+   static DispatchRegistry global_dispatch_registry;
+   return global_dispatch_registry;
+@@ -194,12 +196,12 @@ Function::Function( Function_Type type,
+   register_function( type, dispatch_chars, *this );
+ }
+ 
+-void Dispatcher::dispatch( Function_Type type, const Parser::Action* act, Framebuffer* fb )
++void Dispatcher::dispatch( Function_Type type, const Terminal::Parser::Action* act, Framebuffer* fb )
+ {
+   /* add final char to dispatch key */
+   if ( ( type == ESCAPE ) || ( type == CSI ) ) {
+     assert( act->char_present );
+-    Parser::Collect act2;
++    Terminal::Parser::Collect act2;
+     act2.char_present = true;
+     act2.ch = act->ch;
+     collect( &act2 );
+@@ -237,7 +239,7 @@ void Dispatcher::dispatch( Function_Type type, const Parser::Action* act, Frameb
+   i->second.function( fb, this );
+ }
+ 
+-void Dispatcher::OSC_put( const Parser::OSC_Put* act )
++void Dispatcher::OSC_put( const Terminal::Parser::OSC_Put* act )
+ {
+   assert( act->char_present );
+   if ( OSC_string.size() < MAXIMUM_CLIPBOARD_SIZE ) {
+@@ -245,7 +247,7 @@ void Dispatcher::OSC_put( const Parser::OSC_Put* act )
+   }
+ }
+ 
+-void Dispatcher::OSC_start( const Parser::OSC_Start* act __attribute( ( unused ) ) )
++void Dispatcher::OSC_start( const Terminal::Parser::OSC_Start* act __attribute( ( unused ) ) )
+ {
+   OSC_string.clear();
+ }
+diff --git a/src/terminal/terminaldispatcher.h b/src/terminal/imp/terminaldispatcher.h
+similarity index 83%
+rename from src/terminal/terminaldispatcher.h
+rename to src/terminal/imp/terminaldispatcher.h
+index 1b8c3fb..79ec604 100644
+--- a/src/terminal/terminaldispatcher.h
++++ b/src/terminal/imp/terminaldispatcher.h
+@@ -37,21 +37,11 @@
+ #include <string>
+ #include <vector>
+ 
+-namespace Parser {
+-class Action;
+-class Param;
+-class Collect;
+-class Clear;
+-class Esc_Dispatch;
+-class CSI_Dispatch;
+-class Execute;
+-class OSC_Start;
+-class OSC_Put;
+-class OSC_End;
+-}
++#include "src/terminal/parseraction.h"
++#include "src/terminal/terminalframebuffer.h"
++
+ 
+-namespace Terminal {
+-class Framebuffer;
++namespace Terminal::Imp {
+ class Dispatcher;
+ 
+ enum Function_Type
+@@ -109,19 +99,19 @@ public:
+   int getparam( size_t N, int defaultval );
+   int param_count( void );
+ 
+-  void newparamchar( const Parser::Param* act );
+-  void collect( const Parser::Collect* act );
+-  void clear( const Parser::Clear* act );
++  void newparamchar( const Terminal::Parser::Param* act );
++  void collect( const Terminal::Parser::Collect* act );
++  void clear( const Terminal::Parser::Clear* act );
+ 
+   std::string str( void );
+ 
+-  void dispatch( Function_Type type, const Parser::Action* act, Framebuffer* fb );
++  void dispatch( Function_Type type, const Terminal::Parser::Action* act, Framebuffer* fb );
+   std::string get_dispatch_chars( void ) const { return dispatch_chars; }
+   std::vector<wchar_t> get_OSC_string( void ) const { return OSC_string; }
+ 
+-  void OSC_put( const Parser::OSC_Put* act );
+-  void OSC_start( const Parser::OSC_Start* act );
+-  void OSC_dispatch( const Parser::OSC_End* act, Framebuffer* fb );
++  void OSC_put( const Terminal::Parser::OSC_Put* act );
++  void OSC_start( const Terminal::Parser::OSC_Start* act );
++  void OSC_dispatch( const Terminal::Parser::OSC_End* act, Framebuffer* fb );
+ 
+   bool operator==( const Dispatcher& x ) const;
+ };
+diff --git a/src/terminal/terminaldisplay.cc b/src/terminal/imp/terminaldisplay.cc
+similarity index 99%
+rename from src/terminal/terminaldisplay.cc
+rename to src/terminal/imp/terminaldisplay.cc
+index ccee8f5..bdae8b1 100644
+--- a/src/terminal/terminaldisplay.cc
++++ b/src/terminal/imp/terminaldisplay.cc
+@@ -33,7 +33,7 @@
+ #include <cstdio>
+ 
+ #include "src/terminal/terminalframebuffer.h"
+-#include "terminaldisplay.h"
++#include "src/terminal/terminaldisplay.h"
+ 
+ using namespace Terminal;
+ 
+diff --git a/src/terminal/terminaldisplayinit.cc b/src/terminal/imp/terminaldisplayinit.cc
+similarity index 99%
+rename from src/terminal/terminaldisplayinit.cc
+rename to src/terminal/imp/terminaldisplayinit.cc
+index 6bbd96b..85d3124 100644
+--- a/src/terminal/terminaldisplayinit.cc
++++ b/src/terminal/imp/terminaldisplayinit.cc
+@@ -34,7 +34,7 @@
+    alias our own variable names. */
+ 
+ #include "src/include/config.h"
+-#include "terminaldisplay.h"
++#include "src/terminal/terminaldisplay.h"
+ 
+ #include <stdexcept>
+ #include <string>
+diff --git a/src/terminal/terminalframebuffer.cc b/src/terminal/imp/terminalframebuffer.cc
+similarity index 100%
+rename from src/terminal/terminalframebuffer.cc
+rename to src/terminal/imp/terminalframebuffer.cc
+diff --git a/src/terminal/terminalfunctions.cc b/src/terminal/imp/terminalfunctions.cc
+similarity index 99%
+rename from src/terminal/terminalfunctions.cc
+rename to src/terminal/imp/terminalfunctions.cc
+index d7ce82a..f0c0334 100644
+--- a/src/terminal/terminalfunctions.cc
++++ b/src/terminal/imp/terminalfunctions.cc
+@@ -40,7 +40,9 @@
+ 
+ #include "src/terminal/parseraction.h"
+ #include "src/terminal/terminalframebuffer.h"
+-#include "terminaldispatcher.h"
++#include "src/terminal/imp/terminaldispatcher.h"
++
++using namespace Terminal::Imp;
+ 
+ using namespace Terminal;
+ 
+@@ -630,7 +632,7 @@ static bool is_clipboard_selection( wchar_t c )
+ }
+ 
+ /* xterm uses an Operating System Command to set the window title */
+-void Dispatcher::OSC_dispatch( const Parser::OSC_End* act __attribute( ( unused ) ), Framebuffer* fb )
++void Dispatcher::OSC_dispatch( const Terminal::Parser::OSC_End* act __attribute( ( unused ) ), Framebuffer* fb )
+ {
+   /* handle osc copy clipboard sequence 52;Pc;Pd, kept whole after "52;" so that the
+      selection Pc (any of c p q s 0-7, or none) is passed on as the program named it
+diff --git a/src/terminal/terminaluserinput.cc b/src/terminal/imp/terminaluserinput.cc
+similarity index 93%
+rename from src/terminal/terminaluserinput.cc
+rename to src/terminal/imp/terminaluserinput.cc
+index c78e9a1..d998a27 100644
+--- a/src/terminal/terminaluserinput.cc
++++ b/src/terminal/imp/terminaluserinput.cc
+@@ -32,11 +32,13 @@
+ 
+ #include <cassert>
+ 
+-#include "terminaluserinput.h"
++#include "src/terminal/imp/terminaluserinput.h"
++
++using namespace Terminal::Imp;
+ 
+ using namespace Terminal;
+ 
+-std::string UserInput::input( const Parser::UserByte* act, bool application_mode_cursor_keys )
++std::string UserInput::input( const Terminal::Parser::UserByte* act, bool application_mode_cursor_keys )
+ {
+   /* The user will always be in application mode. If stm is not in
+      application mode, convert user's cursor control function to an
+diff --git a/src/terminal/terminaluserinput.h b/src/terminal/imp/terminaluserinput.h
+similarity index 93%
+rename from src/terminal/terminaluserinput.h
+rename to src/terminal/imp/terminaluserinput.h
+index 9164bde..eed98ac 100644
+--- a/src/terminal/terminaluserinput.h
++++ b/src/terminal/imp/terminaluserinput.h
+@@ -36,7 +36,7 @@
+ #include "src/terminal/parseraction.h"
+ #include <string>
+ 
+-namespace Terminal {
++namespace Terminal::Imp {
+ class UserInput
+ {
+ public:
+@@ -53,7 +53,7 @@ private:
+ public:
+   UserInput() : state( Ground ) {}
+ 
+-  std::string input( const Parser::UserByte* act, bool application_mode_cursor_keys );
++  std::string input( const Terminal::Parser::UserByte* act, bool application_mode_cursor_keys );
+ 
+   bool operator==( const UserInput& x ) const { return state == x.state; }
+ };
+diff --git a/src/terminal/parser.h b/src/terminal/parser.h
+index ecff701..5d9ca81 100644
+--- a/src/terminal/parser.h
++++ b/src/terminal/parser.h
+@@ -39,21 +39,20 @@
+ #include <cstring>
+ #include <cwchar>
+ 
+-#include "parserstate.h"
+-#include "parserstatefamily.h"
+-#include "parsertransition.h"
++#include "src/terminal/imp/parserstate.h"
++#include "src/terminal/imp/parserstatefamily.h"
++#include "src/terminal/imp/parsertransition.h"
+ #include "src/terminal/parseraction.h"
+ 
+-namespace Parser {
+-extern const StateFamily family;
++namespace Terminal::Parser {
+ 
+ class Parser
+ {
+ private:
+-  State const* state;
++  Imp::State const* state;
+ 
+ public:
+-  Parser() : state( &family.s_Ground ) {}
++  Parser() : state( &Imp::family.s_Ground ) {}
+ 
+   Parser( const Parser& other );
+   Parser& operator=( const Parser& );
+@@ -61,7 +60,7 @@ public:
+ 
+   void input( wchar_t ch, Actions& actions );
+ 
+-  void reset_input( void ) { state = &family.s_Ground; }
++  void reset_input( void ) { state = &Imp::family.s_Ground; }
+ };
+ 
+ static const size_t BUF_SIZE = 8;
+diff --git a/src/terminal/parseraction.h b/src/terminal/parseraction.h
+index a24e881..69abb40 100644
+--- a/src/terminal/parseraction.h
++++ b/src/terminal/parseraction.h
+@@ -41,7 +41,7 @@ namespace Terminal {
+ class Emulator;
+ }
+ 
+-namespace Parser {
++namespace Terminal::Parser {
+ class Action
+ {
+ public:
+diff --git a/src/terminal/terminal.h b/src/terminal/terminal.h
+index d06e9ff..1b77ff5 100644
+--- a/src/terminal/terminal.h
++++ b/src/terminal/terminal.h
+@@ -40,38 +40,38 @@
+ 
+ #include "src/terminal/parseraction.h"
+ #include "src/terminal/terminalframebuffer.h"
+-#include "terminaldispatcher.h"
+-#include "terminaldisplay.h"
+-#include "terminaluserinput.h"
++#include "src/terminal/imp/terminaldispatcher.h"
++#include "src/terminal/terminaldisplay.h"
++#include "src/terminal/imp/terminaluserinput.h"
+ 
+ namespace Terminal {
+ class Emulator
+ {
+-  friend void Parser::Print::act_on_terminal( Emulator* ) const;
+-  friend void Parser::Execute::act_on_terminal( Emulator* ) const;
+-  friend void Parser::Clear::act_on_terminal( Emulator* ) const;
+-  friend void Parser::Param::act_on_terminal( Emulator* ) const;
+-  friend void Parser::Collect::act_on_terminal( Emulator* ) const;
+-  friend void Parser::CSI_Dispatch::act_on_terminal( Emulator* ) const;
+-  friend void Parser::Esc_Dispatch::act_on_terminal( Emulator* ) const;
+-  friend void Parser::OSC_Start::act_on_terminal( Emulator* ) const;
+-  friend void Parser::OSC_Put::act_on_terminal( Emulator* ) const;
+-  friend void Parser::OSC_End::act_on_terminal( Emulator* ) const;
+-
+-  friend void Parser::UserByte::act_on_terminal( Emulator* ) const;
+-  friend void Parser::Resize::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::Print::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::Execute::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::Clear::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::Param::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::Collect::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::CSI_Dispatch::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::Esc_Dispatch::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::OSC_Start::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::OSC_Put::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::OSC_End::act_on_terminal( Emulator* ) const;
++
++  friend void Terminal::Parser::UserByte::act_on_terminal( Emulator* ) const;
++  friend void Terminal::Parser::Resize::act_on_terminal( Emulator* ) const;
+ 
+ private:
+   Framebuffer fb;
+-  Dispatcher dispatch;
+-  UserInput user;
++  Imp::Dispatcher dispatch;
++  Imp::UserInput user;
+ 
+   /* action methods */
+-  void print( const Parser::Print* act );
+-  void execute( const Parser::Execute* act );
+-  void CSI_dispatch( const Parser::CSI_Dispatch* act );
+-  void Esc_dispatch( const Parser::Esc_Dispatch* act );
+-  void OSC_end( const Parser::OSC_End* act );
++  void print( const Terminal::Parser::Print* act );
++  void execute( const Terminal::Parser::Execute* act );
++  void CSI_dispatch( const Terminal::Parser::CSI_Dispatch* act );
++  void Esc_dispatch( const Terminal::Parser::Esc_Dispatch* act );
++  void OSC_end( const Terminal::Parser::OSC_End* act );
+   void resize( size_t s_width, size_t s_height );
+ 
+ public:
