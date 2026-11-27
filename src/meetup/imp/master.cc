@@ -54,7 +54,7 @@ static bool make_directory( const std::string& dir, std::string& error )
 static bool write_master( const std::string& path, std::string& error )
 {
   char key[MASTER_LEN];
-  PRNG().fill( key, sizeof( key ) );
+  Crypto::PRNG().fill( key, sizeof( key ) );
   const std::string temporary = path + ".new";
   unlink( temporary.c_str() );
   const int fd = open( temporary.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600 );

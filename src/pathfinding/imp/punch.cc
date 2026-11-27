@@ -129,7 +129,7 @@ static void ask_stun( int sock, int family, const std::vector<std::string>& serv
     return;
   }
   char txid[12];
-  PRNG().fill( txid, sizeof( txid ) );
+  Crypto::PRNG().fill( txid, sizeof( txid ) );
   const std::string request = Gosh::Stun::stun_request( txid );
 
   const pid_t pid = fork();

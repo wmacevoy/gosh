@@ -1,0 +1,335 @@
+gosh seam 12: The core's cipher is a domain: its ABI at the top of src/crypto, its inside under imp/.
+
+For:   REQ21/SHAPE-1, the core factored into domains by the seam, the cipher first ("Isolating
+       crypto and ssh seems particularly important", the client, 2026-11-26). The lint holds it
+       (seam/DOMAINS): the rest of the core, and gosh, use the cipher only by crypto.h, prng.h
+       and byteorder.h.
+What:  Moves, and renames of where names are, and nothing else: no byte of the protocol, and no
+       behaviour, changes. The cipher's inside (ae.h, base64.*, crypto.cc, ocb_internal.cc,
+       ocb_openssl.cc) is moved under src/crypto/imp/, by git's renames, so where each came from
+       is the patch's own "rename from" line; their #includes say where they now are. PRNG is
+       declared in Crypto, where the rest of the cipher's ABI is, and prng.h no longer says `using
+       namespace Crypto` to every file that includes it; base64's two functions are in
+       Crypto::Imp; and myatoi, which crypto.h declared in no namespace, is in Crypto. What used
+       those names unqualified says Crypto:: (transportsender.h, mosh-server.cc, and the
+       core's tests of base64 and OCB, which reach the inside: seam/DOMAINS allows them).
+Where: src/crypto/ (Makefile.am, crypto.h, prng.h; imp/); src/network/transportsender.h; src/frontend/mosh-server.cc;
+       src/tests/base64.cc, ocb-aes.cc.
+Kind:  six files moved, five of them with their names' namespace changed; four users qualified.
+From:  the core at the pin: src/crypto/{ae.h,base64.cc,base64.h,crypto.cc,ocb_internal.cc,ocb_openssl.cc}.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/crypto/Makefile.am b/src/crypto/Makefile.am
+index f80d021..9c62888 100644
+--- a/src/crypto/Makefile.am
++++ b/src/crypto/Makefile.am
+@@ -1,20 +1,22 @@
+ AM_CPPFLAGS = -I$(top_srcdir)/ $(CRYPTO_CFLAGS)
+ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXFLAGS) $(CODE_COVERAGE_CXXFLAGS)
+ 
++AUTOMAKE_OPTIONS = subdir-objects
++
+ noinst_LIBRARIES = libmoshcrypto.a
+ 
+-OCB_SRCS = ae.h
++OCB_SRCS = imp/ae.h
+ if USE_AES_OCB_FROM_OPENSSL
+-OCB_SRCS += ocb_openssl.cc
++OCB_SRCS += imp/ocb_openssl.cc
+ else
+-OCB_SRCS += ocb_internal.cc
++OCB_SRCS += imp/ocb_internal.cc
+ endif
+ 
+ libmoshcrypto_a_SOURCES = \
+ 	$(OCB_SRCS) \
+-	base64.cc \
+-	base64.h \
++	imp/base64.cc \
++	imp/base64.h \
+ 	byteorder.h \
+-	crypto.cc \
++	imp/crypto.cc \
+ 	crypto.h \
+ 	prng.h
+diff --git a/src/crypto/crypto.h b/src/crypto/crypto.h
+index f329d4a..27147ab 100644
+--- a/src/crypto/crypto.h
++++ b/src/crypto/crypto.h
+@@ -33,7 +33,7 @@
+ #ifndef CRYPTO_HPP
+ #define CRYPTO_HPP
+ 
+-#include "src/crypto/ae.h"
++#include "src/crypto/imp/ae.h"
+ 
+ #include <cstdint>
+ #include <cstdlib>
+@@ -41,11 +41,10 @@
+ #include <exception>
+ #include <string>
+ 
++namespace Crypto {
+ long int myatoi( const char* str );
+-
+ class PRNG;
+ 
+-namespace Crypto {
+ class CryptoException : public std::exception
+ {
+ public:
+diff --git a/src/crypto/ae.h b/src/crypto/imp/ae.h
+similarity index 100%
+rename from src/crypto/ae.h
+rename to src/crypto/imp/ae.h
+diff --git a/src/crypto/base64.cc b/src/crypto/imp/base64.cc
+similarity index 98%
+rename from src/crypto/base64.cc
+rename to src/crypto/imp/base64.cc
+index 434ff65..4043225 100644
+--- a/src/crypto/base64.cc
++++ b/src/crypto/imp/base64.cc
+@@ -33,7 +33,7 @@
+ #include <cstdlib>
+ #include <cstring>
+ 
+-#include "src/crypto/base64.h"
++#include "src/crypto/imp/base64.h"
+ #include "src/util/fatal_assert.h"
+ 
+ static const char table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+@@ -65,6 +65,8 @@ static unsigned char base64_char_to_sixbit( unsigned char c )
+   return reverse[c];
+ }
+ 
++namespace Crypto::Imp {
++
+ bool base64_decode( const char* b64, const size_t b64_len, uint8_t* raw, size_t* raw_len )
+ {
+   fatal_assert( b64_len == 24 ); /* only useful for Mosh keys */
+@@ -118,3 +120,5 @@ void base64_encode( const uint8_t* raw, const size_t raw_len, char* b64, const s
+   b64[2] = '=';
+   b64[3] = '=';
+ }
++
++}
+diff --git a/src/crypto/base64.h b/src/crypto/imp/base64.h
+similarity index 98%
+rename from src/crypto/base64.h
+rename to src/crypto/imp/base64.h
+index 780ed97..2890cee 100644
+--- a/src/crypto/base64.h
++++ b/src/crypto/imp/base64.h
+@@ -32,6 +32,9 @@
+ 
+ #include <cstdint>
+ 
++namespace Crypto::Imp {
+ bool base64_decode( const char* b64, const size_t b64_len, uint8_t* raw, size_t* raw_len );
+ 
+ void base64_encode( const uint8_t* raw, const size_t raw_len, char* b64, const size_t b64_len );
++}
++
+diff --git a/src/crypto/crypto.cc b/src/crypto/imp/crypto.cc
+similarity index 97%
+rename from src/crypto/crypto.cc
+rename to src/crypto/imp/crypto.cc
+index 7a79d7e..80c89c5 100644
+--- a/src/crypto/crypto.cc
++++ b/src/crypto/imp/crypto.cc
+@@ -39,7 +39,7 @@
+ 
+ #include <sys/resource.h>
+ 
+-#include "src/crypto/base64.h"
++#include "src/crypto/imp/base64.h"
+ #include "src/crypto/byteorder.h"
+ #include "src/crypto/crypto.h"
+ #include "src/crypto/prng.h"
+@@ -47,7 +47,7 @@
+ 
+ using namespace Crypto;
+ 
+-long int myatoi( const char* str )
++long int Crypto::myatoi( const char* str )
+ {
+   char* end;
+ 
+@@ -114,7 +114,7 @@ Base64Key::Base64Key( std::string printable_key )
+   std::string base64 = printable_key + "==";
+ 
+   size_t len = 16;
+-  if ( !base64_decode( base64.data(), 24, key, &len ) ) {
++  if ( !Imp::base64_decode( base64.data(), 24, key, &len ) ) {
+     throw CryptoException( "Key must be well-formed base64." );
+   }
+ 
+@@ -142,7 +142,7 @@ std::string Base64Key::printable_key( void ) const
+ {
+   char base64[24];
+ 
+-  base64_encode( key, 16, base64, 24 );
++  Imp::base64_encode( key, 16, base64, 24 );
+ 
+   if ( ( base64[23] != '=' ) || ( base64[22] != '=' ) ) {
+     throw CryptoException( std::string( "Unexpected output from base64_encode: " ) + std::string( base64, 24 ) );
+diff --git a/src/crypto/ocb_internal.cc b/src/crypto/imp/ocb_internal.cc
+similarity index 99%
+rename from src/crypto/ocb_internal.cc
+rename to src/crypto/imp/ocb_internal.cc
+index b45e574..926847e 100644
+--- a/src/crypto/ocb_internal.cc
++++ b/src/crypto/imp/ocb_internal.cc
+@@ -86,7 +86,7 @@
+ /* Includes and compiler specific definitions                              */
+ /* ----------------------------------------------------------------------- */
+ 
+-#include "src/crypto/ae.h"
++#include "src/crypto/imp/ae.h"
+ #include "src/crypto/crypto.h"
+ #include "src/util/fatal_assert.h"
+ #include <cstdlib>
+diff --git a/src/crypto/ocb_openssl.cc b/src/crypto/imp/ocb_openssl.cc
+similarity index 99%
+rename from src/crypto/ocb_openssl.cc
+rename to src/crypto/imp/ocb_openssl.cc
+index 0a95c27..4472a4b 100644
+--- a/src/crypto/ocb_openssl.cc
++++ b/src/crypto/imp/ocb_openssl.cc
+@@ -1,4 +1,4 @@
+-#include "src/crypto/ae.h"
++#include "src/crypto/imp/ae.h"
+ #include "src/include/config.h"
+ 
+ #include <cstring>
+diff --git a/src/crypto/prng.h b/src/crypto/prng.h
+index f57e20e..98c1bb3 100644
+--- a/src/crypto/prng.h
++++ b/src/crypto/prng.h
+@@ -61,7 +61,7 @@
+ static const char rdev[] = "/dev/urandom";
+ #endif
+ 
+-using namespace Crypto;
++namespace Crypto {
+ 
+ class PRNG
+ {
+@@ -132,4 +132,6 @@ public:
+   }
+ };
+ 
++}
++
+ #endif
+diff --git a/src/frontend/mosh-server.cc b/src/frontend/mosh-server.cc
+index 9856d5c..22f245a 100644
+--- a/src/frontend/mosh-server.cc
++++ b/src/frontend/mosh-server.cc
+@@ -246,7 +246,7 @@ int mosh_server_main( int argc, char* argv[] )
+           break;
+         case 'c':
+           try {
+-            colors = myatoi( optarg );
++            colors = Crypto::myatoi( optarg );
+           } catch ( const CryptoException& ) {
+             fprintf( stderr, "%s: Bad number of colors (%s)\n", argv[0], optarg );
+             print_usage( stderr, argv[0] );
+diff --git a/src/network/transportsender.h b/src/network/transportsender.h
+index 7533f21..bed49ff 100644
+--- a/src/network/transportsender.h
++++ b/src/network/transportsender.h
+@@ -103,7 +103,7 @@ private:
+   uint64_t last_heard; /* last time received new state */
+ 
+   /* chaff to disguise instruction length */
+-  PRNG prng;
++  Crypto::PRNG prng;
+   const std::string make_chaff( void );
+ 
+   uint64_t mindelay_clock; /* time of first pending change to current state */
+diff --git a/src/tests/base64.cc b/src/tests/base64.cc
+index 72579ee..b971452 100644
+--- a/src/tests/base64.cc
++++ b/src/tests/base64.cc
+@@ -42,7 +42,7 @@
+ #include <cstring>
+ 
+ #include "base64_vector.h"
+-#include "src/crypto/base64.h"
++#include "src/crypto/imp/base64.h"
+ #include "src/crypto/crypto.h"
+ #include "src/crypto/prng.h"
+ #include "src/util/fatal_assert.h"
+@@ -65,11 +65,11 @@ static void test_base64( void )
+     memset( encoded, '\0', sizeof encoded );
+     memset( decoded, '\0', sizeof decoded );
+ 
+-    base64_encode( static_cast<const uint8_t*>( row->native ), raw_len, encoded, b64_len );
++    Crypto::Imp::base64_encode( static_cast<const uint8_t*>( row->native ), raw_len, encoded, b64_len );
+     fatal_assert( b64_len == 24 );
+     fatal_assert( !memcmp( row->encoded, encoded, sizeof encoded ) );
+ 
+-    fatal_assert( base64_decode( row->encoded, b64_len, decoded, &raw_len ) );
++    fatal_assert( Crypto::Imp::base64_decode( row->encoded, b64_len, decoded, &raw_len ) );
+     fatal_assert( raw_len == 16 );
+     fatal_assert( !memcmp( row->native, decoded, sizeof decoded ) );
+   }
+@@ -81,10 +81,10 @@ static void test_base64( void )
+   memset( source, '\0', sizeof source );
+   for ( int i = 0; i < 256; i++ ) {
+     source[15] = i;
+-    base64_encode( source, raw_len, encoded, b64_len );
++    Crypto::Imp::base64_encode( source, raw_len, encoded, b64_len );
+     fatal_assert( b64_len == 24 );
+ 
+-    fatal_assert( base64_decode( encoded, b64_len, decoded, &raw_len ) );
++    fatal_assert( Crypto::Imp::base64_decode( encoded, b64_len, decoded, &raw_len ) );
+     fatal_assert( raw_len == 16 );
+     fatal_assert( !memcmp( source, decoded, sizeof decoded ) );
+   }
+@@ -93,10 +93,10 @@ static void test_base64( void )
+   }
+ 
+   /* randomly try keys */
+-  PRNG prng;
++  Crypto::PRNG prng;
+   for ( int i = 0; i < ( 1 << 17 ); i++ ) {
+-    Base64Key key1( prng );
+-    Base64Key key2( key1.printable_key() );
++    Crypto::Base64Key key1( prng );
++    Crypto::Base64Key key2( key1.printable_key() );
+     fatal_assert( key1.printable_key() == key2.printable_key() && !memcmp( key1.data(), key2.data(), 16 ) );
+   }
+   if ( verbose ) {
+@@ -123,7 +123,7 @@ static void test_base64( void )
+   for ( const char** key = bad_keys; *key != NULL; key++ ) {
+     b64_len = 24;
+     raw_len = 16;
+-    fatal_assert( !base64_decode( *key, b64_len, decoded, &raw_len ) );
++    fatal_assert( !Crypto::Imp::base64_decode( *key, b64_len, decoded, &raw_len ) );
+   }
+   if ( verbose ) {
+     printf( "bad-keys PASSED\n" );
+diff --git a/src/tests/ocb-aes.cc b/src/tests/ocb-aes.cc
+index 8476741..6eaab6b 100644
+--- a/src/tests/ocb-aes.cc
++++ b/src/tests/ocb-aes.cc
+@@ -42,7 +42,7 @@
+ #include <cstring>
+ #include <memory>
+ 
+-#include "src/crypto/ae.h"
++#include "src/crypto/imp/ae.h"
+ #include "src/crypto/crypto.h"
+ #include "src/crypto/prng.h"
+ #include "src/util/fatal_assert.h"
+@@ -176,7 +176,7 @@ static void test_vector( const char* key_p,
+   test_decrypt( key, nonce, ciphertext, assoc, plaintext, true );
+ 
+   /* Try some bad ciphertexts and make sure they don't validate. */
+-  PRNG prng;
++  Crypto::PRNG prng;
+   for ( size_t i = 0; i < 64; i++ ) {
+     AlignedBuffer bad_ct( ciphertext.len(), ciphertext.data() );
+     ( (uint8_t*)bad_ct.data() )[prng.uint32() % bad_ct.len()] ^= ( 1 << ( prng.uint8() % 8 ) );

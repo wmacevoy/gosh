@@ -25,7 +25,7 @@
 #include <cstdint>
 #include <string>
 
-#include "src/crypto/base64.h"
+#include "src/crypto/imp/base64.h" /* (the cipher's inside: seam/DOMAINS allows it, until its ABI makes a key of 16 bytes) */
 #include "src/crypto/crypto.h"
 
 namespace Gosh::Meetup {
@@ -41,7 +41,7 @@ inline Crypto::Base64Key raw_key( const std::string& sixteen )
     throw Crypto::CryptoException( "a key is 16 bytes" );
   }
   char b64[24];
-  base64_encode( reinterpret_cast<const uint8_t*>( sixteen.data() ), 16, b64, sizeof( b64 ) );
+  Crypto::Imp::base64_encode( reinterpret_cast<const uint8_t*>( sixteen.data() ), 16, b64, sizeof( b64 ) );
   return Crypto::Base64Key( std::string( b64, 22 ) );
 }
 

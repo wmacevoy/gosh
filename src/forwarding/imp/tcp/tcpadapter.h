@@ -72,7 +72,7 @@ private:
     SegmentSink* sink;
     std::vector<Target> targets; /* by forward index */
     std::map<Id, int> sockets;   /* each connection's socket */
-    PRNG prng;
+    Crypto::PRNG prng;
     bool counted;          /* (tests and fuzzers only) sequence numbers counted from next_sequence, not drawn */
     uint32_t next_sequence;
 
