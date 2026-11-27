@@ -1,0 +1,59 @@
+gosh seam 22: The cipher's key may be made from its 16 octets (Base64Key::of_octets), an addition to its ABI.
+
+For:   REQ22/SHAPE-1 (since v22, the seam may add to a core domain's ABI where a part of gosh needs
+       it). gosh's meetup holds a ticket's key as 16 bytes; the cipher took a key only as 22
+       letters of base64, so gosh wrote the bytes as base64 with the cipher's own inside
+       (imp/base64.h), for the key to read them back, and seam/DOMAINS allowed that reach. The
+       allow goes.
+What:  An addition, and nothing else changed: Base64Key::of_octets( octets ) is the key of those
+       16 octets as they are, and throws CryptoException ("Key must represent 16 octets.", as
+       the constructor from text says) if there are not 16. A private constructor makes the
+       key's storage, zeroed, for it. No byte of the protocol changes, and nothing that was
+       there behaves otherwise.
+Where: src/crypto/crypto.h (Base64Key); src/crypto/imp/crypto.cc.
+Kind:  one static function and one private constructor added to the cipher's ABI.
+From:  the core at the pin: src/crypto/crypto.h, src/crypto/crypto.cc (moved under imp/ by patch 12).
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/crypto/crypto.h b/src/crypto/crypto.h
+index d3bd4e6..876ff2e 100644
+--- a/src/crypto/crypto.h
++++ b/src/crypto/crypto.h
+@@ -93,8 +93,16 @@ public:
+   Base64Key(); /* random key */
+   Base64Key( PRNG& prng );
+   Base64Key( std::string printable_key );
++  /* A key of these 16 octets as they are, not written as base64. Throws CryptoException if there
++     are not 16. */
++  static Base64Key of_octets( const std::string& octets );
+   std::string printable_key( void ) const;
+   unsigned char* data( void ) { return key; }
++
++private:
++  struct Octets
++  {};
++  explicit Base64Key( Octets ) : key() {}
+ };
+ 
+ class Nonce
+diff --git a/src/crypto/imp/crypto.cc b/src/crypto/imp/crypto.cc
+index 340aa17..31b5b33 100644
+--- a/src/crypto/imp/crypto.cc
++++ b/src/crypto/imp/crypto.cc
+@@ -129,6 +129,16 @@ Base64Key::Base64Key( std::string printable_key )
+   }
+ }
+ 
++Base64Key Base64Key::of_octets( const std::string& octets )
++{
++  if ( octets.size() != 16 ) {
++    throw CryptoException( "Key must represent 16 octets." );
++  }
++  Base64Key made { Octets {} };
++  memcpy( made.key, octets.data(), 16 );
++  return made;
++}
++
+ Base64Key::Base64Key()
+ {
+   PRNG().fill( key, sizeof( key ) );

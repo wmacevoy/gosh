@@ -69,3 +69,8 @@ namespace (the owner, 2026-11-27: "Pty as its own domain"). It is the operating 
 terminal; `src/terminal` is the emulator, and makes no system call. `DOMAINS` no longer allows the
 two in no namespace. Pty has no test of its own: where the system has both functions, as on Linux
 and macOS, it compiles to nothing.
+
+Patch 22 adds to the cipher's ABI, as v22 allows: `Base64Key::of_octets`, a key from its 16
+octets as they are. gosh's ticket (`src/meetup/ticket.h`) makes its keys so, where it wrote the
+bytes as base64 with the cipher's inside for the key to read back; `DOMAINS` no longer allows that,
+and allows nothing now.
