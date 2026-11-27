@@ -46,4 +46,10 @@ input are its inside, in `Terminal::Imp`.
 Patch 17 lays out the programs (`src/frontend`) as `Frontend`: its ABI is the client's
 predictions (`terminaloverlay.h`, in `Frontend::Overlay`, which no longer says `using namespace`
 of the terminal and the transport); the two mains, `STMClient` (in `Frontend::Imp`) and the rest
-are its inside. Left named and not laid out: `src/util`, and the core's examples, fuzzers and tests.
+are its inside.
+
+Patch 18 lays out the utilities (`src/util`) as `Util`: until then none of it was in a namespace.
+Its macros (`fatal_assert`, `dos_assert`) keep their names, and call `Util::`; `pty_compat`'s
+stand-ins for `forkpty` and `cfmakeraw` stay in no namespace, as the system's are (`DOMAINS`
+allows them). Left named and not laid out: what is generated (`src/include`, `src/protobufs`),
+and the core's examples, fuzzers and tests.

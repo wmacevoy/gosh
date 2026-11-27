@@ -216,7 +216,7 @@ static int pump( End& client, TestLink& to_server, End& server, TestLink& to_cli
 {
   Facts* facts = FactsCurrent(); /* the group running */
   for ( int rounds = 0; rounds < 200000; rounds++ ) {
-    freeze_timestamp();
+    Util::freeze_timestamp();
 
     std::vector<int> fds = client.fds();
     const size_t client_fds = fds.size();
@@ -232,7 +232,7 @@ static int pump( End& client, TestLink& to_server, End& server, TestLink& to_cli
     const bool traffic = !to_server.queue.empty() || !to_client.queue.empty();
     const int wait = traffic ? 0 : std::min( 20, std::min( client.wait_time(), server.wait_time() ) );
     poll( polls.data(), polls.size(), wait );
-    freeze_timestamp();
+    Util::freeze_timestamp();
 
     for ( size_t i = 0; i < polls.size(); i++ ) {
       if ( polls[i].revents ) {
@@ -375,12 +375,12 @@ FACTS( TinyMss )
   syn.seq = 100;
   syn.window = 0xFFFF;
   syn.options = std::string( "\x02\x04\x00\x00", 4 );
-  freeze_timestamp();
+  Util::freeze_timestamp();
   adapter.from_network( 0, syn );
   for ( int i = 0; i < 200 && sink.sent.empty(); i++ ) {
     usleep( 10000 );
-    freeze_timestamp();
-    adapter.tick( frozen_timestamp() );
+    Util::freeze_timestamp();
+    adapter.tick( Util::frozen_timestamp() );
   }
   FACT_CHECK( ( sink.sent.size() == 1 && sink.sent[0].has( TCPInUDP::SYN ) && sink.sent[0].has( TCPInUDP::ACK ) ) );
 
@@ -421,12 +421,12 @@ static int open_through( AdapterPort& adapter, RecordingSink& sink, int listener
   syn.flags = TCPInUDP::SYN;
   syn.seq = 100;
   syn.window = 0xFFFF;
-  freeze_timestamp();
+  Util::freeze_timestamp();
   adapter.from_network( 0, syn );
   for ( int i = 0; i < 200 && sink.sent.empty(); i++ ) {
     usleep( 10000 );
-    freeze_timestamp();
-    adapter.tick( frozen_timestamp() );
+    Util::freeze_timestamp();
+    adapter.tick( Util::frozen_timestamp() );
   }
   FACT_CHECK( ( sink.sent.size() == 1 && sink.sent[0].has( TCPInUDP::SYN ) ) );
 
@@ -478,7 +478,7 @@ FACTS( Outage )
 
     sink.up = in_contact;
     sink.sent.clear();
-    uint64_t now = frozen_timestamp();
+    uint64_t now = Util::frozen_timestamp();
     for ( int minute = 0; minute < 6 * 60; minute++ ) { /* six hours pass */
       now += 60000;
       adapter.tick( now );

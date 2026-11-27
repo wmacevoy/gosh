@@ -1,0 +1,610 @@
+gosh seam 18: The core's utilities are a domain, Util: its ABI at the top of src/util, its sources under imp/.
+
+For:   REQ21/SHAPE-1, the core factored into domains by the seam, its utilities after its
+       programs. The lint holds it (seam/DOMAINS). Until now nothing of it was in a namespace, so a
+       use of it could not be told from a name: Select, swrite, the frozen timestamp and the
+       locale's helpers were the program's, as every name in no namespace is.
+What:  Moves, and renames of where names are, and nothing else: no byte of the protocol, and no
+       behaviour, changes. Its sources are moved under src/util/imp/ by git's renames. What its
+       headers declare is in Util: Select, swrite, freeze_timestamp and frozen_timestamp,
+       LocaleVar and the locale's functions, and the two functions behind fatal_assert and
+       dos_assert, which the macros now call as Util::. The macros keep their names (a macro is
+       in no namespace), and so do pty_compat's my_forkpty and my_cfmakeraw, which stand for the
+       system's own where a system lacks them (seam/DOMAINS allows them). Their users say Util::.
+Where: src/util/ (Makefile.am, every header; imp/); the users of its names in src/frontend,
+       src/network, src/examples and src/tests.
+Kind:  five files moved; the names of six headers in Util; their users qualified.
+From:  the core at the pin: src/util/{locale_utils.cc,pty_compat.cc,select.cc,swrite.cc,timestamp.cc}.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/examples/benchmark.cc b/src/examples/benchmark.cc
+index b5097a1..c6c0dc1 100644
+--- a/src/examples/benchmark.cc
++++ b/src/examples/benchmark.cc
+@@ -93,8 +93,8 @@ int main( int argc, char** argv )
+     StateSync::Complete local_terminal( width, height );
+ 
+     /* Adopt native locale */
+-    set_native_locale();
+-    fatal_assert( is_utf8_locale() );
++    Util::set_native_locale();
++    fatal_assert( Util::is_utf8_locale() );
+ 
+     for ( int i = 0; i < iterations; i++ ) {
+       /* type a character */
+diff --git a/src/examples/ntester.cc b/src/examples/ntester.cc
+index 85b3635..79f5824 100644
+--- a/src/examples/ntester.cc
++++ b/src/examples/ntester.cc
+@@ -74,7 +74,7 @@ int main( int argc, char* argv[] )
+   fprintf( stderr, "Port bound is %s, key is %s\n", n->port().c_str(), n->get_key().c_str() );
+ 
+   if ( server ) {
+-    Select& sel = Select::get_instance();
++    Util::Select& sel = Util::Select::get_instance();
+     uint64_t last_num = n->get_remote_state_num();
+     while ( true ) {
+       try {
+@@ -121,7 +121,7 @@ int main( int argc, char* argv[] )
+       exit( 1 );
+     }
+ 
+-    Select& sel = Select::get_instance();
++    Util::Select& sel = Util::Select::get_instance();
+ 
+     while ( true ) {
+       sel.clear_fds();
+diff --git a/src/examples/parse.cc b/src/examples/parse.cc
+index 64aedb6..0ee7fcf 100644
+--- a/src/examples/parse.cc
++++ b/src/examples/parse.cc
+@@ -72,8 +72,8 @@ int main( int argc __attribute__( ( unused ) ), char* argv[] __attribute__( ( un
+   int master;
+   struct termios saved_termios, raw_termios, child_termios;
+ 
+-  set_native_locale();
+-  fatal_assert( is_utf8_locale() );
++  Util::set_native_locale();
++  fatal_assert( Util::is_utf8_locale() );
+ 
+   if ( tcgetattr( STDIN_FILENO, &saved_termios ) < 0 ) {
+     perror( "tcgetattr" );
+@@ -139,7 +139,7 @@ static void emulate_terminal( int fd )
+ {
+   Terminal::Parser::UTF8Parser parser;
+ 
+-  Select& sel = Select::get_instance();
++  Util::Select& sel = Util::Select::get_instance();
+   sel.add_fd( STDIN_FILENO );
+   sel.add_fd( fd );
+ 
+@@ -176,7 +176,7 @@ static int copy( int src, int dest )
+     return -1;
+   }
+ 
+-  return swrite( dest, buf, bytes_read );
++  return Util::swrite( dest, buf, bytes_read );
+ }
+ 
+ static int vt_parser( int fd, Terminal::Parser::UTF8Parser* parser )
+diff --git a/src/examples/termemu.cc b/src/examples/termemu.cc
+index 5d8120a..28391af 100644
+--- a/src/examples/termemu.cc
++++ b/src/examples/termemu.cc
+@@ -78,8 +78,8 @@ int main( int argc, char* argv[] )
+   int master;
+   struct termios saved_termios, raw_termios, child_termios;
+ 
+-  set_native_locale();
+-  fatal_assert( is_utf8_locale() );
++  Util::set_native_locale();
++  fatal_assert( Util::is_utf8_locale() );
+ 
+   if ( tcgetattr( STDIN_FILENO, &saved_termios ) < 0 ) {
+     perror( "tcgetattr" );
+@@ -187,7 +187,7 @@ static bool tick( Terminal::Framebuffer& state, Terminal::Framebuffer& new_frame
+ 
+   if ( ( !initialized ) || ( diff >= 0.02 ) ) {
+     std::string update = display.new_frame( initialized, state, new_frame );
+-    swrite( STDOUT_FILENO, update.c_str() );
++    Util::swrite( STDOUT_FILENO, update.c_str() );
+     state = new_frame;
+ 
+     initialized = true;
+@@ -238,12 +238,12 @@ static void emulate_terminal( int fd )
+   /* open display */
+   Terminal::Display display( true ); /* use TERM to initialize */
+ 
+-  Select& sel = Select::get_instance();
++  Util::Select& sel = Util::Select::get_instance();
+   sel.add_fd( STDIN_FILENO );
+   sel.add_fd( fd );
+   sel.add_signal( SIGWINCH );
+ 
+-  swrite( STDOUT_FILENO, display.open().c_str() );
++  Util::swrite( STDOUT_FILENO, display.open().c_str() );
+ 
+   int timeout = -1;
+ 
+@@ -273,7 +273,7 @@ static void emulate_terminal( int fd )
+         terminal_to_host += complete.act( Terminal::Parser::UserByte( buf[i] ) );
+       }
+ 
+-      if ( swrite( fd, terminal_to_host.c_str(), terminal_to_host.length() ) < 0 ) {
++      if ( Util::swrite( fd, terminal_to_host.c_str(), terminal_to_host.length() ) < 0 ) {
+         break;
+       }
+     } else if ( sel.read( fd ) ) {
+@@ -290,7 +290,7 @@ static void emulate_terminal( int fd )
+       }
+ 
+       std::string terminal_to_host = complete.act( std::string( buf, bytes_read ) );
+-      if ( swrite( fd, terminal_to_host.c_str(), terminal_to_host.length() ) < 0 ) {
++      if ( Util::swrite( fd, terminal_to_host.c_str(), terminal_to_host.length() ) < 0 ) {
+         break;
+       }
+     } else if ( sel.signal( SIGWINCH ) ) {
+@@ -320,7 +320,7 @@ static void emulate_terminal( int fd )
+   }
+ 
+   std::string update = display.new_frame( true, state, complete.get_fb() );
+-  swrite( STDOUT_FILENO, update.c_str() );
++  Util::swrite( STDOUT_FILENO, update.c_str() );
+ 
+-  swrite( STDOUT_FILENO, display.close().c_str() );
++  Util::swrite( STDOUT_FILENO, display.close().c_str() );
+ }
+diff --git a/src/frontend/imp/mosh-client.cc b/src/frontend/imp/mosh-client.cc
+index 4e5eaf2..bf164f0 100644
+--- a/src/frontend/imp/mosh-client.cc
++++ b/src/frontend/imp/mosh-client.cc
+@@ -187,7 +187,7 @@ int mosh_client_main( int argc, char* argv[] )
+   }
+ 
+   /* Adopt native locale */
+-  set_native_locale();
++  Util::set_native_locale();
+ 
+   bool success = false;
+   try {
+diff --git a/src/frontend/imp/mosh-server.cc b/src/frontend/imp/mosh-server.cc
+index 2b8e798..6dd5ef2 100644
+--- a/src/frontend/imp/mosh-server.cc
++++ b/src/frontend/imp/mosh-server.cc
+@@ -147,7 +147,7 @@ static void spin( void )
+     req.tv_sec = 0;
+     req.tv_nsec = 100000000; /* 0.1 sec */
+     nanosleep( &req, NULL );
+-    freeze_timestamp();
++    Util::freeze_timestamp();
+   }
+ }
+ 
+@@ -336,14 +336,14 @@ int mosh_server_main( int argc, char* argv[] )
+   }
+ 
+   /* Adopt implementation locale */
+-  set_native_locale();
+-  if ( !is_utf8_locale() ) {
++  Util::set_native_locale();
++  if ( !Util::is_utf8_locale() ) {
+     /* save details for diagnostic */
+-    LocaleVar native_ctype = get_ctype();
+-    std::string native_charset( locale_charset() );
++    Util::LocaleVar native_ctype = Util::get_ctype();
++    std::string native_charset( Util::locale_charset() );
+ 
+     /* apply locale-related environment variables from client */
+-    clear_locale_variables();
++    Util::clear_locale_variables();
+     for ( std::list<std::string>::const_iterator i = locale_vars.begin(); i != locale_vars.end(); i++ ) {
+       char* env_string = strdup( i->c_str() );
+       fatal_assert( env_string );
+@@ -353,10 +353,10 @@ int mosh_server_main( int argc, char* argv[] )
+     }
+ 
+     /* check again */
+-    set_native_locale();
+-    if ( !is_utf8_locale() ) {
+-      LocaleVar client_ctype = get_ctype();
+-      std::string client_charset( locale_charset() );
++    Util::set_native_locale();
++    if ( !Util::is_utf8_locale() ) {
++      Util::LocaleVar client_ctype = Util::get_ctype();
++      std::string client_charset( Util::locale_charset() );
+ 
+       fprintf( stderr,
+                "mosh-server needs a UTF-8 native locale to run.\n\n"
+@@ -443,7 +443,7 @@ static int run_server( const char* desired_ip,
+   NetworkPointer network( new ServerConnection( terminal, blank, desired_ip, desired_port ) );
+ 
+   network->set_verbose( verbose );
+-  Select::set_verbose( verbose );
++  Util::Select::set_verbose( verbose );
+ 
+   /* its targets are resolved now, while we can still complain */
+   Gosh::Seam::session_started( *network, verbose );
+@@ -697,7 +697,7 @@ static void serve( int host_fd,
+   const uint64_t network_timeout_ms = static_cast<uint64_t>( network_timeout ) * 1000;
+   const uint64_t network_signaled_timeout_ms = static_cast<uint64_t>( network_signaled_timeout ) * 1000;
+   /* prepare to poll for events */
+-  Select& sel = Select::get_instance();
++  Util::Select& sel = Util::Select::get_instance();
+   sel.add_signal( SIGTERM );
+   sel.add_signal( SIGINT );
+   sel.add_signal( SIGUSR1 );
+@@ -894,7 +894,7 @@ static void serve( int host_fd,
+       }
+ 
+       /* write user input and terminal writeback to the host */
+-      if ( swrite( host_fd, terminal_to_host.c_str(), terminal_to_host.length() ) < 0 ) {
++      if ( Util::swrite( host_fd, terminal_to_host.c_str(), terminal_to_host.length() ) < 0 ) {
+         network.start_shutdown();
+       }
+ 
+diff --git a/src/frontend/imp/stmclient.cc b/src/frontend/imp/stmclient.cc
+index a8cab8c..3acdd97 100644
+--- a/src/frontend/imp/stmclient.cc
++++ b/src/frontend/imp/stmclient.cc
+@@ -75,7 +75,7 @@ void STMClient::resume( void )
+   }
+ 
+   /* Put terminal in application-cursor-key mode */
+-  swrite( STDOUT_FILENO, display.open().c_str() );
++  Util::swrite( STDOUT_FILENO, display.open().c_str() );
+ 
+   /* Flag that outer terminal state is unknown */
+   repaint_requested = true;
+@@ -87,9 +87,9 @@ void STMClient::init( void )
+     return; /* nothing of the terminal's to look at or change */
+   }
+ 
+-  if ( !is_utf8_locale() ) {
+-    LocaleVar native_ctype = get_ctype();
+-    std::string native_charset( locale_charset() );
++  if ( !Util::is_utf8_locale() ) {
++    Util::LocaleVar native_ctype = Util::get_ctype();
++    std::string native_charset( Util::locale_charset() );
+ 
+     fprintf( stderr,
+              "mosh-client needs a UTF-8 native locale to run.\n\n"
+@@ -126,7 +126,7 @@ void STMClient::init( void )
+   }
+ 
+   /* Put terminal in application-cursor-key mode */
+-  swrite( STDOUT_FILENO, display.open().c_str() );
++  Util::swrite( STDOUT_FILENO, display.open().c_str() );
+ 
+   /* Add our name to window title */
+   if ( !getenv( "MOSH_TITLE_NOPREFIX" ) ) {
+@@ -217,7 +217,7 @@ void STMClient::shutdown( void )
+   output_new_frame();
+ 
+   /* Restore terminal and terminal-driver state */
+-  swrite( STDOUT_FILENO, display.close().c_str() );
++  Util::swrite( STDOUT_FILENO, display.close().c_str() );
+ 
+   if ( tcsetattr( STDIN_FILENO, TCSANOW, &saved_termios ) < 0 ) {
+     perror( "tcsetattr" );
+@@ -245,7 +245,7 @@ void STMClient::shutdown( void )
+ 
+ void STMClient::main_init( void )
+ {
+-  Select& sel = Select::get_instance();
++  Util::Select& sel = Util::Select::get_instance();
+   sel.add_signal( SIGWINCH );
+   sel.add_signal( SIGTERM );
+   sel.add_signal( SIGINT );
+@@ -272,7 +272,7 @@ void STMClient::main_init( void )
+   /* initialize screen */
+   if ( !Gosh::Seam::headless() ) {
+   std::string init = display.new_frame( false, local_framebuffer, local_framebuffer );
+-  swrite( STDOUT_FILENO, init.data(), init.size() );
++  Util::swrite( STDOUT_FILENO, init.data(), init.size() );
+   }
+ 
+   /* open network */
+@@ -287,7 +287,7 @@ void STMClient::main_init( void )
+ 
+   /* be noisy as necessary */
+   network->set_verbose( verbose );
+-  Select::set_verbose( verbose );
++  Util::Select::set_verbose( verbose );
+ 
+   Gosh::Seam::session_started( *network, 0 );
+ }
+@@ -312,7 +312,7 @@ void STMClient::output_new_frame( void )
+ 
+   /* calculate minimal difference from where we are */
+   const std::string diff( display.new_frame( !repaint_requested, local_framebuffer, new_state ) );
+-  swrite( STDOUT_FILENO, diff.data(), diff.size() );
++  Util::swrite( STDOUT_FILENO, diff.data(), diff.size() );
+ 
+   repaint_requested = false;
+ 
+@@ -378,7 +378,7 @@ bool STMClient::process_user_input( int fd )
+         return false;
+       } else if ( the_byte == 0x1a ) { /* Suspend sequence is escape_key Ctrl-Z */
+         /* Restore terminal and terminal-driver state */
+-        swrite( STDOUT_FILENO, display.close().c_str() );
++        Util::swrite( STDOUT_FILENO, display.close().c_str() );
+ 
+         if ( tcsetattr( STDIN_FILENO, TCSANOW, &saved_termios ) < 0 ) {
+           perror( "tcsetattr" );
+@@ -471,7 +471,7 @@ bool STMClient::main( void )
+ #endif
+ 
+   /* prepare to poll for events */
+-  Select& sel = Select::get_instance();
++  Util::Select& sel = Util::Select::get_instance();
+ 
+   while ( 1 ) {
+     try {
+@@ -600,7 +600,7 @@ bool STMClient::main( void )
+       req.tv_sec = 0;
+       req.tv_nsec = 200000000; /* 0.2 sec */
+       nanosleep( &req, NULL );
+-      freeze_timestamp();
++      Util::freeze_timestamp();
+     } catch ( const Crypto::CryptoException& e ) {
+       if ( e.fatal ) {
+         throw;
+diff --git a/src/network/imp/network.cc b/src/network/imp/network.cc
+index ad7cc76..01fbd69 100644
+--- a/src/network/imp/network.cc
++++ b/src/network/imp/network.cc
+@@ -612,7 +612,7 @@ std::string Connection::port( void ) const
+ 
+ uint64_t Network::timestamp( void )
+ {
+-  return frozen_timestamp();
++  return Util::frozen_timestamp();
+ }
+ 
+ uint16_t Network::timestamp16( void )
+diff --git a/src/tests/inpty.cc b/src/tests/inpty.cc
+index 61624f7..3269206 100644
+--- a/src/tests/inpty.cc
++++ b/src/tests/inpty.cc
+@@ -109,7 +109,7 @@ int main( int argc, char* argv[] )
+       perror( "read" );
+       return 1;
+     }
+-    swrite( STDOUT_FILENO, buf, bytes_read );
++    Util::swrite( STDOUT_FILENO, buf, bytes_read );
+   }
+ 
+   int wstatus;
+diff --git a/src/tests/is-utf8-locale.cc b/src/tests/is-utf8-locale.cc
+index 24badba..afd0b29 100644
+--- a/src/tests/is-utf8-locale.cc
++++ b/src/tests/is-utf8-locale.cc
+@@ -36,8 +36,8 @@
+ 
+ int main( int argc __attribute__( ( unused ) ), char** argv __attribute__( ( unused ) ) )
+ {
+-  set_native_locale();
+-  if ( !is_utf8_locale() ) {
++  Util::set_native_locale();
++  if ( !Util::is_utf8_locale() ) {
+     fprintf( stderr, "not a UTF-8 locale\n" );
+     return 1;
+   }
+diff --git a/src/util/Makefile.am b/src/util/Makefile.am
+index 408d5b7..1d4d339 100644
+--- a/src/util/Makefile.am
++++ b/src/util/Makefile.am
+@@ -1,5 +1,7 @@
+ AM_CXXFLAGS = -I$(top_srcdir)/ $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXFLAGS) $(CODE_COVERAGE_CXXFLAGS)
+ 
++AUTOMAKE_OPTIONS = subdir-objects
++
+ noinst_LIBRARIES = libmoshutil.a
+ 
+-libmoshutil_a_SOURCES = locale_utils.cc locale_utils.h swrite.cc swrite.h dos_assert.h fatal_assert.h select.h select.cc timestamp.h timestamp.cc pty_compat.cc pty_compat.h
++libmoshutil_a_SOURCES = imp/locale_utils.cc locale_utils.h imp/swrite.cc swrite.h dos_assert.h fatal_assert.h select.h imp/select.cc timestamp.h imp/timestamp.cc imp/pty_compat.cc pty_compat.h
+diff --git a/src/util/dos_assert.h b/src/util/dos_assert.h
+index c611ce2..e61cb20 100644
+--- a/src/util/dos_assert.h
++++ b/src/util/dos_assert.h
+@@ -38,6 +38,7 @@
+ 
+ #include "src/crypto/crypto.h"
+ 
++namespace Util {
+ static void dos_detected( const char* expression, const char* file, int line, const char* function )
+ {
+   char buffer[2048];
+@@ -50,7 +51,8 @@ static void dos_detected( const char* expression, const char* file, int line, co
+             expression );
+   throw Crypto::CryptoException( buffer );
+ }
++}
+ 
+-#define dos_assert( expr ) ( ( expr ) ? (void)0 : dos_detected( #expr, __FILE__, __LINE__, __func__ ) )
++#define dos_assert( expr ) ( ( expr ) ? (void)0 : Util::dos_detected( #expr, __FILE__, __LINE__, __func__ ) )
+ 
+ #endif
+diff --git a/src/util/fatal_assert.h b/src/util/fatal_assert.h
+index 1ca57aa..a81771a 100644
+--- a/src/util/fatal_assert.h
++++ b/src/util/fatal_assert.h
+@@ -36,6 +36,7 @@
+ #include <cstdio>
+ #include <cstdlib>
+ 
++namespace Util {
+ static void fatal_error( const char* expression, const char* file, int line, const char* function )
+ {
+   fprintf( stderr,
+@@ -46,7 +47,8 @@ static void fatal_error( const char* expression, const char* file, int line, con
+            expression );
+   abort();
+ }
++}
+ 
+-#define fatal_assert( expr ) ( ( expr ) ? (void)0 : fatal_error( #expr, __FILE__, __LINE__, __func__ ) )
++#define fatal_assert( expr ) ( ( expr ) ? (void)0 : Util::fatal_error( #expr, __FILE__, __LINE__, __func__ ) )
+ 
+ #endif
+diff --git a/src/util/locale_utils.cc b/src/util/imp/locale_utils.cc
+similarity index 99%
+rename from src/util/locale_utils.cc
+rename to src/util/imp/locale_utils.cc
+index 45b408a..c27ef70 100644
+--- a/src/util/locale_utils.cc
++++ b/src/util/imp/locale_utils.cc
+@@ -45,6 +45,8 @@
+ 
+ #include "src/util/locale_utils.h"
+ 
++namespace Util {
++
+ const std::string LocaleVar::str( void ) const
+ {
+   if ( name.empty() ) {
+@@ -125,3 +127,5 @@ void clear_locale_variables( void )
+   unsetenv( "LC_IDENTIFICATION" );
+   unsetenv( "LC_ALL" );
+ }
++
++}
+diff --git a/src/util/pty_compat.cc b/src/util/imp/pty_compat.cc
+similarity index 100%
+rename from src/util/pty_compat.cc
+rename to src/util/imp/pty_compat.cc
+diff --git a/src/util/select.cc b/src/util/imp/select.cc
+similarity index 98%
+rename from src/util/select.cc
+rename to src/util/imp/select.cc
+index d339f5c..830d056 100644
+--- a/src/util/select.cc
++++ b/src/util/imp/select.cc
+@@ -32,6 +32,8 @@
+ 
+ #include "src/util/select.h"
+ 
++namespace Util {
++
+ fd_set Select::dummy_fd_set;
+ 
+ sigset_t Select::dummy_sigset;
+@@ -46,3 +48,5 @@ void Select::handle_signal( int signum )
+   Select& sel = get_instance();
+   sel.got_signal[signum] = 1;
+ }
++
++}
+diff --git a/src/util/swrite.cc b/src/util/imp/swrite.cc
+similarity index 98%
+rename from src/util/swrite.cc
+rename to src/util/imp/swrite.cc
+index fc4f208..307d079 100644
+--- a/src/util/swrite.cc
++++ b/src/util/imp/swrite.cc
+@@ -37,6 +37,8 @@
+ 
+ #include "src/util/swrite.h"
+ 
++namespace Util {
++
+ int swrite( int fd, const char* str, ssize_t len )
+ {
+   ssize_t total_bytes_written = 0;
+@@ -52,3 +54,5 @@ int swrite( int fd, const char* str, ssize_t len )
+ 
+   return 0;
+ }
++
++}
+diff --git a/src/util/timestamp.cc b/src/util/imp/timestamp.cc
+similarity index 99%
+rename from src/util/timestamp.cc
+rename to src/util/imp/timestamp.cc
+index 569ae6f..6c9ac3d 100644
+--- a/src/util/timestamp.cc
++++ b/src/util/imp/timestamp.cc
+@@ -58,6 +58,8 @@
+ #define CLOCKTYPE CLOCK_MONOTONIC
+ #endif
+ 
++namespace Util {
++
+ static uint64_t millis_cache = -1;
+ 
+ uint64_t frozen_timestamp( void )
+@@ -128,3 +130,5 @@ void freeze_timestamp( void )
+ #error "gettimeofday() unavailable-- required as timer of last resort"
+ #endif
+ }
++
++}
+diff --git a/src/util/locale_utils.h b/src/util/locale_utils.h
+index dec3df0..e98403f 100644
+--- a/src/util/locale_utils.h
++++ b/src/util/locale_utils.h
+@@ -35,6 +35,7 @@
+ 
+ #include <string>
+ 
++namespace Util {
+ class LocaleVar
+ {
+ public:
+@@ -48,5 +49,7 @@ const char* locale_charset( void );
+ bool is_utf8_locale( void );
+ void set_native_locale( void );
+ void clear_locale_variables( void );
++}
++
+ 
+ #endif
+diff --git a/src/util/select.h b/src/util/select.h
+index 39a4d72..d7155f0 100644
+--- a/src/util/select.h
++++ b/src/util/select.h
+@@ -48,6 +48,7 @@
+    Any signals blocked by calling sigprocmask() outside this code will still be
+    received during Select::select().  So don't do that. */
+ 
++namespace Util {
+ class Select
+ {
+ public:
+@@ -242,5 +243,7 @@ private:
+   int consecutive_polls;
+   static unsigned int verbose;
+ };
++}
++
+ 
+ #endif
+diff --git a/src/util/swrite.h b/src/util/swrite.h
+index 74d65ed..0b763ed 100644
+--- a/src/util/swrite.h
++++ b/src/util/swrite.h
+@@ -33,6 +33,9 @@
+ #ifndef SWRITE_HPP
+ #define SWRITE_HPP
+ 
++namespace Util {
+ int swrite( int fd, const char* str, ssize_t len = -1 );
++}
++
+ 
+ #endif
+diff --git a/src/util/timestamp.h b/src/util/timestamp.h
+index 07cf5b4..ee57801 100644
+--- a/src/util/timestamp.h
++++ b/src/util/timestamp.h
+@@ -35,7 +35,10 @@
+ 
+ #include <cstdint>
+ 
++namespace Util {
+ void freeze_timestamp( void );
+ uint64_t frozen_timestamp( void );
++}
++
+ 
+ #endif
