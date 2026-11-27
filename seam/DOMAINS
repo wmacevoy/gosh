@@ -7,6 +7,7 @@ Crypto        src/crypto
 core-include  src/include | *
 core-protobufs src/protobufs | *
 Util          src/util
+Pty           src/pty
 Terminal      src/terminal
 Network       src/network
 StateSync     src/statesync
@@ -17,4 +18,3 @@ core-fuzz     src/fuzz | *
 gosh          src/command src/copy src/forwarding src/meetup src/pathfinding src/relay src/seam src/ssh src/strong src/stun | *
 vendor        vendor | *
 allow src/meetup/ticket.h  Crypto  # gosh's raw_key: base64 of 16 bytes, until the cipher's ABI makes a key of them
-allow src/util/pty_compat.h Util   # my_forkpty, my_cfmakeraw: the system's own, where a system lacks them, in no namespace as the system's are

@@ -50,7 +50,7 @@ are its inside.
 
 Patch 18 lays out the utilities (`src/util`) as `Util`: until then none of it was in a namespace.
 Its macros (`fatal_assert`, `dos_assert`) keep their names, and call `Util::`; `pty_compat`'s
-stand-ins for `forkpty` and `cfmakeraw` stay in no namespace, as the system's are (`DOMAINS`
+stand-ins for `forkpty` and `cfmakeraw` stay in no namespace, as the system's are, until patch 21 (`DOMAINS`
 allows them). Left named and not laid out: what is generated (`src/include`, `src/protobufs`),
 and the core's examples, fuzzers and tests.
 
@@ -62,3 +62,10 @@ Patch 20 puts OCB's interface (`src/crypto/imp/ae.h`, Krovetz's, in C) in `Crypt
 definitions with it: until then it was in no namespace, and every user of the cipher's ABI saw it,
 since `crypto.h` includes it for one private field. Its functions keep C linkage, so the symbols
 linked are the same; `DOMAINS` no longer allows it.
+
+Patch 21 makes the pseudo-terminal a domain, `Pty` (`src/pty`): `pty_compat`'s stand-ins for
+`forkpty` and `cfmakeraw`, where a system lacks them, moved out of the utilities and into a
+namespace (the owner, 2026-11-27: "Pty as its own domain"). It is the operating system's side of a
+terminal; `src/terminal` is the emulator, and makes no system call. `DOMAINS` no longer allows the
+two in no namespace. Pty has no test of its own: where the system has both functions, as on Linux
+and macOS, it compiles to nothing.
