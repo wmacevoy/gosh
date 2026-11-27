@@ -1,4 +1,4 @@
-# Requirements — v22 (a draft, not accepted)
+# Requirements — v22
 
 What must be observably true, and what is not being built. Changes only with the client; a change in
 meaning is a new version (`REQUIREMENTS_v23.md`); a spelling or lint fix is not. See
@@ -43,8 +43,7 @@ harness: rx/tx x sh/cp"; "sh is the terminal session; yes, split command"; "use 
 and draft v21"; and, of a part's boundary, "abi is the boundary, imp is the inside" (2026-11-22).
 **Accepted by the client on 2026-11-27: "accept v21".** v22 is the client's choice of
 2026-11-27, of the agent's proposals for what would make the cipher's proof simpler: "2 & 3", the
-second being a bound its callers keep carried by a type; drafted by the agent. **A draft: not
-accepted.** Until it is, v21 is in force, and nothing in the core is changed by it.
+second being a bound its callers keep carried by a type; drafted by the agent. **Accepted by the client on 2026-11-27: "accept v22".**
 
 **What changed from v21.**
 

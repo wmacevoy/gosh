@@ -1,6 +1,6 @@
 # the seam
 
-Every place gosh's code meets the core (`REQ21/SHAPE-1`; design v2, section 4). It has two halves:
+Every place gosh's code meets the core (`REQ22/SHAPE-1`; design v2, section 4). It has two halves:
 
 - **`../../seam/*.patch`**: what gosh changes *in* the core, applied by the build to a copy.
 - **This directory**: what those changes call.

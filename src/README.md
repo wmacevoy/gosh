@@ -1,7 +1,7 @@
 # gosh's parts, and their layers
 
 Each directory here is one part, named by the glossary's word for what it does (`REQ6/SHAPE-5`);
-each has a README. The core, upstream mosh, is beside them in `../core/`, untouched (`REQ21/SHAPE-1`).
+each has a README. The core, upstream mosh, is beside them in `../core/`, untouched (`REQ22/SHAPE-1`).
 The build copies each part into its copy of the core (`../tools/build.sh`).
 
 Every part sits in one of four layers. **Only glue reaches across layers**; every other part

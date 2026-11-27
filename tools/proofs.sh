@@ -160,7 +160,7 @@ if [ "$MODE" = lite ]; then
 fi
 # And each domain of gosh (src/DOMAINS) is used by another only through its ABI.
 STRONG=$STRONG INCLUDE="$LINT_INCLUDE" DOMAINS=src/DOMAINS "$PYTHON" "$PROVER/lint.py"
-# And the core, as gosh builds it (seam/DOMAINS; REQ21/SHAPE-1): the program in .build/core, the core
+# And the core, as gosh builds it (seam/DOMAINS; REQ22/SHAPE-1): the program in .build/core, the core
 # with the seam's patches and gosh's parts beside it, each domain used by another only through its ABI;
 # by that rule alone (RULES), for the core is held to no other of the lint's. Clang reads the cipher's
 # portable OCB (-U__SSE2__: the builtin headers are the C compiler's, not libclang's), and the proofs'

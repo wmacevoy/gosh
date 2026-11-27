@@ -1,6 +1,6 @@
 gosh seam 19: Each of the core's domains has tests of its own: what its factoring must not change.
 
-For:   REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour". The factoring (seams 12
+For:   REQ22/SHAPE-1: "no byte of the protocol changes, and no behaviour". The factoring (seams 12
        to 18) moved and renamed the core's code; only the cipher had tests of its own (seam 13),
        and gosh's check ran none of the core's. Each domain now has one, run by the check's
        tests of each laid-out core domain (tools/check.sh).
@@ -51,7 +51,7 @@ index 0000000..2342532
 @@ -0,0 +1,42 @@
 +/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 +/* A test of the core's, added by gosh's seam 19: the core's own behaviour, which the seam's factoring of it into
-+   domains must not change (REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
++   domains must not change (REQ22/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
 +
 +#include <clocale>
 +#include <string>
@@ -59,7 +59,7 @@ index 0000000..2342532
 +#include "src/frontend/terminaloverlay.h"
 +#include "vendor/facts/facts.h"
 +
-+/* REQ21/SHAPE-1: the client's overlays: a title's prefix, and a notification shown on the framebuffer */
++/* REQ22/SHAPE-1: the client's overlays: a title's prefix, and a notification shown on the framebuffer */
 +FACTS( Overlay )
 +{
 +  /* (the core reads and draws text as UTF-8, and its programs refuse to start in any other locale) */
@@ -119,7 +119,7 @@ index 0000000..b3b79bc
 @@ -0,0 +1,71 @@
 +/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 +/* A test of the core's, added by gosh's seam 19: the core's own behaviour, which the seam's factoring of it into
-+   domains must not change (REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
++   domains must not change (REQ22/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
 +
 +#include <string>
 +#include <vector>
@@ -132,7 +132,7 @@ index 0000000..b3b79bc
 +
 +using Network::Imp::Fragment;
 +
-+/* REQ21/SHAPE-1: the transport's fragments, compression and port ranges */
++/* REQ22/SHAPE-1: the transport's fragments, compression and port ranges */
 +FACTS( Transport )
 +{
 +  TransportBuffers::Instruction inst;
@@ -216,7 +216,7 @@ index 0000000..1654ae7
 @@ -0,0 +1,54 @@
 +/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 +/* A test of the core's, added by gosh's seam 19: the core's own behaviour, which the seam's factoring of it into
-+   domains must not change (REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
++   domains must not change (REQ22/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
 +
 +#include <clocale>
 +#include <string>
@@ -235,7 +235,7 @@ index 0000000..1654ae7
 +}
 +}
 +
-+/* REQ21/SHAPE-1: state synchronisation's two objects, each a diff and its application */
++/* REQ22/SHAPE-1: state synchronisation's two objects, each a diff and its application */
 +FACTS( StateSync )
 +{
 +  /* (the core reads and draws text as UTF-8, and its programs refuse to start in any other locale) */
@@ -296,7 +296,7 @@ index 0000000..f766f4e
 @@ -0,0 +1,74 @@
 +/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 +/* A test of the core's, added by gosh's seam 19: the core's own behaviour, which the seam's factoring of it into
-+   domains must not change (REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
++   domains must not change (REQ22/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
 +
 +#include <clocale>
 +#include <string>
@@ -315,7 +315,7 @@ index 0000000..f766f4e
 +}
 +}
 +
-+/* REQ21/SHAPE-1: the terminal: its parser's actions, and what they do to a framebuffer */
++/* REQ22/SHAPE-1: the terminal: its parser's actions, and what they do to a framebuffer */
 +FACTS( Terminal )
 +{
 +  /* (the core reads and draws text as UTF-8, and its programs refuse to start in any other locale) */
@@ -396,7 +396,7 @@ index 0000000..d2dca57
 @@ -0,0 +1,47 @@
 +/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
 +/* A test of the core's, added by gosh's seam 19: the core's own behaviour, which the seam's factoring of it into
-+   domains must not change (REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
++   domains must not change (REQ22/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
 +
 +#include <string>
 +
@@ -407,7 +407,7 @@ index 0000000..d2dca57
 +#include "src/util/timestamp.h"
 +#include "vendor/facts/facts.h"
 +
-+/* REQ21/SHAPE-1: the utilities: a whole write, a timestamp that does not go back, a locale's variable */
++/* REQ22/SHAPE-1: the utilities: a whole write, a timestamp that does not go back, a locale's variable */
 +FACTS( Util )
 +{
 +  int fds[2];

@@ -1,6 +1,6 @@
 gosh seam 13: The cipher's tests are the cipher's: src/tests' tests of its inside move under src/crypto/imp/.
 
-For:   REQ21/SHAPE-1, the core factored into domains, the cipher first. The core's tests of OCB, of
+For:   REQ22/SHAPE-1, the core factored into domains, the cipher first. The core's tests of OCB, of
        the cipher's sealing and of base64 reach the cipher's inside (ae.h, base64.h): as the
        cipher's own tests they are inside it, and seam/DOMAINS allows no crossing for them.
 What:  Moves, and renames of where names are: ocb-aes.cc, encrypt-decrypt.cc and base64.cc, with

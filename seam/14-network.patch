@@ -1,6 +1,6 @@
 gosh seam 14: The core's transport is a domain: its ABI at the top of src/network, its inside under imp/.
 
-For:   REQ21/SHAPE-1, the core factored into domains by the seam, its transport after the cipher.
+For:   REQ22/SHAPE-1, the core factored into domains by the seam, its transport after the cipher.
        The lint holds it (seam/DOMAINS): the rest of the core, and gosh, use the transport only by
        network.h, networktransport.h (with networktransport-impl.h, its templates' bodies),
        transportsender.h (with transportsender-impl.h), transportstate.h and sidechannel.h.
