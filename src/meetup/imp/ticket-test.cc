@@ -37,6 +37,15 @@ FACTS( Ticket )
   FACT_CHECK( ( ticket_key( master, "short" ).empty() && ticket_key( "short", t.id ).empty() ), "an id or a master key of the wrong size gives no key" );
   FACT_CHECK( !ticket_good_at( "short", 0 ), "what is not an id is good at no time" );
 
+  FACT_CHECK( raw_key( master ).printable_key() == "MDEyMzQ1Njc4OWFiY2RlZg", "a key is its 16 bytes as they are" );
+  bool refused = false;
+  try {
+    raw_key( "fifteen bytes.." );
+  } catch ( const Crypto::CryptoException& ) {
+    refused = true;
+  }
+  FACT_CHECK( refused, "and what is not 16 bytes is no key" );
+
   Ticket back;
   const std::string text = ticket_text( t );
   FACT_CHECK( ( text.size() == 57 && text.compare( 0, 12, "gosh-ticket " ) == 0 ), "as text: \"gosh-ticket\", then two keys of 22 letters" );
