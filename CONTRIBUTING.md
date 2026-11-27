@@ -65,7 +65,7 @@ clones that project and runs in its image, which holds both. gosh must be built 
 does it): the lint reads mosh's core and its `config.h`.
 
 **What is built today is upstream's mosh under gosh's names**, `gosh-client` and `gosh-server` in
-`.build/bin`, with the seam applied (`seam/`, thirteen patches; `src/seam/`) and the fork's forwarding
+`.build/bin`, with the seam applied (`seam/`, fourteen patches; `src/seam/`) and the fork's forwarding
 command, stream and copy code carried over (`src/forwarding/`, `src/command/`, `src/copy/`). So
 `gosh host` opens a session, `gosh-client` and `gosh-server` do forwards (`-L -R -LU -RU -N`),
 `gosh --stdio` runs a command over a stream, and `gocp` copies files. Not yet: the relay,

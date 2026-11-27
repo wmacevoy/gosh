@@ -1,0 +1,324 @@
+gosh seam 14: The core's transport is a domain: its ABI at the top of src/network, its inside under imp/.
+
+For:   REQ21/SHAPE-1, the core factored into domains by the seam, its transport after the cipher.
+       The lint holds it (seam/DOMAINS): the rest of the core, and gosh, use the transport only by
+       network.h, networktransport.h (with networktransport-impl.h, its templates' bodies),
+       transportsender.h (with transportsender-impl.h), transportstate.h and sidechannel.h.
+What:  Moves, and renames of where names are, and nothing else: no byte of the protocol, and no
+       behaviour, changes. The inside (compressor.*, network.cc, transportfragment.*) is moved under
+       src/network/imp/ by git's renames; Compressor, get_compressor, Fragment, FragmentAssembly and
+       Fragmenter are in Network::Imp, and the ABI's private fields of them say Imp::. No header says
+       `using namespace` any more: network.h's of Crypto goes, and it says Crypto:: of the four
+       names it uses; the two templates' bodies are in namespace Network, not after `using
+       namespace Network`; and the two of TransportBuffers say only the name they use (`using
+       TransportBuffers::Instruction`). What had used those names unqualified through them says
+       Network:: or Crypto:: (mosh-server.cc, stmclient.cc).
+Where: src/network/ (Makefile.am, network.h, networktransport.h, networktransport-impl.h,
+       transportsender.h, transportsender-impl.h; imp/); src/frontend/mosh-server.cc, stmclient.cc.
+Kind:  five files moved, three of them with their names' namespace changed; five headers' using-
+       directives replaced; five uses qualified.
+From:  the core at the pin: src/network/{compressor.cc,compressor.h,network.cc,transportfragment.cc,transportfragment.h}.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/frontend/mosh-server.cc b/src/frontend/mosh-server.cc
+index 22f245a..b1e0bab 100644
+--- a/src/frontend/mosh-server.cc
++++ b/src/frontend/mosh-server.cc
+@@ -247,7 +247,7 @@ int mosh_server_main( int argc, char* argv[] )
+         case 'c':
+           try {
+             colors = Crypto::myatoi( optarg );
+-          } catch ( const CryptoException& ) {
++          } catch ( const Crypto::CryptoException& ) {
+             fprintf( stderr, "%s: Bad number of colors (%s)\n", argv[0], optarg );
+             print_usage( stderr, argv[0] );
+             exit( 1 );
+@@ -280,7 +280,7 @@ int mosh_server_main( int argc, char* argv[] )
+ 
+   /* Sanity-check arguments */
+   int dpl, dph;
+-  if ( desired_port && !Connection::parse_portrange( desired_port, dpl, dph ) ) {
++  if ( desired_port && !Network::Connection::parse_portrange( desired_port, dpl, dph ) ) {
+     fprintf( stderr, "%s: Bad UDP port range (%s)\n", argv[0], desired_port );
+     print_usage( stderr, argv[0] );
+     exit( 1 );
+diff --git a/src/frontend/stmclient.cc b/src/frontend/stmclient.cc
+index 132bb72..96b655c 100644
+--- a/src/frontend/stmclient.cc
++++ b/src/frontend/stmclient.cc
+@@ -210,7 +210,7 @@ void STMClient::shutdown( void )
+   if ( !Gosh::Seam::headless() ) {
+   /* Restore screen state */
+   overlays.get_notification_engine().set_notification_string( std::wstring( L"" ) );
+-  overlays.get_notification_engine().server_heard( timestamp() );
++  overlays.get_notification_engine().server_heard( Network::timestamp() );
+   overlays.set_title_prefix( std::wstring( L"" ) );
+   output_new_frame();
+ 
+@@ -565,8 +565,8 @@ bool STMClient::main( void )
+ 
+       /* write diagnostic message if can't reach server */
+       if ( still_connecting() && ( !network->shutdown_in_progress() )
+-           && ( timestamp() - network->get_latest_remote_state().timestamp > 250 ) ) {
+-        if ( timestamp() - network->get_latest_remote_state().timestamp > 15000 ) {
++           && ( Network::timestamp() - network->get_latest_remote_state().timestamp > 250 ) ) {
++        if ( Network::timestamp() - network->get_latest_remote_state().timestamp > 15000 ) {
+           if ( !network->shutdown_in_progress() ) {
+             overlays.get_notification_engine().set_notification_string(
+               std::wstring( L"Timed out waiting for server..." ), true );
+diff --git a/src/network/Makefile.am b/src/network/Makefile.am
+index cbc1657..b566633 100644
+--- a/src/network/Makefile.am
++++ b/src/network/Makefile.am
+@@ -1,6 +1,8 @@
+ AM_CPPFLAGS = -I$(top_srcdir)/ $(protobuf_CFLAGS)
+ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXFLAGS) $(CODE_COVERAGE_CXXFLAGS)
+ 
++AUTOMAKE_OPTIONS = subdir-objects
++
+ noinst_LIBRARIES = libmoshnetwork.a
+ 
+-libmoshnetwork_a_SOURCES = network.cc network.h networktransport-impl.h networktransport.h transportfragment.cc transportfragment.h transportsender-impl.h transportsender.h transportstate.h compressor.cc compressor.h
++libmoshnetwork_a_SOURCES = imp/network.cc network.h networktransport-impl.h networktransport.h imp/transportfragment.cc imp/transportfragment.h transportsender-impl.h transportsender.h transportstate.h imp/compressor.cc imp/compressor.h
+diff --git a/src/network/compressor.cc b/src/network/imp/compressor.cc
+similarity index 94%
+rename from src/network/compressor.cc
+rename to src/network/imp/compressor.cc
+index cd3e6a5..74d4a26 100644
+--- a/src/network/compressor.cc
++++ b/src/network/imp/compressor.cc
+@@ -32,10 +32,10 @@
+ 
+ #include <zlib.h>
+ 
+-#include "compressor.h"
++#include "src/network/imp/compressor.h"
+ #include "src/util/dos_assert.h"
+ 
+-using namespace Network;
++using namespace Network::Imp;
+ 
+ std::string Compressor::compress_str( const std::string& input )
+ {
+@@ -54,7 +54,7 @@ std::string Compressor::uncompress_str( const std::string& input )
+ }
+ 
+ /* construct on first use */
+-Compressor& Network::get_compressor( void )
++Compressor& Network::Imp::get_compressor( void )
+ {
+   static Compressor the_compressor;
+   return the_compressor;
+diff --git a/src/network/compressor.h b/src/network/imp/compressor.h
+similarity index 98%
+rename from src/network/compressor.h
+rename to src/network/imp/compressor.h
+index 9c290bc..d42c753 100644
+--- a/src/network/compressor.h
++++ b/src/network/imp/compressor.h
+@@ -35,7 +35,7 @@
+ 
+ #include <string>
+ 
+-namespace Network {
++namespace Network::Imp {
+ class Compressor
+ {
+ private:
+diff --git a/src/network/network.cc b/src/network/imp/network.cc
+similarity index 100%
+rename from src/network/network.cc
+rename to src/network/imp/network.cc
+diff --git a/src/network/transportfragment.cc b/src/network/imp/transportfragment.cc
+similarity index 98%
+rename from src/network/transportfragment.cc
+rename to src/network/imp/transportfragment.cc
+index 475100b..da59a01 100644
+--- a/src/network/transportfragment.cc
++++ b/src/network/imp/transportfragment.cc
+@@ -32,13 +32,13 @@
+ 
+ #include <cassert>
+ 
+-#include "compressor.h"
++#include "src/network/imp/compressor.h"
+ #include "src/crypto/byteorder.h"
+ #include "src/protobufs/transportinstruction.pb.h"
+ #include "src/util/fatal_assert.h"
+-#include "transportfragment.h"
++#include "src/network/imp/transportfragment.h"
+ 
+-using namespace Network;
++using namespace Network::Imp;
+ using namespace TransportBuffers;
+ 
+ static std::string network_order_string( uint16_t host_order )
+diff --git a/src/network/transportfragment.h b/src/network/imp/transportfragment.h
+similarity index 98%
+rename from src/network/transportfragment.h
+rename to src/network/imp/transportfragment.h
+index 8a3a23d..84300eb 100644
+--- a/src/network/transportfragment.h
++++ b/src/network/imp/transportfragment.h
+@@ -39,8 +39,8 @@
+ 
+ #include "src/protobufs/transportinstruction.pb.h"
+ 
+-namespace Network {
+-using namespace TransportBuffers;
++namespace Network::Imp {
++using TransportBuffers::Instruction;
+ 
+ class Fragment
+ {
+diff --git a/src/network/network.h b/src/network/network.h
+index 49755fe..92bea2e 100644
+--- a/src/network/network.h
++++ b/src/network/network.h
+@@ -47,8 +47,6 @@
+ 
+ #include "src/crypto/crypto.h"
+ 
+-using namespace Crypto;
+-
+ namespace Network {
+ static const unsigned int MOSH_PROTOCOL_VERSION = 2; /* bumped for echo-ack */
+ 
+@@ -92,9 +90,9 @@ public:
+       timestamp_reply( s_timestamp_reply ), payload( s_payload )
+   {}
+ 
+-  Packet( const Message& message );
++  Packet( const Crypto::Message& message );
+ 
+-  Message toMessage( void );
++  Crypto::Message toMessage( void );
+ };
+ 
+ union Addr {
+@@ -175,8 +173,8 @@ private:
+ 
+   int MTU; /* application datagram MTU */
+ 
+-  Base64Key key;
+-  Session session;
++  Crypto::Base64Key key;
++  Crypto::Session session;
+ 
+   void setup( void );
+ 
+diff --git a/src/network/networktransport-impl.h b/src/network/networktransport-impl.h
+index a8feb3d..f1b52a5 100644
+--- a/src/network/networktransport-impl.h
++++ b/src/network/networktransport-impl.h
+@@ -37,7 +37,7 @@
+ 
+ #include "transportsender-impl.h"
+ 
+-using namespace Network;
++namespace Network {
+ 
+ template<class MyState, class RemoteState>
+ Transport<MyState, RemoteState>::Transport( MyState& initial_state,
+@@ -79,7 +79,7 @@ void Transport<MyState, RemoteState>::recv( void )
+     return;
+   }
+ 
+-  Fragment frag( s );
++  Imp::Fragment frag( s );
+ 
+   if ( fragments.add_fragment( frag ) ) { /* complete packet */
+     Instruction inst = fragments.get_assembly();
+@@ -239,4 +239,6 @@ std::string Transport<MyState, RemoteState>::get_remote_diff( void )
+   return ret;
+ }
+ 
++}
++
+ #endif
+diff --git a/src/network/networktransport.h b/src/network/networktransport.h
+index 7dbdb45..143949a 100644
+--- a/src/network/networktransport.h
++++ b/src/network/networktransport.h
+@@ -42,7 +42,7 @@
+ #include "src/network/network.h"
+ #include "src/network/sidechannel.h"
+ #include "src/network/transportsender.h"
+-#include "transportfragment.h"
++#include "src/network/imp/transportfragment.h"
+ 
+ namespace Network {
+ template<class MyState, class RemoteState>
+@@ -62,7 +62,7 @@ private:
+   std::list<TimestampedState<RemoteState>> received_states;
+   uint64_t receiver_quench_timer;
+   RemoteState last_receiver_state; /* the state we were in when user last queried state */
+-  FragmentAssembly fragments;
++  Imp::FragmentAssembly fragments;
+   unsigned int verbose;
+ 
+   /* side channel (see sidechannel.h) */
+diff --git a/src/network/transportsender-impl.h b/src/network/transportsender-impl.h
+index 356cde4..29729f0 100644
+--- a/src/network/transportsender-impl.h
++++ b/src/network/transportsender-impl.h
+@@ -40,11 +40,11 @@
+ #include <ctime>
+ #include <list>
+ 
+-#include "src/network/transportfragment.h"
++#include "src/network/imp/transportfragment.h"
+ #include "src/network/transportsender.h"
+ #include "src/util/fatal_assert.h"
+ 
+-using namespace Network;
++namespace Network {
+ 
+ template<class MyState>
+ TransportSender<MyState>::TransportSender( Connection* s_connection, MyState& initial_state )
+@@ -324,9 +324,9 @@ void TransportSender<MyState>::send_in_fragments( const std::string& diff, uint6
+     shutdown_tries++;
+   }
+ 
+-  std::vector<Fragment> fragments = fragmenter.make_fragments(
++  std::vector<Imp::Fragment> fragments = fragmenter.make_fragments(
+     inst, connection->get_MTU() - Network::Connection::ADDED_BYTES - Crypto::Session::ADDED_BYTES );
+-  for ( std::vector<Fragment>::iterator i = fragments.begin(); i != fragments.end(); i++ ) {
++  for ( std::vector<Imp::Fragment>::iterator i = fragments.begin(); i != fragments.end(); i++ ) {
+     connection->send( i->tostring() );
+ 
+     if ( verbose ) {
+@@ -419,4 +419,6 @@ void TransportSender<MyState>::attempt_prospective_resend_optimization( std::str
+   }
+ }
+ 
++}
++
+ #endif
+diff --git a/src/network/transportsender.h b/src/network/transportsender.h
+index bed49ff..f09ca5f 100644
+--- a/src/network/transportsender.h
++++ b/src/network/transportsender.h
+@@ -39,11 +39,11 @@
+ #include "src/crypto/prng.h"
+ #include "src/network/network.h"
+ #include "src/protobufs/transportinstruction.pb.h"
+-#include "transportfragment.h"
++#include "src/network/imp/transportfragment.h"
+ #include "transportstate.h"
+ 
+ namespace Network {
+-using namespace TransportBuffers;
++using TransportBuffers::Instruction;
+ 
+ /* timing parameters */
+ const int SEND_INTERVAL_MIN = 20;       /* ms between frames */
+@@ -80,7 +80,7 @@ private:
+   typename sent_states_type::iterator assumed_receiver_state;
+ 
+   /* for fragment creation */
+-  Fragmenter fragmenter;
++  Imp::Fragmenter fragmenter;
+ 
+   /* timing state */
+   uint64_t next_ack_time;
