@@ -1,4 +1,4 @@
-# The core's domains, as gosh carries it (REQ21/SHAPE-1): read by the lint over the program as it is
+# The core's domains, as gosh carries it (REQ22/SHAPE-1): read by the lint over the program as it is
 # built (.build/core: the core with the seam's patches, gosh's parts beside it), by the rule a domain
 # alone (RULES="a domain"; tools/proofs.sh). The cipher (seam 12), the transport (14), state sync (15), the terminal (16), the programs (17) and the utilities (18) are laid out; the rest is
 # named, each directory a domain whose ABI is every header (`| *`), until each is laid out in turn.

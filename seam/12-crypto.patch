@@ -1,6 +1,6 @@
 gosh seam 12: The core's cipher is a domain: its ABI at the top of src/crypto, its inside under imp/.
 
-For:   REQ21/SHAPE-1, the core factored into domains by the seam, the cipher first ("Isolating
+For:   REQ22/SHAPE-1, the core factored into domains by the seam, the cipher first ("Isolating
        crypto and ssh seems particularly important", the client, 2026-11-26). The lint holds it
        (seam/DOMAINS): the rest of the core, and gosh, use the cipher only by crypto.h, prng.h
        and byteorder.h.

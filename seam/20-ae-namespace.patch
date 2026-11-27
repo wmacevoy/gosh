@@ -1,6 +1,6 @@
 gosh seam 20: OCB's interface is the cipher's inside, in Crypto::Imp, and no longer in no namespace.
 
-For:   REQ21/SHAPE-1, the core factored into domains by the seam. The cipher's ABI (crypto.h)
+For:   REQ22/SHAPE-1, the core factored into domains by the seam. The cipher's ABI (crypto.h)
        includes OCB's interface (imp/ae.h) to declare one private field, Session's ae_ctx*; and
        that interface, Krovetz's, in C, declared everything in no namespace, so every user of the
        cipher (the transport, gosh's meetup) saw OCB's functions and struct as the program's own.
@@ -9,7 +9,9 @@ What:  Renames of where names are, and nothing else: no byte of the protocol, an
        changes. ae.h's declarations, still extern "C", are put in Crypto::Imp; the definitions in
        ocb_internal.cc and ocb_openssl.cc are wrapped in the same namespace. A function of C
        linkage has its name whatever namespace declares it, so the symbols compiled and linked
-       (ae_init, ae_encrypt, ae_decrypt, ae_clear, ae_ctx_sizeof) are the same. Session's field
+       (ae_init, ae_encrypt, ae_decrypt, ae_clear, ae_ctx_sizeof) are the same, and so are their
+       instructions (ocb_internal.cc compiled before and after, -O2: only where the file-local
+       helpers lie differs, their names being in Crypto::Imp). Session's field
        says Imp::ae_ctx; crypto.cc, the cipher's own, says using namespace Crypto::Imp.
        ocb_internal.cc's test program (OCB_TEST_PROGRAM, not built) says the same.
 Where: src/crypto/crypto.h; src/crypto/imp/{ae.h,crypto.cc,ocb_internal.cc,ocb_openssl.cc}.

@@ -1,6 +1,6 @@
 gosh seam 15: The core's state synchronisation is a domain, StateSync: its ABI at the top of src/statesync, its inside under imp/.
 
-For:   REQ21/SHAPE-1, the core factored into domains by the seam, state synchronisation after the
+For:   REQ22/SHAPE-1, the core factored into domains by the seam, state synchronisation after the
        transport. The lint holds it (seam/DOMAINS): the rest of the core uses it only by
        completeterminal.h and user.h. Until now it declared into two other domains' namespaces,
        the terminal's (Complete) and the transport's (UserStream), so neither boundary could be

@@ -1,6 +1,6 @@
 gosh seam 17: The core's programs are a domain, Frontend: its ABI at the top of src/frontend, its inside under imp/.
 
-For:   REQ21/SHAPE-1, the core factored into domains by the seam, its programs last. The lint
+For:   REQ22/SHAPE-1, the core factored into domains by the seam, its programs last. The lint
        holds it (seam/DOMAINS): the rest of the core uses the programs only by terminaloverlay.h
        (the client's predictions; the core's benchmark). Until now the overlay was a namespace of
        its own, Overlay, whose header said `using namespace Terminal` and `using namespace

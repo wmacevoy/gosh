@@ -1,6 +1,6 @@
 gosh seam 18: The core's utilities are a domain, Util: its ABI at the top of src/util, its sources under imp/.
 
-For:   REQ21/SHAPE-1, the core factored into domains by the seam, its utilities after its
+For:   REQ22/SHAPE-1, the core factored into domains by the seam, its utilities after its
        programs. The lint holds it (seam/DOMAINS). Until now nothing of it was in a namespace, so a
        use of it could not be told from a name: Select, swrite, the frozen timestamp and the
        locale's helpers were the program's, as every name in no namespace is.

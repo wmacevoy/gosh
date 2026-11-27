@@ -323,7 +323,7 @@ owner (section 8, question 9).
    day the one crossing was a stream's process, in forwarding, including copy and naming the
    applications; the seam names them now (`src/seam/applications.*`). Why not directories by layer
    (`app/copy/`, `app/shell/`): `app/` would hold copy alone, the terminal stays in the core
-   (`REQ21/SHAPE-1`), and the move would touch every include, the build patch and the docs to
+   (`REQ22/SHAPE-1`), and the move would touch every include, the build patch and the docs to
    label what the check already holds (`src/README.md`).
 
 ### 2.2 The parts and their pieces
@@ -333,16 +333,16 @@ already use in prose; the rest are in section 7 as proposed nouns.
 
 #### session (the core)
 
-Untouched. `REQ21/SHAPE-1`, `REQ6/UP-2`. Tests: upstream's suite; `tests/stock-session.py`.
+Untouched. `REQ22/SHAPE-1`, `REQ6/UP-2`. Tests: upstream's suite; `tests/stock-session.py`.
 
 #### the seam
 
 | Piece | Purpose | Kind | From | Serves |
 | --- | --- | --- | --- | --- |
-| **side channel** | send and receive `0xFF` datagrams; say what the peer can do, what it loses, when it was last heard, how large a datagram may be | patch to the core + one header | `sidechannel.h`; `networktransport*.h`; `transportsender*.h`; `transportfragment.cc`; the `.proto` | `REQ21/SHAPE-1`, `REQ8/CMD-3`, `REQ1/FWD-1..3` |
+| **side channel** | send and receive `0xFF` datagrams; say what the peer can do, what it loses, when it was last heard, how large a datagram may be | patch to the core + one header | `sidechannel.h`; `networktransport*.h`; `transportsender*.h`; `transportfragment.cc`; the `.proto` | `REQ22/SHAPE-1`, `REQ8/CMD-3`, `REQ1/FWD-1..3` |
 | **loss** | the share of the peer's datagrams that did not arrive | logic, given sequence numbers and `now` | `Connection::measure_loss`, `network.cc:569-592` | `REQ1/FWD-2` |
 | **send elsewhere** | the client sends to another address from now on | patch | `Connection::set_remote_addr`, `network.cc:558` | `REQ1/PATH-1` |
-| **headless** | a session with no terminal | patch (guards) | `stmclient.cc:90,217,260,275,399,625,666-680` | `REQ1/FWD-5`; `REQ21/SHAPE-1`'s exception |
+| **headless** | a session with no terminal | patch (guards) | `stmclient.cc:90,217,260,275,399,625,666-680` | `REQ1/FWD-5`; `REQ22/SHAPE-1`'s exception |
 | **the programs** | gosh's own `main` in front of the core's, for each program; the loop's four call sites; the "connected" line | gosh code + a small patch | `mosh-client.cc:126-170,194-250,288-300,361-374`; `mosh-server.cc:212-237,303-337,546-567` | `REQ6/NAME-1`, `REQ8/CMD-3`, `REQ1/FWD-5` |
 
 Contracts and failures:
@@ -358,7 +358,7 @@ Contracts and failures:
 - *Loss.* `LossMeter::heard(seq, expected_after, now)`, `share()`. The core's patch keeps two
   call lines and a getter. Its test becomes numbers, with no sockets and no sleep.
 - Dropped: the non-copyable declaration on `Transport` (not needed for behaviour); the IPv6 socket
-  fix (`REQ21/SHAPE-1`, v10); `sidechannel_connected` and `SIDECHANNEL_QUIET` from the core's copy.
+  fix (`REQ22/SHAPE-1`, v10); `sidechannel_connected` and `SIDECHANNEL_QUIET` from the core's copy.
 
 Tests today: `forward-e2e` (`-N`), `headless-smoke.py`, `test_loss_measurement`; a stock mosh at
 each end (`tests/stock-session.py`). `REQ8/CMD-3`: none.
@@ -749,12 +749,12 @@ connection or a change of ssh's options would then be made once.
 
 | # | Change to the core | Where it came from (at `decd9b7`) | Why | Hook or refactor |
 | - | --- | --- | --- | --- |
-| 1 | two optional fields in `Instruction`; the sender puts them in; a change in either makes a new instruction; the receiver keeps them | `transportinstruction.proto`; `TransportSender::send_in_fragments`, `transportsender-impl.h:316`; `Fragmenter::make_fragments`, `transportfragment.cc:160`; `Transport::recv`, `networktransport-impl.h:77` | a stock peer must never be sent a `0xFF` datagram (`REQ21/SHAPE-1`); a peer must be told what will not work (`REQ8/CMD-3`) | additions |
+| 1 | two optional fields in `Instruction`; the sender puts them in; a change in either makes a new instruction; the receiver keeps them | `transportinstruction.proto`; `TransportSender::send_in_fragments`, `transportsender-impl.h:316`; `Fragmenter::make_fragments`, `transportfragment.cc:160`; `Transport::recv`, `networktransport-impl.h:77` | a stock peer must never be sent a `0xFF` datagram (`REQ22/SHAPE-1`); a peer must be told what will not work (`REQ8/CMD-3`) | additions |
 | 2 | a first-byte test in `recv`; `sidechannel_send`; `ready`, `max_payload`, `loss`, `last_heard`, `peer_can` | `Transport::recv`, `networktransport-impl.h:68`; `networktransport.h` | forwarding (`REQ1/FWD-1..3`). It must be inside `recv`: `connection` is private, and `Fragment( s )` would be built from the payload otherwise | additions |
 | 3 | two lines in `recv_one` calling a loss meter; a getter | `Connection::recv_one`, `network.cc:482-487` | parity follows measured loss (`REQ1/FWD-2`). The sequence number is a local there | addition; the arithmetic lives in gosh |
 | 4 | `get_last_heard` | `Connection`, `network.h` | relay's start (`REQ1/PATH-1`); forwarding's "in contact" (`REQ1/FWD-3`) | addition |
 | 5 | `set_remote_addr` | `Connection`, beside `hop_port`, `network.cc:116` | the client sends to the local relay (`REQ1/PATH-1`) | addition |
-| 6 | headless: no terminal read, drawn or restored; a fixed window size; `Display( false )` | `STMClient::init`, `shutdown`, `main_init`, `output_new_frame`, `main`, `stmclient.cc:82,204,236,275,433` | `REQ1/FWD-5`; `REQ21/SHAPE-1`'s exception | guards |
+| 6 | headless: no terminal read, drawn or restored; a fixed window size; `Display( false )` | `STMClient::init`, `shutdown`, `main_init`, `output_new_frame`, `main`, `stmclient.cc:82,204,236,275,433` | `REQ1/FWD-5`; `REQ22/SHAPE-1`'s exception | guards |
 | 7 | four call sites in each program's loop: least wait, descriptors to watch, what became readable, once per pass | `STMClient::main`, `stmclient.cc:454,468,486,553`; `serve`, `mosh-server.cc` near `723,747,858` | forwarding, relay's start, a stream's end, all need a turn in the loop | additions |
 | 8 | one call after the session's transport exists | `STMClient::main_init`, `stmclient.cc:270`; `run_server`, `mosh-server.cc:439` | to give forwarding the side channel | addition |
 | 9 | the exit line and status when headless or for a stream; `pledge`'s conditions | `main`, `mosh-client.cc:215`; `stmclient.cc:441`; `mosh-server.cc:644` | `stdout` is not the client's to write on when it carries a stream | small changes |

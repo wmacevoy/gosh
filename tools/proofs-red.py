@@ -207,7 +207,7 @@ if not ONLY:
                   % ("the program is refused, ok" if ok else "FAIL (exit %d) %s" % (r.returncode, r.stdout.strip()[-300:])))
             failures += not ok
             ran += 1
-# REQ21/SHAPE-1: the core's network reaches the cipher's inside, where the core's map (seam/DOMAINS) does not
+# REQ22/SHAPE-1: the core's network reaches the cipher's inside, where the core's map (seam/DOMAINS) does not
 # allow it: the lint of the core as built refuses it. In a copy of .build/core's code, network's imp/network.cc is made to
 # include crypto's imp/base64.h and use Crypto::Imp::base64_encode; the whole was linted as it is, just before.
 if not ONLY:

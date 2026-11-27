@@ -7,7 +7,7 @@
 #   2. the core is upstream's at the pinned commit, byte for byte (REQ6/UP-2);
 #   3. it builds (tools/build.sh), with the seam's patches applied to a copy of
 #      the core and gosh's parts beside it, and the parts' unit tests pass;
-#   4. gosh and a stock mosh hold a terminal session, each way (REQ21/SHAPE-1);
+#   4. gosh and a stock mosh hold a terminal session, each way (REQ22/SHAPE-1);
 #   5. the fork's tests that drive the programs from outside pass against the
 #      fork's own programs at pf.7 (tools/build-pf7.sh). These are the tests each
 #      part of gosh must then pass; until a part lands they say only that the
@@ -118,7 +118,7 @@ for part in $(cd src && ls -d */ | tr -d /); do
         grep -E '^(FAIL|ERROR):|error' .build/unit-$part.log | head -10; fail "unit tests of $part (log: .build/unit-$part.log)"
     fi
 done
-# (REQ21/SHAPE-1) And the tests of each of the core's domains laid out (seam/DOMAINS, a line with no `|`):
+# (REQ22/SHAPE-1) And the tests of each of the core's domains laid out (seam/DOMAINS, a line with no `|`):
 # its own, moved into it by the seam (the cipher's: seam 13). The rest of the core's tests are its own
 # end-to-end scripts, which gosh does not run.
 for dir in $(awk '!/^#/ && !/^allow / && !/\|/ && NF >= 2 { print $2 }' seam/DOMAINS); do

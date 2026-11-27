@@ -1,6 +1,6 @@
 gosh seam 21: The pseudo-terminal is a domain, Pty: the stand-ins for forkpty and cfmakeraw, in src/pty.
 
-For:   REQ21/SHAPE-1, the core factored into domains by the seam. pty_compat was in the
+For:   REQ22/SHAPE-1, the core factored into domains by the seam. pty_compat was in the
        utilities, and the only part of them in no namespace: its two functions stand for the
        system's own where a system lacks them (Solaris, AIX), and seam/DOMAINS allowed them there.
        They are the operating system's side of a terminal, which the programs, one example and
