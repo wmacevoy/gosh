@@ -503,7 +503,7 @@ FACTS( Relay )
 
   /* ...and what did arrive is forgotten after a while */
   usleep( ( UDPForwarder::REASSEMBLY_TIMEOUT + 100 ) * 1000 );
-  freeze_timestamp();
+  Util::freeze_timestamp();
   send_to_port( app[0], listen_port, big );
   FACT_CHECK( readable( listen_fd ) );
   client.read_fd( listen_fd );

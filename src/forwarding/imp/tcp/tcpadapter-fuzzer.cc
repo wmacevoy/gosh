@@ -87,7 +87,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   }
 
   Input in( data, size );
-  freeze_timestamp();
+  Util::freeze_timestamp();
 
   const bool listening = in.byte() & 1;
   Sink sink;

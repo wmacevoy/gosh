@@ -82,7 +82,7 @@ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
   }
 
   Input in( data, size );
-  freeze_timestamp();
+  Util::freeze_timestamp();
 
   Link link;
   link.limit = Gosh::Forwarding::Imp::FRAME_HEADER_LEN + Gosh::Forwarding::Imp::DatagramAssembly::FRAGMENT_HEADER_LEN + 8 + in.byte() * 5;
