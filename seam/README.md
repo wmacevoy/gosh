@@ -38,3 +38,8 @@ and no header of it says `using namespace`.
 Patch 15 lays out state synchronisation (`src/statesync`) as `StateSync`: until then its two
 objects were declared in other domains' namespaces, the terminal's (`Terminal::Complete`) and the
 transport's (`Network::UserStream`), as mosh named them.
+
+Patch 16 lays out the terminal (`src/terminal`): its parser is `Terminal::Parser` (until then a
+namespace of its own beside `Terminal`), and the parser's states, the dispatcher and the user's
+input are its inside, in `Terminal::Imp`. Left named and not laid out: the programs
+(`src/frontend`), `src/util`, and the core's examples, fuzzers and tests.
