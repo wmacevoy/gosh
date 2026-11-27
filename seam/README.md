@@ -33,5 +33,8 @@ them, as it runs each laid-out core domain's tests (`tools/check.sh`): before, g
 of the core's unit tests.
 
 Patch 14 lays out the core's transport (`src/network`): its inside under `imp/` in `Network::Imp`,
-and no header of it says `using namespace`. State sync's `user.h` still declares its user's stream
-into `Network`, by mosh's own naming; `DOMAINS` allows it until state sync is laid out.
+and no header of it says `using namespace`.
+
+Patch 15 lays out state synchronisation (`src/statesync`) as `StateSync`: until then its two
+objects were declared in other domains' namespaces, the terminal's (`Terminal::Complete`) and the
+transport's (`Network::UserStream`), as mosh named them.

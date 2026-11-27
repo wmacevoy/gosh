@@ -1,0 +1,245 @@
+gosh seam 15: The core's state synchronisation is a domain, StateSync: its ABI at the top of src/statesync, its inside under imp/.
+
+For:   REQ21/SHAPE-1, the core factored into domains by the seam, state synchronisation after the
+       transport. The lint holds it (seam/DOMAINS): the rest of the core uses it only by
+       completeterminal.h and user.h. Until now it declared into two other domains' namespaces,
+       the terminal's (Complete) and the transport's (UserStream), so neither boundary could be
+       told from a name.
+What:  Moves, and renames of where names are, and nothing else: no byte of the protocol, and no
+       behaviour, changes. completeterminal.cc and user.cc are moved under src/statesync/imp/ by
+       git's renames. Terminal::Complete is StateSync::Complete, and Network::UserStream,
+       UserEvent and UserEventType are StateSync's; Complete names the terminal's Framebuffer as
+       Terminal::Framebuffer, where it had been in Terminal. Their users say StateSync::
+       (mosh-server.cc, stmclient.*, and the core's examples and terminal fuzzer).
+Where: src/statesync/ (Makefile.am, completeterminal.h, user.h; imp/); src/frontend/mosh-server.cc,
+       stmclient.cc, stmclient.h; src/examples/benchmark.cc, ntester.cc, termemu.cc;
+       src/fuzz/terminal_fuzzer.cc.
+Kind:  two files moved; two headers' namespace changed; their users qualified.
+From:  the core at the pin: src/statesync/{completeterminal.cc,user.cc}.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/examples/benchmark.cc b/src/examples/benchmark.cc
+index a32e9dc..3aaf441 100644
+--- a/src/examples/benchmark.cc
++++ b/src/examples/benchmark.cc
+@@ -90,7 +90,7 @@ int main( int argc, char** argv )
+     Framebuffer* new_state = &( local_framebuffers[!fbmod] );
+     Overlay::OverlayManager overlays;
+     Display display( true );
+-    Complete local_terminal( width, height );
++    StateSync::Complete local_terminal( width, height );
+ 
+     /* Adopt native locale */
+     set_native_locale();
+diff --git a/src/examples/ntester.cc b/src/examples/ntester.cc
+index 4acb6cf..5ad0ac4 100644
+--- a/src/examples/ntester.cc
++++ b/src/examples/ntester.cc
+@@ -50,9 +50,9 @@ int main( int argc, char* argv[] )
+   char* ip;
+   char* port;
+ 
+-  UserStream me, remote;
+-  using NetworkPointer = std::shared_ptr<Transport<UserStream, UserStream>>;
+-  Transport<UserStream, UserStream>* raw_n;
++  StateSync::UserStream me, remote;
++  using NetworkPointer = std::shared_ptr<Transport<StateSync::UserStream, StateSync::UserStream>>;
++  Transport<StateSync::UserStream, StateSync::UserStream>* raw_n;
+   try {
+     if ( argc > 1 ) {
+       server = false;
+@@ -62,9 +62,9 @@ int main( int argc, char* argv[] )
+       ip = argv[2];
+       port = argv[3];
+ 
+-      raw_n = new Transport<UserStream, UserStream>( me, remote, key, ip, port );
++      raw_n = new Transport<StateSync::UserStream, StateSync::UserStream>( me, remote, key, ip, port );
+     } else {
+-      raw_n = new Transport<UserStream, UserStream>( me, remote, NULL, NULL );
++      raw_n = new Transport<StateSync::UserStream, StateSync::UserStream>( me, remote, NULL, NULL );
+     }
+   } catch ( const std::exception& e ) {
+     fprintf( stderr, "Fatal startup error: %s\n", e.what() );
+diff --git a/src/examples/termemu.cc b/src/examples/termemu.cc
+index 1163444..4fd18ae 100644
+--- a/src/examples/termemu.cc
++++ b/src/examples/termemu.cc
+@@ -232,7 +232,7 @@ static void emulate_terminal( int fd )
+   }
+ 
+   /* open parser and terminal */
+-  Terminal::Complete complete( window_size.ws_col, window_size.ws_row );
++  StateSync::Complete complete( window_size.ws_col, window_size.ws_row );
+   Terminal::Framebuffer state( window_size.ws_col, window_size.ws_row );
+ 
+   /* open display */
+diff --git a/src/frontend/mosh-server.cc b/src/frontend/mosh-server.cc
+index b1e0bab..fb76975 100644
+--- a/src/frontend/mosh-server.cc
++++ b/src/frontend/mosh-server.cc
+@@ -97,11 +97,11 @@
+ #include "src/seam/core-main.h"
+ #include "src/seam/hooks.h"
+ 
+-using ServerConnection = Network::Transport<Terminal::Complete, Network::UserStream>;
++using ServerConnection = Network::Transport<StateSync::Complete, StateSync::UserStream>;
+ 
+ static void serve( int host_fd,
+                    int pipe_fd,
+-                   Terminal::Complete& terminal,
++                   StateSync::Complete& terminal,
+                    ServerConnection& network,
+                    long network_timeout,
+                    long network_signaled_timeout );
+@@ -435,10 +435,10 @@ static int run_server( const char* desired_ip,
+   }
+ 
+   /* open parser and terminal */
+-  Terminal::Complete terminal( window_size.ws_col, window_size.ws_row );
++  StateSync::Complete terminal( window_size.ws_col, window_size.ws_row );
+ 
+   /* open network */
+-  Network::UserStream blank;
++  StateSync::UserStream blank;
+   using NetworkPointer = std::shared_ptr<ServerConnection>;
+   NetworkPointer network( new ServerConnection( terminal, blank, desired_ip, desired_port ) );
+ 
+@@ -688,7 +688,7 @@ static int run_server( const char* desired_ip,
+ 
+ static void serve( int host_fd,
+                    int pipe_fd,
+-                   Terminal::Complete& terminal,
++                   StateSync::Complete& terminal,
+                    ServerConnection& network,
+                    long network_timeout,
+                    long network_signaled_timeout )
+@@ -779,7 +779,7 @@ static void serve( int host_fd,
+         if ( network.get_remote_state_num() != last_remote_num ) {
+           last_remote_num = network.get_remote_state_num();
+ 
+-          Network::UserStream us;
++          StateSync::UserStream us;
+           us.apply_string( network.get_remote_diff() );
+           /* apply userstream to terminal */
+           for ( size_t i = 0; i < us.size(); i++ ) {
+diff --git a/src/frontend/stmclient.cc b/src/frontend/stmclient.cc
+index 96b655c..3dee67c 100644
+--- a/src/frontend/stmclient.cc
++++ b/src/frontend/stmclient.cc
+@@ -274,8 +274,8 @@ void STMClient::main_init( void )
+   }
+ 
+   /* open network */
+-  Network::UserStream blank;
+-  Terminal::Complete local_terminal( window_size.ws_col, window_size.ws_row );
++  StateSync::UserStream blank;
++  StateSync::Complete local_terminal( window_size.ws_col, window_size.ws_row );
+   network = NetworkPointer( new NetworkType( blank, local_terminal, key.c_str(), ip.c_str(), port.c_str() ) );
+ 
+   network->set_send_delay( 1 ); /* minimal delay on outgoing keystrokes */
+diff --git a/src/frontend/stmclient.h b/src/frontend/stmclient.h
+index a6ed504..aa38c70 100644
+--- a/src/frontend/stmclient.h
++++ b/src/frontend/stmclient.h
+@@ -64,7 +64,7 @@ private:
+ 
+   Terminal::Framebuffer local_framebuffer, new_state;
+   Overlay::OverlayManager overlays;
+-  using NetworkType = Network::Transport<Network::UserStream, Terminal::Complete>;
++  using NetworkType = Network::Transport<StateSync::UserStream, StateSync::Complete>;
+   using NetworkPointer = std::shared_ptr<NetworkType>;
+   NetworkPointer network;
+   Terminal::Display display;
+diff --git a/src/fuzz/terminal_fuzzer.cc b/src/fuzz/terminal_fuzzer.cc
+index 9389318..327166d 100644
+--- a/src/fuzz/terminal_fuzzer.cc
++++ b/src/fuzz/terminal_fuzzer.cc
+@@ -7,7 +7,7 @@
+ extern "C" int LLVMFuzzerTestOneInput( const uint8_t* data, size_t size )
+ {
+   Terminal::Display display( false );
+-  Terminal::Complete complete( 80, 24 );
++  StateSync::Complete complete( 80, 24 );
+   Terminal::Framebuffer state( 80, 24 );
+   for ( size_t i = 0; i < size; i++ ) {
+     complete.act( Parser::UserByte( data[i] ) );
+diff --git a/src/statesync/Makefile.am b/src/statesync/Makefile.am
+index 48aa76f..39be332 100644
+--- a/src/statesync/Makefile.am
++++ b/src/statesync/Makefile.am
+@@ -1,6 +1,8 @@
+ AM_CPPFLAGS = -I$(top_srcdir)/ $(protobuf_CFLAGS)
+ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXFLAGS) $(CODE_COVERAGE_CXXFLAGS)
+ 
++AUTOMAKE_OPTIONS = subdir-objects
++
+ noinst_LIBRARIES = libmoshstatesync.a
+ 
+-libmoshstatesync_a_SOURCES = completeterminal.cc completeterminal.h user.cc user.h
++libmoshstatesync_a_SOURCES = imp/completeterminal.cc completeterminal.h imp/user.cc user.h
+diff --git a/src/statesync/completeterminal.h b/src/statesync/completeterminal.h
+index 799c7d5..2c1de19 100644
+--- a/src/statesync/completeterminal.h
++++ b/src/statesync/completeterminal.h
+@@ -41,7 +41,7 @@
+ 
+ /* This class represents the complete terminal -- a UTF8Parser feeding Actions to an Emulator. */
+ 
+-namespace Terminal {
++namespace StateSync {
+ class Complete
+ {
+ private:
+@@ -68,7 +68,7 @@ public:
+   std::string act( const std::string& str );
+   std::string act( const Parser::Action& act );
+ 
+-  const Framebuffer& get_fb( void ) const { return terminal.get_fb(); }
++  const Terminal::Framebuffer& get_fb( void ) const { return terminal.get_fb(); }
+   void reset_input( void ) { parser.reset_input(); }
+   uint64_t get_echo_ack( void ) const { return echo_ack; }
+   bool set_echo_ack( uint64_t now );
+diff --git a/src/statesync/completeterminal.cc b/src/statesync/imp/completeterminal.cc
+similarity index 99%
+rename from src/statesync/completeterminal.cc
+rename to src/statesync/imp/completeterminal.cc
+index d0493b2..21bd095 100644
+--- a/src/statesync/completeterminal.cc
++++ b/src/statesync/imp/completeterminal.cc
+@@ -40,6 +40,7 @@ using namespace std;
+ using namespace Parser;
+ using namespace Terminal;
+ using namespace HostBuffers;
++using namespace StateSync;
+ 
+ string Complete::act( const string& str )
+ {
+diff --git a/src/statesync/user.cc b/src/statesync/imp/user.cc
+similarity index 99%
+rename from src/statesync/user.cc
+rename to src/statesync/imp/user.cc
+index 35b0093..8962b65 100644
+--- a/src/statesync/user.cc
++++ b/src/statesync/imp/user.cc
+@@ -38,7 +38,7 @@
+ #include "src/util/fatal_assert.h"
+ 
+ using namespace Parser;
+-using namespace Network;
++using namespace StateSync;
+ using namespace ClientBuffers;
+ 
+ void UserStream::subtract( const UserStream* prefix )
+diff --git a/src/statesync/user.h b/src/statesync/user.h
+index 09f49f3..734e8e5 100644
+--- a/src/statesync/user.h
++++ b/src/statesync/user.h
+@@ -40,7 +40,7 @@
+ 
+ #include "src/terminal/parseraction.h"
+ 
+-namespace Network {
++namespace StateSync {
+ enum UserEventType
+ {
+   UserByteType = 0,
