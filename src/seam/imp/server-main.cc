@@ -96,7 +96,7 @@ int main( int argc, char* argv[] )
       return Gosh::Meetup::serve( args.size() == 2 ? args[1].c_str() : "3478", master );
     }
     char random8[8];
-    PRNG().fill( random8, sizeof( random8 ) );
+    Crypto::PRNG().fill( random8, sizeof( random8 ) );
     const Gosh::Meetup::Ticket t = Gosh::Meetup::make_ticket( master, std::string( random8, 8 ), time( NULL ) + Gosh::Meetup::TICKET_LIFE );
     printf( "%s\n", Gosh::Meetup::ticket_text( t ).c_str() );
     return 0;

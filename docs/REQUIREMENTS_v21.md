@@ -50,9 +50,10 @@ and draft v21"; and, of a part's boundary, "abi is the boundary, imp is the insi
   a small one; now the seam also moves and renames the core's code into domains, each piece saying
   where it came from at the pin. What it moves: a new pin of mosh means doing the moves again, and
   an upstream fix lands in a moved file, so taking one costs more than it did (SE1/D12); the veto,
-  a stock mosh at either end, stands unchanged. Not yet answered: how a move is carried (`patch`
-  does not rename a file; a list of moves that the build applies before the patches would be a
-  new build step).
+  a stock mosh at either end, stands unchanged. How a move is carried was not yet answered when v21 was
+  accepted (`patch` was thought not to rename a file, and a list of moves applied by the build would
+  be a new build step); answered 2026-11-27, as design: git renames in the patches, which GNU patch
+  applies ("use git renames in the patches"; `seam/README.md`).
 
 - **The glossary gains application, harness, ABI and inside**, and session, copy and STUN are each
   also a part: gosh is a harness that carries two applications, a session and a copy, each between
