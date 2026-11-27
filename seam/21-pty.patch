@@ -1,0 +1,249 @@
+gosh seam 21: The pseudo-terminal is a domain, Pty: the stand-ins for forkpty and cfmakeraw, in src/pty.
+
+For:   REQ21/SHAPE-1, the core factored into domains by the seam. pty_compat was in the
+       utilities, and the only part of them in no namespace: its two functions stand for the
+       system's own where a system lacks them (Solaris, AIX), and seam/DOMAINS allowed them there.
+       They are the operating system's side of a terminal, which the programs, one example and
+       one test use; not the terminal of src/terminal, which is the emulator and makes no system
+       call. The owner, 2026-11-27: "Pty as its own domain".
+What:  Moves, and renames of where names are, and nothing else: no byte of the protocol, and no
+       behaviour, changes. pty_compat.h and imp/pty_compat.cc move from src/util to src/pty by
+       git's renames; my_forkpty and my_cfmakeraw are in Pty, and the macros that stand for the
+       system's names (only where the system lacks them) say Pty::. The header includes what its
+       declarations name (termios, winsize, pid_t), since a struct first named inside a namespace
+       would be that namespace's. Where the system has both, as on Linux and macOS, the file
+       compiles to nothing, as before. Pty is built as its own library, libmoshpty.a, linked by
+       what uses it.
+Where: src/pty/ (new: Makefile.am, pty_compat.h, imp/pty_compat.cc); src/util/Makefile.am;
+       src/Makefile.am (SUBDIRS); configure.ac (AC_CONFIG_FILES); src/frontend/Makefile.am,
+       src/examples/Makefile.am, src/tests/Makefile.am (what they link); the includes in
+       src/frontend/imp/{mosh-server,stmclient}.cc, src/examples/{parse,ntester,termemu}.cc and
+       src/tests/inpty.cc.
+Kind:  two files moved; their names in Pty; one library added; users' includes changed.
+From:  the core at the pin: src/util/pty_compat.h, src/util/pty_compat.cc (moved under imp/ by
+       patch 18).
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/configure.ac b/configure.ac
+index 56877b4..9594f67 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -601,6 +601,7 @@ AC_CONFIG_FILES([
+   src/statesync/Makefile
+   src/terminal/Makefile
+   src/util/Makefile
++  src/pty/Makefile
+   scripts/Makefile
+   src/examples/Makefile
+   src/tests/Makefile
+diff --git a/src/Makefile.am b/src/Makefile.am
+index cd99d21..472ce9c 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -1 +1 @@
+-SUBDIRS = include protobufs util crypto terminal network copy forwarding stun ssh meetup pathfinding relay seam command statesync frontend examples tests fuzz
++SUBDIRS = include protobufs util pty crypto terminal network copy forwarding stun ssh meetup pathfinding relay seam command statesync frontend examples tests fuzz
+diff --git a/src/examples/Makefile.am b/src/examples/Makefile.am
+index 6a5717f..20d4712 100644
+--- a/src/examples/Makefile.am
++++ b/src/examples/Makefile.am
+@@ -15,11 +15,11 @@ decrypt_LDADD = ../crypto/libmoshcrypto.a $(CRYPTO_LIBS)
+ 
+ parse_SOURCES = parse.cc
+ parse_CPPFLAGS = -I$(srcdir)/../terminal -I$(srcdir)/../util
+-parse_LDADD = ../terminal/libmoshterminal.a ../util/libmoshutil.a
++parse_LDADD = ../terminal/libmoshterminal.a ../pty/libmoshpty.a ../util/libmoshutil.a
+ 
+ termemu_SOURCES = termemu.cc
+ termemu_CPPFLAGS = -I$(srcdir)/../terminal -I$(srcdir)/../util -I$(srcdir)/../statesync -I../protobufs
+-termemu_LDADD = ../terminal/libmoshterminal.a ../util/libmoshutil.a ../statesync/libmoshstatesync.a ../protobufs/libmoshprotos.a $(TINFO_LIBS) $(protobuf_LIBS)
++termemu_LDADD = ../terminal/libmoshterminal.a ../pty/libmoshpty.a ../util/libmoshutil.a ../statesync/libmoshstatesync.a ../protobufs/libmoshprotos.a $(TINFO_LIBS) $(protobuf_LIBS)
+ 
+ ntester_SOURCES = ntester.cc
+ ntester_CPPFLAGS = -I$(srcdir)/../util -I$(srcdir)/../statesync -I$(srcdir)/../terminal -I$(srcdir)/../network -I$(srcdir)/../crypto -I../protobufs $(protobuf_CFLAGS)
+diff --git a/src/examples/ntester.cc b/src/examples/ntester.cc
+index 79f5824..581b6b8 100644
+--- a/src/examples/ntester.cc
++++ b/src/examples/ntester.cc
+@@ -38,7 +38,7 @@
+ #include "src/network/networktransport-impl.h"
+ #include "src/statesync/user.h"
+ #include "src/util/fatal_assert.h"
+-#include "src/util/pty_compat.h"
++#include "src/pty/pty_compat.h"
+ #include "src/util/select.h"
+ 
+ using namespace Network;
+diff --git a/src/examples/parse.cc b/src/examples/parse.cc
+index 0ee7fcf..eb99e84 100644
+--- a/src/examples/parse.cc
++++ b/src/examples/parse.cc
+@@ -57,7 +57,7 @@
+ #include "src/terminal/parser.h"
+ #include "src/util/fatal_assert.h"
+ #include "src/util/locale_utils.h"
+-#include "src/util/pty_compat.h"
++#include "src/pty/pty_compat.h"
+ #include "src/util/select.h"
+ #include "src/util/swrite.h"
+ 
+diff --git a/src/examples/termemu.cc b/src/examples/termemu.cc
+index 28391af..ecda9d5 100644
+--- a/src/examples/termemu.cc
++++ b/src/examples/termemu.cc
+@@ -65,7 +65,7 @@
+ #include "src/terminal/parser.h"
+ #include "src/util/fatal_assert.h"
+ #include "src/util/locale_utils.h"
+-#include "src/util/pty_compat.h"
++#include "src/pty/pty_compat.h"
+ #include "src/util/select.h"
+ #include "src/util/swrite.h"
+ 
+diff --git a/src/frontend/Makefile.am b/src/frontend/Makefile.am
+index 351bc75..af1486a 100644
+--- a/src/frontend/Makefile.am
++++ b/src/frontend/Makefile.am
+@@ -2,7 +2,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/ $(TINFO_CFLAGS) $(protobuf_CFLAGS) $(CRYPTO_CFLAG
+ AM_CXXFLAGS = $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXFLAGS) $(CODE_COVERAGE_CXXFLAGS)
+ AM_LDFLAGS  = $(HARDEN_LDFLAGS) $(CODE_COVERAGE_LIBS)
+ AUTOMAKE_OPTIONS = subdir-objects
+-LDADD = ../seam/libgoshseam.a ../command/libgoshcommand.a ../forwarding/libgoshforwarding.a ../copy/libgoshcopy.a ../relay/libgoshrelay.a ../ssh/libgoshssh.a ../pathfinding/libgoshpathfinding.a ../meetup/libgoshmeetup.a ../crypto/libmoshcrypto.a ../network/libmoshnetwork.a ../statesync/libmoshstatesync.a ../terminal/libmoshterminal.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a -lm $(TINFO_LIBS) $(protobuf_LIBS) $(CRYPTO_LIBS)
++LDADD = ../seam/libgoshseam.a ../command/libgoshcommand.a ../forwarding/libgoshforwarding.a ../copy/libgoshcopy.a ../relay/libgoshrelay.a ../ssh/libgoshssh.a ../pathfinding/libgoshpathfinding.a ../meetup/libgoshmeetup.a ../crypto/libmoshcrypto.a ../network/libmoshnetwork.a ../statesync/libmoshstatesync.a ../terminal/libmoshterminal.a ../pty/libmoshpty.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a -lm $(TINFO_LIBS) $(protobuf_LIBS) $(CRYPTO_LIBS)
+ 
+ mosh_client_LDADD = ../seam/libgoshclientmain.a $(LDADD)
+ mosh_server_LDADD = ../seam/libgoshservermain.a $(LDADD)
+diff --git a/src/frontend/imp/mosh-server.cc b/src/frontend/imp/mosh-server.cc
+index 6dd5ef2..50ebfcd 100644
+--- a/src/frontend/imp/mosh-server.cc
++++ b/src/frontend/imp/mosh-server.cc
+@@ -84,7 +84,7 @@
+ #include "src/statesync/user.h"
+ #include "src/util/fatal_assert.h"
+ #include "src/util/locale_utils.h"
+-#include "src/util/pty_compat.h"
++#include "src/pty/pty_compat.h"
+ #include "src/util/select.h"
+ #include "src/util/swrite.h"
+ #include "src/util/timestamp.h"
+diff --git a/src/frontend/imp/stmclient.cc b/src/frontend/imp/stmclient.cc
+index 3acdd97..16936ee 100644
+--- a/src/frontend/imp/stmclient.cc
++++ b/src/frontend/imp/stmclient.cc
+@@ -56,7 +56,7 @@
+ #include "src/statesync/user.h"
+ #include "src/util/fatal_assert.h"
+ #include "src/util/locale_utils.h"
+-#include "src/util/pty_compat.h"
++#include "src/pty/pty_compat.h"
+ #include "src/util/select.h"
+ #include "src/util/swrite.h"
+ #include "src/util/timestamp.h"
+diff --git a/src/pty/Makefile.am b/src/pty/Makefile.am
+new file mode 100644
+index 0000000..b793864
+--- /dev/null
++++ b/src/pty/Makefile.am
+@@ -0,0 +1,7 @@
++AM_CXXFLAGS = -I$(top_srcdir)/ $(WARNING_CXXFLAGS) $(PICKY_CXXFLAGS) $(HARDEN_CFLAGS) $(MISC_CXXFLAGS) $(CODE_COVERAGE_CXXFLAGS)
++
++AUTOMAKE_OPTIONS = subdir-objects
++
++noinst_LIBRARIES = libmoshpty.a
++
++libmoshpty_a_SOURCES = imp/pty_compat.cc pty_compat.h
+diff --git a/src/util/imp/pty_compat.cc b/src/pty/imp/pty_compat.cc
+similarity index 98%
+rename from src/util/imp/pty_compat.cc
+rename to src/pty/imp/pty_compat.cc
+index 4c2ddbf..4f14582 100644
+--- a/src/util/imp/pty_compat.cc
++++ b/src/pty/imp/pty_compat.cc
+@@ -43,7 +43,9 @@
+ #include <termios.h>
+ #include <unistd.h>
+ 
+-#include "src/util/pty_compat.h"
++#include "src/pty/pty_compat.h"
++
++namespace Pty {
+ 
+ #ifndef HAVE_FORKPTY
+ pid_t my_forkpty( int* amaster, char* name, const struct termios* termp, const struct winsize* winp )
+@@ -179,4 +181,6 @@ void my_cfmakeraw( struct termios* termios_p )
+   termios_p->c_cc[VTIME] = 0; // No timer
+ }
+ #endif
++
++} /* Pty */
+ #endif
+diff --git a/src/util/pty_compat.h b/src/pty/pty_compat.h
+similarity index 91%
+rename from src/util/pty_compat.h
+rename to src/pty/pty_compat.h
+index 1442cbc..911ee4e 100644
+--- a/src/util/pty_compat.h
++++ b/src/pty/pty_compat.h
+@@ -35,15 +35,21 @@
+ 
+ #include "src/include/config.h"
+ 
++#include <sys/ioctl.h>
++#include <sys/types.h>
++#include <termios.h>
++
+ #ifndef HAVE_FORKPTY
+-#define forkpty my_forkpty
++#define forkpty Pty::my_forkpty
+ #endif
+ #ifndef HAVE_CFMAKERAW
+-#define cfmakeraw my_cfmakeraw
++#define cfmakeraw Pty::my_cfmakeraw
+ #endif
+ 
++namespace Pty {
+ pid_t my_forkpty( int* amaster, char* name, const struct termios* termp, const struct winsize* winp );
+ 
+ void my_cfmakeraw( struct termios* termios_p );
++}
+ 
+ #endif
+diff --git a/src/tests/Makefile.am b/src/tests/Makefile.am
+index c235f0b..fd74d72 100644
+--- a/src/tests/Makefile.am
++++ b/src/tests/Makefile.am
+@@ -51,7 +51,7 @@ nonce_incr_LDADD = ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util
+ 
+ inpty_SOURCES = inpty.cc
+ inpty_CPPFLAGS = -I$(srcdir)/../util
+-inpty_LDADD = ../util/libmoshutil.a
++inpty_LDADD = ../pty/libmoshpty.a ../util/libmoshutil.a
+ 
+ is_utf8_locale_SOURCES = is-utf8-locale.cc
+ is_utf8_locale_CPPFLAGS = -I$(srcdir)/../util
+diff --git a/src/tests/inpty.cc b/src/tests/inpty.cc
+index 3269206..a36683f 100644
+--- a/src/tests/inpty.cc
++++ b/src/tests/inpty.cc
+@@ -53,7 +53,7 @@
+ #include <libutil.h>
+ #endif
+ 
+-#include "src/util/pty_compat.h"
++#include "src/pty/pty_compat.h"
+ #include "src/util/swrite.h"
+ 
+ int main( int argc, char* argv[] )
+diff --git a/src/util/Makefile.am b/src/util/Makefile.am
+index ffa50a1..55b6248 100644
+--- a/src/util/Makefile.am
++++ b/src/util/Makefile.am
+@@ -4,7 +4,7 @@ AUTOMAKE_OPTIONS = subdir-objects
+ 
+ noinst_LIBRARIES = libmoshutil.a
+ 
+-libmoshutil_a_SOURCES = imp/locale_utils.cc locale_utils.h imp/swrite.cc swrite.h dos_assert.h fatal_assert.h select.h imp/select.cc timestamp.h imp/timestamp.cc imp/pty_compat.cc pty_compat.h
++libmoshutil_a_SOURCES = imp/locale_utils.cc locale_utils.h imp/swrite.cc swrite.h dos_assert.h fatal_assert.h select.h imp/select.cc timestamp.h imp/timestamp.cc
+ 
+ # A test of the utilities (gosh's seam 19), of what the factoring into domains must not change.
+ check_PROGRAMS = imp/util-test
