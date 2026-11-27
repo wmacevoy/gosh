@@ -1,6 +1,6 @@
 # The core's domains, as gosh carries it (REQ21/SHAPE-1): read by the lint over the program as it is
 # built (.build/core: the core with the seam's patches, gosh's parts beside it), by the rule a domain
-# alone (RULES="a domain"; tools/proofs.sh). The cipher is laid out (seam 12); the rest of the core is
+# alone (RULES="a domain"; tools/proofs.sh). The cipher (seam 12) and the transport (seam 14) are laid out; the rest is
 # named, each directory a domain whose ABI is every header (`| *`), until each is laid out in turn.
 # gosh's own parts are one domain here: each is held to its own domains by src/DOMAINS, every run.
 Crypto        src/crypto
@@ -8,7 +8,7 @@ core-include  src/include | *
 core-protobufs src/protobufs | *
 core-util     src/util | *
 core-terminal src/terminal | *
-core-network  src/network | *
+Network       src/network
 core-statesync src/statesync | *
 core-frontend src/frontend | *
 core-examples src/examples | *
@@ -18,3 +18,4 @@ gosh          src/command src/copy src/forwarding src/meetup src/pathfinding src
 vendor        vendor | *
 allow src/meetup/ticket.h  Crypto  # gosh's raw_key: base64 of 16 bytes, until the cipher's ABI makes a key of them
 allow src/crypto/imp/ae.h  Crypto  # OCB's interface (Krovetz's), in C: its struct is declared as C declares it, in no namespace
+allow src/statesync/user.h Network  # the user's stream, declared in Network by mosh's own naming: until state sync is laid out
