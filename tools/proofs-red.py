@@ -208,7 +208,7 @@ if not ONLY:
             failures += not ok
             ran += 1
 # REQ21/SHAPE-1: the core's network reaches the cipher's inside, where the core's map (seam/DOMAINS) does not
-# allow it: the lint of the core as built refuses it. In a copy of .build/core's code, network.cc is made to
+# allow it: the lint of the core as built refuses it. In a copy of .build/core's code, network's imp/network.cc is made to
 # include crypto's imp/base64.h and use Crypto::Imp::base64_encode; the whole was linted as it is, just before.
 if not ONLY:
     with tempfile.TemporaryDirectory() as d:
@@ -216,7 +216,7 @@ if not ONLY:
         shutil.copytree(os.path.join(core, "src"), os.path.join(d, "core", "src"),
                         ignore=lambda where, names: [n for n in names if not os.path.isdir(os.path.join(where, n)) and not n.endswith((".cc", ".cpp", ".h", ".hpp"))])
         shutil.copytree(os.path.join(core, "vendor"), os.path.join(d, "core", "vendor"))
-        path = os.path.join(d, "core", "src", "network", "network.cc")
+        path = os.path.join(d, "core", "src", "network", "imp", "network.cc")
         text = open(path).read()
         old_include = '#include "src/crypto/crypto.h"\n'
         if text.count(old_include) != 1:
@@ -231,7 +231,7 @@ if not ONLY:
                        FLAGS=os.environ.get("CORE_LINT_FLAGS", ""), DOMAINS=os.path.abspath("seam/DOMAINS"))
             r = subprocess.run([sys.executable, LINT], capture_output=True, text=True, env=env)
             ok = r.returncode == 1 and ": uses base64_encode, of Crypto's inside" in r.stdout \
-                and ": includes src/crypto/imp/base64.h, of Crypto's inside" in r.stdout and "src/network/network.cc:" in r.stdout
+                and ": includes src/crypto/imp/base64.h, of Crypto's inside" in r.stdout and "src/network/imp/network.cc:" in r.stdout
             print("red: the core's domains: the core's network includes the cipher's imp/ and uses a name of Crypto::Imp, and the map does not allow it: %s"
                   % ("the program is refused, ok" if ok else "FAIL (exit %d) %s" % (r.returncode, r.stdout.strip()[-300:])))
             failures += not ok
