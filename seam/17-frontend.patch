@@ -11,11 +11,25 @@ What:  Moves, and renames of where names are, and nothing else: no byte of the p
        says Terminal:: and Network:: of the names it had used through those using-directives,
        and its source says them itself. STMClient is in Frontend::Imp. The two mains are where
        the language puts them, and as gosh's seam declares them (src/seam/core-main.h).
-Where: src/frontend/ (Makefile.am, terminaloverlay.h; imp/); src/examples/benchmark.cc.
+Where: src/frontend/ (Makefile.am, terminaloverlay.h; imp/); src/examples/benchmark.cc; configure.ac
+       (AC_CONFIG_SRCDIR, the file by which configure knows the sources, names mosh-client.cc where it is).
 Kind:  five files moved; the overlay's namespace, and STMClient's, changed; their users qualified.
 From:  the core at the pin: src/frontend/{mosh-client.cc,mosh-server.cc,stmclient.cc,stmclient.h,terminaloverlay.cc}.
 Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
 
+diff --git a/configure.ac b/configure.ac
+index e989cbc..56877b4 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -5,7 +5,7 @@ AC_PREREQ([2.61])
+ AC_INIT([mosh], [1.4.0], [mosh-devel@mit.edu])
+ AM_INIT_AUTOMAKE([foreign std-options -Wall -Werror -Wno-portability])
+ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+-AC_CONFIG_SRCDIR([src/frontend/mosh-client.cc])
++AC_CONFIG_SRCDIR([src/frontend/imp/mosh-client.cc])
+ AC_CONFIG_MACRO_DIR([m4])
+ AC_CONFIG_HEADERS([src/include/config.h])
+ AC_LANG([C++])
 diff --git a/src/examples/benchmark.cc b/src/examples/benchmark.cc
 index 3aaf441..b5097a1 100644
 --- a/src/examples/benchmark.cc
