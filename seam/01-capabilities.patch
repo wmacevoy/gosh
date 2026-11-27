@@ -1,6 +1,6 @@
 gosh seam 01: Each end says what it can do, in mosh's own instruction.
 
-For:   REQ10/SHAPE-1, REQ8/CMD-3. A stock mosh must never be sent anything it would misread, and a
+For:   REQ21/SHAPE-1, REQ8/CMD-3. A stock mosh must never be sent anything it would misread, and a
        user must be told what the other end cannot do. So before gosh sends anything of its own it
        has to know the other end is a gosh; this is how it is told.
 What:  an optional field, capabilities, in Instruction (field 1001; an end that does not know the

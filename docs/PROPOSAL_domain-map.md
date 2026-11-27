@@ -24,7 +24,7 @@ application. An application knows nothing of how it is carried. There are two, e
 | **copy**, a file copy | the sender: says what it has, and sends what is lacked | the receiver: says what it lacks, and takes a file only whole |
 
 Either end of a copy may be the local one; a session's tx, its client, is always local. The
-terminal itself is the core's (mosh's, REQ10/SHAPE-1): what is the session's here is gosh's code around
+terminal itself is the core's (mosh's, REQ21/SHAPE-1): what is the session's here is gosh's code around
 it. `gosh` starts a session and `gocp` a copy: the commands keep their names. The names are the
 glossary's *session* and *copy*; the new nouns, *application* and *harness*, and *ABI* and
 *inside*, are proposed in `REQUIREMENTS_v21.md`.
@@ -55,7 +55,7 @@ glossary's *session* and *copy*; the new nouns, *application* and *harness*, and
 | | Directory | What it is | ABI |
 | --- | --- | --- | --- |
 | **strong** | `src/strong/` | what every proved class is written with | `datagram.h`, `opened.h`; and the trusted three, `bounded.h`, `caller.h`, `subarray.h` (strong-domain-driven-design's `prover/trusted/`) |
-| the core | `src/core` (`src/crypto/`, `src/network/`, `src/util/`, `src/include/`) | mosh, left alone (REQ10/SHAPE-1) | any of it, as it stands |
+| the core | `src/core` (`src/crypto/`, `src/network/`, `src/util/`, `src/include/`) | mosh, left alone (REQ21/SHAPE-1) | any of it, as it stands |
 
 A domain's proved classes, under `src/strong/<domain>/`, are its inside: they stand there because
 what is proved stands under `src/strong` (the prover's rule), not because they are a domain apart.

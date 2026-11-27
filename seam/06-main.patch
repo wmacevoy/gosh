@@ -1,6 +1,6 @@
 gosh seam 06: The core's two mains get other names, so that gosh's main runs first.
 
-For:   REQ10/SHAPE-1, REQ6/NAME-1. gosh's words (its options, and later its names and first
+For:   REQ21/SHAPE-1, REQ6/NAME-1. gosh's words (its options, and later its names and first
        words) are taken out of the arguments by gosh's own main, in src/seam, which then calls
        the core's main with only what a stock mosh would have been given. So no option of
        gosh's is parsed inside the core, and a moved pin cannot break one.

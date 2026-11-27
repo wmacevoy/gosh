@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""REQ10/SHAPE-1: either end may be a stock mosh and the terminal still works.
+"""REQ21/SHAPE-1: either end may be a stock mosh and the terminal still works.
 
 usage: stock-session.py CLIENT SERVER
 
@@ -45,7 +45,7 @@ def start_server(server, env):
     connect = re.search(r"MOSH CONNECT (\d+) (\S+)", done.stdout)
     detached = re.search(r"pid = (\d+)", done.stderr)
     if not connect or not detached:
-        sys.exit("FAIL REQ10/SHAPE-1: %s did not start a session:\n%s%s" % (server, done.stdout, done.stderr))
+        sys.exit("FAIL REQ21/SHAPE-1: %s did not start a session:\n%s%s" % (server, done.stdout, done.stderr))
     return connect.group(1), connect.group(2), int(detached.group(1))
 
 
@@ -89,7 +89,7 @@ def main():
     client, server = sys.argv[1], sys.argv[2]
     for program in (client, server):
         if not os.access(program, os.X_OK):
-            sys.exit("FAIL REQ10/SHAPE-1: no program at %s" % program)
+            sys.exit("FAIL REQ21/SHAPE-1: no program at %s" % program)
     # mosh insists on a UTF-8 locale at both ends.
     env = dict(os.environ, LANG="C.UTF-8", LC_ALL="C.UTF-8", TERM="xterm-256color")
     env.pop("MOSH_KEY", None)
@@ -102,8 +102,8 @@ def main():
     if not ok:
         # (what the client drew, and whether it was typed to: so that a failure says whether the
         # session never came up or the line was lost; seen once at random in the check, 2026-11-16)
-        sys.exit("FAIL REQ10/SHAPE-1: no terminal session: %s\n  typed: %s; drawn (last 400 bytes): %r" % (what, typed, seen[-400:]))
-    print("PASS REQ10/SHAPE-1: a terminal session: %s" % what)
+        sys.exit("FAIL REQ21/SHAPE-1: no terminal session: %s\n  typed: %s; drawn (last 400 bytes): %r" % (what, typed, seen[-400:]))
+    print("PASS REQ21/SHAPE-1: a terminal session: %s" % what)
 
 
 if __name__ == "__main__":
