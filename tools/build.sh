@@ -6,7 +6,7 @@
 # A copy, for two reasons: core/ itself is never written to, so "the core is
 # upstream's, byte for byte" (REQ6/UP-2) stays checkable; and it is the copy
 # that the seam's patches are applied to, in the order of their names
-# (REQ10/SHAPE-1; seam/README.md). A patch that does not apply exactly stops the
+# (REQ21/SHAPE-1; seam/README.md). A patch that does not apply exactly stops the
 # build: that is how a moved pin says what the seam costs.
 #
 # SEAM_UPTO=N applies only the first N patches, to check that each stage of the

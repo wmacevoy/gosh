@@ -36,12 +36,12 @@ agent: "yes, do 1-3" (the fix, the design, this draft), after "that seems amazin
 worth unfreezing for" (`-W`) and "if we decided to own ssh, then we would want to know what it
 does for the transport". **Accepted by the client on 2026-11-17: "accept v19".** v20 is the
 client's direction of 2026-11-26, drafted by the agent: "fix the two osc 52 catches in gosh",
-"core can be patched", "in seam". **Accepted by the client on 2026-11-26: "accept v20".** v21 is vocabulary only, the client's
-words of 2026-11-26 for the shape of gosh's parts, drafted by the agent with
+"core can be patched", "in seam". **Accepted by the client on 2026-11-26: "accept v20".** v21 is the client's
+words of 2026-11-26 for the shape of gosh's parts, and SHAPE-1's change of the same day (the core factored into domains by the seam), drafted by the agent with
 `PROPOSAL_domain-map.md`: "i thought of filecopy and moshcommand as two applications in a transport
 harness: rx/tx x sh/cp"; "sh is the terminal session; yes, split command"; "use session and copy,
 and draft v21"; and, of a part's boundary, "abi is the boundary, imp is the inside" (2026-11-22).
-**A draft: not accepted.**
+**Accepted by the client on 2026-11-27: "accept v21".**
 
 **What changed from v20.**
 
@@ -325,7 +325,7 @@ the client on 2026-11-13.
 Held by: Warren. The holder proposes a change; the client
 makes it, in a new version.
 
-- **SHAPE-1** *(since v10)* *(judged)* mosh's own protocol and the terminal are left alone. gosh
+- **SHAPE-1** *(since v21)* *(judged)* mosh's own protocol and the terminal are left alone. gosh
   carries the core untouched and pinned; what it changes there is the seam, and every change in the
   seam is tracked to the pin: it is kept as a change against the pinned commit, so that what gosh's
   core differs by can be read off at any time. Where a refactor of the core's code is warranted,
@@ -333,7 +333,7 @@ makes it, in a new version.
   warranted, say where it came from and why." *(client, 2026-11-13. The agent's reading: "where it
   came from" is the file and function at the pinned commit; "why" is the requirement or part that
   needs it; and a refactor is warranted when a listed change cannot be made as a small one.)*
-  *(Since v21, a draft.)* **The core is factored into domains, as gosh's own parts are (SHAPE-5),
+  *(Since v21.)* **The core is factored into domains, as gosh's own parts are (SHAPE-5),
   by the seam:** its cipher, its transport, its state synchronisation, its terminal and its programs
   each a domain with an ABI and an inside, held by the same lint as gosh's; and ssh, which the core
   does not hold, is gosh's own domain. The cipher and ssh first: "Isolating crypto and ssh seems

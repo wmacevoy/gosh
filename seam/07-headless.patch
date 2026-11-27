@@ -1,6 +1,6 @@
 gosh seam 07: A client with no terminal: nothing read, drawn or restored (-N).
 
-For:   REQ1/FWD-5, and REQ10/SHAPE-1's named exception. A session that only holds forwards open
+For:   REQ1/FWD-5, and REQ21/SHAPE-1's named exception. A session that only holds forwards open
        has no terminal: it must not read the keyboard, draw, or change the terminal's settings,
        and its standard output is not its own to write on.
 What:  STMClient asks Gosh::Seam::headless() and, when it is so: init does nothing; shutdown restores

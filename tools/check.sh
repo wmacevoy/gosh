@@ -7,7 +7,7 @@
 #   2. the core is upstream's at the pinned commit, byte for byte (REQ6/UP-2);
 #   3. it builds (tools/build.sh), with the seam's patches applied to a copy of
 #      the core and gosh's parts beside it, and the parts' unit tests pass;
-#   4. gosh and a stock mosh hold a terminal session, each way (REQ10/SHAPE-1);
+#   4. gosh and a stock mosh hold a terminal session, each way (REQ21/SHAPE-1);
 #   5. the fork's tests that drive the programs from outside pass against the
 #      fork's own programs at pf.7 (tools/build-pf7.sh). These are the tests each
 #      part of gosh must then pass; until a part lands they say only that the

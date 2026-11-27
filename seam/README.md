@@ -1,6 +1,6 @@
 # The seam
 
-What gosh changes in the core, tracked to the pin (`REQ10/SHAPE-1`). `core/` is upstream's mosh at
+What gosh changes in the core, tracked to the pin (`REQ21/SHAPE-1`). `core/` is upstream's mosh at
 its pinned commit and is never edited. `tools/build.sh` copies it to `.build/core` and applies
 every `*.patch` here to the copy, in the order of their names. A patch that does not apply
 exactly stops the build.
