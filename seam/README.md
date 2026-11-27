@@ -31,3 +31,7 @@ such domain there, for `../src/DOMAINS` holds each of them to its own.
 Patch 13 moves the cipher's tests into it (`src/crypto/imp/*-test.cc`), and the whole check runs
 them, as it runs each laid-out core domain's tests (`tools/check.sh`): before, gosh's check ran none
 of the core's unit tests.
+
+Patch 14 lays out the core's transport (`src/network`): its inside under `imp/` in `Network::Imp`,
+and no header of it says `using namespace`. State sync's `user.h` still declares its user's stream
+into `Network`, by mosh's own naming; `DOMAINS` allows it until state sync is laid out.
