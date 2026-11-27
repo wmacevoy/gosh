@@ -1,0 +1,121 @@
+gosh seam 20: OCB's interface is the cipher's inside, in Crypto::Imp, and no longer in no namespace.
+
+For:   REQ21/SHAPE-1, the core factored into domains by the seam. The cipher's ABI (crypto.h)
+       includes OCB's interface (imp/ae.h) to declare one private field, Session's ae_ctx*; and
+       that interface, Krovetz's, in C, declared everything in no namespace, so every user of the
+       cipher (the transport, gosh's meetup) saw OCB's functions and struct as the program's own.
+       seam/DOMAINS allowed it until now; the allow goes.
+What:  Renames of where names are, and nothing else: no byte of the protocol, and no behaviour,
+       changes. ae.h's declarations, still extern "C", are put in Crypto::Imp; the definitions in
+       ocb_internal.cc and ocb_openssl.cc are wrapped in the same namespace. A function of C
+       linkage has its name whatever namespace declares it, so the symbols compiled and linked
+       (ae_init, ae_encrypt, ae_decrypt, ae_clear, ae_ctx_sizeof) are the same. Session's field
+       says Imp::ae_ctx; crypto.cc, the cipher's own, says using namespace Crypto::Imp.
+       ocb_internal.cc's test program (OCB_TEST_PROGRAM, not built) says the same.
+Where: src/crypto/crypto.h; src/crypto/imp/{ae.h,crypto.cc,ocb_internal.cc,ocb_openssl.cc}.
+Kind:  no file moved; one interface's names in Crypto::Imp; one field and one user qualified.
+From:  the core at the pin: src/crypto/ae.h, src/crypto/ocb_internal.cc, src/crypto/ocb_openssl.cc
+       (moved under imp/ by patch 12).
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/crypto/crypto.h b/src/crypto/crypto.h
+index 27147ab..d3bd4e6 100644
+--- a/src/crypto/crypto.h
++++ b/src/crypto/crypto.h
+@@ -132,7 +132,7 @@ class Session
+ private:
+   Base64Key key;
+   AlignedBuffer ctx_buf;
+-  ae_ctx* ctx;
++  Imp::ae_ctx* ctx;
+   uint64_t blocks_encrypted;
+ 
+   AlignedBuffer plaintext_buffer;
+diff --git a/src/crypto/imp/ae.h b/src/crypto/imp/ae.h
+index a0d8034..809553d 100644
+--- a/src/crypto/imp/ae.h
++++ b/src/crypto/imp/ae.h
+@@ -20,6 +20,8 @@
+ #define _AE_H_
+ 
+ #ifdef __cplusplus
++namespace Crypto {
++namespace Imp {
+ extern "C" {
+ #endif
+ 
+@@ -173,6 +175,8 @@ int ae_decrypt( ae_ctx* ctx,
+ 
+ #ifdef __cplusplus
+ } /* closing brace for extern "C" */
++} /* Imp */
++} /* Crypto */
+ #endif
+ 
+ #endif /* _AE_H_ */
+diff --git a/src/crypto/imp/crypto.cc b/src/crypto/imp/crypto.cc
+index 80c89c5..340aa17 100644
+--- a/src/crypto/imp/crypto.cc
++++ b/src/crypto/imp/crypto.cc
+@@ -46,6 +46,7 @@
+ #include "src/util/fatal_assert.h"
+ 
+ using namespace Crypto;
++using namespace Crypto::Imp;
+ 
+ long int Crypto::myatoi( const char* str )
+ {
+diff --git a/src/crypto/imp/ocb_internal.cc b/src/crypto/imp/ocb_internal.cc
+index 926847e..715ea8f 100644
+--- a/src/crypto/imp/ocb_internal.cc
++++ b/src/crypto/imp/ocb_internal.cc
+@@ -609,6 +609,9 @@ static void ecb_decrypt_blks(block *blks, unsigned nblks, KEY *key) {
+ #error "No AES implementation selected."
+ #endif
+ 
++namespace Crypto {
++namespace Imp {
++
+ /* ----------------------------------------------------------------------- */
+ /* Define OCB context structure.                                           */
+ /* ----------------------------------------------------------------------- */
+@@ -1296,6 +1299,9 @@ int ae_decrypt(ae_ctx     *ctx,
+     return ct_len;
+  }
+ 
++} /* Imp */
++} /* Crypto */
++
+ /* ----------------------------------------------------------------------- */
+ /* Simple test program                                                     */
+ /* ----------------------------------------------------------------------- */
+@@ -1305,6 +1311,8 @@ int ae_decrypt(ae_ctx     *ctx,
+ #include <stdio.h>
+ #include <time.h>
+ 
++using namespace Crypto::Imp;
++
+ #if __GNUC__
+ 	#define ALIGN(n) __attribute__ ((aligned(n)))
+ #elif _MSC_VER
+diff --git a/src/crypto/imp/ocb_openssl.cc b/src/crypto/imp/ocb_openssl.cc
+index 4472a4b..cd90d43 100644
+--- a/src/crypto/imp/ocb_openssl.cc
++++ b/src/crypto/imp/ocb_openssl.cc
+@@ -5,6 +5,9 @@
+ #include <openssl/crypto.h>
+ #include <openssl/evp.h>
+ 
++namespace Crypto {
++namespace Imp {
++
+ struct _ae_ctx
+ {
+   EVP_CIPHER_CTX* enc_ctx;
+@@ -209,3 +212,6 @@ int ae_decrypt( ae_ctx* ctx,
+   plaintext_len += len;
+   return plaintext_len;
+ }
++
++} /* Imp */
++} /* Crypto */
