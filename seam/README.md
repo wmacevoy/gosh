@@ -57,3 +57,8 @@ and the core's examples, fuzzers and tests.
 Patch 19 gives each of the core's laid-out domains a test of its own (the transport, state sync,
 the terminal, the programs, the utilities), of the behaviour the factoring must not change; the
 check runs them with the cipher's.
+
+Patch 20 puts OCB's interface (`src/crypto/imp/ae.h`, Krovetz's, in C) in `Crypto::Imp`, and its
+definitions with it: until then it was in no namespace, and every user of the cipher's ABI saw it,
+since `crypto.h` includes it for one private field. Its functions keep C linkage, so the symbols
+linked are the same; `DOMAINS` no longer allows it.
