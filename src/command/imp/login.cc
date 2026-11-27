@@ -14,20 +14,7 @@
 #include <unistd.h>
 
 #include "src/command/imp/options.h"
-
-namespace {
-
-void exec_words( const std::vector<std::string>& words )
-{
-  std::vector<char*> argv;
-  for ( size_t i = 0; i < words.size(); i++ ) {
-    argv.push_back( const_cast<char*>( words[i].c_str() ) );
-  }
-  argv.push_back( NULL );
-  execvp( argv[0], argv.data() );
-}
-
-}
+#include "src/ssh/login.h"
 
 std::string Gosh::Command::Imp::terminal_colors( void ( *print_colors )( void ), const std::string& name )
 {
@@ -57,57 +44,6 @@ std::string Gosh::Command::Imp::terminal_colors( void ( *print_colors )( void ),
   }
   said = strip_end( said );
   return all_digits( said ) ? said : "0";
-}
-
-std::string Gosh::Command::Imp::ssh_config_text( const std::vector<std::string>& ssh, const std::string& host )
-{
-  int out[2];
-  if ( ssh.empty() || pipe( out ) < 0 ) {
-    return std::string();
-  }
-  std::vector<std::string> words = ssh;
-  words.push_back( "-G" );
-  words.push_back( host );
-  const pid_t child = fork();
-  if ( child < 0 ) {
-    close( out[0] );
-    close( out[1] );
-    return std::string();
-  }
-  if ( child == 0 ) {
-    dup2( out[1], STDOUT_FILENO );
-    const int null = open( "/dev/null", O_RDWR );
-    if ( null >= 0 ) {
-      dup2( null, STDIN_FILENO );
-      dup2( null, STDERR_FILENO );
-    }
-    close( out[0] );
-    std::vector<char*> argv;
-    for ( size_t i = 0; i < words.size(); i++ ) {
-      argv.push_back( const_cast<char*>( words[i].c_str() ) );
-    }
-    argv.push_back( NULL );
-    execvp( argv[0], &argv[0] );
-    _exit( 127 );
-  }
-  close( out[1] );
-  std::string text;
-  char buf[4096];
-  ssize_t n;
-  while ( ( n = read( out[0], buf, sizeof( buf ) ) ) != 0 ) {
-    if ( n < 0 ) {
-      if ( errno == EINTR ) {
-        continue;
-      }
-      break;
-    }
-    text.append( buf, n );
-  }
-  close( out[0] );
-  int status = 0;
-  while ( waitpid( child, &status, 0 ) < 0 && errno == EINTR ) {
-  }
-  return WIFEXITED( status ) && WEXITSTATUS( status ) == 0 ? text : std::string();
 }
 
 void Gosh::Command::Imp::start_server( const Login& login, Startup& startup )
@@ -145,16 +81,7 @@ void Gosh::Command::Imp::start_server( const Login& login, Startup& startup )
       _exit( 1 );
     }
 
-    if ( login.proxy ) {
-      /* Unusual shells, and what they are told to do at start, break a ProxyCommand mysteriously. */
-      setenv( "SHELL", "/bin/sh", 1 );
-    }
-    exec_words( login.words );
-    const std::string why = "Cannot exec ssh: " + std::string( strerror( errno ) ) + "\n";
-    if ( write( STDOUT_FILENO, why.data(), why.size() ) < 0 ) {
-      _exit( 1 );
-    }
-    _exit( 1 );
+    Gosh::Ssh::exec( login.words, login.proxy );
   }
 
   close( fds[1] );

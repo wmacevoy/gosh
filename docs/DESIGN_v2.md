@@ -595,6 +595,9 @@ plain strings: none exists today beyond `shell_words`, `shell_quote`, `remote_pl
 *(Done 2026-11-16: `src/command/` is now `options`, `words` (what was asked), `startup`, `login`
 and `proxy`, the three logic pieces each with its test; `src/command/README.md`. The variables
 for the client stay variables: the core's client and the relays read them.)*
+*(Since 2026-11-27: running ssh, its words, the host's shell's words and the ProxyCommand are the
+ssh domain's, `src/ssh/` (`shell.h`, `login.h`, `proxy.h`); the command keeps the login's reading of
+the startup message, and `--local`'s shell. The owner: "ssh is its own domain".)*
 
 #### install
 
