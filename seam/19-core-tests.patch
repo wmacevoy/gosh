@@ -1,0 +1,443 @@
+gosh seam 19: Each of the core's domains has tests of its own: what its factoring must not change.
+
+For:   REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour". The factoring (seams 12
+       to 18) moved and renamed the core's code; only the cipher had tests of its own (seam 13),
+       and gosh's check ran none of the core's. Each domain now has one, run by the check's
+       tests of each laid-out core domain (tools/check.sh).
+What:  Five tests are added, each under its domain's imp/, with gosh's testing library (vendor/facts),
+       each seen to fail with its domain broken once and to pass as it is:
+       - the transport (imp/transport-test.cc): an instruction made into fragments no larger than
+         the MTU, only the last final; a fragment's bytes read back as itself; the fragments, in any
+         order, put together as the instruction; compression there and back; a port range parsed,
+         and what is not one refused;
+       - state synchronisation (imp/statesync-test.cc): the user's stream, its diff applied; one
+         terminal's diff from another making the other show the same (the core's compare);
+       - the terminal (imp/terminal-test.cc): the parser's prints and its dispatch of a control
+         sequence; printed text, CR LF and the cursor in the framebuffer; a title's prefix;
+       - the programs (imp/overlay-test.cc): the title engine's prefix; a notification drawn;
+       - the utilities (imp/util-test.cc): swrite writes all; the frozen timestamp; a locale's
+         variable said.
+       The terminal's three set the locale C.UTF-8, as the core's programs refuse any other.
+Where: src/{network,statesync,terminal,frontend,util}/Makefile.am; imp/*-test.cc in each.
+Kind:  adds tests only; nothing of the core's own code changes.
+From:  gosh's own, 2026-11-27 (the owner: "go ahead and add tests for the new domains").
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/frontend/Makefile.am b/src/frontend/Makefile.am
+index 31c85de..351bc75 100644
+--- a/src/frontend/Makefile.am
++++ b/src/frontend/Makefile.am
+@@ -19,3 +19,15 @@ endif
+ 
+ mosh_client_SOURCES = imp/mosh-client.cc imp/stmclient.cc imp/stmclient.h imp/terminaloverlay.cc terminaloverlay.h
+ mosh_server_SOURCES = imp/mosh-server.cc
++
++# A test of the client's overlays (gosh's seam 19), of what the factoring into domains must not change.
++check_PROGRAMS = imp/overlay-test
++TESTS = $(check_PROGRAMS)
++imp_overlay_test_SOURCES = imp/overlay-test.cc imp/terminaloverlay.cc
++imp_overlay_test_LDADD = libfacts.a ../terminal/libmoshterminal.a ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a $(TINFO_LIBS) $(protobuf_LIBS) $(CRYPTO_LIBS)
++
++# The testing library (vendor/facts/README.md), built here for the tests alone, without the core's
++# warning flags: it is gosh's, vendored. (subdir-objects: its source is outside this directory.)
++check_LIBRARIES = libfacts.a
++libfacts_a_SOURCES = ../../vendor/facts/facts.cpp
++libfacts_a_CXXFLAGS =
+diff --git a/src/frontend/imp/overlay-test.cc b/src/frontend/imp/overlay-test.cc
+new file mode 100644
+index 0000000..2342532
+--- /dev/null
++++ b/src/frontend/imp/overlay-test.cc
+@@ -0,0 +1,42 @@
++/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
++/* A test of the core's, added by gosh's seam 19: the core's own behaviour, which the seam's factoring of it into
++   domains must not change (REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
++
++#include <clocale>
++#include <string>
++
++#include "src/frontend/terminaloverlay.h"
++#include "vendor/facts/facts.h"
++
++/* REQ21/SHAPE-1: the client's overlays: a title's prefix, and a notification shown on the framebuffer */
++FACTS( Overlay )
++{
++  /* (the core reads and draws text as UTF-8, and its programs refuse to start in any other locale) */
++  const bool utf8 = setlocale( LC_ALL, "C.UTF-8" ) != NULL;
++  FACT_CHECK( utf8, "the locale C.UTF-8 is there to be had" );
++
++  Terminal::Framebuffer fb( 40, 5 );
++  fb.set_window_title( Terminal::Framebuffer::title_type( { L'v', L'i' } ) );
++  Frontend::Overlay::TitleEngine title;
++  title.set_prefix( L"[gosh] " );
++  title.apply( fb );
++  const Terminal::Framebuffer::title_type& t = fb.get_window_title();
++  FACT_CHECK( std::wstring( t.begin(), t.end() ) == L"[gosh] vi", "the title engine puts its prefix before the window's title" );
++
++  Terminal::Framebuffer plain( 40, 5 ), noted( 40, 5 );
++  Frontend::Overlay::NotificationEngine notifications;
++  notifications.set_notification_string( L"a note", true, false );
++  notifications.apply( noted );
++  bool changed = false;
++  for ( int col = 0; col < 40; col++ ) {
++    changed = changed || *noted.get_cell( 0, col ) != *plain.get_cell( 0, col );
++  }
++  FACT_CHECK( changed, "a notification is drawn on the framebuffer's top row" );
++}
++
++FACTS_REGISTER_ALL()
++{
++  FACTS_REGISTER( Overlay );
++}
++
++FACTS_MAIN
+diff --git a/src/network/Makefile.am b/src/network/Makefile.am
+index b566633..b4e7ccd 100644
+--- a/src/network/Makefile.am
++++ b/src/network/Makefile.am
+@@ -6,3 +6,15 @@ AUTOMAKE_OPTIONS = subdir-objects
+ noinst_LIBRARIES = libmoshnetwork.a
+ 
+ libmoshnetwork_a_SOURCES = imp/network.cc network.h networktransport-impl.h networktransport.h imp/transportfragment.cc imp/transportfragment.h transportsender-impl.h transportsender.h transportstate.h imp/compressor.cc imp/compressor.h
++
++# A test of the transport (gosh's seam 19), of what the factoring into domains must not change.
++check_PROGRAMS = imp/transport-test
++TESTS = $(check_PROGRAMS)
++imp_transport_test_SOURCES = imp/transport-test.cc
++imp_transport_test_LDADD = libfacts.a libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a $(protobuf_LIBS) $(CRYPTO_LIBS)
++
++# The testing library (vendor/facts/README.md), built here for the tests alone, without the core's
++# warning flags: it is gosh's, vendored. (subdir-objects: its source is outside this directory.)
++check_LIBRARIES = libfacts.a
++libfacts_a_SOURCES = ../../vendor/facts/facts.cpp
++libfacts_a_CXXFLAGS =
+diff --git a/src/network/imp/transport-test.cc b/src/network/imp/transport-test.cc
+new file mode 100644
+index 0000000..b3b79bc
+--- /dev/null
++++ b/src/network/imp/transport-test.cc
+@@ -0,0 +1,71 @@
++/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
++/* A test of the core's, added by gosh's seam 19: the core's own behaviour, which the seam's factoring of it into
++   domains must not change (REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
++
++#include <string>
++#include <vector>
++
++#include "src/network/imp/compressor.h"
++#include "src/network/imp/transportfragment.h"
++#include "src/network/network.h"
++#include "src/protobufs/transportinstruction.pb.h"
++#include "vendor/facts/facts.h"
++
++using Network::Imp::Fragment;
++
++/* REQ21/SHAPE-1: the transport's fragments, compression and port ranges */
++FACTS( Transport )
++{
++  TransportBuffers::Instruction inst;
++  inst.set_protocol_version( 2 );
++  inst.set_old_num( 7 );
++  inst.set_new_num( 8 );
++  inst.set_ack_num( 6 );
++  inst.set_throwaway_num( 5 );
++  std::string diff;
++  uint32_t x = 12345;
++  for ( int i = 0; i < 3000; i++ ) {
++    x = x * 1103515245 + 12345; /* (bytes that do not compress away, the same each run) */
++    diff.push_back( static_cast<char>( x >> 24 ) );
++  }
++  inst.set_diff( diff );
++
++  Network::Imp::Fragmenter fragmenter;
++  std::vector<Fragment> fragments = fragmenter.make_fragments( inst, 500 );
++  bool small = !fragments.empty();
++  for ( size_t i = 0; i < fragments.size(); i++ ) {
++    small = small && fragments[i].tostring().size() <= 500;
++  }
++  FACT_CHECK( ( fragments.size() > 1 && small ), "an instruction larger than the MTU is made into fragments, each no larger than it" );
++  FACT_CHECK( ( fragments.back().final && !fragments.front().final ), "and only the last is final" );
++
++  Fragment again( fragments[0].tostring() );
++  FACT_CHECK( again == fragments[0], "a fragment's bytes read back as the same fragment" );
++
++  Network::Imp::FragmentAssembly assembly;
++  bool whole = false;
++  for ( size_t i = fragments.size(); i-- > 0; ) { /* (they may arrive in any order) */
++    Fragment f( fragments[i].tostring() );
++    whole = assembly.add_fragment( f );
++  }
++  FACT_CHECK( ( whole && assembly.get_assembly().SerializeAsString() == inst.SerializeAsString() ), "the fragments, out of order, are put together as the instruction they were made of" );
++
++  Network::Imp::Compressor compressor;
++  const std::string text( 4000, 'x' );
++  const std::string packed = compressor.compress_str( text );
++  FACT_CHECK( ( packed.size() < text.size() && compressor.uncompress_str( packed ) == text ), "what is compressed is smaller, and is uncompressed as it was" );
++
++  int low, high;
++  FACT_CHECK( ( Network::Connection::parse_portrange( "60001", low, high ) && low == 60001 && high == 60001 ), "a port is a range of one" );
++  FACT_CHECK( ( Network::Connection::parse_portrange( "60001:60010", low, high ) && low == 60001 && high == 60010 ), "a range, low:high" );
++  FACT_CHECK( !Network::Connection::parse_portrange( "60010:60001", low, high ), "low above high is refused" );
++  FACT_CHECK( !Network::Connection::parse_portrange( "0:5", low, high ), "a range from 0 is refused" );
++  FACT_CHECK( ( !Network::Connection::parse_portrange( "70000", low, high ) && !Network::Connection::parse_portrange( "12x", low, high ) ), "a port past 65535, or not a number, is refused" );
++}
++
++FACTS_REGISTER_ALL()
++{
++  FACTS_REGISTER( Transport );
++}
++
++FACTS_MAIN
+diff --git a/src/statesync/Makefile.am b/src/statesync/Makefile.am
+index 39be332..891f534 100644
+--- a/src/statesync/Makefile.am
++++ b/src/statesync/Makefile.am
+@@ -6,3 +6,15 @@ AUTOMAKE_OPTIONS = subdir-objects
+ noinst_LIBRARIES = libmoshstatesync.a
+ 
+ libmoshstatesync_a_SOURCES = imp/completeterminal.cc completeterminal.h imp/user.cc user.h
++
++# A test of state synchronisation (gosh's seam 19), of what the factoring into domains must not change.
++check_PROGRAMS = imp/statesync-test
++TESTS = $(check_PROGRAMS)
++imp_statesync_test_SOURCES = imp/statesync-test.cc
++imp_statesync_test_LDADD = libfacts.a libmoshstatesync.a ../terminal/libmoshterminal.a ../util/libmoshutil.a ../protobufs/libmoshprotos.a $(TINFO_LIBS) $(protobuf_LIBS)
++
++# The testing library (vendor/facts/README.md), built here for the tests alone, without the core's
++# warning flags: it is gosh's, vendored. (subdir-objects: its source is outside this directory.)
++check_LIBRARIES = libfacts.a
++libfacts_a_SOURCES = ../../vendor/facts/facts.cpp
++libfacts_a_CXXFLAGS =
+diff --git a/src/statesync/imp/statesync-test.cc b/src/statesync/imp/statesync-test.cc
+new file mode 100644
+index 0000000..1654ae7
+--- /dev/null
++++ b/src/statesync/imp/statesync-test.cc
+@@ -0,0 +1,54 @@
++/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
++/* A test of the core's, added by gosh's seam 19: the core's own behaviour, which the seam's factoring of it into
++   domains must not change (REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
++
++#include <clocale>
++#include <string>
++
++#include "src/statesync/completeterminal.h"
++#include "src/statesync/user.h"
++#include "vendor/facts/facts.h"
++
++namespace {
++/* What a cell shows, as the core says it, for a cell holding this one letter */
++std::string shown( char letter )
++{
++  Terminal::Cell c( 0 );
++  c.append( letter );
++  return c.debug_contents();
++}
++}
++
++/* REQ21/SHAPE-1: state synchronisation's two objects, each a diff and its application */
++FACTS( StateSync )
++{
++  /* (the core reads and draws text as UTF-8, and its programs refuse to start in any other locale) */
++  const bool utf8 = setlocale( LC_ALL, "C.UTF-8" ) != NULL;
++  FACT_CHECK( utf8, "the locale C.UTF-8 is there to be had" );
++
++  StateSync::UserStream typed, empty, received;
++  typed.push_back( Terminal::Parser::UserByte( 'l' ) );
++  typed.push_back( Terminal::Parser::UserByte( 's' ) );
++  typed.push_back( Terminal::Parser::Resize( 100, 30 ) );
++  FACT_CHECK( typed.size() == 3, "what the user does is kept in order: two keys, a resize" );
++  received.apply_string( typed.diff_from( empty ) );
++  FACT_CHECK( received == typed, "its diff from nothing, applied to nothing, is the same stream" );
++  StateSync::UserStream more = typed;
++  more.push_back( Terminal::Parser::UserByte( '\n' ) );
++  received.apply_string( more.diff_from( typed ) );
++  FACT_CHECK( received == more, "and the diff of one more key brings the other end up to it" );
++
++  StateSync::Complete server( 20, 5 ), client( 20, 5 );
++  server.act( "hello" );
++  FACT_CHECK( client.get_fb().get_cell( 0, 0 )->debug_contents() != shown( 'h' ), "a terminal not written to does not show what was written to the other" );
++  client.apply_string( server.diff_from( client ) );
++  FACT_CHECK( !client.compare( server ), "the diff of one terminal from another makes the other show the same, every cell and the cursor (compare: what differs)" );
++  FACT_CHECK( client.get_fb().get_cell( 0, 0 )->debug_contents() == shown( 'h' ), "and what was written is there, at the top left" );
++}
++
++FACTS_REGISTER_ALL()
++{
++  FACTS_REGISTER( StateSync );
++}
++
++FACTS_MAIN
+diff --git a/src/terminal/Makefile.am b/src/terminal/Makefile.am
+index 832da01..00ddb9e 100644
+--- a/src/terminal/Makefile.am
++++ b/src/terminal/Makefile.am
+@@ -6,3 +6,15 @@ AUTOMAKE_OPTIONS = subdir-objects
+ noinst_LIBRARIES = libmoshterminal.a
+ 
+ libmoshterminal_a_SOURCES = imp/parseraction.cc parseraction.h imp/parser.cc parser.h imp/parserstate.cc imp/parserstatefamily.h imp/parserstate.h imp/parsertransition.h imp/terminal.cc imp/terminaldispatcher.cc imp/terminaldispatcher.h imp/terminaldisplay.cc imp/terminaldisplayinit.cc terminaldisplay.h imp/terminalframebuffer.cc terminalframebuffer.h imp/terminalfunctions.cc terminal.h imp/terminaluserinput.cc imp/terminaluserinput.h
++
++# A test of the terminal (gosh's seam 19), of what the factoring into domains must not change.
++check_PROGRAMS = imp/terminal-test
++TESTS = $(check_PROGRAMS)
++imp_terminal_test_SOURCES = imp/terminal-test.cc
++imp_terminal_test_LDADD = libfacts.a libmoshterminal.a ../util/libmoshutil.a $(TINFO_LIBS)
++
++# The testing library (vendor/facts/README.md), built here for the tests alone, without the core's
++# warning flags: it is gosh's, vendored. (subdir-objects: its source is outside this directory.)
++check_LIBRARIES = libfacts.a
++libfacts_a_SOURCES = ../../vendor/facts/facts.cpp
++libfacts_a_CXXFLAGS =
+diff --git a/src/terminal/imp/terminal-test.cc b/src/terminal/imp/terminal-test.cc
+new file mode 100644
+index 0000000..f766f4e
+--- /dev/null
++++ b/src/terminal/imp/terminal-test.cc
+@@ -0,0 +1,74 @@
++/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
++/* A test of the core's, added by gosh's seam 19: the core's own behaviour, which the seam's factoring of it into
++   domains must not change (REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
++
++#include <clocale>
++#include <string>
++
++#include "src/terminal/parser.h"
++#include "src/terminal/terminal.h"
++#include "vendor/facts/facts.h"
++
++namespace {
++/* What a cell shows, as the core says it, for a cell holding this one letter */
++std::string shown( char letter )
++{
++  Terminal::Cell c( 0 );
++  c.append( letter );
++  return c.debug_contents();
++}
++}
++
++/* REQ21/SHAPE-1: the terminal: its parser's actions, and what they do to a framebuffer */
++FACTS( Terminal )
++{
++  /* (the core reads and draws text as UTF-8, and its programs refuse to start in any other locale) */
++  const bool utf8 = setlocale( LC_ALL, "C.UTF-8" ) != NULL;
++  FACT_CHECK( utf8, "the locale C.UTF-8 is there to be had" );
++
++  Terminal::Parser::UTF8Parser parser;
++  Terminal::Parser::Actions actions;
++  const std::string text = "ab";
++  for ( size_t i = 0; i < text.size(); i++ ) {
++    parser.input( text[i], actions );
++  }
++  FACT_CHECK( ( actions.size() == 2 && actions[0]->name() == "Print" && actions[0]->ch == L'a' && actions[1]->ch == L'b' ), "two letters are two prints, of those letters" );
++
++  actions.clear();
++  const std::string erase = "\x1b[2J";
++  for ( size_t i = 0; i < erase.size(); i++ ) {
++    parser.input( erase[i], actions );
++  }
++  bool dispatched = false;
++  for ( size_t i = 0; i < actions.size(); i++ ) {
++    dispatched = dispatched || ( actions[i]->name() == "CSI_Dispatch" && actions[i]->ch == L'J' );
++  }
++  FACT_CHECK( dispatched, "ESC [ 2 J is a control sequence, dispatched on its last letter" );
++
++  Terminal::Emulator emulator( 10, 3 );
++  actions.clear();
++  const std::string written = "hi\r\nyo";
++  for ( size_t i = 0; i < written.size(); i++ ) {
++    parser.input( written[i], actions );
++  }
++  for ( size_t i = 0; i < actions.size(); i++ ) {
++    actions[i]->act_on_terminal( &emulator );
++  }
++  const Terminal::Framebuffer& fb = emulator.get_fb();
++  FACT_CHECK( ( fb.get_cell( 0, 0 )->debug_contents() == shown( 'h' ) && fb.get_cell( 0, 1 )->debug_contents() == shown( 'i' )
++                && fb.get_cell( 1, 0 )->debug_contents() == shown( 'y' ) && fb.get_cell( 1, 1 )->debug_contents() == shown( 'o' ) ),
++              "what is printed is in the framebuffer, and CR LF goes to the next row's start" );
++  FACT_CHECK( ( fb.ds.get_cursor_row() == 1 && fb.ds.get_cursor_col() == 2 ), "with the cursor after it" );
++
++  Terminal::Framebuffer titled( 10, 3 );
++  titled.set_window_title( Terminal::Framebuffer::title_type( 1, L't' ) );
++  titled.prefix_window_title( Terminal::Framebuffer::title_type( 2, L'p' ) );
++  FACT_CHECK( titled.get_window_title() == Terminal::Framebuffer::title_type( { L'p', L'p', L't' } ), "a prefix goes before the window's title" );
++}
++
++FACTS_REGISTER_ALL()
++{
++  FACTS_REGISTER( Terminal );
++}
++
++FACTS_MAIN
+diff --git a/src/util/Makefile.am b/src/util/Makefile.am
+index 1d4d339..ffa50a1 100644
+--- a/src/util/Makefile.am
++++ b/src/util/Makefile.am
+@@ -5,3 +5,15 @@ AUTOMAKE_OPTIONS = subdir-objects
+ noinst_LIBRARIES = libmoshutil.a
+ 
+ libmoshutil_a_SOURCES = imp/locale_utils.cc locale_utils.h imp/swrite.cc swrite.h dos_assert.h fatal_assert.h select.h imp/select.cc timestamp.h imp/timestamp.cc imp/pty_compat.cc pty_compat.h
++
++# A test of the utilities (gosh's seam 19), of what the factoring into domains must not change.
++check_PROGRAMS = imp/util-test
++TESTS = $(check_PROGRAMS)
++imp_util_test_SOURCES = imp/util-test.cc
++imp_util_test_LDADD = libfacts.a libmoshutil.a
++
++# The testing library (vendor/facts/README.md), built here for the tests alone, without the core's
++# warning flags: it is gosh's, vendored. (subdir-objects: its source is outside this directory.)
++check_LIBRARIES = libfacts.a
++libfacts_a_SOURCES = ../../vendor/facts/facts.cpp
++libfacts_a_CXXFLAGS =
+diff --git a/src/util/imp/util-test.cc b/src/util/imp/util-test.cc
+new file mode 100644
+index 0000000..d2dca57
+--- /dev/null
++++ b/src/util/imp/util-test.cc
+@@ -0,0 +1,47 @@
++/* Copyright 2026 Warren D. MacEvoy. GPL-3.0-or-later. See github.com/wmacevoy/gosh/LICENSE-GOSH, and LICENSE-MOSH. */
++/* A test of the core's, added by gosh's seam 19: the core's own behaviour, which the seam's factoring of it into
++   domains must not change (REQ21/SHAPE-1: "no byte of the protocol changes, and no behaviour"). */
++
++#include <string>
++
++#include <unistd.h>
++
++#include "src/util/locale_utils.h"
++#include "src/util/swrite.h"
++#include "src/util/timestamp.h"
++#include "vendor/facts/facts.h"
++
++/* REQ21/SHAPE-1: the utilities: a whole write, a timestamp that does not go back, a locale's variable */
++FACTS( Util )
++{
++  int fds[2];
++  FACT_CHECK( pipe( fds ) == 0, "(a pipe to write to)" );
++  const std::string text( 1000, 'w' );
++  FACT_CHECK( Util::swrite( fds[1], text.data(), text.size() ) == 0, "swrite writes all it is given, and says 0" );
++  close( fds[1] );
++  std::string got;
++  char buf[256];
++  ssize_t n;
++  while ( ( n = read( fds[0], buf, sizeof( buf ) ) ) > 0 ) {
++    got.append( buf, n );
++  }
++  close( fds[0] );
++  FACT_CHECK( got == text, "and every byte arrives" );
++
++  Util::freeze_timestamp();
++  const uint64_t first = Util::frozen_timestamp();
++  FACT_CHECK( Util::frozen_timestamp() == first, "a timestamp, once frozen, stays until it is frozen again" );
++  usleep( 20000 );
++  Util::freeze_timestamp();
++  FACT_CHECK( Util::frozen_timestamp() >= first + 10, "and, frozen again 20 ms later, has moved on by about that" );
++
++  FACT_CHECK( Util::LocaleVar( "LC_ALL", "C.UTF-8" ).str() == "LC_ALL=C.UTF-8", "a locale's variable says itself as NAME=value" );
++  FACT_CHECK( Util::LocaleVar( "", "" ).str() == "[no charset variables]", "and none says so" );
++}
++
++FACTS_REGISTER_ALL()
++{
++  FACTS_REGISTER( Util );
++}
++
++FACTS_MAIN

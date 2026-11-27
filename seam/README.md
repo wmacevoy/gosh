@@ -53,3 +53,7 @@ Its macros (`fatal_assert`, `dos_assert`) keep their names, and call `Util::`; `
 stand-ins for `forkpty` and `cfmakeraw` stay in no namespace, as the system's are (`DOMAINS`
 allows them). Left named and not laid out: what is generated (`src/include`, `src/protobufs`),
 and the core's examples, fuzzers and tests.
+
+Patch 19 gives each of the core's laid-out domains a test of its own (the transport, state sync,
+the terminal, the programs, the utilities), of the behaviour the factoring must not change; the
+check runs them with the cipher's.
