@@ -39,9 +39,6 @@ bool run( const std::vector<std::string>& args,
           std::vector<std::string>& client_args,
           int& status );
 
-/* ssh's way to the server when we are its ProxyCommand: says which address it reached, then carries bytes (proxy.cc). */
-int fake_proxy( const std::string& family, const std::string& host, const std::string& port );
-
 }
 
 #endif

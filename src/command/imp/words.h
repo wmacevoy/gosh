@@ -12,7 +12,7 @@
 
 /*
  * the command, what was asked: the settings turned into each program's words (glossary, "words"):
- * the server's, the client's, both ends of a stream, ssh's, the relay's and the meetup ticket's;
+ * the server's, the client's, both ends of a stream, the relay's and the meetup ticket's (ssh's own are src/ssh/login.h's);
  * and which end of a copy is which (REQ1/CMD-1, REQ1/CP-1, REQ1/CP-5, REQ1/CP-7, REQ1/PATH-1,
  * REQ8/CMD-3, REQ15/PATH-4; design v2, 2.2). Logic: words in, words out; the environment and the
  * terminal are read by the caller and passed in. The fork's (mosh-1.4.0-pf.7,
@@ -23,12 +23,8 @@ namespace Gosh::Command::Imp {
 typedef std::vector<std::string> Words;
 typedef std::vector<std::pair<std::string, std::string> > Variables; /* name, value: to be set, in order */
 
-/* ---- words as a shell has them */
+/* ---- words as a shell has them (and src/ssh/shell.h) */
 
-/* A line split as a shell would split it into words: quotes, and a backslash, taken away. */
-Words shell_words( const std::string& line );
-/* Words quoted for a shell, each in single quotes, separated by spaces. */
-std::string shell_quote( const Words& words );
 /* "[user@]host:path" as a remote place: true, with host and path, if it is one. A colon after a
  * slash, or after a single letter (a Windows drive), is part of a local name. */
 bool remote_place( const std::string& word, std::string& host, std::string& path );
@@ -80,14 +76,6 @@ ServerWords server_words( const Settings& settings, const Choices& choices, cons
 /* The line, for the host's shell, that starts the server: the host's choice (stock.h) unless the
  * user named the server, which is then given all of gosh-server's words. */
 std::string server_line( bool pick_server, const std::string& server, const ServerWords& words );
-
-/*
- * ssh's words, to start the server: -n, -tt unless --no-ssh-pty; for --experimental-remote-ip=remote
- * a question for the server's address before the server's line, and -4 or -6; for proxy, this
- * program as ssh's ProxyCommand (proxy: its command line).
- */
-Words login_words( const Words& ssh, bool ssh_pty, const Choices& choices, const std::string& proxy,
-                   const std::string& userhost, const std::string& server_line );
 
 /*
  * The remote relay's command (REQ1/PATH-1): gosh-server's relay, by ssh with no questions asked, or

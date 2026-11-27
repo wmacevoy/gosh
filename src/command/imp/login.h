@@ -10,7 +10,7 @@
 #include "src/command/imp/startup.h"
 
 /*
- * the command, login: run ssh, or a local shell, to start the server, and hear its startup message
+ * the command, login: run ssh (src/ssh/login.h), or a local shell, to start the server, and hear its startup message
  * (startup.h); and ask the terminal how many colours it has (REQ1/CMD-1; design v2, 2.2). An edge:
  * processes, pipes, the environment. The fork's (mosh-1.4.0-pf.7, src/frontend/moshwrapper.cc,
  * run), moved.
@@ -48,14 +48,6 @@ struct Login
  * Throws Failure: no pipe or process, or a startup message that is not well formed.
  */
 void start_server( const Login& login, Startup& startup );
-
-/*
- * What the user's ssh would do for this host: the output of `SSH... -G HOST`, which reads the
- * config and connects nowhere (REQ19/CMD-5; sshconfig.h reads it). Empty if ssh has no -G (older
- * than 6.8), or says nothing, or fails. ssh's standard input is nothing and its standard error is
- * dropped: a config gosh cannot read is a config gosh does as before with.
- */
-std::string ssh_config_text( const std::vector<std::string>& ssh, const std::string& host );
 
 }
 

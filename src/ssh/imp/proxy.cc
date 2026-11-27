@@ -3,7 +3,7 @@
 
 #include "src/include/config.h"
 
-#include "src/command/imp/proxy.h"
+#include "src/ssh/proxy.h"
 
 #include <cerrno>
 #include <csignal>
@@ -26,12 +26,10 @@
 #include <sys/cygwin.h>
 #endif
 
-#include "src/command/moshwrapper.h"
-#include "src/command/imp/options.h"
-#include "src/command/imp/words.h"
+#include "src/ssh/shell.h"
 
-std::vector<Gosh::Command::Imp::Address> Gosh::Command::Imp::resolve( const std::string& host, const std::string& port, const std::string& family,
-                                          const std::string& name )
+bool Gosh::Ssh::resolve( const std::string& host, const std::string& port, const std::string& family, std::vector<Address>& found,
+                         std::string& why )
 {
   int af = AF_UNSPEC;
   if ( family == "inet" ) {
@@ -51,11 +49,12 @@ std::vector<Gosh::Command::Imp::Address> Gosh::Command::Imp::resolve( const std:
     hints.ai_flags = 0;
     err = getaddrinfo( host.c_str(), port.c_str(), &hints, &res );
     if ( err ) {
-      throw Failure( name + ": could not resolve " + host + ": " + gai_strerror( err ) );
+      why = "could not resolve " + host + ": " + gai_strerror( err );
+      return false;
     }
   }
 
-  std::vector<Address> found;
+  found.clear();
   for ( struct addrinfo* ai = res; ai; ai = ai->ai_next ) {
     char text[NI_MAXHOST];
     if ( getnameinfo( ai->ai_addr, ai->ai_addrlen, text, sizeof( text ), NULL, 0, NI_NUMERICHOST ) != 0 ) {
@@ -85,14 +84,32 @@ std::vector<Gosh::Command::Imp::Address> Gosh::Command::Imp::resolve( const std:
     /* "auto": for hosts with addresses of one kind only */
     for ( size_t i = 1; i < found.size(); i++ ) {
       if ( found[i].family != found[0].family ) {
-        throw Failure( name + ": host has both IPv4 and IPv6 addresses, use --family to specify behavior" );
+        why = "host has both IPv4 and IPv6 addresses, use --family to specify behavior";
+        return false;
       }
     }
   }
-  return found;
+  return true;
 }
 
-std::string Gosh::Command::Imp::self_path( const std::string& argv0 )
+namespace {
+/* s cut at each `at`: n of them, n + 1 pieces */
+std::vector<std::string> split( const std::string& s, char at )
+{
+  std::vector<std::string> parts;
+  size_t start = 0;
+  while ( true ) {
+    const size_t end = s.find( at, start );
+    parts.push_back( s.substr( start, end == std::string::npos ? end : end - start ) );
+    if ( end == std::string::npos ) {
+      return parts;
+    }
+    start = end + 1;
+  }
+}
+}
+
+std::string Gosh::Ssh::self_path( const std::string& argv0 )
 {
   char buf[4096];
 #ifdef __APPLE__
@@ -139,7 +156,7 @@ std::string percents_doubled( const std::string& s )
 }
 }
 
-std::string Gosh::Command::Imp::proxy_command( const std::string& self, const std::string& family )
+std::string Gosh::Ssh::proxy_command( const std::string& self, const std::string& family )
 {
 #ifdef __CYGWIN__
   /* ssh may be Windows's own, which runs this with cmd.exe: a Windows path, in double quotes */
@@ -199,13 +216,12 @@ static int connect_within( int sock, const struct sockaddr* addr, socklen_t len,
  * wait, so a host on a slow network is not given up on early. */
 static const int GIVE_WAY_MS = 3000;
 
-int Gosh::Command::fake_proxy( const std::string& family, const std::string& host, const std::string& port )
+int Gosh::Ssh::proxy( const std::string& family, const std::string& host, const std::string& port )
 {
-  std::vector<Gosh::Command::Imp::Address> addresses;
-  try {
-    addresses = Gosh::Command::Imp::resolve( host, port, family, "gosh" ); /* (run as gosh-client: the command's name is not known here) */
-  } catch ( const Gosh::Command::Imp::Failure& f ) {
-    fprintf( stderr, "%s\n", f.message.c_str() );
+  std::vector<Address> addresses;
+  std::string failed;
+  if ( !resolve( host, port, family, addresses, failed ) ) {
+    fprintf( stderr, "gosh: %s\n", failed.c_str() ); /* (run as gosh-client: the command's name is not known here) */
     return 1;
   }
 

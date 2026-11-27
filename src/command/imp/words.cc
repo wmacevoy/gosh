@@ -7,62 +7,8 @@
 #include <cstdlib>
 
 #include "src/command/imp/stock.h"
-
-Gosh::Command::Imp::Words Gosh::Command::Imp::shell_words( const std::string& line )
-{
-  Words words;
-  std::string word;
-  bool in_word = false;
-  char quote = 0;
-  for ( size_t i = 0; i < line.size(); i++ ) {
-    const char c = line[i];
-    if ( quote ) {
-      if ( c == quote ) {
-        quote = 0;
-      } else if ( c == '\\' && quote == '"' && i + 1 < line.size() ) {
-        word.push_back( line[++i] );
-      } else {
-        word.push_back( c );
-      }
-    } else if ( c == '\'' || c == '"' ) {
-      quote = c;
-      in_word = true;
-    } else if ( c == '\\' && i + 1 < line.size() ) {
-      word.push_back( line[++i] );
-      in_word = true;
-    } else if ( c == ' ' || c == '\t' || c == '\n' ) {
-      if ( in_word ) {
-        words.push_back( word );
-        word.clear();
-        in_word = false;
-      }
-    } else {
-      word.push_back( c );
-      in_word = true;
-    }
-  }
-  if ( in_word ) {
-    words.push_back( word );
-  }
-  return words;
-}
-
-std::string Gosh::Command::Imp::shell_quote( const Words& words )
-{
-  std::string s;
-  for ( size_t i = 0; i < words.size(); i++ ) {
-    s += i ? " '" : "'";
-    for ( size_t j = 0; j < words[i].size(); j++ ) {
-      if ( words[i][j] == '\'' ) {
-        s += "'\\''";
-      } else {
-        s.push_back( words[i][j] );
-      }
-    }
-    s += "'";
-  }
-  return s;
-}
+#include "src/ssh/login.h"
+#include "src/ssh/shell.h"
 
 bool Gosh::Command::Imp::remote_place( const std::string& word, std::string& host, std::string& path )
 {
@@ -341,47 +287,15 @@ std::string Gosh::Command::Imp::server_line( bool pick_server, const std::string
    * where it has none, for mosh-server, and says which it started. A server the user named is
    * taken to be gosh's and is asked for everything, as before.
    */
-  return pick_server ? server_command( shell_quote( words.gosh ), shell_quote( words.stock ) )
-                     : server + " " + shell_quote( words.gosh );
-}
-
-Gosh::Command::Imp::Words Gosh::Command::Imp::login_words( const Words& ssh, bool ssh_pty, const Choices& choices, const std::string& proxy,
-                               const std::string& userhost, const std::string& server_line )
-{
-  Words words = ssh;
-  words.push_back( "-n" );
-  if ( ssh_pty ) {
-    words.push_back( "-tt" );
-  }
-  std::string ask_address;
-  if ( choices.remote_ip == "remote" ) {
-    /* Ask the server for its address.  The login shell may not be a Bourne shell, so say which. */
-    ask_address = "sh -c "
-                  + shell_quote( Words(
-                    1, "[ -n \"$SSH_CONNECTION\" ] && printf \"\\nMOSH SSH_CONNECTION %s\\n\" \"$SSH_CONNECTION\"" ) )
-                  + " ; ";
-    if ( choices.family == "inet" ) {
-      words.push_back( "-4" );
-    } else if ( choices.family == "inet6" ) {
-      words.push_back( "-6" );
-    }
-  } else if ( choices.remote_ip == "proxy" ) {
-    words.push_back( "-S" );
-    words.push_back( "none" );
-    words.push_back( "-o" );
-    words.push_back( "ProxyCommand=" + proxy );
-  }
-  words.push_back( userhost );
-  words.push_back( "--" );
-  words.push_back( ask_address + server_line );
-  return words;
+  return pick_server ? server_command( Gosh::Ssh::shell_quote( words.gosh ), Gosh::Ssh::shell_quote( words.stock ) )
+                     : server + " " + Gosh::Ssh::shell_quote( words.gosh );
 }
 
 Gosh::Command::Imp::Words Gosh::Command::Imp::relay_command( const Words& ssh, bool local, bool pick_server, const std::string& server,
                                  const std::string& userhost, const std::string& ip, const std::string& port )
 {
   /* (gosh, REQ1/PATH-1) gosh-server's relay, unless the user named the server: never mosh-server by name */
-  const std::string relay_words = "relay " + shell_quote( Words( 1, ip ) ) + " " + shell_quote( Words( 1, port ) );
+  const std::string relay_words = "relay " + Gosh::Ssh::shell_quote( Words( 1, ip ) ) + " " + Gosh::Ssh::shell_quote( Words( 1, port ) );
   const std::string remote = pick_server ? helper_command( relay_words ) : server + " " + relay_words;
   Words words;
   if ( local ) {
@@ -390,13 +304,7 @@ Gosh::Command::Imp::Words Gosh::Command::Imp::relay_command( const Words& ssh, b
     words.push_back( remote );
   } else {
     /* ssh must not ask for anything, because the terminal will be the session's by then */
-    words = ssh;
-    words.push_back( "-T" );
-    words.push_back( "-o" );
-    words.push_back( "BatchMode=yes" );
-    words.push_back( userhost );
-    words.push_back( "--" );
-    words.push_back( remote );
+    words = Gosh::Ssh::asking_nothing( ssh, userhost, remote );
   }
   return words;
 }
@@ -404,16 +312,8 @@ Gosh::Command::Imp::Words Gosh::Command::Imp::relay_command( const Words& ssh, b
 Gosh::Command::Imp::Words Gosh::Command::Imp::ticket_command( const std::string& meetup_login )
 {
   /* (issue #5) never --ssh either: its words are for the session's server; the meetup's are in ssh's config */
-  Words fetch;
-  fetch.push_back( "ssh" );
-  fetch.push_back( "-T" );
-  fetch.push_back( "-o" );
-  fetch.push_back( "BatchMode=yes" );
-  fetch.push_back( meetup_login );
-  fetch.push_back( "--" );
   /* (issue #5) never --server: that names the program on the session's server, and the meetup is another machine */
-  fetch.push_back( helper_command( "meetup-ticket" ) );
-  return fetch;
+  return Gosh::Ssh::asking_nothing( Words( 1, "ssh" ), meetup_login, helper_command( "meetup-ticket" ) );
 }
 
 Gosh::Command::Imp::Words Gosh::Command::Imp::client_words( const Words& args, const Words& forwards, const Asked& session, const std::string& ip,

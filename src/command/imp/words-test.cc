@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "src/command/imp/options.h"
-#include "src/command/imp/proxy.h"
 #include "src/command/imp/words.h"
+#include "src/ssh/shell.h"
 #include "vendor/facts/facts.h"
 
 using namespace Gosh::Command;
@@ -50,12 +50,7 @@ static std::string joined( const Words& w )
 /* REQ1/CMD-1, REQ1/CP-1, REQ1/CP-5, REQ1/CP-7, REQ1/PATH-1, REQ8/CMD-3, REQ15/PATH-4: the command's words */
 FACTS( Words )
 {
-  /* ---- words as a shell has them */
-  FACT_CHECK( shell_words( " a 'b c'\t\"d \\\" e\" f\\ g \n" ) == Words( { "a", "b c", "d \" e", "f g" } ), "shell_words: quotes and a backslash taken away, blanks between" );
-  FACT_CHECK( shell_words( "a '' b" ) == Words( { "a", "", "b" } ), "shell_words: an empty quoted word is a word" );
-  FACT_CHECK( shell_quote( { "it's", "a b" } ) == "'it'\\''s' 'a b'", "shell_quote: each word in single quotes, a quote in one closed and opened around it" );
-  FACT_CHECK( shell_words( shell_quote( { "it's", "", "$x" } ) )
-                                                               == Words( { "it's", "", "$x" } ), "and back: shell_words of shell_quote is the words" );
+  /* (words as a shell has them, and ssh's own: src/ssh/imp/login-test.cc) */
   std::string host, path;
   FACT_CHECK( ( remote_place( "me@srv:docs/a", host, path ) && host == "me@srv" && path == "docs/a" ), "a remote place: host:path" );
   FACT_CHECK( !remote_place( "./a:b", host, path ), "not one: a colon after a slash" );
@@ -101,10 +96,6 @@ FACTS( Words )
   FACT_CHECK( asked( { "--", "f", "-oX=y:path" }, true, s ) == "!gocp: a host cannot begin with \"-\": -oX=y", "a copy's remote end beginning with - (after --, where it is not an option of gocp's)" );
   FACT_CHECK( asked( { "-l", "-oX=y", "srv" }, false, s ).substr( 0, 1 ) == "!", "a user beginning with - (by -l)" );
   FACT_CHECK( asked( { "--", "-oX" }, false, s ) == "!gocp: a host cannot begin with \"-\": -oX", "the message says why" );
-
-  /* ---- ssh's ProxyCommand: ssh reads %h and %p in it, so a % in this program's own path is doubled */
-  const std::string proxy_line = proxy_command( "/opt/50%off/gosh-client", "inet" );
-  FACT_CHECK( proxy_line == "'/opt/50%%off/gosh-client' --mosh-fake-proxy inet %h %p", "the ProxyCommand: this program's path quoted, its % doubled, then %h %p for ssh (the review of item 10)" << ": " << ( proxy_line ) );
 
   /* ---- -l without --stdio (the review of item 10) */
   FACT_CHECK( ( asked( { "-l", "bob", "srv" }, false, s ).empty()
@@ -169,21 +160,11 @@ FACTS( Words )
   w = server_words( cs, choose( cs, "gocp", NULL ), copy, "0", { "-s" }, {} );
   FACT_CHECK( ( joined( w.gosh ) == "new|-c|0|-s|-X|@copy\x1freceive\x1f--\x1f" "b|--|sh|-c|while :; do sleep 86400; done"
            && joined( w.stock ) == "new|-c|0|-s|--|sh|-c|while :; do sleep 86400; done" ), "a stream's far end goes to gosh-server as -X, its words joined by character 31, and to no stock one" << ": " << ( joined( w.gosh ) ) );
-  FACT_CHECK( server_line( false, "/opt/gs", w ) == "/opt/gs " + shell_quote( w.gosh ), "a server the user named is given all of gosh-server's words" );
+  FACT_CHECK( server_line( false, "/opt/gs", w ) == "/opt/gs " + Gosh::Ssh::shell_quote( w.gosh ), "a server the user named is given all of gosh-server's words" );
   FACT_CHECK( ( server_line( true, "/opt/gs", w ).compare( 0, 7, "sh -c '" ) == 0
                                                    && server_line( true, "/opt/gs", w ).find( "/opt/gs" ) == std::string::npos ), "otherwise the host chooses (stock.h)" );
 
-  /* ---- ssh's words (REQ1/CMD-1) */
-  Choices proxy = choose( settings( { "h" } ), "gosh", NULL );
-  FACT_CHECK( joined( login_words( { "ssh", "-p", "2" }, true, proxy, "PX %h %p", "me@h", "LINE" ) )
-           == "ssh|-p|2|-n|-tt|-S|none|-o|ProxyCommand=PX %h %p|me@h|--|LINE", "by proxy: -n -tt, no ControlMaster, this program as the ProxyCommand" );
-  Choices remote = choose( settings( { "--experimental-remote-ip=remote", "-6", "h" } ), "gosh", NULL );
-  const Words rw = login_words( { "ssh" }, false, remote, "", "h", "LINE" );
-  FACT_CHECK( ( rw.size() == 6 && joined( Words( rw.begin(), rw.begin() + 5 ) ) == "ssh|-n|-6|h|--" && rw[5].compare( 0, 6, "sh -c " ) == 0
-           && rw[5].find( "MOSH SSH_CONNECTION" ) != std::string::npos
-           && rw[5].compare( rw[5].size() - 7, 7, " ; LINE" ) == 0 ), "by remote: no -tt with --no-ssh-pty, -6, and the server asked its address first" << ": " << ( joined( rw ) ) );
-  Choices local = choose( settings( { "--experimental-remote-ip=local", "-4", "h" } ), "gosh", NULL );
-  FACT_CHECK( joined( login_words( { "ssh" }, true, local, "", "h", "LINE" ) ) == "ssh|-n|-tt|h|--|LINE", "by local: ssh is asked nothing more, not even -4" );
+  Choices proxy = choose( settings( { "h" } ), "gosh", NULL ); /* the defaults: the address by this program as ssh's ProxyCommand */
 
   /* ---- the relay and the ticket (REQ1/PATH-1, REQ15/PATH-4) */
   const Words relay = relay_command( { "ssh", "-p", "2" }, false, true, "ignored", "me@h", "10.0.0.1", "60001" );

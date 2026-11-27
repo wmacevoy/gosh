@@ -8,11 +8,12 @@
 #include "src/command/imp/options.h"
 #include "src/command/imp/stock.h"
 #include "src/command/imp/words.h"
+#include "src/ssh/shell.h"
 
 bool Gosh::Command::Imp::startup_line( Startup& st, const std::string& raw, bool pick_server, bool port_range, const std::string& name )
 {
   const std::string line = strip_end( raw );
-  const Words words = shell_words( line );
+  const Words words = Gosh::Ssh::shell_words( line );
   if ( line.compare( 0, 8, "MOSH IP " ) == 0 ) {
     if ( !st.ip.empty() ) {
       throw Failure( name + " error: detected attempt to redefine MOSH IP." );

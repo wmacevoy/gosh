@@ -19,8 +19,10 @@
 #include "src/command/imp/login.h"
 #include "src/command/moshwrapper.h"
 #include "src/command/imp/options.h"
-#include "src/command/imp/proxy.h"
 #include "src/ssh/config.h"
+#include "src/ssh/login.h"
+#include "src/ssh/proxy.h"
+#include "src/ssh/shell.h"
 #include "src/command/imp/startup.h"
 #include "src/command/imp/stock.h"
 #include "src/command/imp/words.h"
@@ -235,7 +237,7 @@ bool Gosh::Command::run( const std::vector<std::string>& args,
     const Asked session = what_was_asked( s, copy, stdio, name, COPY_USAGE );
     std::string userhost = session.host;
     const bool local = s.flag( "local" );
-    const Words ssh = shell_words( s.value( "ssh", "ssh" ) );
+    const Words ssh = Gosh::Ssh::shell_words( s.value( "ssh", "ssh" ) );
     if ( ssh.empty() ) {
       throw Failure( name + ": --ssh needs a command." );
     }
@@ -246,11 +248,11 @@ bool Gosh::Command::run( const std::vector<std::string>& args,
      * alias is sent to at its HostName (sshconfig.h)
      */
     if ( !local ) {
-      const Gosh::Ssh::SshConfig config = Gosh::Ssh::read_ssh_config( ssh_config_text( ssh, userhost ) );
+      const Gosh::Ssh::SshConfig config = Gosh::Ssh::read_ssh_config( Gosh::Ssh::config_text( ssh, userhost ) );
       choices.remote_ip = Gosh::Ssh::remote_ip_for( s.has( "experimental-remote-ip" ) ? choices.remote_ip : "", config );
     }
     if ( !choices.meetup_login.empty() ) {
-      const Gosh::Ssh::SshConfig config = Gosh::Ssh::read_ssh_config( ssh_config_text( ssh, choices.meetup_login ) );
+      const Gosh::Ssh::SshConfig config = Gosh::Ssh::read_ssh_config( Gosh::Ssh::config_text( ssh, choices.meetup_login ) );
       for ( size_t i = 0; i < choices.relays_read.size(); i++ ) {
         if ( choices.relays_read[i].first == "GOSH_MEETUP" ) {
           choices.relays_read[i].second = Gosh::Ssh::meetup_address( choices.relays_read[i].second, config );
@@ -271,7 +273,11 @@ bool Gosh::Command::run( const std::vector<std::string>& args,
       const size_t at = userhost.rfind( '@' );
       const std::string user = at == std::string::npos ? "" : userhost.substr( 0, at + 1 );
       const std::string host = at == std::string::npos ? userhost : userhost.substr( at + 1 );
-      const std::vector<Address> found = resolve( host, "22", choices.family, name );
+      std::vector<Gosh::Ssh::Address> found;
+      std::string why;
+      if ( !Gosh::Ssh::resolve( host, "22", choices.family, found, why ) ) {
+        throw Failure( name + ": " + why );
+      }
       if ( found.empty() ) {
         throw Failure( "could not find address for " + host );
       }
@@ -302,9 +308,9 @@ bool Gosh::Command::run( const std::vector<std::string>& args,
     login.quiet = !session.stream_local.empty() || session.headless;
     login.name = name;
     if ( !local ) {
-      login.words = login_words( ssh, s.flag( "ssh-pty", true ), choices,
-                                 login.proxy ? proxy_command( self_path( self ), choices.family ) : "", userhost,
-                                 login.server_line );
+      login.words = Gosh::Ssh::login_words( ssh, s.flag( "ssh-pty", true ), choices.remote_ip, choices.family,
+                                            login.proxy ? Gosh::Ssh::proxy_command( Gosh::Ssh::self_path( self ), choices.family ) : "",
+                                            userhost, login.server_line );
     }
     start_server( login, startup );
 

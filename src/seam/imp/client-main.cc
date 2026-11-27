@@ -20,6 +20,7 @@
 #include "src/seam/imp/session.h"
 #include "vendor/retain/retain.hpp"
 #include "src/command/moshwrapper.h"
+#include "src/ssh/proxy.h"
 #include "src/forwarding/streamchild.h"
 #include "src/seam/imp/applications.h"
 #include "src/seam/core-main.h"
@@ -38,7 +39,7 @@ int main( int argc, char* argv[] )
 
   /* (the word is the fork's, and the command writes it: src/command) */
   if ( args.size() == 4 && args[0] == "--mosh-fake-proxy" ) {
-    return Gosh::Command::fake_proxy( args[1], args[2], args[3] );
+    return Gosh::Ssh::proxy( args[1], args[2], args[3] );
   }
 
   std::string called;
