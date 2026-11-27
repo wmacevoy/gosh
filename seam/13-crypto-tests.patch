@@ -1,0 +1,197 @@
+gosh seam 13: The cipher's tests are the cipher's: src/tests' tests of its inside move under src/crypto/imp/.
+
+For:   REQ21/SHAPE-1, the core factored into domains, the cipher first. The core's tests of OCB, of
+       the cipher's sealing and of base64 reach the cipher's inside (ae.h, base64.h): as the
+       cipher's own tests they are inside it, and seam/DOMAINS allows no crossing for them.
+What:  Moves, and renames of where names are: ocb-aes.cc, encrypt-decrypt.cc and base64.cc, with
+       what only they use (test_utils.*, base64_vector.h, genbase64.pl), by git's renames; the tests
+       are named *-test.cc there, as gosh's are (imp/base64.cc is the cipher's own). What their
+       helpers declare (hexdump, the base64 vector) is in Crypto::Imp, as all of the cipher's inside
+       is, and the tests say `using namespace Crypto::Imp`; the vector's generated source is put in
+       that namespace by the Makefile's rule, genbase64.pl unchanged. They are built and run by
+       src/crypto/Makefile.am's check, as they were by src/tests'; what they test, and how, is as
+       it was.
+Where: src/crypto/Makefile.am; src/tests/Makefile.am; src/tests/ -> src/crypto/imp/.
+Kind:  seven files moved, five with their names' namespace changed; two Makefiles changed to build them where they are.
+From:  the core at the pin: src/tests/{ocb-aes.cc,encrypt-decrypt.cc,base64.cc,test_utils.cc,test_utils.h,base64_vector.h,genbase64.pl}.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/crypto/Makefile.am b/src/crypto/Makefile.am
+index 9c62888..d805894 100644
+--- a/src/crypto/Makefile.am
++++ b/src/crypto/Makefile.am
+@@ -20,3 +20,26 @@ libmoshcrypto_a_SOURCES = \
+ 	imp/crypto.cc \
+ 	crypto.h \
+ 	prng.h
++
++# The cipher's tests, of its inside (moved here from src/tests/ by gosh's seam 13).
++check_PROGRAMS = imp/ocb-aes imp/encrypt-decrypt imp/base64
++TESTS = $(check_PROGRAMS)
++
++imp/base64_vector.cc: $(srcdir)/imp/genbase64.pl
++	$(AM_V_GEN)printf '#include "base64_vector.h"\nnamespace Crypto::Imp {\n' > imp/base64_vector.cc || rm imp/base64_vector.cc
++	$(AM_V_GEN)perl $(srcdir)/imp/genbase64.pl >> imp/base64_vector.cc || rm imp/base64_vector.cc
++	$(AM_V_GEN)echo '}' >> imp/base64_vector.cc || rm imp/base64_vector.cc
++
++imp_ocb_aes_SOURCES = imp/ocb-aes-test.cc imp/test_utils.cc imp/test_utils.h
++imp_ocb_aes_CPPFLAGS = $(AM_CPPFLAGS) -I$(srcdir)/imp
++imp_ocb_aes_LDADD = libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
++
++imp_encrypt_decrypt_SOURCES = imp/encrypt-decrypt-test.cc imp/test_utils.cc imp/test_utils.h
++imp_encrypt_decrypt_CPPFLAGS = $(imp_ocb_aes_CPPFLAGS)
++imp_encrypt_decrypt_LDADD = $(imp_ocb_aes_LDADD)
++
++imp_base64_SOURCES = imp/base64-test.cc imp/base64_vector.cc imp/base64_vector.h imp/genbase64.pl
++imp_base64_CPPFLAGS = $(imp_ocb_aes_CPPFLAGS)
++imp_base64_LDADD = $(imp_ocb_aes_LDADD)
++
++CLEANFILES = imp/base64_vector.cc
+diff --git a/src/tests/base64.cc b/src/crypto/imp/base64-test.cc
+similarity index 99%
+rename from src/tests/base64.cc
+rename to src/crypto/imp/base64-test.cc
+index b971452..6435f17 100644
+--- a/src/tests/base64.cc
++++ b/src/crypto/imp/base64-test.cc
+@@ -48,6 +48,8 @@
+ #include "src/util/fatal_assert.h"
+ // #include "test_utils.h"
+ 
++using namespace Crypto::Imp;
++
+ #define KEY_LEN 16
+ #define NONCE_LEN 12
+ #define TAG_LEN 16
+diff --git a/src/tests/base64_vector.h b/src/crypto/imp/base64_vector.h
+similarity index 87%
+rename from src/tests/base64_vector.h
+rename to src/crypto/imp/base64_vector.h
+index 44afd25..76f70f7 100644
+--- a/src/tests/base64_vector.h
++++ b/src/crypto/imp/base64_vector.h
+@@ -1,3 +1,4 @@
++namespace Crypto::Imp {
+ struct base64_test_row
+ {
+   const unsigned char native[17];
+@@ -5,3 +6,4 @@ struct base64_test_row
+ };
+ typedef base64_test_row* base64_test_vector;
+ extern base64_test_row static_base64_vector[];
++}
+diff --git a/src/tests/encrypt-decrypt.cc b/src/crypto/imp/encrypt-decrypt-test.cc
+similarity index 99%
+rename from src/tests/encrypt-decrypt.cc
+rename to src/crypto/imp/encrypt-decrypt-test.cc
+index c7468d5..71a0046 100644
+--- a/src/tests/encrypt-decrypt.cc
++++ b/src/crypto/imp/encrypt-decrypt-test.cc
+@@ -45,6 +45,7 @@
+ #include "test_utils.h"
+ 
+ using namespace Crypto;
++using namespace Crypto::Imp;
+ 
+ PRNG prng;
+ 
+diff --git a/src/tests/genbase64.pl b/src/crypto/imp/genbase64.pl
+similarity index 100%
+rename from src/tests/genbase64.pl
+rename to src/crypto/imp/genbase64.pl
+diff --git a/src/tests/ocb-aes.cc b/src/crypto/imp/ocb-aes-test.cc
+similarity index 99%
+rename from src/tests/ocb-aes.cc
+rename to src/crypto/imp/ocb-aes-test.cc
+index 6eaab6b..32d8448 100644
+--- a/src/tests/ocb-aes.cc
++++ b/src/crypto/imp/ocb-aes-test.cc
+@@ -48,6 +48,8 @@
+ #include "src/util/fatal_assert.h"
+ #include "test_utils.h"
+ 
++using namespace Crypto::Imp;
++
+ #define KEY_LEN 16
+ #define NONCE_LEN 12
+ #define TAG_LEN 16
+diff --git a/src/tests/test_utils.cc b/src/crypto/imp/test_utils.cc
+similarity index 98%
+rename from src/tests/test_utils.cc
+rename to src/crypto/imp/test_utils.cc
+index 565cac3..4ff3142 100644
+--- a/src/tests/test_utils.cc
++++ b/src/crypto/imp/test_utils.cc
+@@ -34,6 +34,8 @@
+ 
+ #include "test_utils.h"
+ 
++namespace Crypto::Imp {
++
+ void hexdump( const void* buf, size_t len, const char* name )
+ {
+   const unsigned char* data = (const unsigned char*)buf;
+@@ -56,3 +58,5 @@ void hexdump( const std::string& buf, const char* name )
+ {
+   hexdump( buf.data(), buf.size(), name );
+ }
++
++}
+diff --git a/src/tests/test_utils.h b/src/crypto/imp/test_utils.h
+similarity index 98%
+rename from src/tests/test_utils.h
+rename to src/crypto/imp/test_utils.h
+index 893e1b6..d5c4229 100644
+--- a/src/tests/test_utils.h
++++ b/src/crypto/imp/test_utils.h
+@@ -39,8 +39,10 @@
+ 
+ #define DUMP_NAME_FMT "%-10s "
+ 
++namespace Crypto::Imp {
+ void hexdump( const void* buf, size_t len, const char* name );
+ void hexdump( const Crypto::AlignedBuffer& buf, const char* name );
+ void hexdump( const std::string& buf, const char* name );
++}
+ 
+ #endif
+diff --git a/src/tests/Makefile.am b/src/tests/Makefile.am
+index c7d124e..c235f0b 100644
+--- a/src/tests/Makefile.am
++++ b/src/tests/Makefile.am
+@@ -39,28 +39,12 @@ displaytests = \
+ 	unicode-later-combining.test \
+ 	window-resize.test
+ 
+-check_PROGRAMS = ocb-aes encrypt-decrypt base64 nonce-incr inpty is-utf8-locale
+-TESTS = ocb-aes encrypt-decrypt base64 nonce-incr local.test $(displaytests)
++check_PROGRAMS = nonce-incr inpty is-utf8-locale
++TESTS = nonce-incr local.test $(displaytests)
+ XFAIL_TESTS = \
+ 	e2e-failure.test \
+ 	emulation-attributes-256color8.test
+ 
+-base64_vector.cc: $(srcdir)/genbase64.pl
+-	$(AM_V_GEN)echo '#include "base64_vector.h"' > base64_vector.cc || rm base64_vector.cc
+-	$(AM_V_GEN)perl $(srcdir)/genbase64.pl >> base64_vector.cc || rm base64_vector.cc
+-
+-ocb_aes_SOURCES = ocb-aes.cc test_utils.cc test_utils.h
+-ocb_aes_CPPFLAGS = -I$(srcdir)/../crypto -I$(srcdir)/../util $(CRYPTO_CFLAGS)
+-ocb_aes_LDADD = ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+-
+-encrypt_decrypt_SOURCES = encrypt-decrypt.cc test_utils.cc test_utils.h
+-encrypt_decrypt_CPPFLAGS = -I$(srcdir)/../crypto -I$(srcdir)/../util
+-encrypt_decrypt_LDADD = ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+-
+-base64_SOURCES = base64.cc base64_vector.cc base64_vector.h genbase64.pl
+-base64_CPPFLAGS = $(ocb_aes_CPPFLAGS)
+-base64_LDADD = $(ocb_aes_LDADD)
+-
+ nonce_incr_SOURCES = nonce-incr.cc
+ nonce_incr_CPPFLAGS = -I$(srcdir)/../network -I$(srcdir)/../crypto -I$(srcdir)/../util $(CRYPTO_CFLAGS)
+ nonce_incr_LDADD = ../network/libmoshnetwork.a ../crypto/libmoshcrypto.a ../util/libmoshutil.a $(CRYPTO_LIBS)
+@@ -78,4 +62,3 @@ clean-local: clean-local-check
+ clean-local-check:
+ 	-for i in $(displaytests); do rm -rf $$i.d/; done
+ 
+-CLEANFILES = base64_vector.cc

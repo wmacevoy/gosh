@@ -16,7 +16,5 @@ core-tests    src/tests | *
 core-fuzz     src/fuzz | *
 gosh          src/command src/copy src/forwarding src/meetup src/pathfinding src/relay src/seam src/ssh src/strong src/stun | *
 vendor        vendor | *
-allow src/tests/base64.cc Crypto   # the core's test of base64, of the cipher's inside: until it is the cipher's own
-allow src/tests/ocb-aes.cc Crypto  # the core's test of OCB (ae.h), the same
 allow src/meetup/ticket.h  Crypto  # gosh's raw_key: base64 of 16 bytes, until the cipher's ABI makes a key of them
 allow src/crypto/imp/ae.h  Crypto  # OCB's interface (Krovetz's), in C: its struct is declared as C declares it, in no namespace

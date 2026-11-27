@@ -27,3 +27,7 @@ macOS's `patch` does is not yet seen (the release's macOS job builds by it).
 inside that the map does not allow. A domain of the core not yet laid out is named with `| *`
 (every header of it its ABI), and held only to the other domains' boundaries; gosh's parts are one
 such domain there, for `../src/DOMAINS` holds each of them to its own.
+
+Patch 13 moves the cipher's tests into it (`src/crypto/imp/*-test.cc`), and the whole check runs
+them, as it runs each laid-out core domain's tests (`tools/check.sh`): before, gosh's check ran none
+of the core's unit tests.

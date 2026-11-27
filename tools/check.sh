@@ -118,6 +118,18 @@ for part in $(cd src && ls -d */ | tr -d /); do
         grep -E '^(FAIL|ERROR):|error' .build/unit-$part.log | head -10; fail "unit tests of $part (log: .build/unit-$part.log)"
     fi
 done
+# (REQ21/SHAPE-1) And the tests of each of the core's domains laid out (seam/DOMAINS, a line with no `|`):
+# its own, moved into it by the seam (the cipher's: seam 13). The rest of the core's tests are its own
+# end-to-end scripts, which gosh does not run.
+for dir in $(awk '!/^#/ && !/^allow / && !/\|/ && NF >= 2 { print $2 }' seam/DOMAINS); do
+    part=${dir#src/}
+    [ "$MODE" = heavy ] || [ -z "$PARTS" ] || case " $PARTS " in *" $part "*) ;; *) continue ;; esac
+    if make -C ".build/core/$dir" check >".build/unit-core-$part.log" 2>&1; then
+        echo "unit tests pass: the core's $part ($(grep -c '^PASS:' ".build/unit-core-$part.log"))"
+    else
+        grep -E '^(FAIL|ERROR):|error' ".build/unit-core-$part.log" | head -10; fail "unit tests of the core's $part (log: .build/unit-core-$part.log)"
+    fi
+done
 # The same fuzzers again under AddressSanitizer, in a build of their own (.build/asan): a read past
 # a buffer's end that happens not to crash passes the replay above (the review of item 21). About
 # a minute and a half.
