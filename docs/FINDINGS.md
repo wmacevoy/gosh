@@ -19,14 +19,18 @@ worth reading before migrating the part it concerns.
 - **What would have found it:** a proof that asks of every length, not a test of the lengths that
   occur. **Kind:** K3: "callers hand it at most RECEIVE_MTU" was true and written nowhere.
 - **What it changed:** seam patch 23: `decrypt` takes its length as a `Session::Length`,
-  `Strong::bounded<0, RECEIVE_MTU, size_t>`, and code that is not proved comes in by
-  `decrypt_checked`, which tests the length and ends the process past 2,048 (the owner, 2026-11-28,
+  `Strong::bounded<0, RECEIVE_MTU + 8, size_t>` (a nonce of 8 bytes and a body of at most the buffer's 2,048),
+  and code that is not proved comes in by `decrypt_checked`, which tests the length and ends the process past 2,056 (the owner, 2026-11-28,
   chose the type, its lower bound of 0, and the one crossing into gosh). `decrypt` is proved where it
-  stands in the core (`seam/proofs/`, run by `tools/proofs.sh`): for every datagram of at most 2,048
+  stands in the core (`seam/proofs/`, run by `tools/proofs.sh`): for every datagram of at most 2,056
   bytes it commits no memory error and no undefined arithmetic, and it refuses (throws, or ends the
   process) or gives back a message whose bytes are within its buffer; what it rests on is OCB's
   `ae_decrypt` keeping its contract (`seam/proofs/README.md`), and `Nonce`, proved beside it. Its red
   cases are in `tools/proofs-red.py`.
+- **And a second, of the agent's own:** the bound proposed first was RECEIVE_MTU itself, 2,048; but
+  the buffer holds the body, and the nonce's 8 bytes come before it, so `encrypt` makes, and
+  `decrypt` opened, up to 2,056. The core's round-trip test (`encrypt-decrypt`, messages of up to
+  2,031 bytes) ended at the new test. Found by running it, not by reading; the bound is 2,056.
 
 ## 2026-11-17 — The guide's ProxyCommand line lost the host's User and IdentityFile
 

@@ -4,18 +4,18 @@ For:   REQ22/SHAPE-1 (since v22, the seam may carry by a type a bound its caller
        a proof needs it). Session::decrypt does its arithmetic in int: `int body_len = len - 8;
        int pt_len = body_len - 16;`. Of a length of 2^31 bytes or more, the subtraction may overflow,
        which C++ leaves undefined; what keeps it from that is only that its callers hand it no more
-       than they receive, RECEIVE_MTU (2048) bytes. So decrypt cannot be proved free of undefined
+       than its buffer holds, RECEIVE_MTU (2048) bytes, with the 8 of the nonce before them. So decrypt cannot be proved free of undefined
        behaviour for every length it may be handed, only for those its callers keep to: the type
        says so, and the proof of decrypt has it (queue item 43 of strong-domain-driven-design).
 What:  decrypt( const char* str, size_t len ) takes its length as a Session::Length, a
-       Strong::bounded<0, RECEIVE_MTU, size_t> (gosh's src/strong/bounded.h): a number from 0 to
-       2048 by its type, which nothing tests. It reads it by len.number(), and nothing else in it
+       Strong::bounded<0, RECEIVE_MTU + 8, size_t> (gosh's src/strong/bounded.h): a number from 0 to
+       2056 by its type (the nonce's 8 bytes and a body of at most the buffer's 2048), which nothing tests. It reads it by len.number(), and nothing else in it
        changes: a datagram shorter than 24 bytes still throws, as it must, since anyone may send
        one. Code that is not proved hands it any number by decrypt_checked( str, len ), which tests
-       it (bounded_checked) and ends the process past 2048, saying who called; the network, and the
+       it (bounded_checked) and ends the process past 2056, saying who called; the network, and the
        std::string overload (so the tests and the example decrypt), call it. Of the network nothing
        changes: it receives into 2048 bytes, so the test never fails. Of the std::string overload,
-       a ciphertext past 2048 bytes ended the process before by decrypt's assert, and does now by
+       a ciphertext past 2056 bytes ended the process before by decrypt's assert, and does now by
        the test, with another message. No byte of the protocol changes, and what a stock mosh sees
        is the same.
 Where: src/crypto/crypto.h (Session); src/crypto/imp/crypto.cc (Session::decrypt);
@@ -44,16 +44,16 @@ diff --git a/src/crypto/crypto.h b/src/crypto/crypto.h
    const std::string encrypt( const Message& plaintext );
 -  const Message decrypt( const char* str, size_t len );
 -  const Message decrypt( const std::string& ciphertext ) { return decrypt( ciphertext.data(), ciphertext.size() ); }
-+  /* The number of bytes a sealed datagram may be: no more than is received (gosh seam 23). */
-+  typedef Strong::bounded<0, RECEIVE_MTU, size_t> Length;
++  /* The bytes a sealed text may be: its nonce's 8, and a body of at most RECEIVE_MTU (gosh seam 23). */
++  typedef Strong::bounded<0, RECEIVE_MTU + 8, size_t> Length;
 +
-+  /* Opens what was sealed: len bytes at str, of which the type says there are at most RECEIVE_MTU. */
++  /* Opens what was sealed: len bytes at str, of which the type says there are at most RECEIVE_MTU + 8. */
 +  const Message decrypt( const char* str, Length len );
-+  /* The same, of any number of bytes, for code that is not proved: past RECEIVE_MTU the process
++  /* The same, of any number of bytes, for code that is not proved: past RECEIVE_MTU + 8 the process
 +     ends, saying who called (bounded_checked), where an assert in decrypt ended it before. */
 +  const Message decrypt_checked( const char* str, size_t len )
 +  {
-+    return decrypt( str, Length( Strong::bounded_checked<0, RECEIVE_MTU, size_t>( len ).number() ) );
++    return decrypt( str, Length( Strong::bounded_checked<0, RECEIVE_MTU + 8, size_t>( len ).number() ) );
 +  }
 +  const Message decrypt( const std::string& ciphertext ) { return decrypt_checked( ciphertext.data(), ciphertext.size() ); }
  
