@@ -73,7 +73,7 @@ CASES = [
 
 # The core's classes the seam proves (seam/proofs/; RED_SET=core): read where they stand in .build/core.
 CORE_CASES = [
-    ("Session:src/crypto/crypto.h", "typedef Strong::bounded<0, RECEIVE_MTU, size_t> Length;",
+    ("Session:src/crypto/crypto.h", "typedef Strong::bounded<0, RECEIVE_MTU + 8, size_t> Length;",
      "typedef Strong::bounded<0, 4294967296, size_t> Length;",
      "a length of 2^32 bytes is let in: `int body_len = len - 8` may be anything, and `body_len - 16` overflow, which is undefined"),
     ("Session:src/crypto/imp/crypto.cc", "memcpy( ciphertext_buffer.data(), str + 8, body_len );",
@@ -83,7 +83,8 @@ CORE_CASES = [
      "const Message ret( nonce, std::string( plaintext_buffer.data(), pt_len + 2048 ) );",
      "the message is made of more bytes than the plaintext has: a read outside the buffer"),
     ("Nonce:src/crypto/imp/crypto.cc", "  memcpy( bytes + 4, s_bytes, 8 );", "  memcpy( bytes + 5, s_bytes, 8 );",
-     "a nonce's 8 bytes are copied from its sixth: a write past its 12"),
+     "a nonce's 8 bytes are copied from its sixth: its fifth is left with no value, and the class is refused",
+     "the constructor does not assign bytes[4]"),
 ]
 if os.environ.get("RED_SET") == "core":
     CASES = CORE_CASES
