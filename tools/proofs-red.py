@@ -71,6 +71,24 @@ CASES = [
      "seven bytes are taken for enough: the eighth is read outside them"),
 ]
 
+# The core's classes the seam proves (seam/proofs/; RED_SET=core): read where they stand in .build/core.
+CORE_CASES = [
+    ("Session:src/crypto/crypto.h", "typedef Strong::bounded<0, RECEIVE_MTU + 8, size_t> Length;",
+     "typedef Strong::bounded<0, 4294967296, size_t> Length;",
+     "a length of 2^32 bytes is let in: `int body_len = len - 8` may be anything, and `body_len - 16` overflow, which is undefined"),
+    ("Session:src/crypto/imp/crypto.cc", "memcpy( ciphertext_buffer.data(), str + 8, body_len );",
+     "memcpy( ciphertext_buffer.data(), str + 8, body_len + 1 );",
+     "a byte past the datagram is copied: a read outside the bytes"),
+    ("Session:src/crypto/imp/crypto.cc", "const Message ret( nonce, std::string( plaintext_buffer.data(), pt_len ) );",
+     "const Message ret( nonce, std::string( plaintext_buffer.data(), pt_len + 2048 ) );",
+     "the message is made of more bytes than the plaintext has: a read outside the buffer"),
+    ("Nonce:src/crypto/imp/crypto.cc", "  memcpy( bytes + 4, s_bytes, 8 );", "  memcpy( bytes + 5, s_bytes, 8 );",
+     "a nonce's 8 bytes are copied from its sixth: its fifth is left with no value, and the class is refused",
+     "the constructor does not assign bytes[4]"),
+]
+if os.environ.get("RED_SET") == "core":
+    CASES = CORE_CASES
+
 # RED_ONLY="A B": only the cases of these domains (the check's --lite); the rules' own cases are then left out.
 ONLY = set(os.environ.get("RED_ONLY", "").split())
 
@@ -98,7 +116,7 @@ for case in CASES:
             rel = said[0].split()[0]                                  # (a second word says "function")
             names = [x[5:] for x in said if x.startswith("uses ")] + [klass]     # what it uses is proved first
             files = [open(os.path.join(work, "from", name)).read().split()[0] for name in names]
-            files += [x.split()[1] for x in said if x.startswith("needs ")]      # and the names it is written with
+            files += [w for x in said for w in x.split()[1:] if "/" in w]     # and every file it is written with (needs, includes, defined, ...)
             for r1 in files:                                          # each one's file, and nothing else of gosh
                 os.makedirs(os.path.dirname(os.path.join(d, "subject", r1)), exist_ok=True)
                 shutil.copy(os.path.join(os.environ["SUBJECT"], r1), os.path.join(d, "subject", r1))
@@ -119,6 +137,10 @@ for case in CASES:
 
 # REQ6/SHAPE-5 (strong-domain-driven-design: REQ1/SHAPE-4): code that is not proved, making a counter itself where it is to hand over a checked
 # one: the rule refuses the program. In a copy of gosh's src, with what the check just generated.
+if os.environ.get("RED_SET") == "core":     # (gosh's rules are seen to refuse once, with gosh's own cases, above and below)
+    print("red: FAIL: %d" % failures if failures else "red: PASS (%d cases of the core's classes)" % ran)
+    sys.exit(1 if failures else 0)
+
 INGRESS = os.path.join(PROVER, "ingress.py")
 if not ONLY:
     with tempfile.TemporaryDirectory() as d:

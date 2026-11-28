@@ -1,0 +1,5 @@
+src/crypto/crypto.h
+needs src/crypto/crypto.h CryptoException
+includes src/crypto/imp/ae.h
+defined src/crypto/imp/crypto.cc
+only Nonce data val

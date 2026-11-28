@@ -238,7 +238,7 @@ public:
         return OTHER;
       }
       try {
-        const Crypto::Message m = session->decrypt( buf + sizeof( PUNCH_MARK ), n - sizeof( PUNCH_MARK ) );
+        const Crypto::Message m = session->decrypt_checked( buf + sizeof( PUNCH_MARK ), n - sizeof( PUNCH_MARK ) );
         const uint64_t seq = m.nonce.val();
         const bool theirs = ( ( seq & DIRECTION ) != 0 ) == initiator;
         if ( !theirs || ( seq & ~DIRECTION ) <= heard_seq || m.text.size() != 1 ) {

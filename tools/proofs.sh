@@ -172,6 +172,24 @@ SUBJECT="$CORE" STRONG=src/strong RULES="a domain" FLAGS="$CORE_LINT_FLAGS" INCL
 
 # 3. prove. Each domain of gosh is proved, from gosh's own files.
 DOMAIN="$W" "$PROVER/prove.sh" $DOMAINS
+# And the core's classes that the seam proves (seam/proofs/; the owner, 2026-11-28): what reads bytes
+# from anyone, read where it stands in .build/core, the core with the seam's patches. Each after
+# what it uses; bounded_of is the trusted one, by its own claims, as above.
+CORE_DOMAINS="Nonce Session"
+[ "$(ls seam/proofs/*.from | sed 's|.*/||; s|\.from$||' | sort | tr '\n' ' ')" = "$(echo $CORE_DOMAINS | tr ' ' '\n' | sort | tr '\n' ' ')" ] \
+    || { echo "proofs: FAIL: the core's classes in seam/proofs/ are not the ones tools/proofs.sh proves ($CORE_DOMAINS)"; exit 1; }
+CW=$W/core
+rm -rf "$CW" && mkdir -p "$CW/from" "$CW/claims"
+for d in $CORE_DOMAINS; do
+    cp "seam/proofs/$d.from" "$CW/from/$d"
+    cp "seam/proofs/$d.claims.lean" "$CW/claims/${d}Claims.lean"
+done
+for d in $TRUSTED_DOMAINS; do
+    echo "src/strong/bounded.h" > "$CW/from/$d"
+    cp "$PROVER/claims/${d}Claims.lean" "$CW/claims/${d}Claims.lean"
+done
+SUBJECT="$CORE" DOMAIN="$CW" "$PROVER/prove.sh" bounded_of bounded_checked_of $CORE_DOMAINS
+SUBJECT="$CORE" DOMAIN="$CW" RED_SET=core "$PYTHON" tools/proofs-red.py
 # Each proof fails when its class is broken, and each rule refuses a gosh that breaks it.
 DOMAIN="$W" "$PYTHON" tools/proofs-red.py
 # (The prover's own tests are strong-domain-driven-design's check: they test the prover, not gosh.)
