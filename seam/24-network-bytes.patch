@@ -1,0 +1,132 @@
+gosh seam 24: the network reads the numbers in what it opens a byte at a time, by two proved functions (Network::Imp::be16_at, be64_at).
+
+For:   REQ22/SHAPE-1 (a refactor of the core's code, where warranted: the owner, 2026-11-28, "go that
+       way", of proving what reads bytes from anyone, and refactoring where reading the code as
+       written would cost more than about a day). After decrypt, two parses read what it gives:
+       a packet's two timestamps (Packet( const Message& )) and a fragment's id and number
+       (Fragment( const std::string& )). Each read them through a pointer to a wider type,
+       `(uint16_t*)text.data()`, which C++ leaves undefined (a std::string's chars read as
+       uint16_t: the strict aliasing rule), though every compiler gosh is built with does what is
+       meant. That cannot be proved; a read a byte at a time can.
+What:  src/network/imp/bytes.h, new: be16_at( text, n, at ) and be64_at( text, n, at ), the number of
+       the 2 or 8 bytes at `at` of the n bytes of text, the first the highest, and 0 where they are
+       not all there; proved for every view and every place (seam/proofs/). The two constructors
+       read by them, where they read through the wider pointers and be16toh, be64toh: the same
+       numbers, on any machine. Each still tests its length first as it did (dos_assert,
+       fatal_assert), so the 0 is never given there. No byte of the protocol changes.
+Where: src/network/imp/bytes.h (new); src/network/imp/network.cc (Packet); src/network/imp/transportfragment.cc
+       (Fragment); src/network/Makefile.am (the header listed).
+Kind:  a refactor inside the transport (Network::Imp), and a new file there.
+From:  the core at the pin: src/network/network.cc (Packet::Packet( const Message& )) and
+       src/network/transportfragment.cc (Fragment::Fragment( const std::string& )), both moved under
+       imp/ by patch 14.
+Pin:   upstream mosh at decd9b705eb81626f694335b8d5940538beb06da; cut against the result of the patch before it.
+
+diff --git a/src/network/imp/bytes.h b/src/network/imp/bytes.h
+new file mode 100644
+--- /dev/null
++++ b/src/network/imp/bytes.h
+@@ -0,0 +1,43 @@
++/*
++ * The network's numbers read from bytes as they cross (gosh seam 24): big-endian, a byte at a time,
++ * so that no byte of a std::string is read through a pointer to a wider type (which C++ leaves
++ * undefined). Proved (seam/proofs/be16_at.from, be64_at.from): for every view and every place, no read outside it.
++ */
++#ifndef NETWORK_IMP_BYTES_H
++#define NETWORK_IMP_BYTES_H
++
++#include <cstddef>
++#include <cstdint>
++
++namespace Network {
++namespace Imp {
++
++/* The number of the 2 bytes at `at` of the n bytes of text, the first the higher; 0 if they are
++   not both there. */
++inline uint16_t be16_at( const char* text, size_t n, uint64_t at )
++{
++  const unsigned char* b = reinterpret_cast<const unsigned char*>( text );
++  if ( at > n || n - at < 2 ) {
++    return 0;
++  }
++  return static_cast<uint16_t>( ( static_cast<uint32_t>( b[at] ) << 8 ) | static_cast<uint32_t>( b[at + 1] ) );
++}
++
++/* The number of the 8 bytes at `at` of the n bytes of text, the first the highest; 0 if they are
++   not all there. */
++inline uint64_t be64_at( const char* text, size_t n, uint64_t at )
++{
++  const unsigned char* b = reinterpret_cast<const unsigned char*>( text );
++  if ( at > n || n - at < 8 ) {
++    return 0;
++  }
++  return ( static_cast<uint64_t>( b[at] ) << 56 ) | ( static_cast<uint64_t>( b[at + 1] ) << 48 )
++         | ( static_cast<uint64_t>( b[at + 2] ) << 40 ) | ( static_cast<uint64_t>( b[at + 3] ) << 32 )
++         | ( static_cast<uint64_t>( b[at + 4] ) << 24 ) | ( static_cast<uint64_t>( b[at + 5] ) << 16 )
++         | ( static_cast<uint64_t>( b[at + 6] ) << 8 ) | static_cast<uint64_t>( b[at + 7] );
++}
++
++}
++}
++
++#endif
+diff --git a/src/network/imp/network.cc b/src/network/imp/network.cc
+--- a/src/network/imp/network.cc
++++ b/src/network/imp/network.cc
+@@ -49,6 +49,7 @@
+ #include "src/crypto/byteorder.h"
+ #include "src/crypto/crypto.h"
+ #include "src/network/network.h"
++#include "src/network/imp/bytes.h"
+ #include "src/util/dos_assert.h"
+ #include "src/util/fatal_assert.h"
+ 
+@@ -76,9 +77,8 @@
+ {
+   dos_assert( message.text.size() >= 2 * sizeof( uint16_t ) );
+ 
+-  const uint16_t* data = (uint16_t*)message.text.data();
+-  timestamp = be16toh( data[0] );
+-  timestamp_reply = be16toh( data[1] );
++  timestamp = Network::Imp::be16_at( message.text.data(), message.text.size(), 0 );
++  timestamp_reply = Network::Imp::be16_at( message.text.data(), message.text.size(), 2 );
+ 
+   payload = std::string( message.text.begin() + 2 * sizeof( uint16_t ), message.text.end() );
+ }
+diff --git a/src/network/imp/transportfragment.cc b/src/network/imp/transportfragment.cc
+--- a/src/network/imp/transportfragment.cc
++++ b/src/network/imp/transportfragment.cc
+@@ -37,6 +37,7 @@
+ #include "src/protobufs/transportinstruction.pb.h"
+ #include "src/util/fatal_assert.h"
+ #include "src/network/imp/transportfragment.h"
++#include "src/network/imp/bytes.h"
+ 
+ using namespace Network::Imp;
+ using namespace TransportBuffers;
+@@ -79,11 +80,8 @@
+   fatal_assert( x.size() >= frag_header_len );
+   contents = std::string( x.begin() + frag_header_len, x.end() );
+ 
+-  uint64_t data64;
+-  uint16_t* data16 = (uint16_t*)x.data();
+-  memcpy( &data64, x.data(), sizeof( data64 ) );
+-  id = be64toh( data64 );
+-  fragment_num = be16toh( data16[4] );
++  id = be64_at( x.data(), x.size(), 0 );
++  fragment_num = be16_at( x.data(), x.size(), 8 );
+   final = ( fragment_num & 0x8000 ) >> 15;
+   fragment_num &= 0x7FFF;
+ }
+diff --git a/src/network/Makefile.am b/src/network/Makefile.am
+--- a/src/network/Makefile.am
++++ b/src/network/Makefile.am
+@@ -5,7 +5,7 @@
+ 
+ noinst_LIBRARIES = libmoshnetwork.a
+ 
+-libmoshnetwork_a_SOURCES = imp/network.cc network.h networktransport-impl.h networktransport.h imp/transportfragment.cc imp/transportfragment.h transportsender-impl.h transportsender.h transportstate.h imp/compressor.cc imp/compressor.h
++libmoshnetwork_a_SOURCES = imp/network.cc network.h networktransport-impl.h networktransport.h imp/transportfragment.cc imp/transportfragment.h transportsender-impl.h transportsender.h transportstate.h imp/compressor.cc imp/compressor.h imp/bytes.h
+ 
+ # A test of the transport (gosh's seam 19), of what the factoring into domains must not change.
+ check_PROGRAMS = imp/transport-test

@@ -175,7 +175,7 @@ DOMAIN="$W" "$PROVER/prove.sh" $DOMAINS
 # And the core's classes that the seam proves (seam/proofs/; the owner, 2026-11-28): what reads bytes
 # from anyone, read where it stands in .build/core, the core with the seam's patches. Each after
 # what it uses; bounded_of is the trusted one, by its own claims, as above.
-CORE_DOMAINS="Nonce Session"
+CORE_DOMAINS="Nonce Session be16_at be64_at"
 [ "$(ls seam/proofs/*.from | sed 's|.*/||; s|\.from$||' | sort | tr '\n' ' ')" = "$(echo $CORE_DOMAINS | tr ' ' '\n' | sort | tr '\n' ' ')" ] \
     || { echo "proofs: FAIL: the core's classes in seam/proofs/ are not the ones tools/proofs.sh proves ($CORE_DOMAINS)"; exit 1; }
 CW=$W/core
