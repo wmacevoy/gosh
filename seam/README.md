@@ -74,3 +74,12 @@ Patch 22 adds to the cipher's ABI, as v22 allows: `Base64Key::of_octets`, a key 
 octets as they are. gosh's ticket (`src/meetup/ticket.h`) makes its keys so, where it wrote the
 bytes as base64 with the cipher's inside for the key to read back; `DOMAINS` no longer allows that,
 and allows nothing now.
+
+Patch 23 carries by a type a bound the cipher's callers already keep, as v22 allows:
+`Session::decrypt` takes its length as a `Session::Length`, a `Strong::bounded<0, RECEIVE_MTU,
+size_t>` (gosh's `src/strong/bounded.h`), so that its `int` arithmetic is proved free of overflow
+for every length it may be handed. A datagram shorter than 24 bytes still throws, since anyone may
+send one (the owner, 2026-11-28). Code that is not proved comes in by `decrypt_checked`, which tests
+the length and ends the process past 2048, where `decrypt`'s assert ended it before; the network
+receives into 2048 bytes, so for it the test never fails. The cipher's header includes gosh's
+`bounded.h`: an ABI header of gosh's, the one place the core names a part of gosh.

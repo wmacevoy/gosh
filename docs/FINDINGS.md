@@ -7,6 +7,27 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-28 — The cipher's decrypt was safe only for lengths its callers keep
+
+- **What happened:** reading `Session::decrypt` to prove it (queue item 43 of
+  strong-domain-driven-design), the agent found its arithmetic is in `int`: `int body_len = len - 8;
+  int pt_len = body_len - 16;`. Of a `size_t` length of 2^31 bytes or more, `len - 8` cut to an `int`
+  may be near its least, and `body_len - 16` then overflows, which C++ leaves undefined; the asserts
+  after it come too late. Nothing in gosh reaches it: the network receives into 2,048 bytes. But the
+  `std::string` overload, which the tests and the example `decrypt` (reading standard input) use, had
+  no bound at all.
+- **What would have found it:** a proof that asks of every length, not a test of the lengths that
+  occur. **Kind:** K3: "callers hand it at most RECEIVE_MTU" was true and written nowhere.
+- **What it changed:** seam patch 23: `decrypt` takes its length as a `Session::Length`,
+  `Strong::bounded<0, RECEIVE_MTU, size_t>`, and code that is not proved comes in by
+  `decrypt_checked`, which tests the length and ends the process past 2,048 (the owner, 2026-11-28,
+  chose the type, its lower bound of 0, and the one crossing into gosh). `decrypt` is proved where it
+  stands in the core (`seam/proofs/`, run by `tools/proofs.sh`): for every datagram of at most 2,048
+  bytes it commits no memory error and no undefined arithmetic, and it refuses (throws, or ends the
+  process) or gives back a message whose bytes are within its buffer; what it rests on is OCB's
+  `ae_decrypt` keeping its contract (`seam/proofs/README.md`), and `Nonce`, proved beside it. Its red
+  cases are in `tools/proofs-red.py`.
+
 ## 2026-11-17 — The guide's ProxyCommand line lost the host's User and IdentityFile
 
 - **What happened:** the owner's first `ssh tribes` through `gosh -W`, with the guide's line

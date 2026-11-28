@@ -1,0 +1,21 @@
+src/crypto/crypto.h
+uses Nonce
+uses bounded_of
+uses bounded_checked_of
+needs src/strong/bounded.h bounded
+needs src/strong/bounded.h bounded_checked
+needs src/crypto/crypto.h CryptoException
+needs src/crypto/crypto.h PRNG
+needs src/crypto/crypto.h Base64Key
+needs src/crypto/crypto.h Message
+includes src/crypto/imp/ae.h
+buffer src/crypto/crypto.h AlignedBuffer data len
+defined src/crypto/imp/crypto.cc
+only decrypt:2
+outside ae_decrypt file src/crypto/imp/ae.h
+outside ae_decrypt keeps ctx
+outside ae_decrypt reads nonce 12
+outside ae_decrypt reads ct ct_len
+outside ae_decrypt writes pt ct_len-16
+outside ae_decrypt gives -2147483648 ct_len-16
+compared no its constructor takes a Base64Key and calls OCB's ae_init, neither read here: it cannot be made as the C++ makes it
