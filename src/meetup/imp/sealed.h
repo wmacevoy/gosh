@@ -45,7 +45,7 @@ public:
 
   /* The text sealed here, opened under this cipher; T's own text begins `begins` bytes in. Throws as decrypt does. */
   Unsealed( Key, Crypto::Session& session, const char* sealed, size_t n, size_t from )
-    : message( session.decrypt( sealed, n ) ), begins( from ), counter_of( 0 )
+    : message( session.decrypt_checked( sealed, n ) ), begins( from ), counter_of( 0 )
   {}
   Unsealed( const Unsealed& ) = delete;
   Unsealed& operator=( const Unsealed& ) = delete;
