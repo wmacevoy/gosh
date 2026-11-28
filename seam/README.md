@@ -83,3 +83,10 @@ send one (the owner, 2026-11-28). Code that is not proved comes in by `decrypt_c
 the length and ends the process past 2056, where `decrypt`'s assert ended it before; the network
 receives into 2048 bytes, so for it the test never fails. The cipher's header includes gosh's
 `bounded.h`: an ABI header of gosh's, the one place the core names a part of gosh.
+
+Patch 24 is a refactor, as REQ22/SHAPE-1 allows where warranted (the owner, 2026-11-28: prove what reads
+bytes from anyone, and refactor where reading the code as written would cost more than a day). The
+packet and the fragment read their numbers from what `decrypt` gives through a pointer to a wider
+type (`(uint16_t*)text.data()`), which C++ leaves undefined; they now read them a byte at a time by
+`Network::Imp::be16_at` and `be64_at` (`src/network/imp/bytes.h`, new), which are proved. The
+numbers are the same, on any machine.

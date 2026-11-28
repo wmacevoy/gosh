@@ -86,6 +86,12 @@ CORE_CASES = [
      "a nonce's 8 bytes are copied from its sixth: its fifth is left with no value, and the class is refused",
      "the constructor does not assign bytes[4]"),
 ]
+CORE_CASES += [
+    ("be16_at", "if ( at > n || n - at < 2 ) {", "if ( at > n || n - at < 1 ) {",
+     "one byte is taken for two: the second is read outside the text"),
+    ("be64_at", "  if ( at > n || n - at < 8 ) {\n", "  if ( at > n || n - at < 7 ) {\n",
+     "seven bytes are taken for eight: the eighth is read outside the text"),
+]
 if os.environ.get("RED_SET") == "core":
     CASES = CORE_CASES
 

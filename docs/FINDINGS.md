@@ -7,6 +7,18 @@ would have found it, not who should have asked ([SE1/H12](../vendor/se1/guide/09
 What was learned building the fork, up to 2026-11-13, is in `../mosh-dev/docs/FINDINGS.md`, and is
 worth reading before migrating the part it concerns.
 
+## 2026-11-28 — The packet and the fragment read their numbers by an undefined cast
+
+- **What happened:** reading what follows `decrypt`, the agent found `Packet( const Message& )` and
+  `Fragment( const std::string& )` read their timestamps, id and number through `(uint16_t*)` of a
+  `std::string`'s bytes: the strict aliasing rule makes that undefined, though every compiler gosh is
+  built with does what is meant. **Kind:** K4 held unknowingly: "the compiler does what I mean".
+- **What it changed:** seam patch 24: both read a byte at a time by `be16_at` and `be64_at`, proved
+  for every view and place (`seam/proofs/`), with two red cases. The reassembly of fragments that
+  follows is not proved: its `std::vector` is not in the prover's subset; what bounds it is the
+  fragment's number, at most 32,767, and its asserts are reached only by a peer that has the key
+  and lies about its own fragments.
+
 ## 2026-11-28 — The cipher's decrypt was safe only for lengths its callers keep
 
 - **What happened:** reading `Session::decrypt` to prove it (queue item 43 of

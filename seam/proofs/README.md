@@ -3,7 +3,9 @@
 Each `D.from` here says how the prover reads one class of the core where it stands in `.build/core`
 (the core at the pin with the seam's patches): `tools/proofs.sh` proves them after gosh's own
 domains, with `D.claims.lean` beside it. They are what reads bytes from anyone (the owner,
-2026-11-28): first the cipher's `Session::decrypt` (seam patch 23), with the `Nonce` it makes.
+2026-11-28): first the cipher's `Session::decrypt` (seam patch 23), with the `Nonce` it makes; then the
+transport's `be16_at` and `be64_at` (seam patch 24), by which the packet and the fragment read the
+numbers in what `decrypt` gives.
 
 **What is assumed, and who signs it.** `Session.from`'s `outside ae_decrypt` lines are the contract
 of OCB's `ae_decrypt` (Krovetz's, `src/crypto/imp/ae.h`), as its comment there says it, for the
